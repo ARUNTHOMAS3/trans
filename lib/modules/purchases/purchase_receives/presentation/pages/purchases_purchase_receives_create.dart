@@ -255,10 +255,6 @@ class _PRCreateState
     return baseWidth;
   }
 
-  double _tableMinWidthFactor() {
-    return _binMode == 'transaction' ? 0.40 : 0.49;
-  }
-
   double _sumBatchQuantity(List<BatchInfo> batches) {
     return batches.fold<double>(0, (sum, batch) => sum + batch.quantity);
   }
@@ -3081,6 +3077,8 @@ class _PRCreateState
   }
 
   Widget _buildBilledItemsTable() {
+    final double tableWidth = 620.0 + _dynamicBilledQtyToReceiveColumnWidth() + 2.0;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Align(
@@ -3091,9 +3089,7 @@ class _PRCreateState
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Container(
-                constraints: BoxConstraints(
-                  minWidth: MediaQuery.of(context).size.width * 0.49,
-                ),
+                width: tableWidth,
                 decoration: const BoxDecoration(
                   border: Border.fromBorderSide(BorderSide(color: _borderCol)),
                 ),
@@ -3643,152 +3639,156 @@ class _PRCreateState
   Widget _buildItemsTableNormal() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Container(
-                constraints: BoxConstraints(
-                  minWidth:
-                      MediaQuery.of(context).size.width *
-                      _tableMinWidthFactor(),
-                ),
-                decoration: const BoxDecoration(
-                  border: Border.fromBorderSide(BorderSide(color: _borderCol)),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Table Header
-                    Container(
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF8F9FA),
-                        border: Border(
-                          bottom: BorderSide(color: _borderCol, width: 0.8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final parentWidth = constraints.maxWidth;
+          final qtyWidth = _dynamicQtyToReceiveColumnWidth();
+          final double firstColWidth = (parentWidth - (438.0 + qtyWidth) - 2.0).clamp(240.0, 400.0);
+          final double tableWidth = firstColWidth + 438.0 + qtyWidth + 2.0;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Container(
+                  width: tableWidth,
+                  decoration: const BoxDecoration(
+                    border: Border.fromBorderSide(BorderSide(color: _borderCol)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Table Header
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF8F9FA),
+                          border: Border(
+                            bottom: BorderSide(color: _borderCol, width: 0.8),
+                          ),
+                        ),
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _tableHeaderCell(
+                                "",
+                                fixedWidth: firstColWidth,
+                                child: _buildHeaderSearchField(
+                                  label: "ITEMS & DESCRIPTION",
+                                  controller: _itemDetailsSearchCtrl,
+                                  hintText: "Search items...",
+                                  onChanged: (val) {
+                                    setState(() => _itemDetailsSearchQuery = val);
+                                  },
+                                  isSearchVisible: _showSearchItemDetails,
+                                  onToggle: () {
+                                    setState(() {
+                                      _showSearchItemDetails =
+                                          !_showSearchItemDetails;
+                                      if (!_showSearchItemDetails) {
+                                        _itemDetailsSearchCtrl.clear();
+                                        _itemDetailsSearchQuery = '';
+                                      }
+                                    });
+                                  },
+                                ),
+                              ),
+                              _tableHeaderCell(
+                                "ORDERED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
+                              _tableHeaderCell(
+                                "RECEIVED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
+                              _tableHeaderCell(
+                                "IN TRANSIT",
+                                fixedWidth: 110,
+                                align: TextAlign.right,
+                              ),
+                              _tableHeaderCell(
+                                "CANCELLED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
+                              _buildQtyHeaderCell(
+                                fixedWidth: qtyWidth,
+                              ),
+                              _tableHeaderCell(
+                                "",
+                                fixedWidth: 28,
+                                isLastColumn: true,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _tableHeaderCell(
-                            "",
-                            fixedWidth: 300,
-                            child: _buildHeaderSearchField(
-                              label: "ITEMS & DESCRIPTION",
-                              controller: _itemDetailsSearchCtrl,
-                              hintText: "Search items...",
-                              onChanged: (val) {
-                                setState(() => _itemDetailsSearchQuery = val);
-                              },
-                              isSearchVisible: _showSearchItemDetails,
-                              onToggle: () {
-                                setState(() {
-                                  _showSearchItemDetails =
-                                      !_showSearchItemDetails;
-                                  if (!_showSearchItemDetails) {
-                                    _itemDetailsSearchCtrl.clear();
-                                    _itemDetailsSearchQuery = '';
-                                  }
-                                });
-                              },
-                            ),
-                          ),
-                          _tableHeaderCell(
-                            "ORDERED",
-                            fixedWidth: 100,
-                            align: TextAlign.right,
-                          ),
-                          _tableHeaderCell(
-                            "RECEIVED",
-                            fixedWidth: 100,
-                            align: TextAlign.right,
-                          ),
-                          _tableHeaderCell(
-                            "IN TRANSIT",
-                            fixedWidth: 110,
-                            align: TextAlign.right,
-                          ),
-                          _tableHeaderCell(
-                            "CANCELLED",
-                            fixedWidth: 100,
-                            align: TextAlign.right,
-                          ),
-                          _buildQtyHeaderCell(
-                            fixedWidth: _dynamicQtyToReceiveColumnWidth(),
-                          ),
-                          _tableHeaderCell(
-                            "",
-                            fixedWidth: 28,
-                            isLastColumn: true,
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Table Body
-                    if (_isLoadingPOs)
-                      _buildLoadingRow()
-                    else
-                      ...(() {
-                        final Map<String, double> itemBilledQty = {};
-                        for (final bill in _associatedBills) {
-                          final itemsList =
-                              bill['items'] as List<dynamic>? ?? [];
-                          for (final bi in itemsList) {
-                            final biMap = Map<String, dynamic>.from(bi as Map);
-                            final productId = biMap['itemId']?.toString() ?? '';
-                            final poId =
-                                biMap['purchaseOrderId']?.toString() ?? '';
-                            final qty =
-                                double.tryParse(
-                                  biMap['quantityToReceive']?.toString() ?? '',
-                                ) ??
-                                0.0;
-                            final key = "$poId-$productId";
-                            itemBilledQty[key] =
-                                (itemBilledQty[key] ?? 0.0) + qty;
+                      // Table Body
+                      if (_isLoadingPOs)
+                        _buildLoadingRow()
+                      else
+                        ...(() {
+                          final Map<String, double> itemBilledQty = {};
+                          for (final bill in _associatedBills) {
+                            final itemsList =
+                                bill['items'] as List<dynamic>? ?? [];
+                            for (final bi in itemsList) {
+                              final biMap = Map<String, dynamic>.from(bi as Map);
+                              final productId = biMap['itemId']?.toString() ?? '';
+                              final poId =
+                                  biMap['purchaseOrderId']?.toString() ?? '';
+                              final qty =
+                                  double.tryParse(
+                                        biMap['quantityToReceive']?.toString() ?? '',
+                                      ) ??
+                                      0.0;
+                              final key = "$poId-$productId";
+                              itemBilledQty[key] =
+                                  (itemBilledQty[key] ?? 0.0) + qty;
+                            }
                           }
-                        }
 
-                        var visibleItems = _items.asMap().entries.where((
-                          entry,
-                        ) {
-                          final item = entry.value;
-                          final key = "${item.purchaseOrderId}-${item.itemId}";
-                          final billedQty = itemBilledQty[key] ?? 0.0;
-                          final maxQty =
-                              (item.ordered - item.received - item.cancelled)
-                                  .clamp(0.0, double.infinity);
-                          return billedQty < maxQty;
-                        }).toList();
-
-                        if (_itemDetailsSearchQuery.isNotEmpty) {
-                          final query = _itemDetailsSearchQuery.toLowerCase();
-                          visibleItems = visibleItems.where((entry) {
-                            return entry.value.itemName.toLowerCase().contains(
-                              query,
-                            );
+                          var visibleItems = _items.asMap().entries.where((
+                            entry,
+                          ) {
+                            final item = entry.value;
+                            final key = "${item.purchaseOrderId}-${item.itemId}";
+                            final billedQty = itemBilledQty[key] ?? 0.0;
+                            final maxQty =
+                                (item.ordered - item.received - item.cancelled)
+                                    .clamp(0.0, double.infinity);
+                            return billedQty < maxQty;
                           }).toList();
-                        }
 
-                        if (visibleItems.isEmpty) {
-                          return [_buildEmptyRow()];
-                        }
+                          if (_itemDetailsSearchQuery.isNotEmpty) {
+                            final query = _itemDetailsSearchQuery.toLowerCase();
+                            visibleItems = visibleItems.where((entry) {
+                              return entry.value.itemName.toLowerCase().contains(
+                                query,
+                              );
+                            }).toList();
+                          }
 
-                        return visibleItems
-                            .map(
-                              (entry) => _buildItemRow(entry.key, entry.value),
-                            )
-                            .toList();
-                      })(),
-                  ],
+                          if (visibleItems.isEmpty) {
+                            return [_buildEmptyRow()];
+                          }
+
+                          return visibleItems
+                              .map(
+                                (entry) => _buildItemRow(entry.key, entry.value, firstColWidth),
+                              )
+                              .toList();
+                        })(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -3796,158 +3796,163 @@ class _PRCreateState
   Widget _buildManualItemsTable() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Container(
-                constraints: BoxConstraints(
-                  minWidth:
-                      MediaQuery.of(context).size.width *
-                      _tableMinWidthFactor(),
-                ),
-                decoration: const BoxDecoration(
-                  border: Border.fromBorderSide(BorderSide(color: _borderCol)),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Table Header
-                    Container(
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF8F9FA),
-                        border: Border(
-                          bottom: BorderSide(color: _borderCol, width: 0.8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final parentWidth = constraints.maxWidth;
+          final qtyWidth = _dynamicQtyToReceiveColumnWidth();
+          final double firstColWidth = (parentWidth - (438.0 + qtyWidth) - 2.0).clamp(240.0, 400.0);
+          final double tableWidth = firstColWidth + 438.0 + qtyWidth + 2.0;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Container(
+                  width: tableWidth,
+                  decoration: const BoxDecoration(
+                    border: Border.fromBorderSide(BorderSide(color: _borderCol)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Table Header
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF8F9FA),
+                          border: Border(
+                            bottom: BorderSide(color: _borderCol, width: 0.8),
+                          ),
                         ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _tableHeaderCell(
-                            "",
-                            fixedWidth: 300,
-                            child: _buildHeaderSearchField(
-                              label: "ITEMS & DESCRIPTION",
-                              controller: _itemDetailsSearchCtrl,
-                              hintText: "Search items...",
-                              onChanged: (val) {
-                                setState(() => _itemDetailsSearchQuery = val);
-                              },
-                              isSearchVisible: _showSearchItemDetails,
-                              onToggle: () {
-                                setState(() {
-                                  _showSearchItemDetails =
-                                      !_showSearchItemDetails;
-                                  if (!_showSearchItemDetails) {
-                                    _itemDetailsSearchCtrl.clear();
-                                    _itemDetailsSearchQuery = '';
-                                  }
-                                });
-                              },
-                              subtitleWidget: InkWell(
-                                onTap: _addAllItemsFromPO,
-                                child: const Text(
-                                  "add all items",
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: _linkBlue,
-                                    fontFamily: 'Inter',
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _tableHeaderCell(
+                                "",
+                                fixedWidth: firstColWidth,
+                                child: _buildHeaderSearchField(
+                                  label: "ITEMS & DESCRIPTION",
+                                  controller: _itemDetailsSearchCtrl,
+                                  hintText: "Search items...",
+                                  onChanged: (val) {
+                                    setState(() => _itemDetailsSearchQuery = val);
+                                  },
+                                  isSearchVisible: _showSearchItemDetails,
+                                  onToggle: () {
+                                    setState(() {
+                                      _showSearchItemDetails =
+                                          !_showSearchItemDetails;
+                                      if (!_showSearchItemDetails) {
+                                        _itemDetailsSearchCtrl.clear();
+                                        _itemDetailsSearchQuery = '';
+                                      }
+                                    });
+                                  },
+                                  subtitleWidget: InkWell(
+                                    onTap: _addAllItemsFromPO,
+                                    child: const Text(
+                                      "add all items",
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: _linkBlue,
+                                        fontFamily: 'Inter',
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
+                              _tableHeaderCell(
+                                "ORDERED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
+                              _tableHeaderCell(
+                                "RECEIVED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
+                              _tableHeaderCell(
+                                "IN TRANSIT",
+                                fixedWidth: 110,
+                                align: TextAlign.right,
+                              ),
+                              _tableHeaderCell(
+                                "CANCELLED",
+                                fixedWidth: 100,
+                                align: TextAlign.right,
+                              ),
+                              _buildQtyHeaderCell(
+                                fixedWidth: qtyWidth,
+                              ),
+                              _tableHeaderCell(
+                                "",
+                                fixedWidth: 28,
+                                isLastColumn: true,
+                              ),
+                            ],
                           ),
-                          _tableHeaderCell(
-                            "ORDERED",
-                            fixedWidth: 100,
-                            align: TextAlign.right,
-                          ),
-                          _tableHeaderCell(
-                            "RECEIVED",
-                            fixedWidth: 100,
-                            align: TextAlign.right,
-                          ),
-                          _tableHeaderCell(
-                            "IN TRANSIT",
-                            fixedWidth: 110,
-                            align: TextAlign.right,
-                          ),
-                          _tableHeaderCell(
-                            "CANCELLED",
-                            fixedWidth: 100,
-                            align: TextAlign.right,
-                          ),
-                          _buildQtyHeaderCell(
-                            fixedWidth: _dynamicQtyToReceiveColumnWidth(),
-                          ),
-                          _tableHeaderCell(
-                            "",
-                            fixedWidth: 28,
-                            isLastColumn: true,
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Table Rows
-                    if (_items.isEmpty)
-                      KeyedSubtree(
-                        key: const ValueKey('ephemeral-row'),
-                        child: _buildManualRow(
-                          0,
-                          PurchaseReceiveItem(),
-                          isEphemeral: true,
                         ),
-                      )
-                    else
-                      ...(() {
-                        var visibleManualItems = _items
-                            .asMap()
-                            .entries
-                            .toList();
-                        if (_itemDetailsSearchQuery.isNotEmpty) {
-                          final query = _itemDetailsSearchQuery.toLowerCase();
-                          visibleManualItems = visibleManualItems.where((
-                            entry,
-                          ) {
-                            return entry.value.itemName.toLowerCase().contains(
-                              query,
+                      ),
+                      // Table Rows
+                      if (_items.isEmpty)
+                        KeyedSubtree(
+                          key: const ValueKey('ephemeral-row'),
+                          child: _buildManualRow(
+                            0,
+                            PurchaseReceiveItem(),
+                            firstColWidth,
+                            isEphemeral: true,
+                          ),
+                        )
+                      else
+                        ...(() {
+                          var visibleManualItems = _items
+                              .asMap()
+                              .entries
+                              .toList();
+                          if (_itemDetailsSearchQuery.isNotEmpty) {
+                            final query = _itemDetailsSearchQuery.toLowerCase();
+                            visibleManualItems = visibleManualItems.where((
+                              entry,
+                            ) {
+                              return entry.value.itemName.toLowerCase().contains(
+                                query,
+                              );
+                            }).toList();
+                          }
+                          return visibleManualItems.map((entry) {
+                            final index = entry.key;
+                            final item = entry.value;
+                            final ctrlKey = _rowControllers.length > index
+                                ? _rowControllers[index].hashCode
+                                : index;
+                            return KeyedSubtree(
+                              key: ValueKey('row-$ctrlKey'),
+                              child: _buildManualRow(index, item, firstColWidth),
                             );
                           }).toList();
-                        }
-                        return visibleManualItems.map((entry) {
-                          final index = entry.key;
-                          final item = entry.value;
-                          final ctrlKey = _rowControllers.length > index
-                              ? _rowControllers[index].hashCode
-                              : index;
-                          return KeyedSubtree(
-                            key: ValueKey('row-$ctrlKey'),
-                            child: _buildManualRow(index, item),
-                          );
-                        }).toList();
-                      })(),
-                    // Bottom border
-                    Container(
-                      height: 1,
-                      width: double.infinity,
-                      color: _borderCol,
-                    ),
-                  ],
+                        })(),
+                      // Bottom border
+                      Container(
+                        height: 1,
+                        width: double.infinity,
+                        color: _borderCol,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // Insert New Row Button
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _buildInsertRowButton(),
-            ),
-          ],
-        ),
+              // Insert New Row Button
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _buildInsertRowButton(),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -4376,8 +4381,10 @@ class _PRCreateState
     required Widget child,
     bool isLastColumn = false,
     bool hideRightBorder = false,
+    double? height,
   }) {
     Widget content = Container(
+      height: height,
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
@@ -4701,7 +4708,8 @@ class _PRCreateState
 
   Widget _buildManualRow(
     int index,
-    PurchaseReceiveItem item, {
+    PurchaseReceiveItem item,
+    double firstColWidth, {
     bool isEphemeral = false,
   }) {
     if (!_rowSelectedWarehouses.containsKey(index)) {
@@ -4761,6 +4769,7 @@ class _PRCreateState
                   .firstOrNull
             : null);
     final hasBatches = !isEphemeral && item.batches.isNotEmpty;
+    final double rowHeight = hasBatches ? 140.0 : 60.0;
 
     if (ctrl.qtyCtrl.text == '0') {
       ctrl.qtyCtrl.text = '';
@@ -4778,10 +4787,10 @@ class _PRCreateState
           border: Border(bottom: BorderSide(color: _borderCol, width: 0.8)),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _tableBodyCell(
-              fixedWidth: 300,
+              fixedWidth: firstColWidth,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: FormDropdown<PurchaseOrderItem>(
@@ -4937,6 +4946,7 @@ class _PRCreateState
             ),
             _tableBodyCell(
               fixedWidth: 100,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -4959,6 +4969,7 @@ class _PRCreateState
             ),
             _tableBodyCell(
               fixedWidth: 100,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -4983,6 +4994,7 @@ class _PRCreateState
             ),
             _tableBodyCell(
               fixedWidth: 110,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -5003,6 +5015,7 @@ class _PRCreateState
             ),
             _tableBodyCell(
               fixedWidth: 100,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -5028,6 +5041,7 @@ class _PRCreateState
             _tableBodyCell(
               fixedWidth: _dynamicQtyToReceiveColumnWidth(),
               hideRightBorder: true,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Row(
@@ -5124,6 +5138,7 @@ class _PRCreateState
             _tableBodyCell(
               fixedWidth: 28,
               isLastColumn: true,
+              height: rowHeight,
               child: isEphemeral
                   ? const SizedBox()
                   : (_hoveredRowIndex == index
@@ -5146,11 +5161,12 @@ class _PRCreateState
     );
   }
 
-  Widget _buildItemRow(int index, PurchaseReceiveItem item) {
+  Widget _buildItemRow(int index, PurchaseReceiveItem item, double firstColWidth) {
     final ctrl = index < _rowControllers.length
         ? _rowControllers[index]
         : _ReceiveItemRowController();
     final hasBatches = item.batches.isNotEmpty;
+    final double rowHeight = hasBatches ? 140.0 : 60.0;
 
     if (ctrl.qtyCtrl.text == '0') {
       ctrl.qtyCtrl.text = '';
@@ -5168,10 +5184,10 @@ class _PRCreateState
           border: Border(bottom: BorderSide(color: _borderCol, width: 0.8)),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _tableBodyCell(
-              fixedWidth: 300,
+              fixedWidth: firstColWidth,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
@@ -5230,6 +5246,7 @@ class _PRCreateState
             ),
             _tableBodyCell(
               fixedWidth: 100,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
@@ -5247,6 +5264,7 @@ class _PRCreateState
             ),
             _tableBodyCell(
               fixedWidth: 100,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
@@ -5264,6 +5282,7 @@ class _PRCreateState
             ),
             _tableBodyCell(
               fixedWidth: 110,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
@@ -5281,6 +5300,7 @@ class _PRCreateState
             ),
             _tableBodyCell(
               fixedWidth: 100,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
@@ -5299,6 +5319,7 @@ class _PRCreateState
             _tableBodyCell(
               fixedWidth: _dynamicQtyToReceiveColumnWidth(),
               hideRightBorder: true,
+              height: rowHeight,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
@@ -5403,6 +5424,7 @@ class _PRCreateState
             _tableBodyCell(
               fixedWidth: 28,
               isLastColumn: true,
+              height: rowHeight,
               child: _hoveredRowIndex == index
                   ? Center(
                       child: InkWell(

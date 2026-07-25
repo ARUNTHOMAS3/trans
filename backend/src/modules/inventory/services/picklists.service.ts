@@ -764,14 +764,16 @@ export class PicklistsService {
         if (activeIds.length > 0) {
           const { data: pickedData } = await client
             .from("picklist_items")
-            .select("sales_order_line_id, qty_picked")
+            .select("sales_order_line_id, qty_picked, qty_to_pick")
             .in("sales_order_line_id", lineIds)
             .in("picklist_id", activeIds);
 
           if (pickedData) {
             for (const row of pickedData) {
               const lineId = row.sales_order_line_id;
-              const qty = Number(row.qty_picked) || 0;
+              const qtyP = Number(row.qty_picked) || 0;
+              const qtyTP = Number(row.qty_to_pick) || 0;
+              const qty = Math.max(qtyP, qtyTP);
               pickedMap.set(lineId, (pickedMap.get(lineId) || 0) + qty);
             }
           }

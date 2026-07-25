@@ -20,10 +20,12 @@ import 'package:zerpai_erp/modules/items/items/presentation/sections/items_stock
 import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/providers/inventory_picklists_provider.dart';
+import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 import 'package:zerpai_erp/modules/inventory/picklists/presentation/pages/inventory_picklists_scan_panel.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
 const _textPrimary = Color(0xFF1F2937);
 const _textSecondary = Color(0xFF6B7280);
@@ -65,11 +67,133 @@ class _InventoryPicklistsUpdateScreenState
   final Set<String> _focusedQtyFieldKeys = <String>{};
   final List<String> _validationErrors = [];
 
-  // Batch data persistence
   final Map<String, List<Map<String, String>>> _savedBatchData =
       <String, List<Map<String, String>>>{};
   String? _initialStatus;
   final Map<String, double> _manualPickedQty = <String, double>{};
+
+  final Map<String, List<String>> _resolvedPreferredBins = {};
+  final Set<String> _loadingPreferredBins = {};
+
+  Future<void> _fetchPreferredBinForProduct(WarehouseStockData item) async {
+    final rowKey = _buildRowKey(item);
+    if (_loadingPreferredBins.contains(rowKey) ||
+        _resolvedPreferredBins.containsKey(rowKey)) {
+      return;
+    }
+    _loadingPreferredBins.add(rowKey);
+
+    final warehouseId = _selectedWarehouse?.id;
+    if (warehouseId == null) {
+      setState(() {
+        _resolvedPreferredBins[rowKey] = ['--'];
+        _loadingPreferredBins.remove(rowKey);
+      });
+      return;
+    }
+
+    final productId = item.productId;
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      final batchesRes = await supabase
+          .from('batch_master')
+          .select('id, batch_no, expiry_date')
+          .eq('product_id', productId)
+          .eq('is_active', true)
+          .order('expiry_date', ascending: true);
+
+      final batches = List<Map<String, dynamic>>.from(batchesRes);
+
+      if (batches.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _resolvedPreferredBins[rowKey] = ['--'];
+            _loadingPreferredBins.remove(rowKey);
+          });
+        }
+        return;
+      }
+
+      final layersRes = await supabase
+          .from('batch_stock_layers')
+          .select('batch_id, qty, reserved_qty, bin_master(bin_code)')
+          .eq('product_id', productId)
+          .eq('warehouse_id', warehouseId);
+
+      final layers = List<Map<String, dynamic>>.from(layersRes);
+
+      final layersByBatch = <String, List<Map<String, dynamic>>>{};
+      for (final layer in layers) {
+        final batchId = layer['batch_id']?.toString();
+        if (batchId != null) {
+          layersByBatch.putIfAbsent(batchId, () => []).add(layer);
+        }
+      }
+
+      final targetQty = item.quantityToPick != null && item.quantityToPick! > 0
+          ? item.quantityToPick!
+          : (item.quantityOrdered != null && item.quantityOrdered! > 0
+              ? item.quantityOrdered!
+              : 1.0);
+
+      final binList = <String>[];
+      final seenBins = <String>{};
+      double accumulatedQty = 0.0;
+
+      for (final batch in batches) {
+        if (accumulatedQty >= targetQty) break;
+
+        final batchId = batch['id']?.toString();
+        if (batchId == null) continue;
+
+        final batchLayers = layersByBatch[batchId] ?? [];
+        batchLayers.sort((a, b) {
+          final qtyA = ((a['qty'] as num?)?.toDouble() ?? 0) -
+              ((a['reserved_qty'] as num?)?.toDouble() ?? 0);
+          final qtyB = ((b['qty'] as num?)?.toDouble() ?? 0) -
+              ((b['reserved_qty'] as num?)?.toDouble() ?? 0);
+          return qtyB.compareTo(qtyA);
+        });
+
+        for (final layer in batchLayers) {
+          if (accumulatedQty >= targetQty) break;
+
+          final qty = (layer['qty'] as num?)?.toDouble() ?? 0.0;
+          final reservedQty =
+              (layer['reserved_qty'] as num?)?.toDouble() ?? 0.0;
+          final available = qty - reservedQty;
+
+          if (available > 0) {
+            final binData = layer['bin_master'] as Map<String, dynamic>?;
+            final binCode = binData?['bin_code']?.toString() ?? 'Unknown';
+            final entryKey = '$binCode-${available.toInt()}';
+            if (!seenBins.contains(entryKey)) {
+              seenBins.add(entryKey);
+              binList.add('$binCode - ${available.toInt()}');
+            }
+            accumulatedQty += available;
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _resolvedPreferredBins[rowKey] =
+              binList.isNotEmpty ? binList : ['--'];
+          _loadingPreferredBins.remove(rowKey);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _resolvedPreferredBins[rowKey] = ['--'];
+          _loadingPreferredBins.remove(rowKey);
+        });
+      }
+    }
+  }
 
   bool get _allBatchesAdded =>
       _selectedItems.isNotEmpty &&
@@ -280,11 +404,11 @@ class _InventoryPicklistsUpdateScreenState
       _savedBatchKeys.add(rowKey);
       _savedBatchCounts[rowKey] = result.batchCount;
       _savedBatchData[rowKey] = result.batchDataList ?? [];
-      _manualPickedQty[rowKey] = result.totalIncludingFoc;
+      _manualPickedQty[rowKey] = result.appliedQuantity;
       final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == rowKey);
       if (idx != -1) {
         _selectedItems[idx] = _selectedItems[idx].copyWith(
-          quantityPicked: result.totalIncludingFoc,
+          quantityPicked: result.appliedQuantity,
         );
       }
       if (result.overwriteLineItem) {
@@ -976,30 +1100,16 @@ class _InventoryPicklistsUpdateScreenState
               color: Color(0xFFF9FAFB),
               border: Border(bottom: BorderSide(color: _borderCol)),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 8,
-                  child: Padding(
-                    padding: EdgeInsets.only(right: 12),
-                    child: Text(
-                      'ITEM DETAILS',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-                VerticalDivider(width: 1, color: _borderCol),
-                Expanded(
-                  flex: 4,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Center(
-                      child: Text(
-                        'SALES ORDER#',
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 8,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: const Text(
+                        'ITEM DETAILS',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -1008,141 +1118,176 @@ class _InventoryPicklistsUpdateScreenState
                       ),
                     ),
                   ),
-                ),
-                VerticalDivider(width: 1, color: _borderCol),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'QUANTITY ORDERED',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                VerticalDivider(width: 1, color: _borderCol),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'QUANTITY PACKED',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                VerticalDivider(width: 1, color: _borderCol),
-                Expanded(
-                  flex: 3,
-                  child: Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'QUANTITY TO PICK',
+                  Container(width: 1, color: _borderCol),
+                  Expanded(
+                    flex: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Center(
+                        child: const Text(
+                          'SALES ORDER#',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: _textSecondary,
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        ZTooltip(
-                          message:
-                              "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
-                          child: Icon(
-                            LucideIcons.info,
-                            size: 12,
+                      ),
+                    ),
+                  ),
+                  Container(width: 1, color: _borderCol),
+                  Expanded(
+                    flex: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Center(
+                        child: const Text(
+                          'PREFERRED BIN',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                             color: _textSecondary,
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-                VerticalDivider(width: 1, color: _borderCol),
-                Expanded(
-                  flex: 4,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'QUANTITY PICKED',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: _textSecondary,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            ZTooltip(
-                              message:
-                                  "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
-                              child: Icon(
-                                LucideIcons.info,
-                                size: 12,
-                                color: _textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              for (int i = 0; i < _selectedItems.length; i++) {
-                                final item = _selectedItems[i];
-                                final rowKey = _buildRowKey(item);
-                                final toPick = item.quantityToPick ?? 0.0;
-                                _manualPickedQty[rowKey] = toPick;
-                                final String newStatus =
-                                    toPick == (item.quantityOrdered ?? 0.0)
-                                    ? 'COMPLETED'
-                                    : (toPick > 0.0
-                                          ? 'IN_PROGRESS'
-                                          : 'YET_TO_START');
-                                _selectedItems[i] = item.copyWith(
-                                  quantityPicked: toPick,
-                                  status: newStatus,
-                                );
-                              }
-                              _hasChanges = true;
-                            });
-                          },
-                          child: const Text(
-                            'PICK ALL ITEMS',
+                  Container(width: 1, color: _borderCol),
+                  Expanded(
+                    flex: 3,
+                    child: const Text(
+                      'QUANTITY ORDERED',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  Container(width: 1, color: _borderCol),
+                  Expanded(
+                    flex: 3,
+                    child: const Text(
+                      'QUANTITY PACKED',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  Container(width: 1, color: _borderCol),
+                  Expanded(
+                    flex: 3,
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'QUANTITY TO PICK',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF2563EB),
+                              color: _textSecondary,
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          ZTooltip(
+                            message:
+                                "The quantity that has to be picked for an item from the location. This shouldn't exceed the ordered quantity.",
+                            child: Icon(
+                              LucideIcons.info,
+                              size: 12,
+                              color: _textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  flex: 4,
-                  child: Text(
-                    'STATUS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: _textSecondary,
+                  Container(width: 1, color: _borderCol),
+                  Expanded(
+                    flex: 4,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'QUANTITY PICKED',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textSecondary,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              ZTooltip(
+                                message:
+                                    "The quantity that has been picked for an item from the location. This shouldn't exceed the quantity to pick.",
+                                child: Icon(
+                                  LucideIcons.info,
+                                  size: 12,
+                                  color: _textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                for (int i = 0; i < _selectedItems.length; i++) {
+                                  final item = _selectedItems[i];
+                                  final rowKey = _buildRowKey(item);
+                                  final toPick = item.quantityToPick ?? 0.0;
+                                  _manualPickedQty[rowKey] = toPick;
+                                  final String newStatus =
+                                      toPick == (item.quantityOrdered ?? 0.0)
+                                      ? 'COMPLETED'
+                                      : (toPick > 0.0
+                                            ? 'IN_PROGRESS'
+                                            : 'YET_TO_START');
+                                  _selectedItems[i] = item.copyWith(
+                                    quantityPicked: toPick,
+                                    status: newStatus,
+                                  );
+                                }
+                                _hasChanges = true;
+                              });
+                            },
+                            child: const Text(
+                              'PICK ALL ITEMS',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF2563EB),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                ),
-              ],
+                  Container(width: 1, color: _borderCol),
+                  Expanded(
+                    flex: 4,
+                    child: const Text(
+                      'STATUS',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           // Rows
@@ -1180,134 +1325,157 @@ class _InventoryPicklistsUpdateScreenState
               decoration: const BoxDecoration(
                 border: Border(bottom: BorderSide(color: _borderCol)),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 8,
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                        top: 12,
-                        bottom: 12,
-                        right: 12,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            item.productName,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          if (item.productCode.isNotEmpty) ...[
-                            const SizedBox(height: 2),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      flex: 8,
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                          top: 12,
+                          bottom: 12,
+                          right: 12,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
                             Text(
-                              item.productCode,
+                              item.productName,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              'Unit: ${(item.unitTitle != null && item.unitTitle!.trim().isNotEmpty) ? item.unitTitle!.trim() : "pcs"}',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: _textSecondary,
                               ),
                             ),
                           ],
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                  const VerticalDivider(width: 1, color: _borderCol),
-                  Expanded(
-                    flex: 4,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    Container(width: 1, color: _borderCol),
+                    Expanded(
+                      flex: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Center(
+                          child: Text(
+                            item.salesOrderNumber ?? '--',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(width: 1, color: _borderCol),
+                    Expanded(
+                      flex: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Center(
+                          child: (() {
+                            final resolved = _resolvedPreferredBins[rowKey];
+                            if (resolved == null) {
+                              _fetchPreferredBinForProduct(item);
+                              return const Text(
+                                'Loading...',
+                                style: TextStyle(
+                                    fontSize: 13, color: _textSecondary),
+                              );
+                            }
+                            return _buildPreferredBinCell(
+                              resolved,
+                              textStyle: const TextStyle(
+                                  fontSize: 13, color: _textPrimary),
+                            );
+                          })(),
+                        ),
+                      ),
+                    ),
+                    Container(width: 1, color: _borderCol),
+                    Expanded(
+                      flex: 3,
                       child: Center(
                         child: Text(
-                          item.salesOrderNumber ?? '--',
+                          item.quantityOrdered?.toInt().toString() ?? '0',
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),
                     ),
-                  ),
-                  const VerticalDivider(width: 1, color: _borderCol),
-                  Expanded(
-                    flex: 3,
-                    child: Center(
-                      child: Text(
-                        item.quantityOrdered?.toInt().toString() ?? '0',
-                        style: const TextStyle(fontSize: 13),
+                    Container(width: 1, color: _borderCol),
+                    Expanded(
+                      flex: 3,
+                      child: Center(
+                        child: Text(
+                          item.quantityPacked.toInt().toString(),
+                          style: const TextStyle(fontSize: 13),
+                        ),
                       ),
                     ),
-                  ),
-                  const VerticalDivider(width: 1, color: _borderCol),
-                  Expanded(
-                    flex: 3,
-                    child: Center(
-                      child: Text(
-                        item.quantityPacked.toInt().toString(),
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  ),
-                  const VerticalDivider(width: 1, color: _borderCol),
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildQuantityField(
-                          fieldKey: '${rowKey}_to_pick',
-                          initialValue: _currentQtyToPick(item),
-                          onChanged: (val) {
-                            final d = val.trim().isEmpty
-                                ? 0.0
-                                : double.tryParse(val);
-                            if (d != null) {
-                              final maxOrdered = item.quantityOrdered ?? 0.0;
-                              final maxAvailable = available;
-                              final allowedMax = maxOrdered < maxAvailable
-                                  ? maxOrdered
-                                  : maxAvailable;
-                              final finalVal = d > allowedMax
-                                  ? allowedMax
-                                  : (d < 0 ? 0.0 : d);
+                    Container(width: 1, color: _borderCol),
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildQuantityField(
+                            fieldKey: '${rowKey}_to_pick',
+                            initialValue: _currentQtyToPick(item),
+                            onChanged: (val) {
+                              final d = val.trim().isEmpty
+                                  ? 0.0
+                                  : double.tryParse(val);
+                              if (d != null) {
+                                final maxOrdered = item.quantityOrdered ?? 0.0;
+                                final maxAvailable = available;
+                                final allowedMax = maxOrdered < maxAvailable
+                                    ? maxOrdered
+                                    : maxAvailable;
+                                final finalVal = d > allowedMax
+                                    ? allowedMax
+                                    : (d < 0 ? 0.0 : d);
 
-                              setState(() {
-                                final idx = _selectedItems.indexOf(item);
-                                if (idx != -1) {
-                                  final currentPicked =
-                                      _selectedItems[idx].quantityPicked ?? 0.0;
-                                  final newPicked = currentPicked > finalVal
-                                      ? finalVal
-                                      : currentPicked;
-                                  _selectedItems[idx] = _selectedItems[idx]
-                                      .copyWith(
-                                        quantityToPick: finalVal,
-                                        quantityPicked: newPicked,
-                                      );
-                                }
-                                _hasChanges = true;
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Available For Sale:\n${available.toInt()} pcs',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: available >= (item.quantityToPick ?? 0)
-                                ? _textSecondary
-                                : _dangerRed,
-                            height: 1.2,
+                                setState(() {
+                                  final idx = _selectedItems.indexOf(item);
+                                  if (idx != -1) {
+                                    final currentPicked =
+                                        _selectedItems[idx].quantityPicked ?? 0.0;
+                                    final newPicked = currentPicked > finalVal
+                                        ? finalVal
+                                        : currentPicked;
+                                    _selectedItems[idx] = _selectedItems[idx]
+                                        .copyWith(
+                                          quantityToPick: finalVal,
+                                          quantityPicked: newPicked,
+                                        );
+                                  }
+                                  _hasChanges = true;
+                                });
+                              }
+                            },
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          Text(
+                            'Available For Sale:\n${available.toInt()} pcs',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: available >= (item.quantityToPick ?? 0)
+                                  ? _textSecondary
+                                  : _dangerRed,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const VerticalDivider(width: 1, color: _borderCol),
+                    Container(width: 1, color: _borderCol),
                   Expanded(
                     flex: 4,
                     child: Column(
@@ -1322,14 +1490,14 @@ class _InventoryPicklistsUpdateScreenState
                           isRed:
                               (_manualPickedQty[rowKey] ??
                                   _getCurrentPickedQty(item)) >
-                              (item.quantityOrdered ?? 0),
+                              (item.quantityToPick ?? (item.quantityOrdered ?? 0)),
                           isBlue:
                               (_manualPickedQty[rowKey] ??
                                       _getCurrentPickedQty(item)) >
                                   0 &&
                               (_manualPickedQty[rowKey] ??
                                       _getCurrentPickedQty(item)) <=
-                                  (item.quantityOrdered ?? 0),
+                                  (item.quantityToPick ?? (item.quantityOrdered ?? 0)),
                           onChanged: (val) {
                             final d = val.trim().isEmpty
                                 ? 0.0
@@ -1442,14 +1610,22 @@ class _InventoryPicklistsUpdateScreenState
                               fillColor: Colors.transparent,
                               showSearch: false,
                               value: item.status,
-                              items: const [
-                                'YET_TO_START',
-                                'IN_PROGRESS',
-                                'COMPLETED',
-                                'ON_HOLD',
-                                'FORCE_COMPLETE',
-                                'APPROVED',
-                              ],
+                              items: item.status == 'APPROVED'
+                                  ? const [
+                                      'YET_TO_START',
+                                      'IN_PROGRESS',
+                                      'COMPLETED',
+                                      'ON_HOLD',
+                                      'APPROVED',
+                                    ]
+                                  : const [
+                                      'YET_TO_START',
+                                      'IN_PROGRESS',
+                                      'COMPLETED',
+                                      'ON_HOLD',
+                                      'FORCE_COMPLETE',
+                                      'APPROVED',
+                                    ],
                               onChanged: (val) {
                                 if (val != null) {
                                   setState(() {
@@ -1495,7 +1671,8 @@ class _InventoryPicklistsUpdateScreenState
                   ),
                 ],
               ),
-            );
+            ),
+          );
           }),
         ],
       ),
@@ -1607,7 +1784,18 @@ class _InventoryPicklistsUpdateScreenState
           ),
           const SizedBox(width: 12),
           OutlinedButton(
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                final orgId =
+                    GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+                context.goNamed(
+                  AppRoutes.picklists,
+                  pathParameters: {'orgSystemId': orgId},
+                );
+              }
+            },
             style: OutlinedButton.styleFrom(
               foregroundColor: _textPrimary,
               side: const BorderSide(color: _borderCol),
@@ -2448,46 +2636,42 @@ class _PicklistSelectBatchesDialogState
                                         final batchesAsync = ref.watch(
                                           batchLookupProvider(widget.productId),
                                         );
-                                        final batches =
-                                            batchesAsync.value ?? [];
+                                        final batches = batchesAsync.value ?? [];
+                                        final selectedBin = row.binLocationCtrl.text.trim();
+                                        final filteredBatches = selectedBin.isEmpty
+                                            ? <Map<String, dynamic>>[]
+                                            : batches.where((b) {
+                                                final bBin = (b['bin_code'] ?? b['bin_location'] ?? '').toString();
+                                                return bBin.isEmpty || bBin == selectedBin;
+                                              }).toList();
 
-                                        return FormDropdown<
-                                          Map<String, dynamic>
-                                        >(
+                                        return FormDropdown<Map<String, dynamic>>(
                                           height: _batchDropdownHeight,
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
+                                          borderRadius: BorderRadius.circular(6),
                                           border: Border.all(color: _borderCol),
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
                                             vertical: 8,
                                           ),
-                                          value:
-                                              batches
-                                                  .firstWhere(
-                                                    (b) =>
-                                                        b['batch_no']
-                                                            ?.toString()
-                                                            .trim() ==
-                                                        row.batchRefCtrl.text
-                                                            .trim(),
-                                                    orElse: () =>
-                                                        <String, dynamic>{},
-                                                  )
-                                                  .isEmpty
+                                          value: filteredBatches.firstWhere(
+                                            (b) =>
+                                                b['batch_no']?.toString().trim() ==
+                                                row.batchRefCtrl.text.trim(),
+                                            orElse: () => <String, dynamic>{},
+                                          ).isEmpty
                                               ? null
-                                              : batches.firstWhere(
+                                              : filteredBatches.firstWhere(
                                                   (b) =>
-                                                      b['batch_no']
-                                                          ?.toString()
-                                                          .trim() ==
-                                                      row.batchRefCtrl.text
-                                                          .trim(),
+                                                      b['batch_no']?.toString().trim() ==
+                                                      row.batchRefCtrl.text.trim(),
                                                 ),
-                                          items: batches,
+                                          items: filteredBatches,
                                           hint: 'Select Batch',
                                           showSearch: true,
+                                          maxVisibleItems: 3,
+                                          itemEstimatedHeight: 68,
+                                          menuMaxHeight: 280,
+                                          dropdownWidth: 360,
                                           displayStringForValue: (v) {
                                             final batchNo =
                                                 v['batch_no']?.toString() ?? '';
@@ -2519,7 +2703,7 @@ class _PicklistSelectBatchesDialogState
                                                     '0.00';
 
                                                 final displayText =
-                                                    '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | PTR: $ptr';
+                                                    '$batchNo | Bal:\u{00A0}$balance | Exp:\u{00A0}$expDate | MRP:\u{00A0}$mrp | PTR:\u{00A0}$ptr';
 
                                                 return Container(
                                                   width: double.infinity,
@@ -2981,4 +3165,48 @@ class _BinHoverBoxState extends State<_BinHoverBox> {
       ),
     );
   }
+}
+
+Widget _buildPreferredBinCell(List<String> bins, {TextStyle? textStyle}) {
+  if (bins.isEmpty || (bins.length == 1 && bins.first == '--')) {
+    return Text(
+      '--',
+      textAlign: TextAlign.center,
+      style: textStyle ?? const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+    );
+  }
+
+  final style = textStyle ?? const TextStyle(fontSize: 12, color: Color(0xFF333333));
+
+  return Column(
+    mainAxisAlignment: MainAxisAlignment.center,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: bins.map((bin) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 5,
+              height: 5,
+              margin: const EdgeInsets.only(right: 6),
+              decoration: BoxDecoration(
+                color: style.color ?? const Color(0xFF333333),
+                shape: BoxShape.circle,
+              ),
+            ),
+            Flexible(
+              child: Text(
+                bin,
+                style: style,
+              ),
+            ),
+          ],
+        ),
+      );
+    }).toList(),
+  );
 }

@@ -114,6 +114,7 @@ class SalesInvoiceCreateScreen extends ConsumerStatefulWidget {
   /// Deep-link support: clone an existing sales order by ID.
   final String? cloneId;
   final String? fromOrderId;
+  final String? fromPackageId;
   final bool isInstant;
 
   const SalesInvoiceCreateScreen({
@@ -123,6 +124,7 @@ class SalesInvoiceCreateScreen extends ConsumerStatefulWidget {
     this.initialCustomerId,
     this.cloneId,
     this.fromOrderId,
+    this.fromPackageId,
     this.isInstant = false,
   });
 
@@ -347,6 +349,9 @@ class _SalesInvoiceCreateScreenState
     } else if (widget.cloneId != null &&
         widget.cloneId!.isNotEmpty) {
       _loadCloneOrder(widget.cloneId!);
+    } else if (widget.fromPackageId != null &&
+        widget.fromPackageId!.isNotEmpty) {
+      _loadInitialPackage(widget.fromPackageId!);
     } else if (widget.fromOrderId != null &&
         widget.fromOrderId!.isNotEmpty) {
       _loadInitialOrder(widget.fromOrderId!);
@@ -426,6 +431,36 @@ class _SalesInvoiceCreateScreenState
     }
   }
 
+  Future<void> _loadInitialPackage(String packageId) async {
+    setState(() => _isHydratingInitialOrder = true);
+    try {
+      final pkg = await ref.read(packageByIdProvider(packageId).future);
+      if (pkg != null && mounted) {
+        setState(() {
+          if (pkg.customerId != null && pkg.customerId!.isNotEmpty) {
+            _selectedCustomerId = pkg.customerId;
+            _loadConfirmedCustomerOrders();
+          }
+          _selectedPackages = [pkg];
+          rows.clear();
+          _addItemsFromPackage(pkg);
+          _isHydratingInitialOrder = false;
+        });
+        await _loadNextInvoiceNumber();
+      } else {
+        if (mounted) setState(() => _isHydratingInitialOrder = false);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        if (rows.isEmpty) {
+          rows.add(_createItemRow());
+        }
+        _isHydratingInitialOrder = false;
+      });
+      ZerpaiToast.error(context, 'Failed to load package: $e');
+    }
+  }
 
   void _hydrateFromInitialOrder(SalesOrder order) {
     _selectedCustomerId = order.customerId;
@@ -3399,6 +3434,7 @@ class _SalesInvoiceCreateScreenState
                 ),
                 child: IntrinsicHeight(
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_showBulkUpdateToolbar) ...[
                         SizedBox(
@@ -3591,7 +3627,7 @@ class _SalesInvoiceCreateScreenState
                     (row.item?.productName ?? row.descriptionCtrl.text)
                         .toLowerCase();
                 if (!itemName.contains(_itemDetailsSearchQuery.toLowerCase())) {
-                  return SizedBox(key: ValueKey(row));
+                  return SizedBox.shrink(key: ValueKey(row));
                 }
               }
 
@@ -3815,7 +3851,7 @@ class _SalesInvoiceCreateScreenState
                 ),
                 child: IntrinsicHeight(
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_showBulkUpdateToolbar) ...[
                         SizedBox(
@@ -4048,24 +4084,27 @@ class _SalesInvoiceCreateScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                CustomTextField(
-                                  controller: row.quantityCtrl,
-                                  hintText: '0',
+                                SizedBox(
                                   height: 32,
-                                  hideBorderDefault: true,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  contentCase: ContentCase.none,
-                                  textAlign: TextAlign.right,
-                                  onTap: () => row.quantityCtrl.selection =
-                                      TextSelection(
-                                        baseOffset: 0,
-                                        extentOffset:
-                                            row.quantityCtrl.text.length,
-                                      ),
-                                  onChanged: (_) => _calculateTotals(),
+                                  child: CustomTextField(
+                                    controller: row.quantityCtrl,
+                                    hintText: '0',
+                                    height: 32,
+                                    hideBorderDefault: true,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    contentCase: ContentCase.none,
+                                    textAlign: TextAlign.right,
+                                    onTap: () => row.quantityCtrl.selection =
+                                        TextSelection(
+                                          baseOffset: 0,
+                                          extentOffset:
+                                              row.quantityCtrl.text.length,
+                                        ),
+                                    onChanged: (_) => _calculateTotals(),
+                                  ),
                                 ),
                                 if (row.itemId.isNotEmpty && row.hasBatchData && hasFocValue) ...[
                                   const SizedBox(height: 4),
@@ -4271,16 +4310,19 @@ class _SalesInvoiceCreateScreenState
                                 horizontal: 12,
                                 vertical: 4,
                               ),
-                              child: CustomTextField(
-                                controller: row.fQtyCtrl,
+                              child: SizedBox(
                                 height: 32,
-                                hideBorderDefault: true,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                contentCase: ContentCase.none,
-                                textAlign: TextAlign.right,
+                                child: CustomTextField(
+                                  controller: row.fQtyCtrl,
+                                  height: 32,
+                                  hideBorderDefault: true,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  contentCase: ContentCase.none,
+                                  textAlign: TextAlign.right,
+                                ),
                               ),
                             ),
                           ),
@@ -4297,23 +4339,26 @@ class _SalesInvoiceCreateScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                CustomTextField(
-                                  controller: row.rateCtrl,
-                                  focusNode: row.rateFocus,
+                                SizedBox(
                                   height: 32,
-                                  hintText: '0',
-                                  hideBorderDefault: true,
-                                  keyboardType: TextInputType.text,
-                                  contentCase: ContentCase.none,
-                                  textAlign: TextAlign.right,
-                                  onTap: () =>
-                                      row.rateCtrl.selection = TextSelection(
-                                        baseOffset: 0,
-                                        extentOffset: row.rateCtrl.text.length,
-                                      ),
-                                  onChanged: (_) => _calculateTotals(),
-                                  onSubmitted: (_) =>
-                                      _handleRateCalculation(row),
+                                  child: CustomTextField(
+                                    controller: row.rateCtrl,
+                                    focusNode: row.rateFocus,
+                                    height: 32,
+                                    hintText: '0',
+                                    hideBorderDefault: true,
+                                    keyboardType: TextInputType.text,
+                                    contentCase: ContentCase.none,
+                                    textAlign: TextAlign.right,
+                                    onTap: () =>
+                                        row.rateCtrl.selection = TextSelection(
+                                          baseOffset: 0,
+                                          extentOffset: row.rateCtrl.text.length,
+                                        ),
+                                    onChanged: (_) => _calculateTotals(),
+                                    onSubmitted: (_) =>
+                                        _handleRateCalculation(row),
+                                  ),
                                 ),
                                 if (row.itemId.isNotEmpty) ...[
                                   if (_showPriceList) ...[
@@ -4454,29 +4499,32 @@ class _SalesInvoiceCreateScreenState
                               horizontal: 12,
                               vertical: 4,
                             ),
-                            child: CustomTextField(
-                              controller: row.discountCtrl,
-                              hintText: '0',
+                            child: SizedBox(
                               height: 32,
-                              hideBorderDefault: true,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              contentCase: ContentCase.none,
-                              textAlign: TextAlign.right,
-                              padding: const EdgeInsets.only(
-                                left: 12,
-                                right: 0,
+                              child: CustomTextField(
+                                controller: row.discountCtrl,
+                                hintText: '0',
+                                height: 32,
+                                hideBorderDefault: true,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                contentCase: ContentCase.none,
+                                textAlign: TextAlign.right,
+                                padding: const EdgeInsets.only(
+                                  left: 12,
+                                  right: 0,
+                                ),
+                                suffixSeparator: false,
+                                suffixWidget: _buildDiscountTypeSelector(row),
+                                onTap: () =>
+                                    row.discountCtrl.selection = TextSelection(
+                                      baseOffset: 0,
+                                      extentOffset: row.discountCtrl.text.length,
+                                    ),
+                                onChanged: (_) => _calculateTotals(),
                               ),
-                              suffixSeparator: false,
-                              suffixWidget: _buildDiscountTypeSelector(row),
-                              onTap: () =>
-                                  row.discountCtrl.selection = TextSelection(
-                                    baseOffset: 0,
-                                    extentOffset: row.discountCtrl.text.length,
-                                  ),
-                              onChanged: (_) => _calculateTotals(),
                             ),
                           ),
                         ),
@@ -5834,21 +5882,20 @@ class _SalesInvoiceCreateScreenState
           );
         }
 
-        return IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 3, child: termsSection),
-              const SizedBox(width: 24),
-              Container(
-                width: 1,
-                color: const Color(0xFFDBEAFE),
-                margin: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              const SizedBox(width: 24),
-              Expanded(flex: 2, child: uploadSection),
-            ],
-          ),
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: termsSection),
+            const SizedBox(width: 24),
+            Container(
+              width: 1,
+              height: 140,
+              color: const Color(0xFFDBEAFE),
+              margin: const EdgeInsets.symmetric(vertical: 8),
+            ),
+            const SizedBox(width: 24),
+            Expanded(flex: 2, child: uploadSection),
+          ],
         );
       },
     );
@@ -7431,7 +7478,11 @@ class _SalesInvoiceCreateScreenState
         'adjustmentAmount': double.tryParse(adjustmentCtrl.text) ?? 0.0,
         'roundOff': _roundOff,
         'subtotal': subTotal,
-        'taxTotal': taxTotal,
+        'taxTotal': ((_gstTreatment ?? _selectedCustomer?.gstTreatment) == 'unregistered_business' ||
+                (_gstTreatment ?? _selectedCustomer?.gstTreatment) == 'Unregistered Business' ||
+                (_gstTreatment ?? _selectedCustomer?.gstTreatment)?.toLowerCase().contains('unregistered') == true)
+            ? 0.0
+            : taxTotal,
         'tdsTotal': _tdsTcsType == 'tds' ? _tdsTcsAmount : 0.0,
         'tcsTotal': _tdsTcsType == 'tcs' ? _tdsTcsAmount : 0.0,
         'grandTotal': total,
@@ -9904,8 +9955,10 @@ class _TH extends StatelessWidget {
   }
 }
 
-Widget _vLine() =>
-    const VerticalDivider(width: 1, color: _kBorder, thickness: 1);
+Widget _vLine() => const SizedBox(
+      width: 1,
+      child: ColoredBox(color: _kBorder),
+    );
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Address Dialog — top-aligned popup matching the screenshot

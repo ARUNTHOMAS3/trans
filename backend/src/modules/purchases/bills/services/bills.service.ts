@@ -13,6 +13,17 @@ export class BillsService {
     const entityId = tenant ? tenant.entityId : entityIdOrTenant as string;
     const supabase = this.supabaseService.getClient();
     
+    // Fetch vendor to check GST treatment
+    const { data: vendorData } = await supabase
+      .from('vendors')
+      .select('gst_treatment')
+      .eq('id', dto.vendorId)
+      .maybeSingle();
+
+    const isUnregistered =
+      vendorData?.gst_treatment?.toLowerCase() === 'unregistered_business' ||
+      vendorData?.gst_treatment?.toLowerCase() === 'unregistered business';
+
     // 1. Create Bill
     const billId = uuidv4();
     
@@ -39,11 +50,13 @@ export class BillsService {
         discount_total: dto.discountAmount?.toString(),
         discount_value: dto.discountPercent?.toString() || dto.discountValue?.toString() || null,
         discount_accounts_id: dto.discountAccountId || null,
-        tax_total: dto.taxAmount?.toString(),
+        tax_total: isUnregistered ? "0" : dto.taxAmount?.toString(),
         tds_total: dto.tdsTotal?.toString(),
         tcs_total: dto.tcsTotal?.toString(),
         adjustment_amount: dto.adjustment?.toString(),
-        grand_total: dto.total?.toString(),
+        grand_total: isUnregistered
+          ? ((parseFloat(dto.subTotal?.toString() || "0") - parseFloat(dto.discountAmount?.toString() || "0") + parseFloat(dto.adjustment?.toString() || "0")).toString())
+          : dto.total?.toString(),
         invoice_total: dto.invoiceTotal?.toString(),
         source_type: dto.sourceType || dto.source_type || null,
         source_id: dto.sourceId || dto.source_id || null,
@@ -83,8 +96,8 @@ export class BillsService {
           discount_value: discVal.toString(),
           discount_accounts_id: item.discount_account_id || item.discountAccountId || null,
           discount_amount: computedDiscountAmt.toString(),
-          tax_id: item.tax_id || item.taxId,
-          tax_amount: item.tax_amount?.toString() || "0",
+          tax_id: isUnregistered ? null : (item.tax_id || item.taxId),
+          tax_amount: isUnregistered ? "0" : (item.tax_amount?.toString() || "0"),
           line_total: item.amount?.toString() || "0",
           purchase_receive_item_id: item.purchaseReceiveItemId || item.purchase_receive_item_id || null,
         };
@@ -1144,7 +1157,7 @@ export class BillsService {
 
     // Clear account transactions
     await supabase
-      .from('account_transactions')
+      .from('journal_entry_lines')
       .delete()
       .eq('source_id', id)
       .eq('source_type', 'BILL')
@@ -1166,7 +1179,7 @@ export class BillsService {
   ) {
     // 1. Clear any existing transactions for this bill
     await supabase
-      .from('account_transactions')
+      .from('journal_entry_lines')
       .delete()
       .eq('source_id', billId)
       .eq('source_type', 'BILL')
@@ -1447,7 +1460,7 @@ export class BillsService {
     // 9. Bulk Insert
     if (entries.length > 0) {
       const { error: insertError } = await supabase
-        .from('account_transactions')
+        .from('journal_entry_lines')
         .insert(entries);
       if (insertError) {
         throw new HttpException(`Failed to save account transactions: ${insertError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);

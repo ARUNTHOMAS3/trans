@@ -93,6 +93,7 @@ standalone depending on the variant.
 | `ColumnCustomizerDialog` | `tables/column_customizer.dart` | Reorderable list dialog for table column customization (visibility, order, locking); uses `ColumnConfig` model |
 | `ColumnConfig` | `../models/column_config.dart` | Model for table column settings: id, label, isVisible, orderIndex, isLocked |
 | `ZModuleTable<T>` | `tables/z_module_table.dart` | Reusable module list table shell (Sales-Orders-style): header menu, select-all/row select, sortable headers, configurable columns, wrap/clip text toggle, row-cell builder hooks |
+| `ZerpaiPaginationWidget` | `tables/zerpai_pagination_widget.dart` | Reusable bottom pagination footer with settings dropdown and arrow controls (default page count: 20, 30, 50, 75, 100) |
 
 ### Dialogs
 

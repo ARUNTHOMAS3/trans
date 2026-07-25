@@ -11,6 +11,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:dio/dio.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
+import 'package:zerpai_erp/shared/widgets/tables/zerpai_pagination_widget.dart';
 import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
@@ -27,7 +28,6 @@ import '../../providers/inventory_picklists_provider.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/po_item_details_sidebar_widget.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
-import '../../../packages/presentation/pages/inventory_packages_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../shared/widgets/tables/column_customizer.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
@@ -68,8 +68,12 @@ class _InventoryPicklistsListScreenState
   final Set<String> _selectedPicklistIds = {};
   List<ColumnConfig> _allColumns = [];
   final List<String> _visibleColumns = [];
+  int _currentPage = 1;
+  int _pageSize = 30;
 
   bool _shouldWrapText = false;
+  String _sortField = 'date';
+  bool _sortAscending = false;
 
   Map<String, double>? _customColumnWidths;
 
@@ -734,11 +738,16 @@ class _InventoryPicklistsListScreenState
     final allPicklists = ref.read(picklistsProvider).value ?? [];
 
     for (final id in ids) {
-      if (status == 'APPROVED') {
-        final p = allPicklists.firstWhere((element) => element.id == id);
+      final p = allPicklists.where((element) => element.id == id).firstOrNull;
+      if (p != null) {
         final s = p.status.toUpperCase().replaceAll(' ', '_');
-        if (s != 'COMPLETED' && s != 'FORCE_COMPLETE') {
-          continue; // Only COMPLETED or FORCE_COMPLETE can be APPROVED
+        if (s == 'APPROVED' && status == 'FORCE_COMPLETE') {
+          continue; // APPROVED picklists cannot become FORCE_COMPLETE
+        }
+        if (status == 'APPROVED') {
+          if (s != 'COMPLETED' && s != 'FORCE_COMPLETE') {
+            continue; // Only COMPLETED or FORCE_COMPLETE can be APPROVED
+          }
         }
       }
       await notifier.updatePicklistStatus(id, status);
@@ -902,6 +911,7 @@ class _InventoryPicklistsListScreenState
 
       return true;
     }).toList();
+    _sortPicklists(picklists);
     if (picklists.isEmpty) return _buildEmptyState();
 
     final isDetailOpen = widget.id != null;
@@ -909,53 +919,85 @@ class _InventoryPicklistsListScreenState
       return _buildCompactList(picklists);
     }
 
+    final totalItems = picklists.length;
+    final totalPages = totalItems == 0 ? 1 : (totalItems / _pageSize).ceil();
+    final clampedPage = _currentPage.clamp(1, totalPages);
+    final startIndex = (clampedPage - 1) * _pageSize;
+    final paginatedPicklists =
+        picklists.skip(startIndex).take(_pageSize).toList();
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final columnWidths =
             _customColumnWidths ?? _calculateColumnWidths(constraints.maxWidth);
-        // Actual prefix: SizedBox(8) + HeaderMenuButton(28) + SizedBox(12) + checkbox(18) + SizedBox(12) = 78
         const double actualPrefixWidth = 78.0;
         final double totalColumnsWidth = columnWidths.values.fold(
           0.0,
           (sum, w) => sum + w,
         );
-        // screenWidth = always enough to hold all columns + prefix + safety margin
         final screenWidth = math.max(
           constraints.maxWidth,
           totalColumnsWidth + actualPrefixWidth + 40,
         );
 
-        return Scrollbar(
-          controller: _horizontalScrollController,
-          thumbVisibility: screenWidth > constraints.maxWidth,
-          trackVisibility: screenWidth > constraints.maxWidth,
-          child: SingleChildScrollView(
-            controller: _horizontalScrollController,
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: screenWidth,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildTableHeader(columnWidths, picklists),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: EdgeInsets.zero,
-                      itemCount: picklists.length,
-                      itemExtent: 40, // High density Zoho style
-                      itemBuilder: (context, index) {
-                        return _buildVirtualRow(picklists[index], columnWidths);
-                      },
+        return Column(
+          children: [
+            Expanded(
+              child: Scrollbar(
+                controller: _horizontalScrollController,
+                thumbVisibility: screenWidth > constraints.maxWidth,
+                trackVisibility: screenWidth > constraints.maxWidth,
+                child: SingleChildScrollView(
+                  controller: _horizontalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: screenWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildTableHeader(columnWidths, picklists),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            itemCount: paginatedPicklists.length,
+                            itemExtent: 44,
+                            itemBuilder: (context, index) {
+                              return _buildVirtualRow(
+                                paginatedPicklists[index],
+                                columnWidths,
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
+            ZerpaiPaginationWidget(
+              totalItems: totalItems,
+              currentPage: clampedPage,
+              pageSize: _pageSize,
+              onPageChanged: (page) {
+                setState(() {
+                  _currentPage = page;
+                });
+              },
+              onPageSizeChanged: (size) {
+                setState(() {
+                  _pageSize = size;
+                  _currentPage = 1;
+                });
+              },
+            ),
+          ],
         );
       },
     );
   }
+
+
 
   Widget _buildCompactList(List<Picklist> picklists) {
     return ListView.builder(
@@ -968,14 +1010,6 @@ class _InventoryPicklistsListScreenState
 
         return InkWell(
           onTap: () {
-            if (picklist.status.toUpperCase() == 'APPROVED') {
-              showDialog(
-                context: context,
-                builder: (context) =>
-                    DispatchEntrypassDialog(initialPicklist: picklist),
-              );
-              return;
-            }
             final orgId = GoRouterState.of(
               context,
             ).pathParameters['orgSystemId']!;
@@ -1041,6 +1075,39 @@ class _InventoryPicklistsListScreenState
         );
       },
     );
+  }
+
+  void _sortPicklists(List<Picklist> list) {
+    list.sort((a, b) {
+      int cmp = 0;
+      switch (_sortField) {
+        case 'date':
+          cmp = (a.date ?? DateTime(0)).compareTo(b.date ?? DateTime(0));
+          break;
+        case 'picklist#':
+          cmp = a.picklistNumber.compareTo(b.picklistNumber);
+          break;
+        case 'status':
+          cmp = a.status.compareTo(b.status);
+          break;
+        case 'assignee':
+          cmp = (a.assignee ?? '').compareTo(b.assignee ?? '');
+          break;
+        case 'location':
+          cmp = (a.location ?? '').compareTo(b.location ?? '');
+          break;
+        case 'notes':
+          cmp = (a.notes ?? '').compareTo(b.notes ?? '');
+          break;
+        case 'customer_name':
+          cmp = (a.customerName ?? '').compareTo(b.customerName ?? '');
+          break;
+        case 'sales_order_number':
+          cmp = (a.salesOrderNumber ?? '').compareTo(b.salesOrderNumber ?? '');
+          break;
+      }
+      return _sortAscending ? cmp : -cmp;
+    });
   }
 
   String _getFormattedStatus(String status) {
@@ -1139,33 +1206,65 @@ class _InventoryPicklistsListScreenState
     List<Picklist> picklists,
   ) {
     return Container(
-      height: 36,
+      height: 44,
       decoration: const BoxDecoration(
         color: AppTheme.bgLight,
         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          const SizedBox(width: 8),
-          _buildHeaderMenuButton(),
-          const SizedBox(width: 12),
-          _buildSelectAllCheckbox(picklists),
-          const SizedBox(width: 12),
-          ..._visibleColumns.map((colId) {
-            final width = columnWidths[colId]!;
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(width: 78.0),
+              ..._visibleColumns.map((colId) {
+                final width = columnWidths[colId]!;
 
-            Widget headerCell = _buildHeaderCell(
-              _columnLabels[colId]!,
-              width: width,
-            );
+                Widget headerCell = _buildHeaderCell(
+                  _columnLabels[colId]!,
+                  colId,
+                  width: width,
+                );
 
-            return _ResizableHeaderCell(
-              width: width,
-              onResize: (dx) => _resizeColumn(colId, dx),
-              child: headerCell,
-            );
-          }),
+                return _ResizableHeaderCell(
+                  width: width,
+                  onResize: (dx) => _resizeColumn(colId, dx),
+                  child: headerCell,
+                );
+              }),
+            ],
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: AnimatedBuilder(
+              animation: _horizontalScrollController,
+              builder: (context, child) {
+                final offset = _horizontalScrollController.hasClients
+                    ? _horizontalScrollController.offset
+                    : 0.0;
+                return Transform.translate(
+                  offset: Offset(offset, 0),
+                  child: child,
+                );
+              },
+              child: Container(
+                color: AppTheme.bgLight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(width: 8),
+                    _buildHeaderMenuButton(),
+                    const SizedBox(width: 12),
+                    _buildSelectAllCheckbox(picklists),
+                    const SizedBox(width: 12),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1183,6 +1282,9 @@ class _InventoryPicklistsListScreenState
   Widget _buildVirtualRow(Picklist picklist, Map<String, double> columnWidths) {
     final isSelected = _selectedPicklistIds.contains(picklist.id);
     final isActive = widget.id == picklist.id;
+    final rowBgColor = isActive
+        ? AppTheme.selectionActiveBg
+        : (isSelected ? const Color(0xFFF0F7FF) : Colors.white);
 
     return InkWell(
       onTap: () {
@@ -1190,29 +1292,55 @@ class _InventoryPicklistsListScreenState
         context.go('/$orgId/inventory/picklists/${picklist.id}');
       },
       child: Container(
-        height: 40,
+        height: 44,
         decoration: BoxDecoration(
-          color: isActive
-              ? AppTheme.selectionActiveBg
-              : (isSelected ? const Color(0xFFF0F7FF) : Colors.transparent),
+          color: rowBgColor,
           border: const Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            const SizedBox(width: 8),
-            const SizedBox(
-              width: 28,
-            ), // Slider placeholder to match HeaderMenuButton
-            const SizedBox(width: 12),
-            InkWell(
-              onTap: () => _toggleSelection(picklist.id ?? ''),
-              child: _buildCheckboxWidget(isSelected),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 78.0),
+                ..._visibleColumns.map((colId) {
+                  return _buildCell(picklist, colId, width: columnWidths[colId]!);
+                }),
+              ],
             ),
-            const SizedBox(width: 12),
-            ..._visibleColumns.map((colId) {
-              return _buildCell(picklist, colId, width: columnWidths[colId]!);
-            }),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: AnimatedBuilder(
+                animation: _horizontalScrollController,
+                builder: (context, child) {
+                  final offset = _horizontalScrollController.hasClients
+                      ? _horizontalScrollController.offset
+                      : 0.0;
+                  return Transform.translate(
+                    offset: Offset(offset, 0),
+                    child: child,
+                  );
+                },
+                child: Container(
+                  color: rowBgColor,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 8),
+                      const SizedBox(width: 28),
+                      const SizedBox(width: 12),
+                      InkWell(
+                        onTap: () => _toggleSelection(picklist.id ?? ''),
+                        child: _buildCheckboxWidget(isSelected),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -1270,16 +1398,45 @@ class _InventoryPicklistsListScreenState
     );
   }
 
-  Widget _buildHeaderCell(String text, {double? width}) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: Alignment.centerLeft,
-      child: Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: AppTheme.tableHeader.copyWith(fontSize: 11, letterSpacing: 0.5),
+  Widget _buildHeaderCell(String text, String colId, {double? width}) {
+    final isSorted = _sortField == colId;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (_sortField == colId) {
+            _sortAscending = !_sortAscending;
+          } else {
+            _sortField = colId;
+            _sortAscending = true;
+          }
+        });
+      },
+      child: Container(
+        width: width,
+        height: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.tableHeader.copyWith(fontSize: 11, letterSpacing: 0.5),
+              ),
+            ),
+            if (isSorted) ...[
+              const SizedBox(width: 4),
+              Icon(
+                _sortAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+                size: 12,
+                color: AppTheme.primaryBlue,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -2632,12 +2789,17 @@ class _PicklistDetailPanelState extends ConsumerState<_PicklistDetailPanel> {
             icon: LucideIcons.checkCircle,
             label: 'Completed',
           ),
-          _buildPopupItem(
-            value: 'FORCE_COMPLETE',
-            icon: LucideIcons.checkSquare,
-            label: 'Force Complete',
-          ),
         ];
+
+        if (currentStatus != 'APPROVED') {
+          items.add(
+            _buildPopupItem(
+              value: 'FORCE_COMPLETE',
+              icon: LucideIcons.checkSquare,
+              label: 'Force Complete',
+            ),
+          );
+        }
 
         if (currentStatus == 'COMPLETED' || currentStatus == 'FORCE_COMPLETE') {
           items.add(
@@ -3922,7 +4084,7 @@ class _PdfCornerRibbon extends StatelessWidget {
           // Shadow for the ribbon
           Positioned(
             top: 24,
-            left: -32,
+            left: -46,
             child: Transform.rotate(
               angle: -math.pi / 4,
               child: Container(
@@ -3942,8 +4104,8 @@ class _PdfCornerRibbon extends StatelessWidget {
           ),
           // Main Ribbon Band
           Positioned(
-            top: 22,
-            left: -34,
+            top: 24,
+            left: -46,
             child: Transform.rotate(
               angle: -math.pi / 4,
               child: Container(
@@ -3967,22 +4129,28 @@ class _PdfCornerRibbon extends StatelessWidget {
                   ),
                 ),
                 alignment: Alignment.center,
-                padding: const EdgeInsets.only(bottom: 1),
-                child: Text(
-                  label.toUpperCase(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.8,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black45,
-                        offset: Offset(0, 1),
-                        blurRadius: 2,
+                child: SizedBox(
+                  width: 95,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: Text(
+                      label.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black45,
+                            offset: Offset(0, 1),
+                            blurRadius: 2,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),

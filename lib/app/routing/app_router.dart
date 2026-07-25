@@ -878,6 +878,7 @@ final GoRouter appRouter = GoRouter(
                   builder: (context, state) => SalesInvoiceCreateScreen(
                     initialCustomerId: state.uri.queryParameters['customerId'],
                     fromOrderId: state.uri.queryParameters['fromOrderId'],
+                    fromPackageId: state.uri.queryParameters['fromPackageId'],
                     cloneId: state.uri.queryParameters['cloneId'],
                     isInstant: state.uri.queryParameters['instant'] == 'true',
                   ),

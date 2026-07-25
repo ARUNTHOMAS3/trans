@@ -79,6 +79,10 @@ class AppTheme {
   static const Color infoTextDark = Color(0xFF1E40AF); // Dark info text
   static const Color infoBlue = Color(0xFF3B82F6); // Info / secondary blue
 
+  /// Corner radius for the blue hover highlight on selectable rows
+  /// (menu entries, dropdown options, list items).
+  static const BorderRadius hoverRadius = BorderRadius.all(Radius.circular(6));
+  
   // Specific UI Component Colors
   static const Color successBg = Color(0xFFDCFCE7); // Success background
   static const Color infoBg = Color(0xFFEFF6FF); // Info background

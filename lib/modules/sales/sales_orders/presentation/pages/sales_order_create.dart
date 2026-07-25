@@ -2831,6 +2831,7 @@ class _SalesOrderCreateScreenState
                 ),
                 child: IntrinsicHeight(
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_showBulkUpdateToolbar) ...[
                         SizedBox(
@@ -3023,7 +3024,7 @@ class _SalesOrderCreateScreenState
                     (row.item?.productName ?? row.descriptionCtrl.text)
                         .toLowerCase();
                 if (!itemName.contains(_itemDetailsSearchQuery.toLowerCase())) {
-                  return SizedBox(key: ValueKey(row));
+                  return SizedBox.shrink(key: ValueKey(row));
                 }
               }
 
@@ -3159,7 +3160,7 @@ class _SalesOrderCreateScreenState
                 ),
                 child: IntrinsicHeight(
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_showBulkUpdateToolbar) ...[
                         SizedBox(
@@ -3404,24 +3405,27 @@ class _SalesOrderCreateScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                CustomTextField(
-                                  controller: row.quantityCtrl,
-                                  hintText: '0',
+                                SizedBox(
                                   height: 32,
-                                  hideBorderDefault: true,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  contentCase: ContentCase.none,
-                                  textAlign: TextAlign.right,
-                                  onTap: () => row.quantityCtrl.selection =
-                                      TextSelection(
-                                        baseOffset: 0,
-                                        extentOffset:
-                                            row.quantityCtrl.text.length,
-                                      ),
-                                  onChanged: (_) => _calculateTotals(),
+                                  child: CustomTextField(
+                                    controller: row.quantityCtrl,
+                                    hintText: '0',
+                                    height: 32,
+                                    hideBorderDefault: true,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    contentCase: ContentCase.none,
+                                    textAlign: TextAlign.right,
+                                    onTap: () => row.quantityCtrl.selection =
+                                        TextSelection(
+                                          baseOffset: 0,
+                                          extentOffset:
+                                              row.quantityCtrl.text.length,
+                                        ),
+                                    onChanged: (_) => _calculateTotals(),
+                                  ),
                                 ),
                                 if (_showAvailableStock &&
                                     row.itemId.isNotEmpty) ...[
@@ -3575,16 +3579,19 @@ class _SalesOrderCreateScreenState
                                 horizontal: 12,
                                 vertical: 4,
                               ),
-                              child: CustomTextField(
-                                controller: row.fQtyCtrl,
+                              child: SizedBox(
                                 height: 32,
-                                hideBorderDefault: true,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                contentCase: ContentCase.none,
-                                textAlign: TextAlign.right,
+                                child: CustomTextField(
+                                  controller: row.fQtyCtrl,
+                                  height: 32,
+                                  hideBorderDefault: true,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  contentCase: ContentCase.none,
+                                  textAlign: TextAlign.right,
+                                ),
                               ),
                             ),
                           ),
@@ -3601,26 +3608,29 @@ class _SalesOrderCreateScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                CustomTextField(
-                                  controller: row.rateCtrl,
-                                  focusNode: row.rateFocus,
+                                SizedBox(
                                   height: 32,
-                                  hintText: '0',
-                                  hideBorderDefault: true,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  contentCase: ContentCase.none,
-                                  textAlign: TextAlign.right,
-                                  onTap: () =>
-                                      row.rateCtrl.selection = TextSelection(
-                                        baseOffset: 0,
-                                        extentOffset: row.rateCtrl.text.length,
-                                      ),
-                                  onChanged: (_) => _calculateTotals(),
-                                  onSubmitted: (_) =>
-                                      _handleRateCalculation(row),
+                                  child: CustomTextField(
+                                    controller: row.rateCtrl,
+                                    focusNode: row.rateFocus,
+                                    height: 32,
+                                    hintText: '0',
+                                    hideBorderDefault: true,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    contentCase: ContentCase.none,
+                                    textAlign: TextAlign.right,
+                                    onTap: () =>
+                                        row.rateCtrl.selection = TextSelection(
+                                          baseOffset: 0,
+                                          extentOffset: row.rateCtrl.text.length,
+                                        ),
+                                    onChanged: (_) => _calculateTotals(),
+                                    onSubmitted: (_) =>
+                                        _handleRateCalculation(row),
+                                  ),
                                 ),
                                 if (row.itemId.isNotEmpty) ...[
                                   if (_showPriceList) ...[
@@ -3774,29 +3784,32 @@ class _SalesOrderCreateScreenState
                               horizontal: 12,
                               vertical: 4,
                             ),
-                            child: CustomTextField(
-                              controller: row.discountCtrl,
-                              hintText: '0',
+                            child: SizedBox(
                               height: 32,
-                              hideBorderDefault: true,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              contentCase: ContentCase.none,
-                              textAlign: TextAlign.right,
-                              padding: const EdgeInsets.only(
-                                left: 12,
-                                right: 0,
+                              child: CustomTextField(
+                                controller: row.discountCtrl,
+                                hintText: '0',
+                                height: 32,
+                                hideBorderDefault: true,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                contentCase: ContentCase.none,
+                                textAlign: TextAlign.right,
+                                padding: const EdgeInsets.only(
+                                  left: 12,
+                                  right: 0,
+                                ),
+                                suffixSeparator: false,
+                                suffixWidget: _buildDiscountTypeSelector(row),
+                                onTap: () =>
+                                    row.discountCtrl.selection = TextSelection(
+                                      baseOffset: 0,
+                                      extentOffset: row.discountCtrl.text.length,
+                                    ),
+                                onChanged: (_) => _calculateTotals(),
                               ),
-                              suffixSeparator: false,
-                              suffixWidget: _buildDiscountTypeSelector(row),
-                              onTap: () =>
-                                  row.discountCtrl.selection = TextSelection(
-                                    baseOffset: 0,
-                                    extentOffset: row.discountCtrl.text.length,
-                                  ),
-                              onChanged: (_) => _calculateTotals(),
                             ),
                           ),
                         ),
@@ -3848,19 +3861,19 @@ class _SalesOrderCreateScreenState
                                                     (_isCustomerUnregistered || row.taxId == null)
                                                         ? 'Select Tax'
                                                         : (row.taxId == 'non_taxable'
-                                                              ? 'Non-Taxable'
-                                                              : (row.taxId == 'out_of_scope'
-                                                                  ? 'Out of Scope'
-                                                                  : (row.taxId == 'non_gst'
-                                                                      ? 'Non-GST Supply'
-                                                                      : () {
-                                                                          final t = taxRates
-                                                                              .where((x) => x.id == row.taxId)
-                                                                              .firstOrNull;
-                                                                          return t != null
-                                                                              ? '${t.taxName} [${t.taxRate}%]'
-                                                                              : 'Select Tax';
-                                                                        }()))),
+                                                            ? 'Non-Taxable'
+                                                            : (row.taxId == 'out_of_scope'
+                                                                ? 'Out of Scope'
+                                                                : (row.taxId == 'non_gst'
+                                                                    ? 'Non-GST Supply'
+                                                                    : () {
+                                                                        final t = taxRates
+                                                                            .where((x) => x.id == row.taxId)
+                                                                            .firstOrNull;
+                                                                        return t != null
+                                                                            ? '${t.taxName} [${t.taxRate}%]'
+                                                                            : 'Select Tax';
+                                                                      }()))),
                                                     style: TextStyle(
                                                       fontSize: 13,
                                                       color: (_isCustomerUnregistered || row.taxId == null)
@@ -3976,7 +3989,7 @@ class _SalesOrderCreateScreenState
                           ),
                       ],
                     )
-                  : const SizedBox(),
+                  : const SizedBox.shrink(),
             ),
           ],
         ),
@@ -4842,21 +4855,20 @@ class _SalesOrderCreateScreenState
           );
         }
 
-        return IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 3, child: termsSection),
-              const SizedBox(width: 24),
-              Container(
-                width: 1,
-                color: const Color(0xFFDBEAFE),
-                margin: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              const SizedBox(width: 24),
-              Expanded(flex: 2, child: uploadSection),
-            ],
-          ),
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: termsSection),
+            const SizedBox(width: 24),
+            Container(
+              width: 1,
+              height: 140,
+              color: const Color(0xFFDBEAFE),
+              margin: const EdgeInsets.symmetric(vertical: 8),
+            ),
+            const SizedBox(width: 24),
+            Expanded(flex: 2, child: uploadSection),
+          ],
         );
       },
     );
@@ -5132,12 +5144,10 @@ class _SalesOrderCreateScreenState
                             ),
                           ),
                         ),
-                        const VerticalDivider(
+                        Container(
                           width: 1,
-                          color: Color(0xFFE5E7EB),
-                          thickness: 1,
-                          indent: 6,
-                          endIndent: 6,
+                          height: 24,
+                          color: const Color(0xFFE5E7EB),
                         ),
                         InkWell(
                           onTap: _toggleUploadOverlay,
@@ -6271,7 +6281,11 @@ class _SalesOrderCreateScreenState
       documentType: 'order',
       items: items,
       subTotal: subTotal,
-      taxTotal: taxTotal,
+      taxTotal: (effectiveGstTreatment == 'unregistered_business' ||
+              effectiveGstTreatment == 'Unregistered Business' ||
+              effectiveGstTreatment?.toLowerCase().contains('unregistered') == true)
+          ? 0.0
+          : taxTotal,
       discountTotal: 0,
       shippingCharges: double.tryParse(shippingCtrl.text) ?? 0,
       adjustment: double.tryParse(adjustmentCtrl.text) ?? 0,
@@ -9100,8 +9114,10 @@ class _TH extends StatelessWidget {
   }
 }
 
-Widget _vLine() =>
-    const VerticalDivider(width: 1, color: _kBorder, thickness: 1);
+Widget _vLine() => const SizedBox(
+      width: 1,
+      child: ColoredBox(color: _kBorder),
+    );
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Address Dialog — top-aligned popup matching the screenshot

@@ -57,6 +57,7 @@ class _ProcurementApprovalsReportPageState
   _RequestType _requestType = _RequestType.all;
   List<_Approval> _allRows = [];
   bool _isLoading = true;
+  final Set<int> _selected = {};
 
   @override
   void initState() {
@@ -69,29 +70,23 @@ class _ProcurementApprovalsReportPageState
     try {
       final res = await Supabase.instance.client
           .from('purchase_request_approval')
-          .select(
-            'status, created_at, '
-            'purchase_requests!inner('
-            'request_number, '
-            'users!assignee_id(full_name), '
-            'purchase_request_items(estimated_amount)'
-            ')',
-          )
+          .select('status, created_at, '
+              'purchase_requests!inner('
+              'request_number, '
+              'users!assignee_id(full_name), '
+              'purchase_request_items(estimated_amount)'
+              ')')
           .order('created_at', ascending: false);
 
       final rows = (res as List<dynamic>).map((row) {
         final m = row as Map<String, dynamic>;
         final pr = m['purchase_requests'] as Map<String, dynamic>;
         final assigneeName =
-            (pr['users'] as Map<String, dynamic>?)?['full_name'] as String? ??
-            '—';
+            (pr['users'] as Map<String, dynamic>?)?['full_name'] as String? ?? '—';
         final items = (pr['purchase_request_items'] as List<dynamic>?) ?? [];
         final total = items.fold<double>(
           0,
-          (s, i) =>
-              s +
-              ((i as Map<String, dynamic>)['estimated_amount'] as num? ?? 0)
-                  .toDouble(),
+          (s, i) => s + ((i as Map<String, dynamic>)['estimated_amount'] as num? ?? 0).toDouble(),
         );
         final statusStr = m['status'] as String? ?? 'PENDING';
         final approvalStatus = switch (statusStr) {
@@ -99,9 +94,7 @@ class _ProcurementApprovalsReportPageState
           'REJECTED' => _ApprovalStatus.rejected,
           _ => _ApprovalStatus.pending,
         };
-        final createdAt =
-            DateTime.tryParse(m['created_at'] as String? ?? '') ??
-            DateTime.now();
+        final createdAt = DateTime.tryParse(m['created_at'] as String? ?? '') ?? DateTime.now();
         final submittedOn =
             '${createdAt.day.toString().padLeft(2, '0')}-'
             '${createdAt.month.toString().padLeft(2, '0')}-'
@@ -122,11 +115,7 @@ class _ProcurementApprovalsReportPageState
         _isLoading = false;
       });
     } catch (e) {
-      AppLogger.error(
-        'Failed to load approvals',
-        error: e,
-        module: 'ApprovalsReport',
-      );
+      AppLogger.error('Failed to load approvals', error: e, module: 'ApprovalsReport');
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -154,7 +143,10 @@ class _ProcurementApprovalsReportPageState
       titlePadding: const EdgeInsets.only(left: 16),
       titleWidget: _ScopeTitleButton(
         statusFilter: _statusFilter,
-        onChanged: (f) => setState(() => _statusFilter = f),
+        onChanged: (f) => setState(() {
+          _statusFilter = f;
+          _selected.clear();
+        }),
       ),
       child: _isLoading
           ? const TableSkeleton(rows: 10, columns: 6)
@@ -163,14 +155,32 @@ class _ProcurementApprovalsReportPageState
               children: [
                 _RequestTypeFilter(
                   selected: _requestType,
-                  onChanged: (t) => setState(() => _requestType = t),
+                  onChanged: (t) => setState(() {
+                    _requestType = t;
+                    _selected.clear();
+                  }),
                 ),
-                const Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: AppTheme.borderColor,
+                const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
+                _ApprovalsTable(
+                  rows: _filtered,
+                  selected: _selected,
+                  onToggle: (i) => setState(() {
+                    if (_selected.contains(i)) {
+                      _selected.remove(i);
+                    } else {
+                      _selected.add(i);
+                    }
+                  }),
+                  onToggleAll: () => setState(() {
+                    if (_selected.length == _filtered.length) {
+                      _selected.clear();
+                    } else {
+                      _selected
+                        ..clear()
+                        ..addAll(List.generate(_filtered.length, (i) => i));
+                    }
+                  }),
                 ),
-                _ApprovalsTable(rows: _filtered),
               ],
             ),
     );
@@ -182,10 +192,8 @@ class _ProcurementApprovalsReportPageState
 // ---------------------------------------------------------------------------
 
 class _ScopeTitleButton extends StatefulWidget {
-  const _ScopeTitleButton({
-    required this.statusFilter,
-    required this.onChanged,
-  });
+  const _ScopeTitleButton(
+      {required this.statusFilter, required this.onChanged});
 
   final _ApprovalStatusFilter statusFilter;
   final ValueChanged<_ApprovalStatusFilter> onChanged;
@@ -379,20 +387,22 @@ class _ScopeOptionState extends State<_ScopeOption> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
           width: double.infinity,
-          color: (!widget.isSelected && _hovered)
-              ? AppTheme.infoBlue
-              : Colors.transparent,
+          decoration: BoxDecoration(
+            color: (!widget.isSelected && _hovered)
+                ? AppTheme.infoBlue
+                : Colors.transparent,
+            borderRadius: AppTheme.hoverRadius,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: widget.isSelected
               ? Container(
                   decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.primaryBlue, width: 1.5),
+                    border: Border.all(
+                        color: AppTheme.primaryBlue, width: 1.5),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
+                      horizontal: 14, vertical: 6),
                   child: Text(
                     widget.label,
                     style: const TextStyle(
@@ -407,7 +417,8 @@ class _ScopeOptionState extends State<_ScopeOption> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w400,
-                    color: _hovered ? Colors.white : AppTheme.textPrimary,
+                    color:
+                        _hovered ? Colors.white : AppTheme.textPrimary,
                   ),
                 ),
         ),
@@ -443,11 +454,11 @@ class _RequestTypeFilterState extends State<_RequestTypeFilter> {
   }
 
   String _label(_RequestType t) => switch (t) {
-    _RequestType.all => 'Select Request Type',
-    _RequestType.purchaseRequest => 'Purchase Request',
-    _RequestType.purchaseOrder => 'Purchase Order',
-    _RequestType.bill => 'Bill',
-  };
+        _RequestType.all => 'Select Request Type',
+        _RequestType.purchaseRequest => 'Purchase Request',
+        _RequestType.purchaseOrder => 'Purchase Order',
+        _RequestType.bill => 'Bill',
+      };
 
   void _toggle(BuildContext context) {
     if (_overlay != null) {
@@ -512,7 +523,8 @@ class _RequestTypeFilterState extends State<_RequestTypeFilter> {
           onTap: () => _toggle(context),
           child: Container(
             color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -575,7 +587,8 @@ class _RequestTypeDropdownState extends State<_RequestTypeDropdown> {
   @override
   Widget build(BuildContext context) {
     final filtered = _options
-        .where((o) => o.$2.toLowerCase().contains(_search.toLowerCase()))
+        .where(
+            (o) => o.$2.toLowerCase().contains(_search.toLowerCase()))
         .toList();
 
     return Material(
@@ -603,55 +616,37 @@ class _RequestTypeDropdownState extends State<_RequestTypeDropdown> {
                 controller: _searchController,
                 autofocus: true,
                 onChanged: (v) => setState(() => _search = v),
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textPrimary,
-                ),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Search',
                   hintStyle: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                  ),
+                      fontSize: 13, color: AppTheme.textSecondary),
                   prefixIcon: const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10),
-                    child: Icon(
-                      LucideIcons.search,
-                      size: 14,
-                      color: AppTheme.textSecondary,
-                    ),
+                    child: Icon(LucideIcons.search,
+                        size: 14, color: AppTheme.textSecondary),
                   ),
-                  prefixIconConstraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
+                  prefixIconConstraints:
+                      const BoxConstraints(minWidth: 36, minHeight: 36),
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 9,
-                  ),
+                      horizontal: 12, vertical: 9),
                   isDense: true,
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                     borderSide: const BorderSide(
-                      color: AppTheme.primaryBlue,
-                      width: 1.5,
-                    ),
+                        color: AppTheme.primaryBlue, width: 1.5),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                     borderSide: const BorderSide(
-                      color: AppTheme.primaryBlue,
-                      width: 1.5,
-                    ),
+                        color: AppTheme.primaryBlue, width: 1.5),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                     borderSide: const BorderSide(
-                      color: AppTheme.primaryBlue,
-                      width: 2,
-                    ),
+                        color: AppTheme.primaryBlue, width: 2),
                   ),
                 ),
               ),
@@ -670,15 +665,16 @@ class _RequestTypeDropdownState extends State<_RequestTypeDropdown> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 80),
                     width: double.infinity,
-                    color: isSelected
-                        ? AppTheme.primaryBlue
-                        : isHovered
-                        ? AppTheme.infoBlue
-                        : Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.primaryBlue
+                          : isHovered
+                              ? AppTheme.infoBlue
+                              : Colors.white,
+                      borderRadius: AppTheme.hoverRadius,
                     ),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     child: Text(
                       label,
                       style: TextStyle(
@@ -708,9 +704,17 @@ class _RequestTypeDropdownState extends State<_RequestTypeDropdown> {
 // ---------------------------------------------------------------------------
 
 class _ApprovalsTable extends StatelessWidget {
-  const _ApprovalsTable({required this.rows});
+  const _ApprovalsTable({
+    required this.rows,
+    required this.selected,
+    required this.onToggle,
+    required this.onToggleAll,
+  });
 
   final List<_Approval> rows;
+  final Set<int> selected;
+  final ValueChanged<int> onToggle;
+  final VoidCallback onToggleAll;
 
   static const _headerStyle = TextStyle(
     fontSize: 11,
@@ -721,24 +725,44 @@ class _ApprovalsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final allSelected = rows.isNotEmpty && selected.length == rows.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
           color: AppTheme.bgLight,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: const Row(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
             children: [
-              Expanded(
+              SizedBox(
+                width: 32,
+                child: Checkbox(
+                  value: allSelected,
+                  onChanged: (_) => onToggleAll(),
+                  activeColor: AppTheme.primaryBlue,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
                 flex: 4,
                 child: Text('SUBMITTED BY', style: _headerStyle),
               ),
-              Expanded(
+              const Expanded(
                 flex: 3,
                 child: Text('ENTITY TYPE', style: _headerStyle),
               ),
-              Expanded(flex: 3, child: Text('DETAILS', style: _headerStyle)),
-              Expanded(flex: 2, child: Text('STATUS', style: _headerStyle)),
+              const Expanded(
+                flex: 3,
+                child: Text('DETAILS', style: _headerStyle),
+              ),
+              const Expanded(
+                flex: 2,
+                child: Text('STATUS', style: _headerStyle),
+              ),
             ],
           ),
         ),
@@ -746,7 +770,11 @@ class _ApprovalsTable extends StatelessWidget {
         ...List.generate(rows.length, (i) {
           return Column(
             children: [
-              _ApprovalRow(approval: rows[i]),
+              _ApprovalRow(
+                approval: rows[i],
+                isSelected: selected.contains(i),
+                onToggle: () => onToggle(i),
+              ),
               if (i < rows.length - 1)
                 const Divider(height: 1, color: AppTheme.borderColor),
             ],
@@ -760,9 +788,15 @@ class _ApprovalsTable extends StatelessWidget {
 // ── Table row ─────────────────────────────────────────────────────────────────
 
 class _ApprovalRow extends StatefulWidget {
-  const _ApprovalRow({required this.approval});
+  const _ApprovalRow({
+    required this.approval,
+    required this.isSelected,
+    required this.onToggle,
+  });
 
   final _Approval approval;
+  final bool isSelected;
+  final VoidCallback onToggle;
 
   @override
   State<_ApprovalRow> createState() => _ApprovalRowState();
@@ -772,23 +806,23 @@ class _ApprovalRowState extends State<_ApprovalRow> {
   bool _hovered = false;
 
   String _entityLabel(_RequestType t) => switch (t) {
-    _RequestType.all => '',
-    _RequestType.purchaseRequest => 'Purchase Request',
-    _RequestType.purchaseOrder => 'Purchase Order',
-    _RequestType.bill => 'Bill',
-  };
+        _RequestType.all => '',
+        _RequestType.purchaseRequest => 'Purchase Request',
+        _RequestType.purchaseOrder => 'Purchase Order',
+        _RequestType.bill => 'Bill',
+      };
 
   String _statusLabel(_ApprovalStatus s) => switch (s) {
-    _ApprovalStatus.approved => 'APPROVED',
-    _ApprovalStatus.pending => 'PENDING',
-    _ApprovalStatus.rejected => 'REJECTED',
-  };
+        _ApprovalStatus.approved => 'APPROVED',
+        _ApprovalStatus.pending => 'PENDING',
+        _ApprovalStatus.rejected => 'REJECTED',
+      };
 
   Color _statusColor(_ApprovalStatus s) => switch (s) {
-    _ApprovalStatus.approved => AppTheme.successTextDark,
-    _ApprovalStatus.pending => AppTheme.warningTextDark,
-    _ApprovalStatus.rejected => AppTheme.errorTextDark,
-  };
+        _ApprovalStatus.approved => AppTheme.successTextDark,
+        _ApprovalStatus.pending => AppTheme.warningTextDark,
+        _ApprovalStatus.rejected => AppTheme.errorTextDark,
+      };
 
   String _formatAmount(double amount) {
     if (amount >= 1000) {
@@ -826,73 +860,89 @@ class _ApprovalRowState extends State<_ApprovalRow> {
           queryParameters: {'ref': a.referenceNumber},
         ),
         child: Container(
-          color: _hovered ? AppTheme.bgDisabled : Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 4,
-                child: _SubmitterCell(
-                  name: a.submitter,
-                  submittedOn: a.submittedOn,
+        color: widget.isSelected
+            ? AppTheme.primaryBlue.withValues(alpha: 0.04)
+            : _hovered
+                ? AppTheme.bgDisabled
+                : Colors.white,
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 32,
+              child: Checkbox(
+                value: widget.isSelected,
+                onChanged: (_) => widget.onToggle(),
+                activeColor: AppTheme.primaryBlue,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 4,
+              child: _SubmitterCell(
+                name: a.submitter,
+                submittedOn: a.submittedOn,
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  _entityLabel(a.requestType),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textBody,
+                  ),
                 ),
               ),
-              Expanded(
-                flex: 3,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    _entityLabel(a.requestType),
+            ),
+            Expanded(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    a.referenceNumber,
                     style: const TextStyle(
                       fontSize: 13,
-                      color: AppTheme.textBody,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.primaryBlue,
                     ),
                   ),
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      a.referenceNumber,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.primaryBlue,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Amount: ₹${_formatAmount(a.amount)}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    _statusLabel(a.status),
-                    style: TextStyle(
+                  const SizedBox(height: 3),
+                  Text(
+                    'Amount: ₹${_formatAmount(a.amount)}',
+                    style: const TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _statusColor(a.status),
-                      letterSpacing: 0.4,
+                      color: AppTheme.textSecondary,
                     ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  _statusLabel(a.status),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _statusColor(a.status),
+                    letterSpacing: 0.4,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
         ),
       ),
     );
@@ -907,53 +957,27 @@ class _SubmitterCell extends StatelessWidget {
   final String name;
   final String submittedOn;
 
-  String get _initial =>
-      name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase();
-
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                color: Color(0xFFEDE9FE),
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                _initial,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF6D28D9),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textBody,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+        Text(
+          name,
+          style: const TextStyle(
+            fontSize: 13,
+            color: AppTheme.textBody,
+            fontWeight: FontWeight.w500,
+          ),
+          overflow: TextOverflow.ellipsis,
         ),
-        Padding(
-          padding: const EdgeInsets.only(left: 42, top: 3),
-          child: Text(
-            'Submitted on: $submittedOn',
-            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+        const SizedBox(height: 3),
+        Text(
+          'Submitted on: $submittedOn',
+          style: const TextStyle(
+            fontSize: 11,
+            color: AppTheme.textMuted,
           ),
         ),
       ],

@@ -58,7 +58,7 @@ export class AccountantService {
     });
 
     const { data: txs, error: balError } = await supabase
-      .from("account_transactions")
+      .from("journal_entry_lines")
       .select("account_id, debit, credit")
       .eq("entity_id", tenant.entityId);
 
@@ -98,7 +98,7 @@ export class AccountantService {
     if (!data) throw new NotFoundException("Account not found");
 
     const { count, error: countError } = await supabase
-      .from("account_transactions")
+      .from("journal_entry_lines")
       .select("*", { count: "exact", head: true })
       .eq("account_id", id)
       .eq("entity_id", tenant.entityId);
@@ -267,7 +267,7 @@ export class AccountantService {
   ) {
     const supabase = this.supabaseService.getClient();
     await supabase
-      .from("account_transactions")
+      .from("journal_entry_lines")
       .delete()
       .eq("account_id", account.id)
       .eq("transaction_type", "Opening Balance")
@@ -295,7 +295,7 @@ export class AccountantService {
         description: `Offset for ${account.id}`,
       },
     ];
-    await supabase.from("account_transactions").insert(transactions);
+    await supabase.from("journal_entry_lines").insert(transactions);
   }
 
   private async ensureOpeningBalanceAdjustmentAccount(tenant: TenantContext) {
@@ -331,7 +331,7 @@ export class AccountantService {
       .limit(1);
     if (children?.length) return { inUse: true, reason: "Has sub-accounts" };
     const { data: txs } = await supabase
-      .from("account_transactions")
+      .from("journal_entry_lines")
       .select("id")
       .eq("account_id", id)
       .eq("entity_id", tenant.entityId)
@@ -877,7 +877,7 @@ export class AccountantService {
   async getTransactions(id: string, limit: number, tenant: TenantContext) {
     const { data } = await this.supabaseService
       .getClient()
-      .from("account_transactions")
+      .from("journal_entry_lines")
       .select("*")
       .eq("account_id", id)
       .eq("entity_id", tenant.entityId)
@@ -896,7 +896,7 @@ export class AccountantService {
   ) {
     await this.supabaseService
       .getClient()
-      .from("account_transactions")
+      .from("journal_entry_lines")
       .update({ account_id: target })
       .in("id", ids)
       .eq("entity_id", tenant.entityId);

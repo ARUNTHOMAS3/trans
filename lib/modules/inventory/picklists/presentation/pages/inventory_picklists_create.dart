@@ -11,6 +11,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/tables/zerpai_pagination_widget.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
@@ -57,7 +58,7 @@ class _InventoryPicklistsCreateScreenState
   final _notesCtrl = TextEditingController();
   final _itemNameSearchCtrl = TextEditingController();
   final _salesOrderSearchCtrl = TextEditingController();
-  final Map<String, String> _resolvedPreferredBins = {};
+  final Map<String, List<String>> _resolvedPreferredBins = {};
   final Set<String> _loadingPreferredBins = {};
   String _itemNameSearchQuery = '';
   String _salesOrderSearchQuery = '';
@@ -331,14 +332,13 @@ class _InventoryPicklistsCreateScreenState
     final warehouseId = _selectedWarehouse?.id;
     if (warehouseId == null) {
       setState(() {
-        _resolvedPreferredBins[rowKey] = '--';
+        _resolvedPreferredBins[rowKey] = ['--'];
         _loadingPreferredBins.remove(rowKey);
       });
       return;
     }
 
     final productId = item.productId;
-    final orderedQty = item.quantityOrdered ?? 1.0;
 
     try {
       final supabase = Supabase.instance.client;
@@ -355,7 +355,7 @@ class _InventoryPicklistsCreateScreenState
       if (batches.isEmpty) {
         if (mounted) {
           setState(() {
-            _resolvedPreferredBins[rowKey] = '--';
+            _resolvedPreferredBins[rowKey] = ['--'];
             _loadingPreferredBins.remove(rowKey);
           });
         }
@@ -378,43 +378,63 @@ class _InventoryPicklistsCreateScreenState
         }
       }
 
-      String? foundPreferredBinString;
+      final targetQty = item.quantityToPick != null && item.quantityToPick! > 0
+          ? item.quantityToPick!
+          : (item.quantityOrdered != null && item.quantityOrdered! > 0
+              ? item.quantityOrdered!
+              : 1.0);
+
+      final binList = <String>[];
+      final seenBins = <String>{};
+      double accumulatedQty = 0.0;
 
       for (final batch in batches) {
+        if (accumulatedQty >= targetQty) break;
+
         final batchId = batch['id']?.toString();
         if (batchId == null) continue;
 
         final batchLayers = layersByBatch[batchId] ?? [];
-        final qualifyingBins = <String>[];
+        batchLayers.sort((a, b) {
+          final qtyA = ((a['qty'] as num?)?.toDouble() ?? 0) -
+              ((a['reserved_qty'] as num?)?.toDouble() ?? 0);
+          final qtyB = ((b['qty'] as num?)?.toDouble() ?? 0) -
+              ((b['reserved_qty'] as num?)?.toDouble() ?? 0);
+          return qtyB.compareTo(qtyA);
+        });
 
         for (final layer in batchLayers) {
+          if (accumulatedQty >= targetQty) break;
+
           final qty = (layer['qty'] as num?)?.toDouble() ?? 0.0;
-          final reservedQty = (layer['reserved_qty'] as num?)?.toDouble() ?? 0.0;
+          final reservedQty =
+              (layer['reserved_qty'] as num?)?.toDouble() ?? 0.0;
           final available = qty - reservedQty;
 
-          if (available >= orderedQty) {
+          if (available > 0) {
             final binData = layer['bin_master'] as Map<String, dynamic>?;
             final binCode = binData?['bin_code']?.toString() ?? 'Unknown';
-            qualifyingBins.add('$binCode - ${available.toInt()}');
+            final entryKey = '$binCode-${available.toInt()}';
+            if (!seenBins.contains(entryKey)) {
+              seenBins.add(entryKey);
+              binList.add('$binCode - ${available.toInt()}');
+              accumulatedQty += available;
+            }
           }
-        }
-
-        if (qualifyingBins.isNotEmpty) {
-          foundPreferredBinString = qualifyingBins.join(', ');
-          break;
         }
       }
 
       if (mounted) {
         setState(() {
-          _resolvedPreferredBins[rowKey] = foundPreferredBinString ?? '--';
+          _resolvedPreferredBins[rowKey] =
+              binList.isNotEmpty ? binList : ['--'];
           _loadingPreferredBins.remove(rowKey);
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _resolvedPreferredBins[rowKey] = '--';
+          _resolvedPreferredBins[rowKey] = ['--'];
           _loadingPreferredBins.remove(rowKey);
         });
       }
@@ -436,17 +456,6 @@ class _InventoryPicklistsCreateScreenState
   }
 
   double _getPickedQtyOutOnly(WarehouseStockData item) {
-    final rowKey = _buildRowKey(item);
-    if (_savedBatchKeys.contains(rowKey)) {
-      final batches = _savedBatchData[rowKey];
-      if (batches != null && batches.isNotEmpty) {
-        double totalQty = 0;
-        for (final b in batches) {
-          totalQty += double.tryParse(b['qtyOut']?.toString() ?? '0') ?? 0;
-        }
-        return totalQty;
-      }
-    }
     return _currentPickedQty(item);
   }
 
@@ -460,14 +469,11 @@ class _InventoryPicklistsCreateScreenState
     if (_savedBatchKeys.contains(rowKey)) {
       final savedData = _savedBatchData[rowKey] ?? [];
       double totalQty = 0;
-      double totalFoc = 0;
       for (final b in savedData) {
         totalQty += double.tryParse(b['qtyOut']?.toString() ?? '0') ?? 0;
-        totalFoc += double.tryParse(b['foc']?.toString() ?? '0') ?? 0;
       }
-      final sumPcsFoc = totalQty + totalFoc;
       final currentPicked = _currentPickedQty(item);
-      if ((currentPicked - sumPcsFoc).abs() > 0.0001) {
+      if ((currentPicked - totalQty).abs() > 0.0001) {
         return true;
       }
     }
@@ -499,13 +505,10 @@ class _InventoryPicklistsCreateScreenState
     final rowKey = _buildRowKey(item);
     final savedData = _savedBatchData[rowKey] ?? [];
     double totalQty = 0;
-    double totalFoc = 0;
     for (final b in savedData) {
       totalQty += double.tryParse(b['qtyOut']?.toString() ?? '0') ?? 0;
-      totalFoc += double.tryParse(b['foc']?.toString() ?? '0') ?? 0;
     }
-    final sum = totalQty + totalFoc;
-    return '${sum.toInt()} pcs taken from\n${_savedBatchCounts[rowKey] ?? 1} ${(_savedBatchCounts[rowKey] ?? 1) == 1 ? "batch" : "batches"}.';
+    return '${totalQty.toInt()} pcs taken from\n${_savedBatchCounts[rowKey] ?? 1} ${(_savedBatchCounts[rowKey] ?? 1) == 1 ? "batch" : "batches"}.';
   }
 
   Future<void> _showSelectBatchesDialog(WarehouseStockData item) async {
@@ -518,7 +521,7 @@ class _InventoryPicklistsCreateScreenState
         warehouseName: _selectedWarehouse?.name ?? '',
         warehouseId: _selectedWarehouse?.id ?? '',
         branchId: _selectedWarehouse?.branchId,
-        totalQuantity: _getPickedQtyOutOnly(item),
+        totalQuantity: _currentPickedQty(item),
         savedBatchData: _savedBatchData[_buildRowKey(item)],
       ),
     );
@@ -531,7 +534,7 @@ class _InventoryPicklistsCreateScreenState
       final idx = _selectedItems.indexWhere((e) => _buildRowKey(e) == rowKey);
       if (idx != -1) {
         _selectedItems[idx] = _selectedItems[idx].copyWith(
-          quantityPicked: result.totalIncludingFoc,
+          quantityPicked: result.appliedQuantity,
         );
       }
       if (result.overwriteLineItem) {
@@ -785,6 +788,20 @@ class _InventoryPicklistsCreateScreenState
   }
 
   Future<void> _savePicklist() async {
+    for (final item in _selectedItems) {
+      final qtyToPick = _currentQtyToPick(item);
+      if (qtyToPick <= 0) {
+        if (mounted) {
+          setState(() => _isSaving = false);
+        }
+        ZerpaiToast.error(
+          context,
+          'The quantity to be picked for the item ${item.productName} should be greater than zero.',
+        );
+        return;
+      }
+    }
+
     setState(() => _isSaving = true);
     try {
       final payload = await _buildPicklistPayload();
@@ -1784,7 +1801,7 @@ class _InventoryPicklistsCreateScreenState
                                 style: const TextStyle(fontSize: 13),
                               ),
                               Text(
-                                'Unit: ${item.unitTitle ?? "pcs"}',
+                                'Unit: ${(item.unitTitle != null && item.unitTitle!.trim().isNotEmpty) ? item.unitTitle!.trim() : "pcs"}',
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: _textSecondary,
@@ -1825,10 +1842,9 @@ class _InventoryPicklistsCreateScreenState
                                       fontSize: 13, color: _textSecondary),
                                 );
                               }
-                              return Text(
+                              return _buildPreferredBinCell(
                                 resolved,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
+                                textStyle: const TextStyle(
                                     fontSize: 13, color: _textPrimary),
                               );
                             })(),
@@ -2314,10 +2330,9 @@ class _InventoryPicklistsCreateScreenState
                                                         ),
                                                       );
                                                     }
-                                                    return Text(
+                                                    return _buildPreferredBinCell(
                                                       resolved,
-                                                      textAlign: TextAlign.center,
-                                                      style: const TextStyle(
+                                                      textStyle: const TextStyle(
                                                         fontSize: 13,
                                                         color: _textPrimary,
                                                       ),
@@ -2794,7 +2809,7 @@ class _InventoryPicklistsCreateScreenState
                                                       ),
                                                     ),
                                                     Text(
-                                                      'Unit: ${item.unitTitle ?? "pcs"}',
+                                                      'Unit: ${(item.unitTitle != null && item.unitTitle!.trim().isNotEmpty) ? item.unitTitle!.trim() : "pcs"}',
                                                       style: const TextStyle(
                                                         fontSize: 11,
                                                         color: _textSecondary,
@@ -2848,10 +2863,9 @@ class _InventoryPicklistsCreateScreenState
                                                         ),
                                                       );
                                                     }
-                                                    return Text(
+                                                    return _buildPreferredBinCell(
                                                       resolved,
-                                                      textAlign: TextAlign.center,
-                                                      style: const TextStyle(
+                                                      textStyle: const TextStyle(
                                                         fontSize: 13,
                                                         color: _textPrimary,
                                                       ),
@@ -3158,7 +3172,6 @@ class _InventoryPicklistsCreateScreenState
                     _validatePickList();
                     if (_validationErrors.isNotEmpty) return;
 
-                    setState(() => _isSaving = true);
                     await _savePicklist();
                   },
             style: ElevatedButton.styleFrom(
@@ -3202,7 +3215,18 @@ class _InventoryPicklistsCreateScreenState
           ),
           const SizedBox(width: 16),
           OutlinedButton(
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                final orgId =
+                    GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+                context.goNamed(
+                  AppRoutes.picklists,
+                  pathParameters: {'orgSystemId': orgId},
+                );
+              }
+            },
             style: OutlinedButton.styleFrom(
               foregroundColor: _textSecondary,
               side: const BorderSide(color: _borderCol),
@@ -3377,7 +3401,7 @@ class _AddItemsDialogContent extends ConsumerStatefulWidget {
 class _AddItemsDialogContentState
     extends ConsumerState<_AddItemsDialogContent> {
   final Set<String> selectedRowKeys = {};
-  final Map<String, String> _resolvedPreferredBins = {};
+  final Map<String, List<String>> _resolvedPreferredBins = {};
   final Set<String> _loadingPreferredBins = {};
   bool _isCustomerFilterHovered = false;
   bool _isItemsFilterHovered = false;
@@ -3393,7 +3417,6 @@ class _AddItemsDialogContentState
 
     final warehouseId = widget.warehouseId;
     final productId = item.productId;
-    final orderedQty = item.quantityOrdered ?? 1.0;
 
     try {
       final supabase = Supabase.instance.client;
@@ -3410,7 +3433,7 @@ class _AddItemsDialogContentState
       if (batches.isEmpty) {
         if (mounted) {
           setState(() {
-            _resolvedPreferredBins[rowKey] = '--';
+            _resolvedPreferredBins[rowKey] = ['--'];
             _loadingPreferredBins.remove(rowKey);
           });
         }
@@ -3433,43 +3456,63 @@ class _AddItemsDialogContentState
         }
       }
 
-      String? foundPreferredBinString;
+      final targetQty = item.quantityToPick != null && item.quantityToPick! > 0
+          ? item.quantityToPick!
+          : (item.quantityOrdered != null && item.quantityOrdered! > 0
+              ? item.quantityOrdered!
+              : 1.0);
+
+      final binList = <String>[];
+      final seenBins = <String>{};
+      double accumulatedQty = 0.0;
 
       for (final batch in batches) {
+        if (accumulatedQty >= targetQty) break;
+
         final batchId = batch['id']?.toString();
         if (batchId == null) continue;
 
         final batchLayers = layersByBatch[batchId] ?? [];
-        final qualifyingBins = <String>[];
+        batchLayers.sort((a, b) {
+          final qtyA = ((a['qty'] as num?)?.toDouble() ?? 0) -
+              ((a['reserved_qty'] as num?)?.toDouble() ?? 0);
+          final qtyB = ((b['qty'] as num?)?.toDouble() ?? 0) -
+              ((b['reserved_qty'] as num?)?.toDouble() ?? 0);
+          return qtyB.compareTo(qtyA);
+        });
 
         for (final layer in batchLayers) {
+          if (accumulatedQty >= targetQty) break;
+
           final qty = (layer['qty'] as num?)?.toDouble() ?? 0.0;
-          final reservedQty = (layer['reserved_qty'] as num?)?.toDouble() ?? 0.0;
+          final reservedQty =
+              (layer['reserved_qty'] as num?)?.toDouble() ?? 0.0;
           final available = qty - reservedQty;
 
-          if (available >= orderedQty) {
+          if (available > 0) {
             final binData = layer['bin_master'] as Map<String, dynamic>?;
             final binCode = binData?['bin_code']?.toString() ?? 'Unknown';
-            qualifyingBins.add('$binCode - ${available.toInt()}');
+            final entryKey = '$binCode-${available.toInt()}';
+            if (!seenBins.contains(entryKey)) {
+              seenBins.add(entryKey);
+              binList.add('$binCode - ${available.toInt()}');
+              accumulatedQty += available;
+            }
           }
-        }
-
-        if (qualifyingBins.isNotEmpty) {
-          foundPreferredBinString = qualifyingBins.join(', ');
-          break;
         }
       }
 
       if (mounted) {
         setState(() {
-          _resolvedPreferredBins[rowKey] = foundPreferredBinString ?? '--';
+          _resolvedPreferredBins[rowKey] =
+              binList.isNotEmpty ? binList : ['--'];
           _loadingPreferredBins.remove(rowKey);
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _resolvedPreferredBins[rowKey] = '--';
+          _resolvedPreferredBins[rowKey] = ['--'];
           _loadingPreferredBins.remove(rowKey);
         });
       }
@@ -4551,9 +4594,9 @@ class _AddItemsDialogContentState
                             ),
                           );
                         }
-                        return Text(
+                        return _buildPreferredBinCell(
                           resolved,
-                          style: const TextStyle(
+                          textStyle: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF6B7280),
                           ),
@@ -4747,9 +4790,9 @@ class _AddItemsDialogContentState
             mainAxisSize: MainAxisSize.min,
             children: [
               // Page size dropdown
-              _PaginationSizeDropdown(
+              PaginationSizeDropdown(
                 value: _pageSize,
-                options: const [30, 50, 100, 200, 500],
+                options: const [20, 30, 50, 75, 100],
                 onChanged: (size) {
                   _pageSize = size;
                   _currentPage = 1;
@@ -4758,7 +4801,7 @@ class _AddItemsDialogContentState
               ),
               const SizedBox(width: 16),
               // Prev button
-              _PaginationArrow(
+              PaginationArrow(
                 icon: LucideIcons.chevronLeft,
                 enabled: currentPage > 1,
                 onTap: () {
@@ -4778,7 +4821,7 @@ class _AddItemsDialogContentState
               ),
               const SizedBox(width: 8),
               // Next button
-              _PaginationArrow(
+              PaginationArrow(
                 icon: LucideIcons.chevronRight,
                 enabled: currentPage < totalPages,
                 onTap: () {
@@ -4794,217 +4837,6 @@ class _AddItemsDialogContentState
   }
 }
 
-class _PaginationSizeDropdown extends StatefulWidget {
-  final int value;
-  final List<int> options;
-  final ValueChanged<int> onChanged;
-
-  const _PaginationSizeDropdown({
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  @override
-  State<_PaginationSizeDropdown> createState() =>
-      _PaginationSizeDropdownState();
-}
-
-class _PaginationSizeDropdownState extends State<_PaginationSizeDropdown> {
-  OverlayEntry? _overlay;
-  final LayerLink _link = LayerLink();
-  int? _hoveredOption;
-
-  void _open() {
-    _close();
-    _hoveredOption = null;
-    _overlay = OverlayEntry(
-      builder: (_) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _close,
-              behavior: HitTestBehavior.translucent,
-            ),
-          ),
-          CompositedTransformFollower(
-            link: _link,
-            showWhenUnlinked: false,
-            offset: const Offset(0, -(_kRowH * 5 + 2)),
-            child: Material(
-              elevation: 4,
-              borderRadius: BorderRadius.circular(4),
-              color: Colors.white,
-              child: Container(
-                width: 120,
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: widget.options.map((opt) {
-                    final isSelected = opt == widget.value;
-                    final isHovered = _hoveredOption == opt;
-                    final bgColor = isHovered
-                        ? const Color(0xFF3B82F6)
-                        : (isSelected ? const Color(0xFFF3F4F6) : Colors.white);
-                    final fgColor = isHovered
-                        ? Colors.white
-                        : const Color(0xFF111827);
-
-                    return MouseRegion(
-                      onEnter: (_) {
-                        _hoveredOption = opt;
-                        _overlay?.markNeedsBuild();
-                      },
-                      onExit: (_) {
-                        if (_hoveredOption == opt) {
-                          _hoveredOption = null;
-                          _overlay?.markNeedsBuild();
-                        }
-                      },
-                      child: GestureDetector(
-                        onTap: () {
-                          widget.onChanged(opt);
-                          _close();
-                        },
-                        child: Container(
-                          height: _kRowH,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          decoration: BoxDecoration(
-                            color: bgColor,
-                            borderRadius: opt == widget.options.first
-                                ? const BorderRadius.vertical(
-                                    top: Radius.circular(4),
-                                  )
-                                : opt == widget.options.last
-                                ? const BorderRadius.vertical(
-                                    bottom: Radius.circular(4),
-                                  )
-                                : BorderRadius.zero,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '$opt per page',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: fgColor,
-                                  ),
-                                ),
-                              ),
-                              if (isSelected) ...[
-                                const SizedBox(width: 6),
-                                Icon(Icons.check, size: 14, color: fgColor),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    Overlay.maybeOf(context)?.insert(_overlay!);
-  }
-
-  void _close() {
-    _overlay?.remove();
-    _overlay = null;
-    _hoveredOption = null;
-  }
-
-  @override
-  void dispose() {
-    _close();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _link,
-      child: GestureDetector(
-        onTap: _open,
-        child: Container(
-          height: 32,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.settings_outlined,
-                size: 14,
-                color: const Color(0xFF6B7280),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '${widget.value} per page',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
-              ),
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.keyboard_arrow_down,
-                size: 16,
-                color: Color(0xFF6B7280),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-const double _kRowH = 36.0;
-
-class _PaginationArrow extends StatelessWidget {
-  final IconData icon;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  const _PaginationArrow({
-    required this.icon,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: enabled ? const Color(0xFFD1D5DB) : const Color(0xFFE5E7EB),
-          ),
-          borderRadius: BorderRadius.circular(4),
-          color: Colors.white,
-        ),
-        child: Icon(
-          icon,
-          size: 14,
-          color: enabled ? const Color(0xFF374151) : const Color(0xFFD1D5DB),
-        ),
-      ),
-    );
-  }
-}
 
 class _DashedBorderPainter extends CustomPainter {
   final Color color;
@@ -5141,6 +4973,7 @@ class _PicklistSelectBatchesDialogState
   final Set<int> _hoveredFocRows = <int>{};
   final Set<int> _hoveredBatchRows = <int>{};
   List<String> _binLocations = [];
+  Map<String, Set<String>> _batchIdsByBin = {};
   bool _overwriteLineItem = false;
   bool _showMfgDetails = false;
   bool _showFocColumn = false;
@@ -5211,15 +5044,37 @@ class _PicklistSelectBatchesDialogState
         warehouseId: widget.warehouseId,
         productId: widget.productId,
       );
-      
-      debugPrint('📦 Found ${bins.length} bins from repository for Picklist');
-      
+
+      final supabase = Supabase.instance.client;
+      final layersRes = await supabase
+          .from('batch_stock_layers')
+          .select('batch_id, qty, reserved_qty, bin_master(bin_code)')
+          .eq('product_id', widget.productId)
+          .eq('warehouse_id', widget.warehouseId);
+
+      final layers = List<Map<String, dynamic>>.from(layersRes);
+      final batchIdsByBinMap = <String, Set<String>>{};
+
+      for (final layer in layers) {
+        final binData = layer['bin_master'] as Map<String, dynamic>?;
+        final binCode = binData?['bin_code']?.toString() ?? '';
+        final batchId = layer['batch_id']?.toString() ?? '';
+        final qty = (layer['qty'] as num?)?.toDouble() ?? 0.0;
+        final reservedQty = (layer['reserved_qty'] as num?)?.toDouble() ?? 0.0;
+        final available = qty - reservedQty;
+
+        if (binCode.isNotEmpty && batchId.isNotEmpty && available > 0) {
+          batchIdsByBinMap.putIfAbsent(binCode, () => <String>{}).add(batchId);
+        }
+      }
+
       if (mounted) {
         setState(() {
           _binLocations = bins
               .map((b) => (b['binCode'] ?? b['bin_code'] ?? '').toString())
               .where((c) => c.isNotEmpty)
               .toList();
+          _batchIdsByBin = batchIdsByBinMap;
         });
         debugPrint('✅ Set _binLocations (Picklist): $_binLocations');
       }
@@ -5832,11 +5687,23 @@ class _PicklistSelectBatchesDialogState
                                               ),
                                             ),
                                         onChanged: (val) {
-                                          setState(() {
-                                            row.binLocationCtrl.text =
-                                                val ?? '';
-                                          });
-                                        },
+                                           setState(() {
+                                             final newBin = val ?? '';
+                                             if (row.binLocationCtrl.text != newBin) {
+                                               row.binLocationCtrl.text = newBin;
+                                               row.batchRefCtrl.clear();
+                                               row.batchNoCtrl.clear();
+                                               row.unitPackCtrl.clear();
+                                               row.mrpCtrl.clear();
+                                               row.ptrCtrl.clear();
+                                               row.expDateCtrl.clear();
+                                               row.expDate = null;
+                                               row.mfgDateCtrl.clear();
+                                               row.mfgDate = null;
+                                               row.mfgBatchCtrl.clear();
+                                             }
+                                           });
+                                         },
                                       ),
                                     ),
                                   ),
@@ -5858,70 +5725,115 @@ class _PicklistSelectBatchesDialogState
                                         );
                                         final batches =
                                             batchesAsync.value ?? [];
+                                        final selectedBin = row.binLocationCtrl.text.trim();
+                                        List<Map<String, dynamic>> filteredBatches;
 
-                                        return FormDropdown<
-                                          Map<String, dynamic>
-                                        >(
-                                          height: _batchDropdownHeight,
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                          border: Border.all(color: _borderCol),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 8,
-                                          ),
-                                          value:
-                                              batches
-                                                  .firstWhere(
-                                                    (b) =>
-                                                        b['batch_no']
-                                                            ?.toString()
-                                                            .trim() ==
-                                                        row.batchRefCtrl.text
-                                                            .trim(),
-                                                    orElse: () =>
-                                                        <String, dynamic>{},
-                                                  )
-                                                  .isEmpty
-                                              ? null
-                                              : batches.firstWhere(
-                                                  (b) =>
-                                                      b['batch_no']
-                                                          ?.toString()
-                                                          .trim() ==
-                                                      row.batchRefCtrl.text
-                                                          .trim(),
-                                                ),
-                                          items: batches,
-                                          hint: 'Select Batch',
-                                          showSearch: true,
-                                          menuMaxHeight: 400,
-                                          menuWidth: 138,
-                                           itemEstimatedHeight: 100,
-                                          itemBuilder:
-                                              (item, isSelected, isHovered) {
-                                                final batchNo =
-                                                    item['batch_no']
-                                                        ?.toString() ??
-                                                    '-';
-                                                final balance =
-                                                    item['balance']
-                                                        ?.toString() ??
-                                                    '0';
-                                                final expDate =
-                                                    item['expiry_date']
-                                                        ?.toString() ??
-                                                    '-';
-                                                final mrp =
-                                                    item['mrp']?.toString() ??
-                                                    '0.00';
-                                                final ptr =
-                                                    item['prate']?.toString() ??
-                                                    '0.00';
+                                          if (selectedBin.isEmpty) {
+                                            filteredBatches = [];
+                                          } else if (_batchIdsByBin.containsKey(
+                                                selectedBin,
+                                              )) {
+                                            final validBatchIds =
+                                                _batchIdsByBin[selectedBin]!;
+                                            filteredBatches = batches.where((b) {
+                                              final bId =
+                                                  (b['id'] ??
+                                                          b['batch_id'] ??
+                                                          '')
+                                                      .toString();
+                                              return validBatchIds.contains(bId);
+                                            }).toList();
 
-                                                final displayText =
-                                                    '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr';
+                                            if (filteredBatches.isEmpty) {
+                                              filteredBatches = batches.where((
+                                                b,
+                                              ) {
+                                                final bBin =
+                                                    (b['bin_code'] ??
+                                                            b['bin_location'] ??
+                                                            '')
+                                                        .toString();
+                                                return bBin.isEmpty ||
+                                                    bBin == selectedBin;
+                                              }).toList();
+                                            }
+                                          } else {
+                                            filteredBatches = batches.where((
+                                              b,
+                                            ) {
+                                              final bBin =
+                                                  (b['bin_code'] ??
+                                                          b['bin_location'] ??
+                                                          '')
+                                                      .toString();
+                                              return bBin == selectedBin;
+                                            }).toList();
+                                          }
+
+                                         return FormDropdown<
+                                           Map<String, dynamic>
+                                         >(
+                                           height: _batchDropdownHeight,
+                                           borderRadius: BorderRadius.circular(
+                                             6,
+                                           ),
+                                           border: Border.all(color: _borderCol),
+                                           padding: const EdgeInsets.symmetric(
+                                             horizontal: 10,
+                                             vertical: 8,
+                                           ),
+                                           value:
+                                               filteredBatches
+                                                   .firstWhere(
+                                                     (b) =>
+                                                         b['batch_no']
+                                                             ?.toString()
+                                                             .trim() ==
+                                                         row.batchRefCtrl.text
+                                                             .trim(),
+                                                     orElse: () =>
+                                                         <String, dynamic>{},
+                                                   )
+                                                   .isEmpty
+                                               ? null
+                                               : filteredBatches.firstWhere(
+                                                   (b) =>
+                                                       b['batch_no']
+                                                           ?.toString()
+                                                           .trim() ==
+                                                       row.batchRefCtrl.text
+                                                           .trim(),
+                                                 ),
+                                           items: filteredBatches,
+                                           hint: 'Select Batch',
+                                           showSearch: true,
+                                           maxVisibleItems: 3,
+                                           itemEstimatedHeight: 68,
+                                           menuMaxHeight: 280,
+                                           dropdownWidth: 360,
+                                           itemBuilder:
+                                               (item, isSelected, isHovered) {
+                                                 final batchNo =
+                                                     item['batch_no']
+                                                         ?.toString() ??
+                                                     '-';
+                                                 final balance =
+                                                     item['balance']
+                                                         ?.toString() ??
+                                                     '0';
+                                                 final expDate =
+                                                     item['expiry_date']
+                                                         ?.toString() ??
+                                                     '-';
+                                                 final mrp =
+                                                     item['mrp']?.toString() ??
+                                                     '0.00';
+                                                 final ptr =
+                                                     item['prate']?.toString() ??
+                                                     '0.00';
+
+                                                 final displayText =
+                                                     '$batchNo | Bal:\u{00A0}$balance | Exp:\u{00A0}$expDate | MRP:\u{00A0}$mrp | PTR:\u{00A0}$ptr';
 
                                                 return Container(
                                                   width: double.infinity,
@@ -6706,4 +6618,48 @@ class _BinHoverBoxState extends State<_BinHoverBox> {
       ),
     );
   }
+}
+
+Widget _buildPreferredBinCell(List<String> bins, {TextStyle? textStyle}) {
+  if (bins.isEmpty || (bins.length == 1 && bins.first == '--')) {
+    return Text(
+      '--',
+      textAlign: TextAlign.center,
+      style: textStyle ?? const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+    );
+  }
+
+  final style = textStyle ?? const TextStyle(fontSize: 12, color: Color(0xFF333333));
+
+  return Column(
+    mainAxisAlignment: MainAxisAlignment.center,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: bins.map((bin) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 5,
+              height: 5,
+              margin: const EdgeInsets.only(right: 6),
+              decoration: BoxDecoration(
+                color: style.color ?? const Color(0xFF333333),
+                shape: BoxShape.circle,
+              ),
+            ),
+            Flexible(
+              child: Text(
+                bin,
+                style: style,
+              ),
+            ),
+          ],
+        ),
+      );
+    }).toList(),
+  );
 }

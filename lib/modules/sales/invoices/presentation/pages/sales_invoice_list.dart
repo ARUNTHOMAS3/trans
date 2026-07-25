@@ -19,6 +19,7 @@ import 'package:zerpai_erp/shared/widgets/z_currency_display.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
+import 'package:zerpai_erp/shared/widgets/tables/zerpai_pagination_widget.dart';
 import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
 import 'package:zerpai_erp/shared/models/column_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
@@ -304,6 +305,8 @@ class _SalesInvoiceOverviewScreenState
   Set<String> _selectedIds = <String>{};
   late List<_InvColumnConfig> _columnConfigs;
   Map<String, double>? _customColumnWidths;
+  int _currentPage = 1;
+  int _pageSize = 30;
   bool _isAssociatedOrdersExpanded = false;
   String? _showPaymentFormForId;
 
@@ -3215,7 +3218,15 @@ class _SalesInvoiceOverviewScreenState
   // ─── TABLE (MAIN INVOICE TABLE VIEW) ─────────────
 
   Widget _table(List<SalesOrder> invoices) {
-    final allSelected = _allVisibleSelected(invoices);
+    final totalItems = invoices.length;
+    final totalPages = (totalItems / _pageSize).ceil();
+    if (_currentPage > totalPages && totalPages > 0) {
+      _currentPage = totalPages;
+    }
+    final startIdx = (_currentPage - 1) * _pageSize;
+    final endIdx = math.min(startIdx + _pageSize, totalItems);
+    final pageInvoices = invoices.sublist(startIdx, endIdx);
+    final allSelected = _allVisibleSelected(pageInvoices);
     return LayoutBuilder(
       builder: (context, constraints) {
         final columnWidths =
@@ -3229,33 +3240,49 @@ class _SalesInvoiceOverviewScreenState
           totalColumnsWidth + actualPrefixWidth + 40,
         );
 
-        return Scrollbar(
-          controller: _horizontalScrollController,
-          thumbVisibility: screenWidth > constraints.maxWidth,
-          trackVisibility: screenWidth > constraints.maxWidth,
-          child: SingleChildScrollView(
-            controller: _horizontalScrollController,
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: screenWidth,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildTableHeader(invoices, allSelected, columnWidths),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: EdgeInsets.zero,
-                      itemCount: invoices.length,
-                      itemExtent: 44,
-                      itemBuilder: (context, index) {
-                        return _buildRow(invoices[index], columnWidths);
-                      },
+        return Column(
+          children: [
+            Expanded(
+              child: Scrollbar(
+                controller: _horizontalScrollController,
+                thumbVisibility: screenWidth > constraints.maxWidth,
+                trackVisibility: screenWidth > constraints.maxWidth,
+                child: SingleChildScrollView(
+                  controller: _horizontalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: screenWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildTableHeader(pageInvoices, allSelected, columnWidths),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            itemCount: pageInvoices.length,
+                            itemExtent: 44,
+                            itemBuilder: (context, index) {
+                              return _buildRow(pageInvoices[index], columnWidths);
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
+            ZerpaiPaginationWidget(
+              currentPage: _currentPage,
+              totalItems: totalItems,
+              pageSize: _pageSize,
+              onPageChanged: (page) => setState(() => _currentPage = page),
+              onPageSizeChanged: (size) => setState(() {
+                _pageSize = size;
+                _currentPage = 1;
+              }),
+            ),
+          ],
         );
       },
     );
@@ -3295,30 +3322,61 @@ class _SalesInvoiceOverviewScreenState
         color: AppTheme.bgLight,
         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          const SizedBox(width: 8),
-          ZTableHeaderMenu(
-            wrapText: !_clipText,
-            onWrapChange: (v) => setState(() => _clipText = !v),
-            onCustomize: _showCustomizeColumnsDialog,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(width: 84.0),
+              ..._visibleColumns.map((col) {
+                final w = columnWidths[col.key.name] ?? col.width;
+                return _ResizableHeaderCell(
+                  width: w,
+                  onResize: (dx) => _resizeColumn(col.key.name, dx),
+                  child: _headerLabel(col, w),
+                );
+              }),
+            ],
           ),
-          const SizedBox(width: 12),
-          _buildCheckbox(
-            allSelected,
-            isPartially: _selectedIds.isNotEmpty && !allSelected,
-            onTap: () => _toggleSelectAll(invoices, !allSelected),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: AnimatedBuilder(
+              animation: _horizontalScrollController,
+              builder: (context, child) {
+                final offset = _horizontalScrollController.hasClients
+                    ? _horizontalScrollController.offset
+                    : 0.0;
+                return Transform.translate(
+                  offset: Offset(offset, 0),
+                  child: child,
+                );
+              },
+              child: Container(
+                color: AppTheme.bgLight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(width: 8),
+                    ZTableHeaderMenu(
+                      wrapText: !_clipText,
+                      onWrapChange: (v) => setState(() => _clipText = !v),
+                      onCustomize: _showCustomizeColumnsDialog,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildCheckbox(
+                      allSelected,
+                      isPartially: _selectedIds.isNotEmpty && !allSelected,
+                      onTap: () => _toggleSelectAll(invoices, !allSelected),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                ),
+              ),
+            ),
           ),
-          const SizedBox(width: 12),
-          ..._visibleColumns.map((col) {
-            final w = columnWidths[col.key.name] ?? col.width;
-            return _ResizableHeaderCell(
-              width: w,
-              onResize: (dx) => _resizeColumn(col.key.name, dx),
-              child: _headerLabel(col, w),
-            );
-          }),
         ],
       ),
     );
@@ -3337,6 +3395,7 @@ class _SalesInvoiceOverviewScreenState
     }
     return SizedBox(
       width: width,
+      height: double.infinity,
       child: InkWell(
         onTap: sortField != null
             ? () => setState(() => _toggleSort(sortField))
@@ -3373,28 +3432,57 @@ class _SalesInvoiceOverviewScreenState
 
   Widget _buildRow(SalesOrder inv, Map<String, double> columnWidths) {
     final isSelected = _selectedIds.contains(inv.id);
+    final rowBgColor = isSelected ? const Color(0xFFF0F7FF) : Colors.white;
     return InkWell(
       onTap: () => context.go('/sales/invoices/${inv.id}'),
       child: Container(
         height: 44,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF0F7FF) : Colors.transparent,
-          border:
-              const Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            const SizedBox(width: 8),
-            const SizedBox(width: 28), // slider placeholder
-            const SizedBox(width: 12),
-            _buildCheckbox(
-              isSelected,
-              onTap: () => _toggleSelection(inv.id, !isSelected),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 84.0),
+                ..._visibleColumns.map(
+                  (col) => _cellForColumn(col, inv, columnWidths),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            ..._visibleColumns.map(
-              (col) => _cellForColumn(col, inv, columnWidths),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: AnimatedBuilder(
+                animation: _horizontalScrollController,
+                builder: (context, child) {
+                  final offset = _horizontalScrollController.hasClients
+                      ? _horizontalScrollController.offset
+                      : 0.0;
+                  return Transform.translate(
+                    offset: Offset(offset, 0),
+                    child: child,
+                  );
+                },
+                child: Container(
+                  color: rowBgColor,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 8),
+                      const SizedBox(width: 28),
+                      const SizedBox(width: 12),
+                      _buildCheckbox(
+                        isSelected,
+                        onTap: () => _toggleSelection(inv.id, !isSelected),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),

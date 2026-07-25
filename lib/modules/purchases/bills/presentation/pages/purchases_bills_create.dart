@@ -3959,7 +3959,9 @@ class _PurchasesBillCreateScreenState
 
     final bool isUnregistered =
         _selectedVendor != null &&
-        _selectedVendor!.gstTreatment?.toLowerCase() == 'unregistered business';
+        (_selectedVendor!.gstTreatment?.toLowerCase() == 'unregistered business' ||
+         _selectedVendor!.gstTreatment?.toLowerCase() == 'unregistered_business' ||
+         _selectedVendor!.gstTreatment?.toLowerCase().contains('unregistered') == true);
 
     final lineItems = validRows
         .map((r) => r.toModel(warehouseId: whId, isUnregistered: isUnregistered))
@@ -7094,6 +7096,7 @@ class _PurchasesBillCreateScreenState
                 ),
                 child: IntrinsicHeight(
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_bulkMode)
                         SizedBox(
@@ -7351,7 +7354,7 @@ class _PurchasesBillCreateScreenState
                   ),
                 ),
               ),
-            ),
+              ),
             const SizedBox(width: 60),
           ],
         ),
@@ -7575,8 +7578,9 @@ class _PurchasesBillCreateScreenState
     ItemsState itemsState,
   ) {
     if (_selectedVendor != null &&
-        _selectedVendor!.gstTreatment?.toLowerCase() ==
-            'unregistered business') {
+        (_selectedVendor!.gstTreatment?.toLowerCase() == 'unregistered business' ||
+         _selectedVendor!.gstTreatment?.toLowerCase() == 'unregistered_business' ||
+         _selectedVendor!.gstTreatment?.toLowerCase().contains('unregistered') == true)) {
       row.taxId = 'non_taxable';
       row.taxName = 'Non-Taxable';
       row.taxRate = 0.0;
@@ -7611,8 +7615,7 @@ class _PurchasesBillCreateScreenState
                 bottom: BorderSide(color: _borderColor),
               ),
             ),
-            child: IntrinsicHeight(
-              child: Row(
+            child: Row(
                 children: [
                   const SizedBox(width: 40),
                   const Expanded(
@@ -7815,7 +7818,6 @@ class _PurchasesBillCreateScreenState
                 ],
               ),
             ),
-          ),
         ),
         const SizedBox(width: 60),
       ],
@@ -9133,7 +9135,7 @@ class _PurchasesBillCreateScreenState
                   ),
                   child: IntrinsicHeight(
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         // 40px left checkbox or drag handle
                         if (_bulkMode)
@@ -10331,7 +10333,9 @@ class _PurchasesBillCreateScreenState
   Widget _taxCell(_BillLineItemRow row, ItemsState itemsState) {
     final bool isUnregistered =
         _selectedVendor != null &&
-        _selectedVendor!.gstTreatment?.toLowerCase() == 'unregistered business';
+        (_selectedVendor!.gstTreatment?.toLowerCase() == 'unregistered business' ||
+         _selectedVendor!.gstTreatment?.toLowerCase() == 'unregistered_business' ||
+         _selectedVendor!.gstTreatment?.toLowerCase().contains('unregistered') == true);
 
     return Expanded(
       flex: 5,
@@ -11452,7 +11456,10 @@ class _PurchasesBillCreateScreenState
   }
 
   Widget _vLine() {
-    return Container(width: 1, color: _borderColor);
+    return const SizedBox(
+      width: 1,
+      child: ColoredBox(color: _borderColor),
+    );
   }
 
   double? _evaluateExpression(String expr) {
@@ -13204,21 +13211,20 @@ class _PurchasesBillCreateScreenState
             );
           }
 
-          return IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 3, child: notesSection),
-                const SizedBox(width: 24),
-                Container(
-                  width: 1,
-                  color: const Color(0xFFDBEAFE),
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                ),
-                const SizedBox(width: 24),
-                Expanded(flex: 2, child: attachSection),
-              ],
-            ),
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(flex: 3, child: notesSection),
+              const SizedBox(width: 24),
+              Container(
+                width: 1,
+                height: 140,
+                color: const Color(0xFFDBEAFE),
+                margin: const EdgeInsets.symmetric(vertical: 8),
+              ),
+              const SizedBox(width: 24),
+              Expanded(flex: 2, child: attachSection),
+            ],
           );
         },
       ),

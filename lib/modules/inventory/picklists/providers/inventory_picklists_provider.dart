@@ -44,6 +44,13 @@ class PicklistsNotifier extends AsyncNotifier<List<Picklist>> {
 
   Future<void> updatePicklistStatus(String id, String status) async {
     try {
+      final currentPicklist = await ref.read(picklistByIdProvider(id).future);
+      if (currentPicklist != null) {
+        final currStatus = currentPicklist.status.toUpperCase().replaceAll(' ', '_');
+        if (currStatus == 'APPROVED' && status == 'FORCE_COMPLETE') {
+          return;
+        }
+      }
       final repository = ref.read(inventoryPicklistRepositoryProvider);
       await repository.updatePicklist(id, {'status': status});
       ref.invalidateSelf();

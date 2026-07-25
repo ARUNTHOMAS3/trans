@@ -52,6 +52,7 @@ class TransactionSeriesDropdown extends StatefulWidget {
   final String? errorText;
   final bool includeDefaultOption;
   final String placeholder;
+  final bool showAddOption;
 
   const TransactionSeriesDropdown({
     super.key,
@@ -64,6 +65,7 @@ class TransactionSeriesDropdown extends StatefulWidget {
     this.errorText,
     this.includeDefaultOption = true,
     this.placeholder = 'Add Transaction Series',
+    this.showAddOption = true,
   });
 
   @override
@@ -335,41 +337,42 @@ class _TransactionSeriesDropdownState extends State<TransactionSeriesDropdown> {
                         ),
                       ),
 
-                      // Footer: + Add Transaction Series
-                      const Divider(height: 1, color: AppTheme.borderColor),
-                      InkWell(
-                        onTap: () {
-                          _close();
-                          widget.onAddTap();
-                        },
-                        hoverColor: AppTheme.primaryBlue.withValues(
-                          alpha: 0.08,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
+                      if (widget.showAddOption) ...[
+                        const Divider(height: 1, color: AppTheme.borderColor),
+                        InkWell(
+                          onTap: () {
+                            _close();
+                            widget.onAddTap();
+                          },
+                          hoverColor: AppTheme.primaryBlue.withValues(
+                            alpha: 0.08,
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                LucideIcons.plusCircle,
-                                size: 14,
-                                color: AppTheme.primaryBlue,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Add Transaction Series',
-                                style: TextStyle(
-                                  fontSize: 13,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  LucideIcons.plusCircle,
+                                  size: 14,
                                   color: AppTheme.primaryBlue,
-                                  fontWeight: FontWeight.w500,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Add Transaction Series',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.primaryBlue,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   );
                 },

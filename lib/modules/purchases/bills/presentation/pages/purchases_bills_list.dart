@@ -18,6 +18,7 @@ import '../../../../../shared/widgets/z_button.dart';
 import '../../../../../shared/widgets/zerpai_layout.dart';
 import '../../../../../shared/widgets/tables/table_header_menu.dart';
 import '../../../../../shared/widgets/tables/table_more_menu.dart';
+import '../../../../../shared/widgets/tables/zerpai_pagination_widget.dart';
 import '../../../../../shared/widgets/skeleton.dart';
 import '../../providers/purchases_bills_provider.dart';
 import '../../repositories/purchases_bills_repository.dart';
@@ -108,6 +109,8 @@ class _PurchasesBillsListScreenState
   FavoriteFilterOption _activeOption = _billFilterOptions.first;
   Map<String, double>? _customColumnWidths;
   final ScrollController _horizontalScrollController = ScrollController();
+  int _currentPage = 1;
+  int _pageSize = 30;
   bool _showPdfView = false;
   String? _showPaymentFormForId;
   final Set<String> _expandedBatchesItems = {};
@@ -1237,7 +1240,7 @@ class _PurchasesBillsListScreenState
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               color: _statusColor(bill.status),
               child: Text(
-                bill.status.toUpperCase(),
+                bill.status.replaceAll('_', ' ').toUpperCase(),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 11,
@@ -1254,6 +1257,8 @@ class _PurchasesBillsListScreenState
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
       case 'draft':
+      case 'partially_paid':
+      case 'partially paid':
         return AppTheme.warningOrange;
       case 'open':
         return AppTheme.primaryBlue;
@@ -3249,6 +3254,13 @@ class _PurchasesBillsListScreenState
   // ─── Table View ─────────────────────────────────────────────────────────
 
   Widget _buildTableView(List<PurchasesBill> bills) {
+    final totalItems = bills.length;
+    final totalPages = totalItems == 0 ? 1 : (totalItems / _pageSize).ceil();
+    final clampedPage = _currentPage.clamp(1, totalPages);
+    final startIndex = (clampedPage - 1) * _pageSize;
+    final paginatedBills =
+        bills.skip(startIndex).take(_pageSize).toList();
+
     if (bills.isEmpty) {
       return _buildEmptyState();
     }
@@ -3269,32 +3281,54 @@ class _PurchasesBillsListScreenState
           totalColumnsWidth + actualPrefixWidth + 40,
         );
 
-        return Scrollbar(
-          controller: _horizontalScrollController,
-          thumbVisibility: screenWidth > constraints.maxWidth,
-          child: SingleChildScrollView(
-            controller: _horizontalScrollController,
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: screenWidth,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildTableHeader(columnWidths, bills),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: EdgeInsets.zero,
-                      itemCount: bills.length,
-                      itemExtent: 40,
-                      itemBuilder: (context, index) {
-                        return _buildVirtualRow(bills[index], columnWidths);
-                      },
+        return Column(
+          children: [
+            Expanded(
+              child: Scrollbar(
+                controller: _horizontalScrollController,
+                thumbVisibility: screenWidth > constraints.maxWidth,
+                child: SingleChildScrollView(
+                  controller: _horizontalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: screenWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildTableHeader(columnWidths, bills),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            itemCount: paginatedBills.length,
+                            itemExtent: 40,
+                            itemBuilder: (context, index) {
+                              return _buildVirtualRow(paginatedBills[index], columnWidths);
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
+            ZerpaiPaginationWidget(
+              totalItems: totalItems,
+              currentPage: clampedPage,
+              pageSize: _pageSize,
+              onPageChanged: (page) {
+                setState(() {
+                  _currentPage = page;
+                });
+              },
+              onPageSizeChanged: (size) {
+                setState(() {
+                  _pageSize = size;
+                  _currentPage = 1;
+                });
+              },
+            ),
+          ],
         );
       },
     );
@@ -3357,38 +3391,69 @@ class _PurchasesBillsListScreenState
         color: AppTheme.bgLight,
         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          const SizedBox(width: 8),
-          ZTableHeaderMenu(
-            wrapText: _shouldWrapText,
-            onWrapChange: (v) => setState(() => _shouldWrapText = v),
-            onCustomize: _showCustomizeColumnsDialog,
-          ),
-          const SizedBox(width: 12),
-          _buildSelectAllCheckbox(bills),
-          const SizedBox(width: 12),
-          ..._visibleColumns.map((colId) {
-            final width = columnWidths[colId]!;
-            return _ResizableHeaderCell(
-              width: width,
-              onResize: (dx) => _resizeColumn(colId, dx),
-              child: _buildHeaderCell(
-                _columnLabels[colId] ??
-                    colId.toUpperCase().replaceAll('_', ' '),
-                colId,
-                width: width,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(width: 78.0),
+              ..._visibleColumns.map((colId) {
+                final width = columnWidths[colId]!;
+                return _ResizableHeaderCell(
+                  width: width,
+                  onResize: (dx) => _resizeColumn(colId, dx),
+                  child: _buildHeaderCell(
+                    _columnLabels[colId] ??
+                        colId.toUpperCase().replaceAll('_', ' '),
+                    colId,
+                    width: width,
+                  ),
+                );
+              }),
+              const SizedBox(width: 12),
+              const Icon(
+                LucideIcons.search,
+                size: 14,
+                color: AppTheme.textSecondary,
               ),
-            );
-          }),
-          const SizedBox(width: 12),
-          const Icon(
-            LucideIcons.search,
-            size: 14,
-            color: AppTheme.textSecondary,
+              const SizedBox(width: 12),
+            ],
           ),
-          const SizedBox(width: 12),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: AnimatedBuilder(
+              animation: _horizontalScrollController,
+              builder: (context, child) {
+                final offset = _horizontalScrollController.hasClients
+                    ? _horizontalScrollController.offset
+                    : 0.0;
+                return Transform.translate(
+                  offset: Offset(offset, 0),
+                  child: child,
+                );
+              },
+              child: Container(
+                color: AppTheme.bgLight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(width: 8),
+                    ZTableHeaderMenu(
+                      wrapText: _shouldWrapText,
+                      onWrapChange: (v) => setState(() => _shouldWrapText = v),
+                      onCustomize: _showCustomizeColumnsDialog,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildSelectAllCheckbox(bills),
+                    const SizedBox(width: 12),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -3446,9 +3511,10 @@ class _PurchasesBillsListScreenState
     final sortField = _mapColIdToSortField(colId);
     final isSorted = sortField != null && _sortField == sortField;
     return SizedBox(
-      width: width,
-      child: InkWell(
-        onTap: sortField != null ? () => _onHeaderCellTap(colId) : null,
+       width: width,
+       height: double.infinity,
+       child: InkWell(
+         onTap: sortField != null ? () => _onHeaderCellTap(colId) : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8.0),
           child: Row(
@@ -3509,6 +3575,7 @@ class _PurchasesBillsListScreenState
     Map<String, double> columnWidths,
   ) {
     final isSelected = _selectedIds.contains(bill.id);
+    final rowBgColor = isSelected ? const Color(0xFFF0F7FF) : Colors.white;
 
     return InkWell(
       onTap: () {
@@ -3516,32 +3583,61 @@ class _PurchasesBillsListScreenState
       },
       child: Container(
         height: 40,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF0F7FF) : Colors.transparent,
-          border: const Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            const SizedBox(width: 8),
-            const SizedBox(width: 28), // Slider placeholder
-            const SizedBox(width: 12),
-            _buildCheckboxWidget(
-              isSelected,
-              onTap: () {
-                setState(() {
-                  if (isSelected) {
-                    _selectedIds.remove(bill.id);
-                  } else {
-                    _selectedIds.add(bill.id);
-                  }
-                });
-              },
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 78.0),
+                ..._visibleColumns.map((colId) {
+                  return _buildCell(bill, colId, width: columnWidths[colId]!);
+                }),
+              ],
             ),
-            const SizedBox(width: 12),
-            ..._visibleColumns.map((colId) {
-              return _buildCell(bill, colId, width: columnWidths[colId]!);
-            }),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: AnimatedBuilder(
+                animation: _horizontalScrollController,
+                builder: (context, child) {
+                  final offset = _horizontalScrollController.hasClients
+                      ? _horizontalScrollController.offset
+                      : 0.0;
+                  return Transform.translate(
+                    offset: Offset(offset, 0),
+                    child: child,
+                  );
+                },
+                child: Container(
+                  color: rowBgColor,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 8),
+                      const SizedBox(width: 28), // Slider placeholder
+                      const SizedBox(width: 12),
+                      _buildCheckboxWidget(
+                        isSelected,
+                        onTap: () {
+                          setState(() {
+                            if (isSelected) {
+                              _selectedIds.remove(bill.id);
+                            } else {
+                              _selectedIds.add(bill.id);
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -3649,7 +3745,7 @@ class _PurchasesBillsListScreenState
     }
 
     return Text(
-      status.toUpperCase(),
+      status.replaceAll('_', ' ').toUpperCase(),
       style: AppTheme.metaHelper.copyWith(
         color: color,
         fontWeight: FontWeight.w600,
@@ -3985,6 +4081,8 @@ class _PurchasesBillsListScreenState
         ribbonColor = AppTheme.primaryBlue;
         break;
       case 'draft':
+      case 'partially_paid':
+      case 'partially paid':
         ribbonColor = AppTheme.warningOrange;
         break;
       case 'overdue':
@@ -4012,7 +4110,7 @@ class _PurchasesBillsListScreenState
                   left: 0,
                   top: 0,
                   child: _PdfCornerRibbon(
-                    label: bill.status,
+                    label: bill.status.replaceAll('_', ' '),
                     color: ribbonColor,
                   ),
                 ),
@@ -4718,7 +4816,7 @@ class _PurchasesBillsListScreenState
   Future<List<Map<String, dynamic>>> _fetchBillJournals(String billId) async {
     final supabase = Supabase.instance.client;
     final res = await supabase
-        .from('account_transactions')
+        .from('journal_entry_lines')
         .select('*, account:accounts(user_account_name, system_account_name)')
         .eq('source_id', billId)
         .eq('source_type', 'BILL');
@@ -7512,7 +7610,7 @@ class _PdfCornerRibbon extends StatelessWidget {
                 alignment: Alignment.center,
                 padding: const EdgeInsets.only(bottom: 1),
                 child: Text(
-                  label.toUpperCase(),
+                  label.replaceAll('_', ' ').toUpperCase(),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white,

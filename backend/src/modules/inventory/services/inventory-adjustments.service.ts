@@ -551,6 +551,7 @@ export class InventoryAdjustmentsService {
       } else {
         this.handleStorageError(firstAttempt.error);
       }
+    }
 
     const currentStock = (layerRows ?? []).reduce((sum, row: any) => {
       const qty = this.parseNumber(row?.qty, 0);
@@ -761,8 +762,9 @@ export class InventoryAdjustmentsService {
           );
           layerId = this.normalizeUuid((inserted as any)?.id);
         }
+      }
 
-        let transactionQuery = this.client
+      let transactionQuery = this.client
         .from("batch_transactions")
         .select("id, qty_in, qty_out")
         .eq("entity_id", entityId)
@@ -852,7 +854,7 @@ export class InventoryAdjustmentsService {
     }
   }
 
-        private composeBatchStockKey(batchId: string, binId?: string | null) {
+  private composeBatchStockKey(batchId: string, binId?: string | null) {
     return `${batchId}::${binId ?? ""}`;
   }
 
@@ -2894,7 +2896,7 @@ export class InventoryAdjustmentsService {
 
       if (accountTransactionsPayload.length > 0) {
         const { error: accountTxnError } = await this.client
-          .from("account_transactions")
+          .from("journal_entry_lines")
           .insert(accountTransactionsPayload);
         if (accountTxnError) this.handleStorageError(accountTxnError);
       } else {
@@ -3002,7 +3004,7 @@ export class InventoryAdjustmentsService {
 
       if (accountTransactionsPayload.length > 0) {
         const { error: accountTxnError } = await this.client
-          .from("account_transactions")
+          .from("journal_entry_lines")
           .insert(accountTransactionsPayload);
         if (accountTxnError) this.handleStorageError(accountTxnError);
       } else {

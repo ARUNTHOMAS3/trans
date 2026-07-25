@@ -238,7 +238,7 @@ export class SalesService {
     // Fetch picklist items for this Sales Order
     const { data: pickItems } = await client
       .from("picklist_items")
-      .select("sales_order_line_id, qty_picked")
+      .select("sales_order_line_id, qty_picked, qty_to_pick")
       .eq("sales_order_id", id);
 
     // Fetch package items for this Sales Order
@@ -273,7 +273,7 @@ export class SalesService {
     const itemsWithMetrics = (items ?? []).map((item: any) => {
       const picked = (pickItems ?? [])
         .filter((pi: any) => pi.sales_order_line_id === item.id)
-        .reduce((sum: number, pi: any) => sum + Number(pi.qty_picked ?? 0), 0);
+        .reduce((sum: number, pi: any) => sum + Math.max(Number(pi.qty_picked ?? 0), Number(pi.qty_to_pick ?? 0)), 0);
 
       const packed = (pkgItems ?? [])
         .filter((pi: any) => {
@@ -601,6 +601,10 @@ export class SalesService {
       }
     }
 
+    const isUnregistered =
+      gstTreatment?.toLowerCase() === "unregistered_business" ||
+      gstTreatment?.toLowerCase() === "unregistered business";
+
     let computedSubTotal = 0;
     let computedDiscountTotal = 0;
     let computedTotalQuantity = 0;
@@ -620,7 +624,7 @@ export class SalesService {
       const taxResolved = item.taxId
         ? (taxResolutionMap.get(item.taxId) ?? { tax_id: null, tax_rate: 0 })
         : { tax_id: null, tax_rate: 0 };
-      const lineTaxAmount = lineAmount * (taxResolved.tax_rate / 100);
+      const lineTaxAmount = isUnregistered ? 0 : (lineAmount * (taxResolved.tax_rate / 100));
 
       computedSubTotal += lineAmount;
       computedDiscountTotal += discountAmount;
@@ -637,9 +641,9 @@ export class SalesService {
         discount_type: discountType,
         discount_value: discountValue,
         discount_amount: discountAmount,
-        tax_id: taxResolved.tax_id,
-        tax_rate: taxResolved.tax_rate,
-        tax_amount: lineTaxAmount,
+        tax_id: isUnregistered ? null : taxResolved.tax_id,
+        tax_rate: isUnregistered ? 0 : taxResolved.tax_rate,
+        tax_amount: isUnregistered ? 0 : lineTaxAmount,
         amount: lineAmount,
         hsn_code: item.hsnCode ?? "0",
         accounts: item.accounts ?? "",
@@ -650,12 +654,12 @@ export class SalesService {
     });
 
     const finalSubTotal = Number(subTotal) || computedSubTotal;
-    const finalTaxTotal = Number(taxTotal) || computedTaxTotal;
+    const finalTaxTotal = isUnregistered ? 0 : (Number(taxTotal) || computedTaxTotal);
     const finalShipping = Number(shippingCharges) || 0;
     const finalAdjustment = Number(adjustment) || 0;
-    const finalTotal =
-      Number(total) ||
-      finalSubTotal + finalTaxTotal + finalShipping + finalAdjustment;
+    const finalTotal = isUnregistered
+      ? (finalSubTotal + finalShipping + finalAdjustment)
+      : (Number(total) || (finalSubTotal + finalTaxTotal + finalShipping + finalAdjustment));
 
     const { data: order, error } = await client
       .from("sales_orders")
@@ -799,6 +803,10 @@ export class SalesService {
       }
     }
 
+    const isUnregistered =
+      gstTreatment?.toLowerCase() === "unregistered_business" ||
+      gstTreatment?.toLowerCase() === "unregistered business";
+
     let computedSubTotal = 0;
     let computedDiscountTotal = 0;
     let computedTotalQuantity = 0;
@@ -818,7 +826,7 @@ export class SalesService {
       const taxResolved = item.taxId
         ? (taxResolutionMap.get(item.taxId) ?? { tax_id: null, tax_rate: 0 })
         : { tax_id: null, tax_rate: 0 };
-      const lineTaxAmount = lineAmount * (taxResolved.tax_rate / 100);
+      const lineTaxAmount = isUnregistered ? 0 : (lineAmount * (taxResolved.tax_rate / 100));
 
       computedSubTotal += lineAmount;
       computedDiscountTotal += discountAmount;
@@ -836,9 +844,9 @@ export class SalesService {
         discount_type: discountType,
         discount_value: discountValue,
         discount_amount: discountAmount,
-        tax_id: taxResolved.tax_id,
-        tax_rate: taxResolved.tax_rate,
-        tax_amount: lineTaxAmount,
+        tax_id: isUnregistered ? null : taxResolved.tax_id,
+        tax_rate: isUnregistered ? 0 : taxResolved.tax_rate,
+        tax_amount: isUnregistered ? 0 : lineTaxAmount,
         amount: lineAmount,
         hsn_code: item.hsnCode ?? "0",
         accounts: item.accounts ?? "",
@@ -849,12 +857,12 @@ export class SalesService {
     });
 
     const finalSubTotal = Number(subTotal) || computedSubTotal;
-    const finalTaxTotal = Number(taxTotal) || computedTaxTotal;
+    const finalTaxTotal = isUnregistered ? 0 : (Number(taxTotal) || computedTaxTotal);
     const finalShipping = Number(shippingCharges) || 0;
     const finalAdjustment = Number(adjustment) || 0;
-    const finalTotal =
-      Number(total) ||
-      finalSubTotal + finalTaxTotal + finalShipping + finalAdjustment;
+    const finalTotal = isUnregistered
+      ? (finalSubTotal + finalShipping + finalAdjustment)
+      : (Number(total) || (finalSubTotal + finalTaxTotal + finalShipping + finalAdjustment));
 
     const { data: order, error: updateError } = await client
       .from("sales_orders")
@@ -1215,6 +1223,10 @@ export class SalesService {
 
     const resolvedItems = await this.resolveItemFields(items, orgId);
 
+    const isUnregistered =
+      gstTreatment?.toLowerCase() === "unregistered_business" ||
+      gstTreatment?.toLowerCase() === "unregistered business";
+
     const { data: invoice, error: invoiceError } = await client
       .from("invoice_master")
       .insert({
@@ -1236,10 +1248,12 @@ export class SalesService {
         adjustment_amount: Number(adjustmentAmount) || 0,
         round_off: Number(roundOff) || 0,
         subtotal: Number(subtotal) || 0,
-        tax_total: Number(taxTotal) || 0,
+        tax_total: isUnregistered ? 0 : (Number(taxTotal) || 0),
         tds_total: Number(tdsTotal) || 0,
         tcs_total: Number(tcsTotal) || 0,
-        grand_total: Number(grandTotal) || 0,
+        grand_total: isUnregistered
+          ? (Number(subtotal) || 0) + (Number(shippingCharges) || 0) + (Number(adjustmentAmount) || 0) + (Number(roundOff) || 0)
+          : (Number(grandTotal) || 0),
         inventory_flow_type: inventoryFlowType || "DIRECT_INVOICE",
         status: status || "draft",
         is_batch_allocated: resolvedItems.some(
@@ -1406,11 +1420,11 @@ export class SalesService {
             rate: Number(item.rate) || 0,
             discount_type: item.discountType || null,
             discount_value: Number(item.discountValue) || 0,
-            tax_id: item.taxId || null,
-            tax_percentage: Number(item.taxPercentage) || 0,
+            tax_id: isUnregistered ? null : (item.taxId || null),
+            tax_percentage: isUnregistered ? 0 : (Number(item.taxPercentage) || 0),
             taxable_amount: Number(item.taxableAmount) || 0,
-            tax_amount: Number(item.taxAmount) || 0,
-            line_total: Number(item.lineTotal) || 0,
+            tax_amount: isUnregistered ? 0 : (Number(item.taxAmount) || 0),
+            line_total: isUnregistered ? (Number(item.taxableAmount) || 0) : (Number(item.lineTotal) || 0),
             foc_quantity: Number(item.focQuantity) || 0,
             hsn_code: item.hsnCode || "0",
             accounts: item.accounts || null,
@@ -1627,6 +1641,10 @@ export class SalesService {
         .delete()
         .eq("invoice_id", id);
 
+      const isUnregistered =
+        gstTreatment?.toLowerCase() === "unregistered_business" ||
+        gstTreatment?.toLowerCase() === "unregistered business";
+
       // 4. Update invoice_master
       const { data: invoice, error: invoiceError } = await client
         .from("invoice_master")
@@ -1648,10 +1666,12 @@ export class SalesService {
           adjustment_amount: Number(adjustmentAmount) || 0,
           round_off: Number(roundOff) || 0,
           subtotal: Number(subtotal) || 0,
-          tax_total: Number(taxTotal) || 0,
+          tax_total: isUnregistered ? 0 : (Number(taxTotal) || 0),
           tds_total: Number(tdsTotal) || 0,
           tcs_total: Number(tcsTotal) || 0,
-          grand_total: Number(grandTotal) || 0,
+          grand_total: isUnregistered
+            ? (Number(subtotal) || 0) + (Number(shippingCharges) || 0) + (Number(adjustmentAmount) || 0) + (Number(roundOff) || 0)
+            : (Number(grandTotal) || 0),
           inventory_flow_type: inventoryFlowType || "DIRECT_INVOICE",
           status: status || "draft",
           is_batch_allocated: resolvedItems.some(
@@ -1678,11 +1698,11 @@ export class SalesService {
           rate: Number(item.rate) || 0,
           discount_type: item.discountType || null,
           discount_value: Number(item.discountValue) || 0,
-          tax_id: item.taxId || null,
-          tax_percentage: Number(item.taxPercentage) || 0,
+          tax_id: isUnregistered ? null : (item.taxId || null),
+          tax_percentage: isUnregistered ? 0 : (Number(item.taxPercentage) || 0),
           taxable_amount: Number(item.taxableAmount) || 0,
-          tax_amount: Number(item.taxAmount) || 0,
-          line_total: Number(item.lineTotal) || 0,
+          tax_amount: isUnregistered ? 0 : (Number(item.taxAmount) || 0),
+          line_total: isUnregistered ? (Number(item.taxableAmount) || 0) : (Number(item.lineTotal) || 0),
           foc_quantity: Number(item.focQuantity) || 0,
           hsn_code: item.hsnCode || "0",
           accounts: item.accounts || null,

@@ -14,6 +14,7 @@ import 'package:zerpai_erp/modules/auth/models/user_model.dart';
 import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
+import 'package:zerpai_erp/shared/widgets/texts/substituted_product_text.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
@@ -44,17 +45,17 @@ Future<DemandPoolPayload?> showDemandPoolDialog(BuildContext context) {
 // ---------------------------------------------------------------------------
 
 String _normaliseDpStatus(String raw) => switch (raw.toUpperCase()) {
-  'OPEN' => 'Open',
-  'PR_CREATED' => 'PR Created',
-  'PO_CREATED' => 'PO Created',
-  'PO_RECEIVED' => 'PO Received',
+  'OPEN'              => 'Open',
+  'PR_CREATED'        => 'PR Created',
+  'PO_CREATED'        => 'PO Created',
+  'PO_RECEIVED'       => 'PO Received',
   'PARTIALLY_PLANNED' => 'Partially Planned',
-  'ORDERED' => 'Ordered',
-  'RECEIVED' => 'Received',
-  'SUBSTITUTED' => 'Substituted',
-  'FULFILLED' => 'Fulfilled',
+  'ORDERED'           => 'Ordered',
+  'RECEIVED'          => 'Received',
+  'SUBSTITUTED'       => 'Substituted',
+  'FULFILLED'         => 'Fulfilled',
   'CANCEL' || 'CANCELLED' => 'Cancel',
-  _ => raw,
+  _                   => raw,
 };
 
 // ---------------------------------------------------------------------------
@@ -79,17 +80,37 @@ class _DpItem {
     required this.pendingQty,
   }) : _substitutions = replacement != null ? [replacement] : [];
 
-  final String rowId; // demand_pool.id
-  final String productId; // demand_pool.product_id
-  final String entityId; // demand_pool.entity_id
+  final String rowId;      // demand_pool.id
+  final String productId;  // demand_pool.product_id
+  final String entityId;   // demand_pool.entity_id
+  String? salesOrderId;     // demand_pool.sales_order_id
+  String? salesOrderItemId; // demand_pool.sales_order_item_id
   final String product;
   final List<String> _substitutions;
-  String? vendorId; // demand_pool.preferred_vendor_id
+  String? vendorId;        // demand_pool.preferred_vendor_id
   bool vendorChanged = false; // true once user selects a different vendor
+  String? purchaseRequestId; // demand_pool.purchase_request_id — the PR that consumed this row
+
+  // Qty planned in the most recent PR round only, derived at read time from
+  // purchase_request_items (never stored on demand_pool). planned_qty on the
+  // row stays cumulative because pending_qty = required_qty - planned_qty.
+  int lastPlannedQty = 0;
+
+  // Balance left after the latest planning round: prev required - last planned.
+  //
+  // Once a round has been approved, planned_qty already absorbed the latest
+  // amount, so prev_required - last_planned collapses to plain pending_qty:
+  //   pending_before - last = (required - (cum - last)) - last = required - cum
+  // A PR that is only created (not yet approved) has not moved planned_qty, so
+  // its planned amount is subtracted explicitly. Zero until something is planned.
+  int get prevPendingQty {
+    if (plannedQty > 0) return pendingQty;
+    if (lastPlannedQty > 0) return (pendingQty - lastPlannedQty).clamp(0, pendingQty);
+    return 0;
+  }
 
   // Latest substitution (or null if none applied)
-  String? get replacement =>
-      _substitutions.isEmpty ? null : _substitutions.last;
+  String? get replacement => _substitutions.isEmpty ? null : _substitutions.last;
 
   // Append a new substitution to the chain
   set replacement(String? value) {
@@ -103,6 +124,11 @@ class _DpItem {
   final String soDate;
   final String branch;
   final String customerName;
+
+  // Customer on the linked sales order; falls back to the branch when the demand
+  // row has no SO (e.g. manually seeded demand).
+  String get customerLabel => customerName.isNotEmpty ? customerName : branch;
+
   final int reqQty;
   final int orderedQty;
   final int plannedQty;
@@ -111,6 +137,7 @@ class _DpItem {
   List<String> preferredVendors = [];
   String status = 'Open';
 }
+
 
 // Aggregated view for "Group By: Items" — one entry per distinct product,
 // holding all constituent demand_pool rows + their global _rows indices.
@@ -126,9 +153,15 @@ class _AggregatedItem {
   final List<int> globalIndices; // indices into _DemandPoolDialogState._rows
   List<String> preferredVendors;
 
-  int get totalReqQty => orders.fold(0, (s, o) => s + o.reqQty);
-  int get totalPlannedQty => orders.fold(0, (s, o) => s + o.plannedQty);
+  int get totalReqQty     => orders.fold(0, (s, o) => s + o.reqQty);
   int get totalPendingQty => orders.fold(0, (s, o) => s + o.pendingQty);
+
+  // Qty planned in the latest PR round, not the running total.
+  int get totalLastPlanned => orders.fold(0, (s, o) => s + o.lastPlannedQty);
+
+  // Balance left after the latest planning round: required - last planned.
+  // A brand-new pool row (never planned) contributes 0.
+  int get totalPrevPending => orders.fold(0, (s, o) => s + o.prevPendingQty);
 
   // Open if ANY order is still open
   String get status =>
@@ -137,16 +170,18 @@ class _AggregatedItem {
   List<String> get substitutionChain => orders.first.substitutionChain;
 
   // DB identifiers — taken from the first constituent order
-  String get productId => orders.first.productId;
-  String get entityId => orders.first.entityId;
-  String? get vendorId => orders
-      .firstWhere((o) => o.vendorId != null, orElse: () => orders.first)
-      .vendorId;
+  String get productId   => orders.first.productId;
+  String get entityId    => orders.first.entityId;
+  String? get vendorId   => orders.firstWhere((o) => o.vendorId != null, orElse: () => orders.first).vendorId;
   List<String> get demandPoolIds => orders.map((o) => o.rowId).toList();
 }
 
 class _VendorInfo {
-  const _VendorInfo({required this.id, required this.name, this.companyName});
+  const _VendorInfo({
+    required this.id,
+    required this.name,
+    this.companyName,
+  });
   final String id;
   final String name;
   final String? companyName;
@@ -178,7 +213,10 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
   List<String> _filterItems = [];
   List<String> _filterSos = [];
   List<String> _filterVendors = [];
-  List<String> _filterStatuses = ['Open'];
+  // Default the status filter to Open only. Other states remain selectable from
+  // the filter dropdown when the user wants to see them.
+  static const List<String> _defaultStatuses = ['Open'];
+  List<String> _filterStatuses = List.from(_defaultStatuses);
 
   bool get _hasAnyPendingFilter =>
       _filterCustomers.isNotEmpty ||
@@ -189,10 +227,10 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
 
   // applied filters — set when Search is clicked
   List<String> _appliedCustomers = [];
-  List<String> _appliedItems = [];
-  List<String> _appliedSos = [];
-  List<String> _appliedVendors = [];
-  List<String> _appliedStatuses = ['Open'];
+  List<String> _appliedItems     = [];
+  List<String> _appliedSos       = [];
+  List<String> _appliedVendors   = [];
+  List<String> _appliedStatuses  = List.from(_defaultStatuses);
 
   // filter product names — fetched directly from products table (all records)
   List<String> _productNames = [];
@@ -221,7 +259,8 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
               child: GestureDetector(
                 onTap: _removeOrderDetailsOverlay,
                 behavior: HitTestBehavior.opaque,
-                child: Container(color: Colors.black.withValues(alpha: 0.18)),
+                child: Container(
+                    color: Colors.black.withValues(alpha: 0.18)),
               ),
             ),
             // Popover — centered, pinned to top
@@ -275,12 +314,9 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                   .eq('id', rowId)
                   .then((_) {})
                   .catchError((e) {
-                    AppLogger.error(
-                      'Failed to save preferred vendor',
-                      error: e,
-                      module: 'DemandPool',
-                    );
-                  });
+                AppLogger.error('Failed to save preferred vendor',
+                    error: e, module: 'DemandPool');
+              });
             }
           }
         },
@@ -307,9 +343,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
       final entityState = ref.read(entityProvider);
       var query = supabase
           .from('demand_pool')
-          .select(
-            'id, entity_id, product_id, required_qty, planned_qty, ordered_qty, received_qty, pending_qty, status, preferred_vendor_id, products(product_name), sales_orders(sale_number, sale_date, customers(display_name)), vendors!preferred_vendor_id(display_name)',
-          )
+          .select('id, entity_id, product_id, purchase_request_id, sales_order_id, sales_order_item_id, required_qty, planned_qty, ordered_qty, received_qty, pending_qty, status, preferred_vendor_id, products(product_name), sales_orders(sale_number, sale_date, customers(display_name)), vendors!preferred_vendor_id(display_name)')
           .neq('status', 'FULFILLED');
 
       if (entityState.entityId != null) {
@@ -322,40 +356,33 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
       setState(() {
         _rows = (response as List<dynamic>).map((json) {
           final map = json as Map<String, dynamic>;
-          final product =
-              (map['products'] as Map<String, dynamic>?)?['product_name']
-                  as String? ??
-              '';
+          final product = (map['products'] as Map<String, dynamic>?)?['product_name'] as String? ?? '';
           final soMap = map['sales_orders'] as Map<String, dynamic>?;
           final soNo = soMap?['sale_number'] as String? ?? '';
           final rawDate = soMap?['sale_date'];
-          final soDate = rawDate != null
-              ? rawDate.toString().substring(0, 10)
-              : '';
-          final customerName =
-              (soMap?['customers'] as Map<String, dynamic>?)?['display_name']
-                  as String? ??
-              '';
+          final soDate = rawDate != null ? rawDate.toString().substring(0, 10) : '';
+          final customerName = (soMap?['customers'] as Map<String, dynamic>?)?['display_name'] as String? ?? '';
           final status = map['status'] as String? ?? 'OPEN';
-          final vendorName =
-              (map['vendors'] as Map<String, dynamic>?)?['display_name']
-                  as String?;
+          final vendorName = (map['vendors'] as Map<String, dynamic>?)?['display_name'] as String?;
           final item = _DpItem(
-            rowId: map['id'] as String? ?? '',
+            rowId:     map['id'] as String? ?? '',
             productId: map['product_id'] as String? ?? '',
-            entityId: map['entity_id'] as String? ?? '',
+            entityId:  map['entity_id'] as String? ?? '',
             product: product,
             soNo: soNo,
             soDate: soDate,
             branch: 'Main',
             customerName: customerName,
-            reqQty: ((map['required_qty'] as num?)?.toInt()) ?? 0,
-            orderedQty: ((map['ordered_qty'] as num?)?.toInt()) ?? 0,
-            plannedQty: ((map['planned_qty'] as num?)?.toInt()) ?? 0,
-            receivedQty: ((map['received_qty'] as num?)?.toInt()) ?? 0,
-            pendingQty: ((map['pending_qty'] as num?)?.toInt()) ?? 0,
+            reqQty:      ((map['required_qty']  as num?)?.toInt()) ?? 0,
+            orderedQty:  ((map['ordered_qty']   as num?)?.toInt()) ?? 0,
+            plannedQty:  ((map['planned_qty']   as num?)?.toInt()) ?? 0,
+            receivedQty: ((map['received_qty']  as num?)?.toInt()) ?? 0,
+            pendingQty:  ((map['pending_qty']   as num?)?.toInt()) ?? 0,
           )..status = _normaliseDpStatus(status);
           item.vendorId = map['preferred_vendor_id'] as String?;
+          item.purchaseRequestId = map['purchase_request_id'] as String?;
+          item.salesOrderId = map['sales_order_id'] as String?;
+          item.salesOrderItemId = map['sales_order_item_id'] as String?;
           if (vendorName != null && vendorName.isNotEmpty) {
             item.preferredVendors = [vendorName];
           }
@@ -363,13 +390,115 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
         }).toList();
         _isLoadingRows = false;
       });
+      await _loadSubstitutions();
+      await _loadLastPlannedQty();
     } catch (e) {
-      AppLogger.error(
-        'Failed to load demand pool',
-        error: e,
-        module: 'DemandPool',
-      );
+      AppLogger.error('Failed to load demand pool', error: e, module: 'DemandPool');
       if (mounted) setState(() => _isLoadingRows = false);
+    }
+  }
+
+  /// Rebuild each row's substitution chain from `procurement_substitutions`.
+  ///
+  /// The chain lives only in memory otherwise, so without this a substituted row
+  /// comes back looking untouched after a reload. Rows are replayed oldest-first
+  /// so a product substituted more than once keeps its full chain order.
+  Future<void> _loadSubstitutions() async {
+    final rowIds =
+        _rows.map((r) => r.rowId).where((id) => id.isNotEmpty).toList();
+    if (rowIds.isEmpty) return;
+
+    try {
+      final res = await Supabase.instance.client
+          .from('procurement_substitutions')
+          .select('demand_pool_id, '
+              'products!substitute_product_id(product_name)')
+          .inFilter('demand_pool_id', rowIds)
+          .eq('substitution_status', 'ACTIVE')
+          .order('created_at');
+
+      if (!mounted) return;
+
+      final chains = <String, List<String>>{};
+      for (final row in (res as List<dynamic>)) {
+        final map = row as Map<String, dynamic>;
+        final dpId = map['demand_pool_id'] as String?;
+        final name = (map['products'] as Map<String, dynamic>?)?['product_name']
+            as String?;
+        if (dpId == null || name == null || name.isEmpty) continue;
+        chains.putIfAbsent(dpId, () => []).add(name);
+      }
+      if (chains.isEmpty) return;
+
+      setState(() {
+        for (final row in _rows) {
+          for (final name in chains[row.rowId] ?? const <String>[]) {
+            row.replacement = name;
+          }
+        }
+      });
+    } catch (e) {
+      AppLogger.error('Failed to load substitutions',
+          error: e, module: 'DemandPool');
+    }
+  }
+
+  /// Resolve each row's most recent planned qty from `purchase_request_items`.
+  ///
+  /// `demand_pool.planned_qty` is a running total across every approved PR, so
+  /// the latest round's figure is not recoverable from it. The PR that consumed
+  /// a row is recorded on `purchase_request_id`, and that PR's line item holds
+  /// the qty planned for the product as a whole. Approval splits that qty across
+  /// the PR's rows proportionally by `required_qty`
+  /// (procurement_approvals_overview.dart), so the same split is applied here to
+  /// land each row's share.
+  Future<void> _loadLastPlannedQty() async {
+    final prIds = _rows
+        .map((r) => r.purchaseRequestId)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    if (prIds.isEmpty) return;
+
+    try {
+      final response = await Supabase.instance.client
+          .from('purchase_request_items')
+          .select('purchase_request_id, product_id, planned_qty')
+          .inFilter('purchase_request_id', prIds);
+
+      // (purchaseRequestId, productId) -> qty that PR planned for the product.
+      final plannedByPrProduct = <String, double>{};
+      for (final json in response as List<dynamic>) {
+        final map = json as Map<String, dynamic>;
+        final key = '${map['purchase_request_id']}|${map['product_id']}';
+        plannedByPrProduct[key] = (plannedByPrProduct[key] ?? 0) +
+            ((map['planned_qty'] as num?)?.toDouble() ?? 0);
+      }
+
+      // Group the rows the same way approval does, then split by required_qty.
+      final rowsByPrProduct = <String, List<_DpItem>>{};
+      for (final row in _rows) {
+        if (row.purchaseRequestId == null) continue;
+        (rowsByPrProduct['${row.purchaseRequestId}|${row.productId}'] ??= [])
+            .add(row);
+      }
+
+      for (final entry in rowsByPrProduct.entries) {
+        final planned = plannedByPrProduct[entry.key] ?? 0;
+        if (planned <= 0) continue;
+        final siblings = entry.value;
+        final totalWeight =
+            siblings.fold<double>(0, (s, r) => s + r.reqQty);
+        for (final row in siblings) {
+          final share = totalWeight > 0 ? row.reqQty / totalWeight : 1.0 / siblings.length;
+          row.lastPlannedQty = (planned * share).round().clamp(0, row.reqQty);
+        }
+      }
+
+      if (mounted) setState(() {});
+    } catch (e) {
+      AppLogger.error('Failed to load last planned qty',
+          error: e, module: 'DemandPool');
     }
   }
 
@@ -407,19 +536,12 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
       if (!mounted) return;
       setState(() {
         _productNames = (response as List<dynamic>)
-            .map(
-              (r) =>
-                  (r as Map<String, dynamic>)['product_name'] as String? ?? '',
-            )
+            .map((r) => (r as Map<String, dynamic>)['product_name'] as String? ?? '')
             .where((n) => n.isNotEmpty)
             .toList();
       });
     } catch (e) {
-      AppLogger.error(
-        'Failed to load product names',
-        error: e,
-        module: 'DemandPool',
-      );
+      AppLogger.error('Failed to load product names', error: e, module: 'DemandPool');
     }
   }
 
@@ -465,7 +587,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildHeaderFields(),
                 const SizedBox(height: 16),
@@ -531,42 +653,37 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                 label: 'Warehouse',
                 required: true,
                 labelColor: AppTheme.errorRed,
-                child: Builder(
-                  builder: (context) {
-                    final warehousesAsync = ref.watch(warehousesProvider);
-                    final warehouses = warehousesAsync.valueOrNull ?? [];
-                    return FormDropdown<Warehouse>(
-                      value: _selectedWarehouse,
-                      items: warehouses,
-                      hint: 'Select warehouse',
-                      displayStringForValue: (w) => w.name,
-                      searchStringForValue: (w) => w.name,
-                      onChanged: (w) => setState(() => _selectedWarehouse = w),
-                    );
-                  },
-                ),
+                child: Builder(builder: (context) {
+                  final warehousesAsync = ref.watch(warehousesProvider);
+                  final warehouses = warehousesAsync.valueOrNull ?? [];
+                  return FormDropdown<Warehouse>(
+                    value: _selectedWarehouse,
+                    items: warehouses,
+                    hint: 'Select warehouse',
+                    displayStringForValue: (w) => w.name,
+                    searchStringForValue: (w) => w.name,
+                    onChanged: (w) => setState(() => _selectedWarehouse = w),
+                  );
+                }),
               ),
             ),
             const SizedBox(width: 24),
             Expanded(
               child: _FieldLabel(
                 label: 'Assignee',
-                child: Builder(
-                  builder: (context) {
-                    final users =
-                        ref.watch(supabaseUsersProvider).valueOrNull ?? [];
-                    return FormDropdown<User>(
-                      value: _assignee,
-                      items: users,
-                      hint: 'Select assignee',
-                      displayStringForValue: (u) =>
-                          u.fullName.isNotEmpty ? u.fullName : u.email,
-                      searchStringForValue: (u) =>
-                          '${u.fullName} ${u.email} ${u.department ?? ''} ${u.position ?? ''}',
-                      onChanged: (u) => setState(() => _assignee = u),
-                    );
-                  },
-                ),
+                child: Builder(builder: (context) {
+                  final users =
+                      ref.watch(supabaseUsersProvider).valueOrNull ?? [];
+                  return FormDropdown<User>(
+                    value: _assignee,
+                    items: users,
+                    hint: 'Select assignee',
+                    displayStringForValue: (u) => u.fullName.isNotEmpty ? u.fullName : u.email,
+                    searchStringForValue: (u) =>
+                        '${u.fullName} ${u.email} ${u.department ?? ''} ${u.position ?? ''}',
+                    onChanged: (u) => setState(() => _assignee = u),
+                  );
+                }),
               ),
             ),
           ],
@@ -582,16 +699,10 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                   key: _expectedDateKey,
                   onTap: () async {
                     final today = DateTime.now();
-                    final firstAllowed = DateTime(
-                      today.year,
-                      today.month,
-                      today.day,
-                    );
+                    final firstAllowed = DateTime(today.year, today.month, today.day);
                     final picked = await ZerpaiDatePicker.show(
                       context,
-                      initialDate:
-                          _expectedDate != null &&
-                              _expectedDate!.isAfter(firstAllowed)
+                      initialDate: _expectedDate != null && _expectedDate!.isAfter(firstAllowed)
                           ? _expectedDate!
                           : firstAllowed,
                       firstDate: firstAllowed,
@@ -675,15 +786,13 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
     // displayName, the where-by-name filter would produce duplicate chips.
     final _seenVendorNames = <String>{};
     final selectedFilterVendors = allVendors
-        .where(
-          (v) =>
-              _filterVendors.contains(v.displayName) &&
-              _seenVendorNames.add(v.displayName),
-        )
+        .where((v) =>
+            _filterVendors.contains(v.displayName) &&
+            _seenVendorNames.add(v.displayName))
         .toList();
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_groupBy == 'Items') ...[
           // Items group-by: Items + Vendor — both multi-select
@@ -734,8 +843,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                         '${v.name} ${v.companyName ?? ''}',
                     onChanged: (_) {},
                     onSelectedValuesChanged: (vals) => setState(
-                      () => _filterVendors = vals.map((v) => v.name).toList(),
-                    ),
+                        () => _filterVendors = vals.map((v) => v.name).toList()),
                   ),
                 ),
               ),
@@ -752,14 +860,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                     value: null,
                     multiSelect: true,
                     selectedValues: _filterStatuses,
-                    items: const [
-                      'Open',
-                      'PR Created',
-                      'PO Created',
-                      'PO Received',
-                      'Substituted',
-                      'Cancel',
-                    ],
+                    items: const ['Open', 'PR Created', 'PO Created', 'PO Received', 'Substituted', 'Cancel'],
                     hint: 'All statuses',
                     displayStringForValue: (v) => v,
                     showSearch: false,
@@ -797,10 +898,8 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                         '${c.displayName} ${c.customerNumber ?? ''} ${c.phone ?? ''}',
                     onChanged: (_) {},
                     onSelectedValuesChanged: (vals) => setState(
-                      () => _filterCustomers = vals
-                          .map((c) => c.displayName)
-                          .toList(),
-                    ),
+                        () => _filterCustomers =
+                            vals.map((c) => c.displayName).toList()),
                   ),
                 ),
               ),
@@ -850,8 +949,8 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                         '${o.saleNumber} ${o.reference ?? ''} ${o.customer?.displayName ?? ''}',
                     onChanged: (_) {},
                     onSelectedValuesChanged: (vals) => setState(
-                      () => _filterSos = vals.map((o) => o.saleNumber).toList(),
-                    ),
+                        () => _filterSos =
+                            vals.map((o) => o.saleNumber).toList()),
                   ),
                 ),
               ),
@@ -866,7 +965,6 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                   }),
                   child: FormDropdown<Vendor>(
                     value: null,
-                    itemHeight: 56.0,
                     selectedValues: selectedFilterVendors,
                     multiSelect: true,
                     hideSelectedItemsInMultiSelect: true,
@@ -877,10 +975,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                         '${v.displayName} ${v.vendorNumber ?? ''}',
                     onChanged: (_) {},
                     onSelectedValuesChanged: (vals) => setState(
-                      () => _filterVendors = vals
-                          .map((v) => v.displayName)
-                          .toList(),
-                    ),
+                        () => _filterVendors = vals.map((v) => v.displayName).toList()),
                   ),
                 ),
               ),
@@ -897,14 +992,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                     value: null,
                     multiSelect: true,
                     selectedValues: _filterStatuses,
-                    items: const [
-                      'Open',
-                      'PR Created',
-                      'PO Created',
-                      'PO Received',
-                      'Substituted',
-                      'Cancel',
-                    ],
+                    items: const ['Open', 'PR Created', 'PO Created', 'PO Received', 'Substituted', 'Cancel'],
                     hint: 'All statuses',
                     displayStringForValue: (v) => v,
                     showSearch: false,
@@ -923,18 +1011,16 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
             TweenAnimationBuilder<Color?>(
               tween: ColorTween(
                 begin: const Color(0xFFB2DFCA),
-                end: _hasAnyPendingFilter
-                    ? AppTheme.successGreen
-                    : const Color(0xFFB2DFCA),
+                end: _hasAnyPendingFilter ? AppTheme.successGreen : const Color(0xFFB2DFCA),
               ),
               duration: const Duration(milliseconds: 250),
               builder: (_, color, __) => ElevatedButton.icon(
                 onPressed: () => setState(() {
                   _appliedCustomers = List.from(_filterCustomers);
-                  _appliedItems = List.from(_filterItems);
-                  _appliedSos = List.from(_filterSos);
-                  _appliedVendors = List.from(_filterVendors);
-                  _appliedStatuses = List.from(_filterStatuses);
+                  _appliedItems     = List.from(_filterItems);
+                  _appliedSos       = List.from(_filterSos);
+                  _appliedVendors   = List.from(_filterVendors);
+                  _appliedStatuses  = List.from(_filterStatuses);
                   _activeTab = _TableTab.all;
                   _selected.clear();
                 }),
@@ -943,18 +1029,10 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: color,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 9,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                   elevation: 0,
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -968,15 +1046,15 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
               OutlinedButton.icon(
                 onPressed: () => setState(() {
                   _filterCustomers = [];
-                  _filterItems = [];
-                  _filterSos = [];
-                  _filterVendors = [];
-                  _filterStatuses = [];
+                  _filterItems     = [];
+                  _filterSos       = [];
+                  _filterVendors   = [];
+                  _filterStatuses  = [];
                   _appliedCustomers = [];
-                  _appliedItems = [];
-                  _appliedSos = [];
-                  _appliedVendors = [];
-                  _appliedStatuses = [];
+                  _appliedItems     = [];
+                  _appliedSos       = [];
+                  _appliedVendors   = [];
+                  _appliedStatuses  = [];
                   _activeTab = _TableTab.all;
                   _selected.clear();
                 }),
@@ -985,17 +1063,9 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.textSecondary,
                   side: const BorderSide(color: AppTheme.borderColor),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 9,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                 ),
               ),
             ],
@@ -1020,16 +1090,16 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
     }
     // Apply filters to _rows — empty list = no filter (show all)
     bool _matchesFilter(_DpItem r) {
-      if (_appliedItems.isNotEmpty && !_appliedItems.contains(r.product))
-        return false;
-      if (_appliedCustomers.isNotEmpty && !_appliedCustomers.contains(r.branch))
-        return false;
-      if (_appliedSos.isNotEmpty && !_appliedSos.contains(r.soNo)) return false;
+      if (_appliedItems.isNotEmpty &&
+          !_appliedItems.contains(r.product)) return false;
+      if (_appliedCustomers.isNotEmpty &&
+          !_appliedCustomers.contains(r.branch)) return false;
+      if (_appliedSos.isNotEmpty &&
+          !_appliedSos.contains(r.soNo)) return false;
       if (_appliedVendors.isNotEmpty &&
-          !r.preferredVendors.any(_appliedVendors.contains))
-        return false;
-      if (_appliedStatuses.isNotEmpty && !_appliedStatuses.contains(r.status))
-        return false;
+          !r.preferredVendors.any(_appliedVendors.contains)) return false;
+      if (_appliedStatuses.isNotEmpty &&
+          !_appliedStatuses.contains(r.status)) return false;
       return true;
     }
 
@@ -1040,7 +1110,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
     final List<int> globalIdxMap;
 
     if (_activeTab == _TableTab.selected) {
-      visibleRows = [];
+      visibleRows  = [];
       globalIdxMap = [];
       for (int i = 0; i < _rows.length; i++) {
         if (_selected.contains(i) && _matchesFilter(_rows[i])) {
@@ -1049,7 +1119,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
         }
       }
     } else {
-      visibleRows = baseRows;
+      visibleRows  = baseRows;
       globalIdxMap = [
         for (int i = 0; i < _rows.length; i++)
           if (_matchesFilter(_rows[i])) i,
@@ -1062,10 +1132,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
     List<_AggregatedItem> _aggregateByProduct() {
       final map = <String, List<(int, _DpItem)>>{};
       for (int i = 0; i < visibleRows.length; i++) {
-        (map[visibleRows[i].product] ??= []).add((
-          globalIdxMap[i],
-          visibleRows[i],
-        ));
+        (map[visibleRows[i].product] ??= []).add((globalIdxMap[i], visibleRows[i]));
       }
       return map.entries.map((e) {
         final idxItems = e.value;
@@ -1105,19 +1172,19 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
     };
 
     void toggleOne(int local) => setState(() {
-      final g = toGlobal(local);
-      _selected.contains(g) ? _selected.remove(g) : _selected.add(g);
-    });
+          final g = toGlobal(local);
+          _selected.contains(g) ? _selected.remove(g) : _selected.add(g);
+        });
 
     void toggleAll() => setState(() {
-      if (_selected.length == _rows.length) {
-        _selected.clear();
-      } else {
-        _selected
-          ..clear()
-          ..addAll(List.generate(_rows.length, (i) => i));
-      }
-    });
+          if (_selected.length == _rows.length) {
+            _selected.clear();
+          } else {
+            _selected
+              ..clear()
+              ..addAll(List.generate(_rows.length, (i) => i));
+          }
+        });
 
     // -----------------------------------------------------------------------
     // Items-view helpers (indices into aggRows)
@@ -1132,27 +1199,28 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
     _lastAggSelected = aggSelected;
 
     void toggleAgg(int aggIdx) => setState(() {
-      final agg = aggRows[aggIdx];
-      final allIn = agg.globalIndices.every(_selected.contains);
-      if (allIn) {
-        _selected.removeAll(agg.globalIndices);
-      } else {
-        _selected.addAll(agg.globalIndices);
-      }
-    });
+          final agg = aggRows[aggIdx];
+          final allIn = agg.globalIndices.every(_selected.contains);
+          if (allIn) {
+            _selected.removeAll(agg.globalIndices);
+          } else {
+            _selected.addAll(agg.globalIndices);
+          }
+        });
 
     void toggleAllAgg() => setState(() {
-      final allGlobals = aggRows.expand((a) => a.globalIndices).toList();
-      final allIn = allGlobals.every(_selected.contains);
-      if (allIn) {
-        _selected.removeAll(allGlobals);
-      } else {
-        _selected.addAll(allGlobals);
-      }
-    });
+          final allGlobals =
+              aggRows.expand((a) => a.globalIndices).toList();
+          final allIn = allGlobals.every(_selected.contains);
+          if (allIn) {
+            _selected.removeAll(allGlobals);
+          } else {
+            _selected.addAll(allGlobals);
+          }
+        });
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Tabs + Group By label
         Row(
@@ -1171,10 +1239,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
             const Spacer(),
             Text(
               'Group By: $_groupBy',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-              ),
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
             ),
           ],
         ),
@@ -1189,7 +1254,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                 onToggleAll: toggleAll,
                 onToggleBranch: (localIndices) => setState(() {
                   final globals = branchToGlobal(localIndices);
-                  final allIn = globals.every(_selected.contains);
+                  final allIn   = globals.every(_selected.contains);
                   if (allIn) {
                     _selected.removeAll(globals);
                   } else {
@@ -1201,14 +1266,11 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                   _rows[gi].preferredVendors = v;
                   _rows[gi].vendorChanged = true;
                   _rows[gi].vendorId = v.isNotEmpty
-                      ? _vendorInfoList
-                            .where((vi) => vi.name == v.first)
-                            .firstOrNull
-                            ?.id
+                      ? _vendorInfoList.where((vi) => vi.name == v.first).firstOrNull?.id
                       : null;
                 }),
                 onSubstitute: (local, v) =>
-                    setState(() => _rows[toGlobal(local)].replacement = v),
+                    _applySubstitution([toGlobal(local)], v),
               )
             : _ItemsGroupTable(
                 rows: aggRows,
@@ -1218,10 +1280,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                 onToggleAll: toggleAllAgg,
                 onVendorChanged: (aggIdx, v) => setState(() {
                   final newVendorId = v.isNotEmpty
-                      ? _vendorInfoList
-                            .where((vi) => vi.name == v.first)
-                            .firstOrNull
-                            ?.id
+                      ? _vendorInfoList.where((vi) => vi.name == v.first).firstOrNull?.id
                       : null;
                   for (final gi in aggRows[aggIdx].globalIndices) {
                     _rows[gi].preferredVendors = v;
@@ -1237,14 +1296,71 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                   );
                 },
                 onShowOrderDetails: _showOrderDetailsOverlay,
-                onSubstitute: (aggIdx, v) => setState(() {
-                  for (final gi in aggRows[aggIdx].globalIndices) {
-                    _rows[gi].replacement = v;
-                  }
-                }),
+                onSubstitute: (aggIdx, v) =>
+                    _applySubstitution(aggRows[aggIdx].globalIndices, v),
               ),
       ],
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Substitution → update the on-screen chain and record it in the DB
+  // ---------------------------------------------------------------------------
+
+  /// Applies [substitute] to every demand pool row in [globalIndices] and writes
+  /// one `procurement_substitutions` row per demand pool row, so a substitution
+  /// made against an aggregated item is traceable back to each order it covered.
+  Future<void> _applySubstitution(List<int> globalIndices, Item? substitute) async {
+    if (substitute == null || globalIndices.isEmpty) return;
+
+    final substituteId = substitute.id;
+    final substituteName = substitute.billingName?.isNotEmpty == true
+        ? substitute.billingName!
+        : substitute.productName;
+
+    setState(() {
+      for (final gi in globalIndices) {
+        _rows[gi].replacement = substituteName;
+      }
+    });
+
+    // Without a product id there is nothing to point the FK at — keep the UI
+    // change (the user still sees the swap) but skip the insert.
+    if (substituteId == null || substituteId.isEmpty) {
+      AppLogger.warning(
+        'Substitute product has no id — substitution not recorded',
+        module: 'DemandPool',
+      );
+      return;
+    }
+
+    final payload = globalIndices.map((gi) {
+      final row = _rows[gi];
+      return {
+        'entity_id': row.entityId,
+        'warehouse_id': _selectedWarehouse?.id,
+        'source_module': 'DEMAND_POOL',
+        'demand_pool_id': row.rowId,
+        // Carried from the demand pool row so the sales order that raised this
+        // demand can show the substitution without walking back through the pool.
+        'sales_order_id': row.salesOrderId,
+        'sales_order_item_id': row.salesOrderItemId,
+        'original_product_id': row.productId,
+        'substitute_product_id': substituteId,
+        'original_qty': row.reqQty,
+        'substitute_qty': row.reqQty,
+        'vendor_id': row.vendorId,
+      };
+    }).toList();
+
+    try {
+      await Supabase.instance.client
+          .from('procurement_substitutions')
+          .insert(payload);
+    } catch (e) {
+      AppLogger.error('Failed to save substitution',
+          error: e, module: 'DemandPool');
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1252,6 +1368,8 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
   // ---------------------------------------------------------------------------
 
   void _generatePurchaseRequest() {
+    if (_selectedWarehouse == null) return;
+
     final toGenerate = _lastAggSelected.isNotEmpty
         ? _lastAggSelected.map((i) => _lastAggRows[i]).toList()
         : List<_AggregatedItem>.from(_lastAggRows);
@@ -1259,36 +1377,36 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
     if (toGenerate.isEmpty) return;
 
     final lineItems = toGenerate
-        .map(
-          (agg) => DemandPoolLineItem(
+        .map((agg) {
+          // Pull only the remaining balance still to procure — the same
+          // "Total Required" (pending) shown in the REQ QTY column / Order
+          // Details. Planned reflects approved PRs; a fresh PR plans none yet.
+          final balance = agg.totalPendingQty.clamp(0, agg.totalReqQty);
+          return DemandPoolLineItem(
             productId: agg.productId,
             productName: agg.product,
             entityId: agg.entityId,
-            reqQty: agg.totalReqQty,
-            plannedQty: agg.totalPlannedQty,
-            pendingQty: agg.totalPendingQty,
+            reqQty: balance,
+            plannedQty: 0,
+            pendingQty: balance,
             vendorId: agg.vendorId,
-            vendorName: agg.preferredVendors.isNotEmpty
-                ? agg.preferredVendors.first
-                : null,
+            vendorName: agg.preferredVendors.isNotEmpty ? agg.preferredVendors.first : null,
             demandPoolIds: agg.demandPoolIds,
-          ),
-        )
+          );
+        })
         .toList();
 
     if (!mounted) return;
-    Navigator.of(context).pop(
-      DemandPoolPayload(
-        lineItems: lineItems,
-        assigneeId: _assignee?.id,
-        assigneeName: _assignee != null
-            ? (_assignee!.fullName.isNotEmpty
-                  ? _assignee!.fullName
-                  : _assignee!.email)
-            : null,
-        expectedDate: _expectedDate,
-      ),
-    );
+    Navigator.of(context).pop(DemandPoolPayload(
+      lineItems: lineItems,
+      assigneeId: _assignee?.id,
+      assigneeName: _assignee != null
+          ? (_assignee!.fullName.isNotEmpty
+              ? _assignee!.fullName
+              : _assignee!.email)
+          : null,
+      expectedDate: _expectedDate,
+    ));
   }
 
   // ---------------------------------------------------------------------------
@@ -1296,29 +1414,25 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
   // ---------------------------------------------------------------------------
 
   Widget _buildFooter() {
+    // Warehouse is mandatory — no PR can be generated until one is picked.
+    final canGenerate = _selectedWarehouse != null;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
           ElevatedButton(
-            onPressed: () => _generatePurchaseRequest(),
+            onPressed: canGenerate ? _generatePurchaseRequest : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.successGreen,
-              disabledBackgroundColor: AppTheme.successGreen.withValues(
-                alpha: 0.38,
-              ),
+              disabledBackgroundColor: AppTheme.successGreen.withValues(alpha: 0.38),
               foregroundColor: Colors.white,
               disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               elevation: 0,
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             child: const Text('Generate Purchase Request'),
           ),
@@ -1329,13 +1443,8 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
               foregroundColor: AppTheme.textBody,
               side: const BorderSide(color: AppTheme.borderColor),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
             child: const Text('Cancel'),
           ),
@@ -1412,7 +1521,7 @@ class _BranchGroupTable extends StatelessWidget {
   final VoidCallback onToggleAll;
   final void Function(List<int> indices) onToggleBranch;
   final void Function(int, List<String>) onVendorChanged;
-  final void Function(int, String?) onSubstitute;
+  final void Function(int, Item?) onSubstitute;
 
   static const TextStyle _hStyle = TextStyle(
     fontSize: 11,
@@ -1424,13 +1533,10 @@ class _BranchGroupTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final allSelected = rows.isNotEmpty && selected.length == rows.length;
-    final customers = rows
-        .map((r) => r.customerName.isNotEmpty ? r.customerName : r.branch)
-        .toSet()
-        .toList();
+    final customers = rows.map((r) => r.customerLabel).toSet().toList();
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Header row
         Container(
@@ -1450,36 +1556,14 @@ class _BranchGroupTable extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               const Expanded(flex: 5, child: Text('PRODUCT', style: _hStyle)),
-              const Expanded(flex: 2, child: Text('SO NO', style: _hStyle)),
-              const SizedBox(
-                width: 70,
-                child: Text(
-                  'REQ QTY',
-                  style: _hStyle,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(
-                width: 90,
-                child: Text(
-                  'PLANNED QTY',
-                  style: _hStyle,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(
-                width: 90,
-                child: Text(
-                  'PREV. PENDING',
-                  style: _hStyle,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(width: 110, child: Text('STATUS', style: _hStyle)),
-              const Expanded(
-                flex: 3,
-                child: Text('PREFERRED VENDOR', style: _hStyle),
-              ),
+              const SizedBox(width: 72, child: Text('REQ QTY', style: _hStyle, textAlign: TextAlign.center)),
+              const SizedBox(width: 12),
+              const SizedBox(width: 96, child: Text('PLANNED QTY', style: _hStyle, textAlign: TextAlign.center)),
+              const SizedBox(width: 12),
+              const SizedBox(width: 104, child: Text('PREV. PENDING', style: _hStyle, textAlign: TextAlign.center)),
+              const SizedBox(width: 12),
+              const SizedBox(width: 100, child: Text('STATUS', style: _hStyle)),
+              const Expanded(flex: 3, child: Text('PREFERRED VENDOR', style: _hStyle)),
               const SizedBox(width: 28),
             ],
           ),
@@ -1487,30 +1571,17 @@ class _BranchGroupTable extends StatelessWidget {
         const Divider(height: 1, color: AppTheme.borderColor),
         // Customer groups
         ...customers.map((customer) {
-          final customerRows = rows
-              .where(
-                (r) =>
-                    (r.customerName.isNotEmpty ? r.customerName : r.branch) ==
-                    customer,
-              )
-              .toList();
-          final customerIndices = customerRows
-              .map((r) => rows.indexOf(r))
-              .toList();
-          final allCustomerSelected =
-              customerIndices.isNotEmpty &&
+          final customerRows = rows.where((r) => r.customerLabel == customer).toList();
+          final customerIndices = customerRows.map((r) => rows.indexOf(r)).toList();
+          final allCustomerSelected = customerIndices.isNotEmpty &&
               customerIndices.every(selected.contains);
-          final branch = customerRows.first.branch;
           return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Customer group header with branch below
+              // Customer group header — "Customer: <name>" label
               Container(
                 color: const Color(0xFFEFF6FF),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   children: [
                     SizedBox(
@@ -1524,26 +1595,13 @@ class _BranchGroupTable extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          customer,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          branch,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      'CUSTOMER: $customer',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -1586,7 +1644,7 @@ class _BranchRow extends StatefulWidget {
   final List<_VendorInfo> vendors;
   final VoidCallback onToggle;
   final ValueChanged<List<String>> onVendorChanged;
-  final ValueChanged<String?> onSubstitute;
+  final ValueChanged<Item?> onSubstitute;
 
   @override
   State<_BranchRow> createState() => _BranchRowState();
@@ -1602,11 +1660,14 @@ class _BranchRowState extends State<_BranchRow> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: Container(
-        color: widget.isSelected
-            ? AppTheme.primaryBlue.withValues(alpha: 0.04)
-            : _hovered
-            ? AppTheme.bgDisabled
-            : Colors.white,
+        decoration: BoxDecoration(
+          color: widget.isSelected
+              ? AppTheme.primaryBlue.withValues(alpha: 0.04)
+              : _hovered
+                  ? AppTheme.bgDisabled
+                  : Colors.white,
+          borderRadius: AppTheme.hoverRadius,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
@@ -1624,72 +1685,47 @@ class _BranchRowState extends State<_BranchRow> {
             // Product name
             Expanded(
               flex: 5,
-              child: _ProductCell(
+              child: SubstitutedProductText(
                 product: item.product,
                 substitutionChain: item.substitutionChain,
               ),
             ),
-            // SO No
-            Expanded(
-              flex: 2,
-              child: item.soNo.isNotEmpty
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          item.soNo,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.primaryBlue,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (item.soDate.isNotEmpty)
-                          Text(
-                            item.soDate,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textMuted,
-                            ),
-                          ),
-                      ],
-                    )
-                  : const Text(
-                      '—',
-                      style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
-                    ),
-            ),
             // Req Qty
             SizedBox(
-              width: 70,
+              width: 72,
               child: Text(
                 '${item.reqQty}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
               ),
             ),
+            const SizedBox(width: 12),
             // Planned Qty
             SizedBox(
-              width: 90,
+              width: 96,
               child: Text(
-                '${item.plannedQty}',
+                '${item.lastPlannedQty}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
               ),
             ),
-            // Pending Qty
+            const SizedBox(width: 12),
+            // Prev. Pending = required - last planned; 0 for a brand-new pool
+            // row (nothing has been planned against it yet).
             SizedBox(
-              width: 90,
+              width: 104,
               child: Text(
-                '${item.pendingQty}',
+                '${item.prevPendingQty}',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
               ),
             ),
+            const SizedBox(width: 12),
             // Status
-            SizedBox(width: 110, child: _DpStatusText(item.status)),
+            SizedBox(
+              width: 100,
+              child: _DpStatusText(item.status),
+            ),
             // Preferred Vendor
             Expanded(
               flex: 3,
@@ -1702,11 +1738,7 @@ class _BranchRowState extends State<_BranchRow> {
             // ⋮ menu
             SizedBox(
               width: 28,
-              child: _RowMenu(
-                item: item,
-                onSubstitute: widget.onSubstitute,
-                isCustomersView: true,
-              ),
+              child: _RowMenu(item: item, onSubstitute: widget.onSubstitute, isCustomersView: true),
             ),
           ],
         ),
@@ -1739,9 +1771,8 @@ class _ItemsGroupTable extends StatelessWidget {
   final VoidCallback onToggleAll;
   final void Function(int, List<String>) onVendorChanged;
   final ValueChanged<_AggregatedItem> onShowOrderDetails;
-  final void Function(int, String?) onSubstitute;
-  final void Function(int idx, String vendorName, String? vendorId)?
-  onDropdownVendorPicked;
+  final void Function(int, Item?) onSubstitute;
+  final void Function(int idx, String vendorName, String? vendorId)? onDropdownVendorPicked;
 
   static const TextStyle _hStyle = TextStyle(
     fontSize: 11,
@@ -1755,7 +1786,7 @@ class _ItemsGroupTable extends StatelessWidget {
     final allSelected = rows.isNotEmpty && selected.length == rows.length;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Header
         Container(
@@ -1775,21 +1806,14 @@ class _ItemsGroupTable extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               const Expanded(flex: 3, child: Text('PRODUCT', style: _hStyle)),
-              const Expanded(flex: 2, child: Text('SO NO', style: _hStyle)),
-              const SizedBox(width: 80, child: Text('REQ QTY', style: _hStyle)),
-              const SizedBox(
-                width: 100,
-                child: Text('PLANNED QTY', style: _hStyle),
-              ),
-              const SizedBox(
-                width: 100,
-                child: Text('PREV. PENDING', style: _hStyle),
-              ),
-              const SizedBox(width: 110, child: Text('STATUS', style: _hStyle)),
-              const Expanded(
-                flex: 3,
-                child: Text('PREFERRED VENDOR', style: _hStyle),
-              ),
+              const SizedBox(width: 72, child: Text('REQ QTY', style: _hStyle, textAlign: TextAlign.center)),
+              const SizedBox(width: 12),
+              const SizedBox(width: 96, child: Text('PLANNED QTY', style: _hStyle, textAlign: TextAlign.center)),
+              const SizedBox(width: 12),
+              const SizedBox(width: 104, child: Text('PREV. PENDING', style: _hStyle, textAlign: TextAlign.center)),
+              const SizedBox(width: 12),
+              const SizedBox(width: 100, child: Text('STATUS', style: _hStyle)),
+              const Expanded(flex: 3, child: Text('PREFERRED VENDOR', style: _hStyle)),
               const SizedBox(width: 28),
             ],
           ),
@@ -1842,9 +1866,8 @@ class _ItemsRow extends StatefulWidget {
   final VoidCallback onToggle;
   final ValueChanged<List<String>> onVendorChanged;
   final VoidCallback onShowOrderDetails;
-  final ValueChanged<String?> onSubstitute;
-  final void Function(String vendorName, String? vendorId)?
-  onDropdownVendorPicked;
+  final ValueChanged<Item?> onSubstitute;
+  final void Function(String vendorName, String? vendorId)? onDropdownVendorPicked;
 
   @override
   State<_ItemsRow> createState() => _ItemsRowState();
@@ -1860,11 +1883,14 @@ class _ItemsRowState extends State<_ItemsRow> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: Container(
-        color: widget.isSelected
-            ? AppTheme.primaryBlue.withValues(alpha: 0.04)
-            : _hovered
-            ? AppTheme.bgDisabled
-            : Colors.white,
+        decoration: BoxDecoration(
+          color: widget.isSelected
+              ? AppTheme.primaryBlue.withValues(alpha: 0.04)
+              : _hovered
+                  ? AppTheme.bgDisabled
+                  : Colors.white,
+          borderRadius: AppTheme.hoverRadius,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
@@ -1882,54 +1908,20 @@ class _ItemsRowState extends State<_ItemsRow> {
             // Product
             Expanded(
               flex: 3,
-              child: _ProductCell(
+              child: SubstitutedProductText(
                 product: agg.product,
                 substitutionChain: agg.substitutionChain,
               ),
             ),
-            // SO No — show all unique SO numbers from constituent orders
-            Expanded(
-              flex: 2,
-              child: Builder(
-                builder: (context) {
-                  final soNos = agg.orders
-                      .map((o) => o.soNo)
-                      .where((s) => s.isNotEmpty)
-                      .toSet()
-                      .toList();
-                  if (soNos.isEmpty) {
-                    return const Text(
-                      '—',
-                      style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
-                    );
-                  }
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: soNos
-                        .map(
-                          (soNo) => Text(
-                            soNo,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.primaryBlue,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        )
-                        .toList(),
-                  );
-                },
-              ),
-            ),
-            // Req Qty — tappable to show order details breakdown
+            // Req Qty — shows Total Required (pending to procure), matching the
+            // Order Details "Total Required". Tappable to open the breakdown.
             SizedBox(
-              width: 80,
+              width: 72,
               child: GestureDetector(
                 onTap: widget.onShowOrderDetails,
                 child: Text(
-                  '${agg.totalReqQty}',
+                  '${agg.totalPendingQty}',
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppTheme.primaryBlue,
@@ -1938,24 +1930,33 @@ class _ItemsRowState extends State<_ItemsRow> {
                 ),
               ),
             ),
+            const SizedBox(width: 12),
             // Planned Qty
             SizedBox(
-              width: 100,
+              width: 96,
               child: Text(
-                '${agg.totalPlannedQty}',
+                '${agg.totalLastPlanned}',
+                textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
               ),
             ),
-            // Pending Qty
+            const SizedBox(width: 12),
+            // Prev. Pending = pending carried from an earlier PR round; 0 for a
+            // brand-new pool item (nothing was pending before it was added).
+            SizedBox(
+              width: 104,
+              child: Text(
+                '${agg.totalPrevPending}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Status
             SizedBox(
               width: 100,
-              child: Text(
-                '${agg.totalPendingQty}',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
-              ),
+              child: _DpStatusText(agg.status),
             ),
-            // Status
-            SizedBox(width: 110, child: _DpStatusText(agg.status)),
             // Preferred Vendor — single-select in Items view
             Expanded(
               flex: 3,
@@ -2039,7 +2040,7 @@ class _OrderDetailsPopover extends StatelessWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Title bar ──
@@ -2061,11 +2062,7 @@ class _OrderDetailsPopover extends StatelessWidget {
                 ),
                 GestureDetector(
                   onTap: onClose,
-                  child: const Icon(
-                    LucideIcons.x,
-                    size: 15,
-                    color: AppTheme.errorRed,
-                  ),
+                  child: const Icon(LucideIcons.x, size: 15, color: AppTheme.errorRed),
                 ),
               ],
             ),
@@ -2074,9 +2071,7 @@ class _OrderDetailsPopover extends StatelessWidget {
           Container(
             decoration: const BoxDecoration(
               color: AppTheme.bgLight,
-              border: Border(
-                left: BorderSide(color: AppTheme.borderColor, width: 3),
-              ),
+              border: Border(left: BorderSide(color: AppTheme.borderColor, width: 3)),
             ),
             padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
             child: Column(
@@ -2111,67 +2106,15 @@ class _OrderDetailsPopover extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             child: const Row(
               children: [
-                SizedBox(
-                  width: 100,
-                  child: Text('SO NO', style: _colHeaderStyle),
-                ),
+                SizedBox(width: 100, child: Text('SO NO', style: _colHeaderStyle)),
                 Expanded(child: Text('CUSTOMER', style: _colHeaderStyle)),
-                SizedBox(
-                  width: 75,
-                  child: Text(
-                    'ORDERED',
-                    style: _colHeaderStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                SizedBox(
-                  width: 70,
-                  child: Text(
-                    'PICKED',
-                    style: _colHeaderStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                SizedBox(
-                  width: 70,
-                  child: Text(
-                    'PACKED',
-                    style: _colHeaderStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                SizedBox(
-                  width: 75,
-                  child: Text(
-                    'INVOICED',
-                    style: _colHeaderStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                SizedBox(
-                  width: 105,
-                  child: Text(
-                    'PURCHASE ORDER',
-                    style: _colHeaderStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                SizedBox(
-                  width: 65,
-                  child: Text(
-                    'BILLS',
-                    style: _colHeaderStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                SizedBox(
-                  width: 72,
-                  child: Text(
-                    'REQUIRED',
-                    style: _colHeaderStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+                SizedBox(width: 75, child: Text('ORDERED', style: _colHeaderStyle, textAlign: TextAlign.center)),
+                SizedBox(width: 70, child: Text('PICKED', style: _colHeaderStyle, textAlign: TextAlign.center)),
+                SizedBox(width: 70, child: Text('PACKED', style: _colHeaderStyle, textAlign: TextAlign.center)),
+                SizedBox(width: 75, child: Text('INVOICED', style: _colHeaderStyle, textAlign: TextAlign.center)),
+                SizedBox(width: 105, child: Text('PURCHASE ORDER', style: _colHeaderStyle, textAlign: TextAlign.center)),
+                SizedBox(width: 65, child: Text('BILLS', style: _colHeaderStyle, textAlign: TextAlign.center)),
+                SizedBox(width: 72, child: Text('REQUIRED', style: _colHeaderStyle, textAlign: TextAlign.center)),
               ],
             ),
           ),
@@ -2184,10 +2127,7 @@ class _OrderDetailsPopover extends StatelessWidget {
               children: [
                 Container(
                   color: i.isOdd ? AppTheme.bgLight : Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -2203,10 +2143,10 @@ class _OrderDetailsPopover extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // Customer / branch
+                      // Customer from the linked sales order
                       Expanded(
                         child: Text(
-                          order.branch.isNotEmpty ? order.branch : '—',
+                          order.customerLabel.isNotEmpty ? order.customerLabel : '—',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -2217,57 +2157,21 @@ class _OrderDetailsPopover extends StatelessWidget {
                       // Ordered (= required qty from SO)
                       SizedBox(
                         width: 75,
-                        child: Text(
-                          '${order.reqQty}',
-                          style: _valueStyle,
-                          textAlign: TextAlign.center,
-                        ),
+                        child: Text('${order.reqQty}', style: _valueStyle, textAlign: TextAlign.center),
                       ),
                       // Picked = reqQty − pendingQty (fulfilled from stock)
                       SizedBox(
                         width: 70,
-                        child: Text(
-                          '${order.reqQty - order.pendingQty}',
-                          style: _valueStyle,
-                          textAlign: TextAlign.center,
-                        ),
+                        child: Text('${order.reqQty - order.pendingQty}', style: _valueStyle, textAlign: TextAlign.center),
                       ),
                       // Packed
-                      const SizedBox(
-                        width: 70,
-                        child: Text(
-                          '0',
-                          style: _valueStyle,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                      const SizedBox(width: 70, child: Text('0', style: _valueStyle, textAlign: TextAlign.center)),
                       // Invoiced
-                      const SizedBox(
-                        width: 75,
-                        child: Text(
-                          '0',
-                          style: _valueStyle,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                      const SizedBox(width: 75, child: Text('0', style: _valueStyle, textAlign: TextAlign.center)),
                       // Purchase Order
-                      const SizedBox(
-                        width: 105,
-                        child: Text(
-                          '0',
-                          style: _valueStyle,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                      const SizedBox(width: 105, child: Text('0', style: _valueStyle, textAlign: TextAlign.center)),
                       // Bills
-                      const SizedBox(
-                        width: 65,
-                        child: Text(
-                          '0',
-                          style: _valueStyle,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                      const SizedBox(width: 65, child: Text('0', style: _valueStyle, textAlign: TextAlign.center)),
                       // Required = pendingQty (still unmet)
                       SizedBox(
                         width: 72,
@@ -2295,9 +2199,7 @@ class _OrderDetailsPopover extends StatelessWidget {
             child: Row(
               children: [
                 const SizedBox(width: 100),
-                const Expanded(
-                  child: Text('Total Required', style: _totalLabelStyle),
-                ),
+                const Expanded(child: Text('Total Required', style: _totalLabelStyle)),
                 const SizedBox(width: 75),
                 const SizedBox(width: 70),
                 const SizedBox(width: 70),
@@ -2308,9 +2210,7 @@ class _OrderDetailsPopover extends StatelessWidget {
                   width: 72,
                   child: Text(
                     '${agg.totalPendingQty}',
-                    style: _totalValueStyle.copyWith(
-                      color: AppTheme.primaryBlue,
-                    ),
+                    style: _totalValueStyle.copyWith(color: AppTheme.primaryBlue),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -2327,127 +2227,6 @@ class _OrderDetailsPopover extends StatelessWidget {
 // Shared sub-widgets
 // ---------------------------------------------------------------------------
 
-class _ProductCell extends StatelessWidget {
-  const _ProductCell({
-    required this.product,
-    this.substitutionChain = const [],
-  });
-
-  final String product;
-  final List<String> substitutionChain;
-
-  @override
-  Widget build(BuildContext context) {
-    const fontSize = 13.0;
-
-    if (substitutionChain.isEmpty) {
-      return Text(
-        product,
-        style: const TextStyle(
-          fontSize: fontSize,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.textBody,
-        ),
-      );
-    }
-
-    const arcWidth = 11.0;
-    // Half of a single text line height — used to anchor arc at text centres
-    const halfLineH = fontSize * 0.72;
-    const itemGap = 2.0;
-
-    final allItems = [product, ...substitutionChain];
-
-    // Always show only the last two: second-to-last (faded) → last (bold)
-    final arcFrom = allItems[allItems.length - 2];
-    final arcTo = allItems[allItems.length - 1];
-
-    final fadedStyle = TextStyle(
-      fontSize: fontSize,
-      color: AppTheme.textBody,
-      decoration: TextDecoration.lineThrough,
-      decorationColor: AppTheme.textBody,
-    );
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: arcWidth,
-          child: CustomPaint(
-            painter: _LeftArcArrowPainter(halfLineH: halfLineH),
-          ),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Opacity(opacity: 0.4, child: Text(arcFrom, style: fadedStyle)),
-            SizedBox(height: itemGap),
-            Text(
-              arcTo,
-              style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _LeftArcArrowPainter extends CustomPainter {
-  const _LeftArcArrowPainter({required this.halfLineH});
-  final double halfLineH;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppTheme.primaryBlue
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    // Anchor at the vertical centre of the first and last text lines
-    final startY = halfLineH;
-    final endY = size.height - halfLineH;
-
-    // "(" shape: start at right edge (touching text), bulge LEFT, end at right edge
-    final path = Path()
-      ..moveTo(size.width, startY)
-      ..cubicTo(
-        -size.width * 0.8,
-        startY,
-        -size.width * 0.8,
-        endY,
-        size.width,
-        endY,
-      );
-    canvas.drawPath(path, paint);
-
-    // Arrowhead pointing right toward the new item
-    const ah = 3.0;
-    canvas.drawLine(
-      Offset(size.width, endY),
-      Offset(size.width - ah, endY - ah),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width, endY),
-      Offset(size.width - ah, endY + ah),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_LeftArcArrowPainter old) => old.halfLineH != halfLineH;
-}
-
 class _VendorRichDropdown extends StatefulWidget {
   const _VendorRichDropdown({
     required this.values,
@@ -2462,8 +2241,7 @@ class _VendorRichDropdown extends StatefulWidget {
   final ValueChanged<List<String>> onChanged;
   // When true: selecting a vendor replaces the current selection (no chips).
   final bool singleSelect;
-  final void Function(String vendorName, String? vendorId)?
-  onDropdownVendorPicked;
+  final void Function(String vendorName, String? vendorId)? onDropdownVendorPicked;
 
   @override
   State<_VendorRichDropdown> createState() => _VendorRichDropdownState();
@@ -2596,18 +2374,13 @@ class _VendorRichDropdownState extends State<_VendorRichDropdown> {
                         for (int i = 0; i < widget.vendors.length; i++) ...[
                           _VendorItem(
                             info: widget.vendors[i],
-                            isSelected: _localValues.contains(
-                              widget.vendors[i].name,
-                            ),
+                            isSelected: _localValues.contains(widget.vendors[i].name),
                             isFirst: i == 0,
                             isLast: i == widget.vendors.length - 1,
                             onTap: () => _toggleVendor(widget.vendors[i].name),
                           ),
                           if (i < widget.vendors.length - 1)
-                            const Divider(
-                              height: 1,
-                              color: AppTheme.borderColor,
-                            ),
+                            const Divider(height: 1, color: AppTheme.borderColor),
                         ],
                       ],
                     ),
@@ -2652,69 +2425,62 @@ class _VendorRichDropdownState extends State<_VendorRichDropdown> {
                 child: _localValues.isEmpty
                     ? const Text(
                         'Select Vendor',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textMuted,
-                        ),
+                        style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
                       )
                     : widget.singleSelect
-                    // Single-select: plain text, no chips
-                    ? Text(
-                        _localValues.first,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textBody,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      )
-                    // Multi-select: chip list
-                    : Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: _localValues.map((name) {
-                          return Container(
-                            padding: const EdgeInsets.fromLTRB(6, 2, 4, 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryBlue.withValues(
-                                alpha: 0.08,
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: AppTheme.primaryBlue.withValues(
-                                  alpha: 0.3,
-                                ),
-                              ),
+                        // Single-select: plain text, no chips
+                        ? Text(
+                            _localValues.first,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textBody,
+                              fontWeight: FontWeight.w500,
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    name,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.primaryBlue,
-                                      fontWeight: FontWeight.w500,
+                            overflow: TextOverflow.ellipsis,
+                          )
+                        // Multi-select: chip list
+                        : Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: _localValues.map((name) {
+                              return Container(
+                                padding: const EdgeInsets.fromLTRB(6, 2, 4, 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryBlue.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: AppTheme.primaryBlue.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        name,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.primaryBlue,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
                                     ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
+                                    const SizedBox(width: 3),
+                                    GestureDetector(
+                                      onTap: () => _removeVendor(name),
+                                      child: const Icon(
+                                        LucideIcons.x,
+                                        size: 10,
+                                        color: AppTheme.primaryBlue,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 3),
-                                GestureDetector(
-                                  onTap: () => _removeVendor(name),
-                                  child: const Icon(
-                                    LucideIcons.x,
-                                    size: 10,
-                                    color: AppTheme.primaryBlue,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
+                              );
+                            }).toList(),
+                          ),
               ),
               Icon(
                 isOpen ? LucideIcons.chevronUp : LucideIcons.chevronDown,
@@ -2786,8 +2552,7 @@ class _VendorItemState extends State<_VendorItem> {
                   color: active ? Colors.white : AppTheme.textPrimary,
                 ),
               ),
-              if (widget.info.companyName != null &&
-                  widget.info.companyName!.isNotEmpty) ...[
+              if (widget.info.companyName != null && widget.info.companyName!.isNotEmpty) ...[
                 const SizedBox(height: 2),
                 Text(
                   widget.info.companyName!,
@@ -2815,7 +2580,7 @@ class _RowMenu extends StatelessWidget {
   });
 
   final _DpItem item;
-  final ValueChanged<String?> onSubstitute;
+  final ValueChanged<Item?> onSubstitute;
   final bool isCustomersView;
 
   void _showPreferredVendorConfirm(OverlayState overlay) {
@@ -2830,9 +2595,7 @@ class _RowMenu extends StatelessWidget {
 
     entry = OverlayEntry(
       builder: (_) => _PreferredVendorPopover(
-        vendorName: item.preferredVendors.isEmpty
-            ? 'selected vendor'
-            : item.preferredVendors.first,
+        vendorName: item.preferredVendors.isEmpty ? 'selected vendor' : item.preferredVendors.first,
         onConfirm: () {
           dismiss();
           if (item.vendorId != null) {
@@ -2842,12 +2605,9 @@ class _RowMenu extends StatelessWidget {
                 .eq('id', item.rowId)
                 .then((_) {})
                 .catchError((e) {
-                  AppLogger.error(
-                    'Failed to save preferred vendor',
-                    error: e,
-                    module: 'DemandPool',
-                  );
-                });
+              AppLogger.error('Failed to save preferred vendor',
+                  error: e, module: 'DemandPool');
+            });
           }
         },
         onCancel: dismiss,
@@ -2869,6 +2629,7 @@ class _RowMenu extends StatelessWidget {
     entry = OverlayEntry(
       builder: (_) => _ItemRegistrationPopover(
         itemName: item.replacement ?? item.product,
+        sourceDemandPoolId: item.rowId,
         onCancel: dismiss,
         onSubmit: dismiss,
       ),
@@ -2939,12 +2700,23 @@ class _RowMenu extends StatelessWidget {
     overlay.insert(entry);
   }
 
+  // Fixed menu width, and the width of the ⋮ trigger (icon 14 + padding 4×2).
+  static const double _menuWidth = 220;
+  static const double _triggerWidth = 22;
+
+  // Nudge past flush-right so the menu sits slightly right of the dots.
+  // The dialog edge is only ~50px beyond the trigger, so this is near the
+  // limit before the menu starts spilling outside the dialog.
+  static const double _nudgeRight = 48;
+
   @override
   Widget build(BuildContext context) {
     final overlay = Overlay.of(context);
     return MenuAnchor(
-      // Open upward-left so menu stays inside the dialog
-      alignmentOffset: const Offset(-220, 0),
+      // Hang the menu under the ⋮: pull it left by (menu − trigger) to bring its
+      // right edge flush with the dots, then nudge it back right a little.
+      alignmentOffset:
+          const Offset(-(_menuWidth - _triggerWidth) + _nudgeRight, 4),
       style: MenuStyle(
         backgroundColor: const WidgetStatePropertyAll(Colors.white),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
@@ -2956,8 +2728,9 @@ class _RowMenu extends StatelessWidget {
           ),
         ),
         padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-        minimumSize: const WidgetStatePropertyAll(Size(220, 0)),
-        maximumSize: const WidgetStatePropertyAll(Size(260, double.infinity)),
+        // Pin the width so the offset above lines up exactly.
+        minimumSize: const WidgetStatePropertyAll(Size(_menuWidth, 0)),
+        maximumSize: const WidgetStatePropertyAll(Size(_menuWidth, double.infinity)),
       ),
       menuChildren: [
         if (item.vendorChanged)
@@ -2965,31 +2738,21 @@ class _RowMenu extends StatelessWidget {
             label: 'Set vendor as preferred vendor',
             onTap: () => _showPreferredVendorConfirm(overlay),
           ),
-        _MenuEntry(
-          label: 'Substitute',
-          onTap: () => _showSubstitutePopover(overlay),
-        ),
+        _MenuEntry(label: 'Substitute', onTap: () => _showSubstitutePopover(overlay)),
         _MenuEntry(
           label: 'Cancel items',
           onTap: () => isCustomersView
               ? _showCancelItemsPopover(overlay)
               : _showCancelItemsSimplePopover(overlay),
         ),
-        _MenuEntry(
-          label: 'Item registration request',
-          onTap: () => _showItemRegistrationPopover(overlay),
-        ),
+        _MenuEntry(label: 'Item registration request', onTap: () => _showItemRegistrationPopover(overlay)),
       ],
       builder: (context, controller, _) => InkWell(
         onTap: () => controller.isOpen ? controller.close() : controller.open(),
         borderRadius: BorderRadius.circular(4),
         child: const Padding(
           padding: EdgeInsets.all(4),
-          child: Icon(
-            LucideIcons.moreVertical,
-            size: 14,
-            color: AppTheme.textMuted,
-          ),
+          child: Icon(LucideIcons.moreVertical, size: 14, color: AppTheme.textMuted),
         ),
       ),
     );
@@ -3064,9 +2827,7 @@ class _PreferredVendorPopover extends StatelessWidget {
                             width: 32,
                             height: 32,
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryBlue.withValues(
-                                alpha: 0.1,
-                              ),
+                              color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(
@@ -3091,11 +2852,7 @@ class _PreferredVendorPopover extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                             child: const Padding(
                               padding: EdgeInsets.all(4),
-                              child: Icon(
-                                LucideIcons.x,
-                                size: 16,
-                                color: AppTheme.errorRed,
-                              ),
+                              child: Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
                             ),
                           ),
                         ],
@@ -3141,18 +2898,12 @@ class _PreferredVendorPopover extends StatelessWidget {
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
+                                horizontal: 14, vertical: 12),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryBlue.withValues(
-                                alpha: 0.05,
-                              ),
+                              color: AppTheme.primaryBlue.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: AppTheme.primaryBlue.withValues(
-                                  alpha: 0.2,
-                                ),
+                                color: AppTheme.primaryBlue.withValues(alpha: 0.2),
                               ),
                             ),
                             child: Row(
@@ -3161,9 +2912,7 @@ class _PreferredVendorPopover extends StatelessWidget {
                                   width: 28,
                                   height: 28,
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryBlue.withValues(
-                                      alpha: 0.12,
-                                    ),
+                                    color: AppTheme.primaryBlue.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: const Icon(
@@ -3210,12 +2959,9 @@ class _PreferredVendorPopover extends StatelessWidget {
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                    vertical: 11,
-                                  ),
+                                      horizontal: 22, vertical: 11),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
+                                      borderRadius: BorderRadius.circular(6)),
                                   textStyle: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -3228,16 +2974,11 @@ class _PreferredVendorPopover extends StatelessWidget {
                                 onPressed: onCancel,
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppTheme.textBody,
-                                  side: const BorderSide(
-                                    color: AppTheme.borderColor,
-                                  ),
+                                  side: const BorderSide(color: AppTheme.borderColor),
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                    vertical: 11,
-                                  ),
+                                      horizontal: 22, vertical: 11),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
+                                      borderRadius: BorderRadius.circular(6)),
                                   textStyle: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
@@ -3274,7 +3015,10 @@ class _SubstitutePopover extends ConsumerStatefulWidget {
 
   final String originalItem;
   final VoidCallback onCancel;
-  final ValueChanged<String?> onApply;
+
+  /// Carries the whole [Item] — the substitution row needs its product id, not
+  /// just the display name.
+  final ValueChanged<Item?> onApply;
 
   @override
   ConsumerState<_SubstitutePopover> createState() => _SubstitutePopoverState();
@@ -3350,11 +3094,7 @@ class _SubstitutePopoverState extends ConsumerState<_SubstitutePopover> {
                         const Spacer(),
                         GestureDetector(
                           onTap: widget.onCancel,
-                          child: const Icon(
-                            LucideIcons.x,
-                            size: 16,
-                            color: AppTheme.errorRed,
-                          ),
+                          child: const Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
                         ),
                       ],
                     ),
@@ -3372,10 +3112,7 @@ class _SubstitutePopoverState extends ConsumerState<_SubstitutePopover> {
                     const SizedBox(height: 6),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         color: AppTheme.bgLight,
                         border: Border.all(color: AppTheme.borderColor),
@@ -3383,10 +3120,7 @@ class _SubstitutePopoverState extends ConsumerState<_SubstitutePopover> {
                       ),
                       child: Text(
                         widget.originalItem,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textSecondary,
-                        ),
+                        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -3401,25 +3135,23 @@ class _SubstitutePopoverState extends ConsumerState<_SubstitutePopover> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Builder(
-                      builder: (context) {
-                        final items = ref.watch(itemsControllerProvider).items;
-                        return FormDropdown<Item>(
-                          value: _substituteItem,
-                          items: items,
-                          hint: 'Select substitute product',
-                          placeholder: 'Search products...',
-                          menuMaxHeight: 260,
-                          displayStringForValue: (item) =>
-                              (item.billingName?.isNotEmpty == true)
-                              ? item.billingName!
-                              : item.productName,
-                          searchStringForValue: (item) =>
-                              '${item.productName} ${item.itemCode} ${item.sku ?? ''}',
-                          onChanged: (v) => setState(() => _substituteItem = v),
-                        );
-                      },
-                    ),
+                    Builder(builder: (context) {
+                      final items = ref.watch(itemsControllerProvider).items;
+                      return FormDropdown<Item>(
+                        value: _substituteItem,
+                        items: items,
+                        hint: 'Select substitute product',
+                        placeholder: 'Search products...',
+                        menuMaxHeight: 260,
+                        displayStringForValue: (item) =>
+                            (item.billingName?.isNotEmpty == true)
+                                ? item.billingName!
+                                : item.productName,
+                        searchStringForValue: (item) =>
+                            '${item.productName} ${item.itemCode} ${item.sku ?? ''}',
+                        onChanged: (v) => setState(() => _substituteItem = v),
+                      );
+                    }),
                     const SizedBox(height: 24),
                     // Actions
                     Row(
@@ -3430,37 +3162,22 @@ class _SubstitutePopoverState extends ConsumerState<_SubstitutePopover> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.textBody,
                             side: const BorderSide(color: AppTheme.borderColor),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+                                borderRadius: BorderRadius.circular(6)),
                           ),
                           child: const Text('Cancel'),
                         ),
                         const SizedBox(width: 10),
                         ElevatedButton(
-                          onPressed: () => widget.onApply(
-                            _substituteItem == null
-                                ? null
-                                : (_substituteItem!.billingName?.isNotEmpty ==
-                                          true
-                                      ? _substituteItem!.billingName!
-                                      : _substituteItem!.productName),
-                          ),
+                          onPressed: () => widget.onApply(_substituteItem),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.successGreen,
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+                                borderRadius: BorderRadius.circular(6)),
                           ),
                           child: const Text('Apply Substitution'),
                         ),
@@ -3481,26 +3198,34 @@ class _SubstitutePopoverState extends ConsumerState<_SubstitutePopover> {
 // Item Registration Request popover
 // ---------------------------------------------------------------------------
 
-class _ItemRegistrationPopover extends StatefulWidget {
+class _ItemRegistrationPopover extends ConsumerStatefulWidget {
   const _ItemRegistrationPopover({
     required this.itemName,
+    required this.sourceDemandPoolId,
     required this.onCancel,
     required this.onSubmit,
   });
 
   final String itemName;
+
+  /// The demand pool row the request was raised from — recorded on the product
+  /// as `temp_source_id` so a temp product can be traced back to its origin.
+  final String sourceDemandPoolId;
+
   final VoidCallback onCancel;
   final VoidCallback onSubmit;
 
   @override
-  State<_ItemRegistrationPopover> createState() =>
+  ConsumerState<_ItemRegistrationPopover> createState() =>
       _ItemRegistrationPopoverState();
 }
 
-class _ItemRegistrationPopoverState extends State<_ItemRegistrationPopover> {
+class _ItemRegistrationPopoverState
+    extends ConsumerState<_ItemRegistrationPopover> {
   late final TextEditingController _nameCtrl;
   final _packSizeCtrl = TextEditingController();
-  final _mrpCtrl = TextEditingController();
+  final _mrpCtrl      = TextEditingController();
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -3514,6 +3239,42 @@ class _ItemRegistrationPopoverState extends State<_ItemRegistrationPopover> {
     _packSizeCtrl.dispose();
     _mrpCtrl.dispose();
     super.dispose();
+  }
+
+  /// Registers the requested item as a *temp* product: it becomes selectable
+  /// straight away, while `is_temp_product` / `product_status` mark it as
+  /// awaiting proper setup in Items.
+  ///
+  /// Pack size is collected but not stored — `products.unit_pack_id` is a FK to
+  /// the pack size master and a bare number cannot identify a row there.
+  Future<void> _submit() async {
+    if (_isSaving) return;
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+
+    setState(() => _isSaving = true);
+    try {
+      await Supabase.instance.client.from('products').insert({
+        'product_name': name,
+        'mrp': double.tryParse(_mrpCtrl.text.trim()),
+        'is_temp_product': true,
+        'product_status': 'TEMP',
+        'temp_source_module': 'DEMAND_POOL',
+        'temp_source_id': widget.sourceDemandPoolId.isEmpty
+            ? null
+            : widget.sourceDemandPoolId,
+      });
+
+      // Pull the new product into the item list so it is immediately selectable.
+      await ref.read(itemsControllerProvider.notifier).loadItems();
+
+      if (!mounted) return;
+      widget.onSubmit();
+    } catch (e) {
+      AppLogger.error('Failed to register temp product',
+          error: e, module: 'DemandPool');
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -3570,11 +3331,7 @@ class _ItemRegistrationPopoverState extends State<_ItemRegistrationPopover> {
                           const Spacer(),
                           GestureDetector(
                             onTap: widget.onCancel,
-                            child: const Icon(
-                              LucideIcons.x,
-                              size: 16,
-                              color: AppTheme.errorRed,
-                            ),
+                            child: const Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
                           ),
                         ],
                       ),
@@ -3590,10 +3347,7 @@ class _ItemRegistrationPopoverState extends State<_ItemRegistrationPopover> {
                           _IrrRow(
                             label: 'Name',
                             required: true,
-                            child: CustomTextField(
-                              controller: _nameCtrl,
-                              hintText: '',
-                            ),
+                            child: CustomTextField(controller: _nameCtrl, hintText: ''),
                           ),
                           const SizedBox(height: 14),
                           // Pack Size
@@ -3603,13 +3357,8 @@ class _ItemRegistrationPopoverState extends State<_ItemRegistrationPopover> {
                             child: CustomTextField(
                               controller: _packSizeCtrl,
                               hintText: '',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: false,
-                                  ),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
+                              keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -3619,15 +3368,8 @@ class _ItemRegistrationPopoverState extends State<_ItemRegistrationPopover> {
                             child: CustomTextField(
                               controller: _mrpCtrl,
                               hintText: '',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                  RegExp(r'^\d*\.?\d*'),
-                                ),
-                              ],
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
                             ),
                           ),
                         ],
@@ -3636,43 +3378,28 @@ class _ItemRegistrationPopoverState extends State<_ItemRegistrationPopover> {
                     const Divider(height: 1, color: AppTheme.borderColor),
                     // Footer — buttons left-aligned
                     Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                       child: Row(
                         children: [
                           ElevatedButton(
-                            onPressed: widget.onSubmit,
+                            onPressed: _isSaving ? null : _submit,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.successGreen,
                               foregroundColor: Colors.white,
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                             ),
-                            child: const Text('Submit'),
+                            child: Text(_isSaving ? 'Submitting…' : 'Submit'),
                           ),
                           const SizedBox(width: 10),
                           OutlinedButton(
                             onPressed: widget.onCancel,
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textBody,
-                              side: const BorderSide(
-                                color: AppTheme.borderColor,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                              side: const BorderSide(color: AppTheme.borderColor),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                             ),
                             child: const Text('Cancel'),
                           ),
@@ -3721,10 +3448,7 @@ class _IrrRow extends StatelessWidget {
                 ),
               ),
               if (required)
-                const Text(
-                  ' *',
-                  style: TextStyle(fontSize: 13, color: AppTheme.errorRed),
-                ),
+                const Text(' *', style: TextStyle(fontSize: 13, color: AppTheme.errorRed)),
             ],
           ),
         ),
@@ -3750,8 +3474,7 @@ class _CancelItemsSimplePopover extends StatefulWidget {
   final VoidCallback onConfirm;
 
   @override
-  State<_CancelItemsSimplePopover> createState() =>
-      _CancelItemsSimplePopoverState();
+  State<_CancelItemsSimplePopover> createState() => _CancelItemsSimplePopoverState();
 }
 
 class _CancelItemsSimplePopoverState extends State<_CancelItemsSimplePopover> {
@@ -3814,7 +3537,7 @@ class _CancelItemsSimplePopoverState extends State<_CancelItemsSimplePopover> {
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Title bar
                     Container(
@@ -3835,11 +3558,7 @@ class _CancelItemsSimplePopoverState extends State<_CancelItemsSimplePopover> {
                           ),
                           GestureDetector(
                             onTap: widget.onCancel,
-                            child: const Icon(
-                              LucideIcons.x,
-                              size: 15,
-                              color: AppTheme.errorRed,
-                            ),
+                            child: const Icon(LucideIcons.x, size: 15, color: AppTheme.errorRed),
                           ),
                         ],
                       ),
@@ -3848,12 +3567,7 @@ class _CancelItemsSimplePopoverState extends State<_CancelItemsSimplePopover> {
                     Container(
                       decoration: const BoxDecoration(
                         color: Color(0xFFEFF6FF),
-                        border: Border(
-                          left: BorderSide(
-                            color: AppTheme.primaryBlue,
-                            width: 3,
-                          ),
-                        ),
+                        border: Border(left: BorderSide(color: AppTheme.primaryBlue, width: 3)),
                       ),
                       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
                       child: Column(
@@ -3885,83 +3599,19 @@ class _CancelItemsSimplePopoverState extends State<_CancelItemsSimplePopover> {
                     // Column headers
                     Container(
                       color: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       child: Row(
                         children: const [
-                          SizedBox(
-                            width: 100,
-                            child: Text('SO NO', style: _colHeaderStyle),
-                          ),
-                          Expanded(
-                            child: Text('CUSTOMER', style: _colHeaderStyle),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              'ORDERED',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              'PICKED',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              'PACKED',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              'INVOICED',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 120,
-                            child: Text(
-                              'PURCHASE ORDER',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              'BILLS',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 72,
-                            child: Text(
-                              'REQUIRED',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 100,
-                            child: Text(
-                              'CANCEL QTY',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
+                          SizedBox(width: 100, child: Text('SO NO',          style: _colHeaderStyle)),
+                          Expanded(child: Text('CUSTOMER', style: _colHeaderStyle)),
+                          SizedBox(width: 80, child: Text('ORDERED',        style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 80, child: Text('PICKED',         style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 80, child: Text('PACKED',         style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 80, child: Text('INVOICED',       style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 120, child: Text('PURCHASE ORDER', style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 80, child: Text('BILLS',          style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 72,  child: Text('REQUIRED',      style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 100, child: Text('CANCEL QTY',    style: _colHeaderStyle, textAlign: TextAlign.center)),
                         ],
                       ),
                     ),
@@ -3978,83 +3628,27 @@ class _CancelItemsSimplePopoverState extends State<_CancelItemsSimplePopover> {
                             width: 100,
                             child: Text(
                               item.soNo.isNotEmpty ? item.soNo : '—',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.primaryBlue,
-                              ),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryBlue),
                             ),
                           ),
-                          // Customer / branch
+                          // Customer from the linked sales order
                           Expanded(
                             child: Text(
-                              item.branch.isNotEmpty ? item.branch : '—',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: AppTheme.textBody,
-                              ),
+                              item.customerLabel.isNotEmpty ? item.customerLabel : '—',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textBody),
                             ),
                           ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              '${item.reqQty}',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              '${item.reqQty - item.pendingQty}',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 80,
-                            child: Text(
-                              '0',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 80,
-                            child: Text(
-                              '0',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 120,
-                            child: Text(
-                              '0',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 80,
-                            child: Text(
-                              '0',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
+                          SizedBox(width: 80, child: Text('${item.reqQty}',               style: _valueStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 80, child: Text('${item.reqQty - item.pendingQty}', style: _valueStyle, textAlign: TextAlign.center)),
+                          const SizedBox(width: 80, child: Text('0',           style: _valueStyle, textAlign: TextAlign.center)),
+                          const SizedBox(width: 80, child: Text('0',           style: _valueStyle, textAlign: TextAlign.center)),
+                          const SizedBox(width: 120, child: Text('0',          style: _valueStyle, textAlign: TextAlign.center)),
+                          const SizedBox(width: 80, child: Text('0',           style: _valueStyle, textAlign: TextAlign.center)),
                           SizedBox(
                             width: 72,
-                            child: Text(
-                              '${item.pendingQty}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textBody,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
+                            child: Text('${item.pendingQty}',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textBody),
+                                textAlign: TextAlign.center),
                           ),
                           // Cancel Qty input
                           SizedBox(
@@ -4066,13 +3660,8 @@ class _CancelItemsSimplePopoverState extends State<_CancelItemsSimplePopover> {
                                   controller: _cancelQtyCtrl,
                                   hintText: '0',
                                   height: 32,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: false,
-                                      ),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                 ),
                               ),
                             ),
@@ -4084,10 +3673,7 @@ class _CancelItemsSimplePopoverState extends State<_CancelItemsSimplePopover> {
                     // Footer
                     Container(
                       color: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -4095,16 +3681,9 @@ class _CancelItemsSimplePopoverState extends State<_CancelItemsSimplePopover> {
                             onPressed: widget.onCancel,
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textBody,
-                              side: const BorderSide(
-                                color: AppTheme.borderColor,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                              side: const BorderSide(color: AppTheme.borderColor),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                             ),
                             child: const Text('Cancel'),
                           ),
@@ -4115,13 +3694,8 @@ class _CancelItemsSimplePopoverState extends State<_CancelItemsSimplePopover> {
                               backgroundColor: AppTheme.successGreen,
                               foregroundColor: Colors.white,
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                             ),
                             child: const Text('Confirm'),
                           ),
@@ -4165,7 +3739,8 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
   @override
   void initState() {
     super.initState();
-    _cancelQtyCtrl = TextEditingController(text: '${widget.item.reqQty}');
+    _cancelQtyCtrl =
+        TextEditingController(text: '${widget.item.reqQty}');
   }
 
   @override
@@ -4225,7 +3800,7 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Header
                     Container(
@@ -4253,11 +3828,7 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
                           ),
                           GestureDetector(
                             onTap: widget.onCancel,
-                            child: const Icon(
-                              LucideIcons.x,
-                              size: 15,
-                              color: AppTheme.errorRed,
-                            ),
+                            child: const Icon(LucideIcons.x, size: 15, color: AppTheme.errorRed),
                           ),
                         ],
                       ),
@@ -4266,12 +3837,7 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
                     Container(
                       decoration: const BoxDecoration(
                         color: Color(0xFFEFF6FF),
-                        border: Border(
-                          left: BorderSide(
-                            color: AppTheme.primaryBlue,
-                            width: 3,
-                          ),
-                        ),
+                        border: Border(left: BorderSide(color: AppTheme.primaryBlue, width: 3)),
                       ),
                       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
                       child: Column(
@@ -4303,91 +3869,20 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
                     // Column headers
                     Container(
                       color: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       child: Row(
                         children: const [
-                          SizedBox(
-                            width: 100,
-                            child: Text('SO NO', style: _colHeaderStyle),
-                          ),
-                          Expanded(
-                            child: Text('CUSTOMER', style: _colHeaderStyle),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              'ORDERED',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              'PICKED',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              'PACKED',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              'INVOICED',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 120,
-                            child: Text(
-                              'PURCHASE ORDER',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              'RECEIVE',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              'BILLS',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 72,
-                            child: Text(
-                              'REQUIRED',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 100,
-                            child: Text(
-                              'CANCEL QTY',
-                              style: _colHeaderStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
+                          SizedBox(width: 100, child: Text('SO NO',          style: _colHeaderStyle)),
+                          Expanded(child: Text('CUSTOMER', style: _colHeaderStyle)),
+                          SizedBox(width: 80,  child: Text('ORDERED',        style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 80,  child: Text('PICKED',         style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 80,  child: Text('PACKED',         style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 80,  child: Text('INVOICED',       style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 120, child: Text('PURCHASE ORDER', style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 80,  child: Text('RECEIVE',        style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 80,  child: Text('BILLS',          style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 72,  child: Text('REQUIRED',       style: _colHeaderStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 100, child: Text('CANCEL QTY',     style: _colHeaderStyle, textAlign: TextAlign.center)),
                         ],
                       ),
                     ),
@@ -4404,91 +3899,28 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
                             width: 100,
                             child: Text(
                               item.soNo.isNotEmpty ? item.soNo : '—',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.primaryBlue,
-                              ),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryBlue),
                             ),
                           ),
-                          // Customer / branch
+                          // Customer from the linked sales order
                           Expanded(
                             child: Text(
-                              item.branch.isNotEmpty ? item.branch : '—',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: AppTheme.textBody,
-                              ),
+                              item.customerLabel.isNotEmpty ? item.customerLabel : '—',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textBody),
                             ),
                           ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              '${item.reqQty}',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Text(
-                              '${item.reqQty - item.pendingQty}',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 80,
-                            child: Text(
-                              '0',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 80,
-                            child: Text(
-                              '0',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 120,
-                            child: Text(
-                              '0',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 80,
-                            child: Text(
-                              '—',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 80,
-                            child: Text(
-                              '0',
-                              style: _valueStyle,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
+                          SizedBox(width: 80,  child: Text('${item.reqQty}',     style: _valueStyle, textAlign: TextAlign.center)),
+                          SizedBox(width: 80,  child: Text('${item.reqQty - item.pendingQty}', style: _valueStyle, textAlign: TextAlign.center)),
+                          const SizedBox(width: 80,  child: Text('0',            style: _valueStyle, textAlign: TextAlign.center)),
+                          const SizedBox(width: 80,  child: Text('0',            style: _valueStyle, textAlign: TextAlign.center)),
+                          const SizedBox(width: 120, child: Text('0',            style: _valueStyle, textAlign: TextAlign.center)),
+                          const SizedBox(width: 80,  child: Text('—',            style: _valueStyle, textAlign: TextAlign.center)),
+                          const SizedBox(width: 80,  child: Text('0',            style: _valueStyle, textAlign: TextAlign.center)),
                           SizedBox(
                             width: 72,
-                            child: Text(
-                              '${item.pendingQty}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textBody,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
+                            child: Text('${item.pendingQty}',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textBody),
+                                textAlign: TextAlign.center),
                           ),
                           SizedBox(
                             width: 100,
@@ -4499,13 +3931,8 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
                                   controller: _cancelQtyCtrl,
                                   hintText: '0',
                                   height: 32,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: false,
-                                      ),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                 ),
                               ),
                             ),
@@ -4523,22 +3950,13 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
                         children: [
                           RichText(
                             text: const TextSpan(
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textSecondary,
-                              ),
+                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                               children: [
                                 TextSpan(
                                   text: 'Note: ',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.textPrimary,
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
                                 ),
-                                TextSpan(
-                                  text:
-                                      'The drop shipped line items from the order will not be listed here.',
-                                ),
+                                TextSpan(text: 'The drop shipped line items from the order will not be listed here.'),
                               ],
                             ),
                           ),
@@ -4550,30 +3968,23 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFFBEB),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: const Color(0xFFFDE68A),
-                                ),
+                                border: Border.all(color: const Color(0xFFFDE68A)),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Checkbox(
                                     value: _agreed,
-                                    onChanged: (v) =>
-                                        setState(() => _agreed = v ?? false),
+                                    onChanged: (v) => setState(() => _agreed = v ?? false),
                                     activeColor: AppTheme.primaryBlue,
-                                    materialTapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     visualDensity: VisualDensity.compact,
                                   ),
                                   const SizedBox(width: 8),
                                   const Expanded(
                                     child: Text(
                                       'I understand that the back ordered items will be dissociated from their respective purchase orders once they\'re cancelled.',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppTheme.textBody,
-                                      ),
+                                      style: TextStyle(fontSize: 12, color: AppTheme.textBody),
                                     ),
                                   ),
                                 ],
@@ -4588,10 +3999,7 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
                     // Footer
                     Container(
                       color: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -4599,16 +4007,9 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
                             onPressed: widget.onCancel,
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textBody,
-                              side: const BorderSide(
-                                color: AppTheme.borderColor,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                              side: const BorderSide(color: AppTheme.borderColor),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                             ),
                             child: const Text('Cancel'),
                           ),
@@ -4617,20 +4018,12 @@ class _CancelItemsPopoverState extends State<_CancelItemsPopover> {
                             onPressed: _agreed ? widget.onConfirm : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.successGreen,
-                              disabledBackgroundColor: AppTheme.successGreen
-                                  .withValues(alpha: 0.5),
+                              disabledBackgroundColor: AppTheme.successGreen.withValues(alpha: 0.5),
                               foregroundColor: Colors.white,
-                              disabledForegroundColor: Colors.white.withValues(
-                                alpha: 0.7,
-                              ),
+                              disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                             ),
                             child: const Text('Proceed'),
                           ),
@@ -4655,13 +4048,13 @@ class _DpStatusText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color textColor = switch (status) {
-      'PR Created' => AppTheme.infoBlue,
-      'Partially Planned' => AppTheme.warningOrange,
-      'Ordered' => AppTheme.primaryBlue,
-      'Received' => AppTheme.successGreen,
-      'Substituted' => AppTheme.infoTextDark,
-      'Cancel' => AppTheme.errorRed,
-      _ => AppTheme.textMuted,
+      'PR Created'       => AppTheme.infoBlue,
+      'Partially Planned'=> AppTheme.warningOrange,
+      'Ordered'          => AppTheme.primaryBlue,
+      'Received'         => AppTheme.successGreen,
+      'Substituted'      => AppTheme.infoTextDark,
+      'Cancel'           => AppTheme.errorRed,
+      _                  => AppTheme.textMuted,
     };
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -4675,11 +4068,7 @@ class _DpStatusText extends StatelessWidget {
           ),
           child: Text(
             status,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: textColor,
-            ),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textColor),
           ),
         ),
       ],
@@ -4688,7 +4077,10 @@ class _DpStatusText extends StatelessWidget {
 }
 
 class _MenuEntry extends StatefulWidget {
-  const _MenuEntry({required this.label, required this.onTap});
+  const _MenuEntry({
+    required this.label,
+    required this.onTap,
+  });
 
   final String label;
   final VoidCallback onTap;
@@ -4709,7 +4101,10 @@ class _MenuEntryState extends State<_MenuEntry> {
         onTap: widget.onTap,
         child: Container(
           width: double.infinity,
-          color: _hovered ? AppTheme.infoBlue : Colors.white,
+          decoration: BoxDecoration(
+            color: _hovered ? AppTheme.infoBlue : Colors.white,
+            borderRadius: AppTheme.hoverRadius,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Text(
             widget.label,
@@ -4770,11 +4165,7 @@ class _FieldLabel extends StatelessWidget {
               const SizedBox(width: 4),
               GestureDetector(
                 onTap: onClear,
-                child: const Icon(
-                  LucideIcons.x,
-                  size: 12,
-                  color: AppTheme.errorRed,
-                ),
+                child: const Icon(LucideIcons.x, size: 12, color: AppTheme.errorRed),
               ),
             ],
           ],

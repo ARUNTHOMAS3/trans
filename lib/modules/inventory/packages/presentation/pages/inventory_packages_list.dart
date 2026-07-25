@@ -25,6 +25,7 @@ import '../../../../../shared/models/column_config.dart';
 import '../../../../../shared/widgets/tables/table_more_menu.dart';
 import '../../../../../shared/widgets/tables/column_customizer.dart';
 import '../../../../../shared/widgets/tables/table_header_menu.dart';
+import '../../../../../shared/widgets/tables/zerpai_pagination_widget.dart';
 import '../../../../../shared/widgets/skeleton.dart';
 import 'dart:convert';
 
@@ -74,6 +75,9 @@ class _InventoryPackagesListScreenState
   static const Color _col1Bg = Color(0xFFD9F3F7); // Packages, Not Shipped
   static const Color _col2Bg = Color(0xFFF6EDB7); // Shipped Packages
   static const Color _col3Bg = Color(0xFFDDEDC8); // Delivered Packages
+
+  int _currentPage = 1;
+  int _pageSize = 30;
 
   bool _isListView = false;
   bool _shouldWrapText = false;
@@ -276,13 +280,14 @@ class _InventoryPackagesListScreenState
                   ),
                   const SizedBox(width: 12),
                   Container(
-                    height: 32,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       border: Border.all(color: AppTheme.borderLight),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         ZTooltip(
                           message: 'List View',
@@ -292,8 +297,8 @@ class _InventoryPackagesListScreenState
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
-                                vertical: 6,
                               ),
+                              alignment: Alignment.center,
                               color: _isListView
                                   ? const Color(0xFFF3F4F6)
                                   : Colors.transparent,
@@ -316,8 +321,8 @@ class _InventoryPackagesListScreenState
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
-                                vertical: 6,
                               ),
+                              alignment: Alignment.center,
                               color: !_isListView
                                   ? const Color(0xFFF3F4F6)
                                   : Colors.transparent,
@@ -828,6 +833,13 @@ class _InventoryPackagesListScreenState
     }).toList();
     _sortPackages(packages, ref.watch(packageSortProvider));
 
+    final totalItems = packages.length;
+    final totalPages = totalItems == 0 ? 1 : (totalItems / _pageSize).ceil();
+    final clampedPage = _currentPage.clamp(1, totalPages);
+    final startIndex = (clampedPage - 1) * _pageSize;
+    final paginatedPackages =
+        packages.skip(startIndex).take(_pageSize).toList();
+
     if (packages.isEmpty) {
       return const Center(
         child: Text(
@@ -853,32 +865,54 @@ class _InventoryPackagesListScreenState
           totalColumnsWidth + actualPrefixWidth + 40,
         );
 
-        return Scrollbar(
-          controller: _horizontalScrollController,
-          thumbVisibility: screenWidth > constraints.maxWidth,
-          trackVisibility: screenWidth > constraints.maxWidth,
-          child: SingleChildScrollView(
-            controller: _horizontalScrollController,
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: screenWidth,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildTableHeader(columnWidths, packages),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: EdgeInsets.zero,
-                      itemCount: packages.length,
-                      itemExtent: 40,
-                      itemBuilder: (context, index) =>
-                          _buildVirtualRow(packages[index], columnWidths),
+        return Column(
+          children: [
+            Expanded(
+              child: Scrollbar(
+                controller: _horizontalScrollController,
+                thumbVisibility: screenWidth > constraints.maxWidth,
+                trackVisibility: screenWidth > constraints.maxWidth,
+                child: SingleChildScrollView(
+                  controller: _horizontalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: screenWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildTableHeader(columnWidths, packages),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            itemCount: paginatedPackages.length,
+                            itemExtent: 40,
+                            itemBuilder: (context, index) =>
+                                _buildVirtualRow(paginatedPackages[index], columnWidths),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
+            ZerpaiPaginationWidget(
+              totalItems: totalItems,
+              currentPage: clampedPage,
+              pageSize: _pageSize,
+              onPageChanged: (page) {
+                setState(() {
+                  _currentPage = page;
+                });
+              },
+              onPageSizeChanged: (size) {
+                setState(() {
+                  _pageSize = size;
+                  _currentPage = 1;
+                });
+              },
+            ),
+          ],
         );
       },
     );
@@ -894,43 +928,135 @@ class _InventoryPackagesListScreenState
         color: AppTheme.bgLight,
         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          const SizedBox(width: 8),
-          ZTableHeaderMenu(
-            wrapText: _shouldWrapText,
-            onWrapChange: (v) => setState(() => _shouldWrapText = v),
-            onCustomize: _showCustomizeColumnsDialog,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(width: 78.0),
+              ..._visibleColumns.map((colId) {
+                final width = columnWidths[colId]!;
+                return _ResizableHeaderCell(
+                  width: width,
+                  onResize: (dx) => _resizeColumn(colId, dx),
+                  child: _buildHeaderCell(colId, _columnLabels[colId]!, width: width),
+                );
+              }),
+            ],
           ),
-          const SizedBox(width: 12),
-          _buildSelectAllCheckbox(packages),
-          const SizedBox(width: 12),
-          ..._visibleColumns.map((colId) {
-            final width = columnWidths[colId]!;
-            return _ResizableHeaderCell(
-              width: width,
-              onResize: (dx) => _resizeColumn(colId, dx),
-              child: _buildHeaderCell(_columnLabels[colId]!, width: width),
-            );
-          }),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: AnimatedBuilder(
+              animation: _horizontalScrollController,
+              builder: (context, child) {
+                final offset = _horizontalScrollController.hasClients
+                    ? _horizontalScrollController.offset
+                    : 0.0;
+                return Transform.translate(
+                  offset: Offset(offset, 0),
+                  child: child,
+                );
+              },
+              child: Container(
+                color: AppTheme.bgLight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(width: 8),
+                    ZTableHeaderMenu(
+                      wrapText: _shouldWrapText,
+                      onWrapChange: (v) => setState(() => _shouldWrapText = v),
+                      onCustomize: _showCustomizeColumnsDialog,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildSelectAllCheckbox(packages),
+                    const SizedBox(width: 12),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildHeaderCell(String text, {double? width}) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: Alignment.centerLeft,
-      child: Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: AppTheme.tableHeader.copyWith(fontSize: 11, letterSpacing: 0.5),
+  Widget _buildHeaderCell(String colId, String text, {double? width}) {
+    final sort = ref.watch(packageSortProvider);
+    final sortField = _getSortFieldForColumnId(colId);
+    final isSorted = sortField != null && sort.field == sortField;
+
+    return InkWell(
+      onTap: sortField != null
+          ? () {
+              final currentSort = ref.read(packageSortProvider);
+              if (currentSort.field == sortField) {
+                ref.read(packageSortProvider.notifier).state = (
+                  field: sortField,
+                  isAscending: !currentSort.isAscending,
+                );
+              } else {
+                ref.read(packageSortProvider.notifier).state = (
+                  field: sortField,
+                  isAscending: false,
+                );
+              }
+            }
+          : null,
+      child: Container(
+        width: width,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.tableHeader.copyWith(fontSize: 11, letterSpacing: 0.5),
+              ),
+            ),
+            if (isSorted) ...[
+              const SizedBox(width: 4),
+              Icon(
+                sort.isAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+                size: 12,
+                color: AppTheme.primaryBlue,
+              ),
+            ],
+          ],
+        ),
       ),
     );
+  }
+
+  String? _getSortFieldForColumnId(String colId) {
+    switch (colId) {
+      case 'package_date':
+        return 'Package Date';
+      case 'package#':
+        return 'Package#';
+      case 'carrier':
+        return 'Carrier';
+      case 'tracking#':
+        return 'Tracking#';
+      case 'sales_order#':
+        return 'Sales Order#';
+      case 'shipment_date':
+        return 'Shipment Date';
+      case 'customer_name':
+        return 'Customer Name';
+      case 'quantity':
+        return 'Quantity';
+      case 'created_time':
+        return 'Created Time';
+      default:
+        return null;
+    }
   }
 
   Widget _buildVirtualRow(
@@ -938,6 +1064,8 @@ class _InventoryPackagesListScreenState
     Map<String, double> columnWidths,
   ) {
     final isSelected = _selectedPackageIds.contains(pkg.id);
+    final rowBgColor = isSelected ? const Color(0xFFF0F7FF) : Colors.white;
+
     return InkWell(
       onTap: () {
         final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
@@ -945,23 +1073,52 @@ class _InventoryPackagesListScreenState
       },
       child: Container(
         height: 40,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF0F7FF) : Colors.transparent,
-          border: const Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            const SizedBox(width: 8),
-            const SizedBox(width: 28),
-            const SizedBox(width: 12),
-            _buildCheckboxWidget(
-              isSelected,
-              onTap: () => _toggleSelection(pkg.id ?? ''),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 78.0),
+                ..._visibleColumns.map(
+                  (colId) => _buildCell(pkg, colId, width: columnWidths[colId]!),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            ..._visibleColumns.map(
-              (colId) => _buildCell(pkg, colId, width: columnWidths[colId]!),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: AnimatedBuilder(
+                animation: _horizontalScrollController,
+                builder: (context, child) {
+                  final offset = _horizontalScrollController.hasClients
+                      ? _horizontalScrollController.offset
+                      : 0.0;
+                  return Transform.translate(
+                    offset: Offset(offset, 0),
+                    child: child,
+                  );
+                },
+                child: Container(
+                  color: rowBgColor,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 8),
+                      const SizedBox(width: 28),
+                      const SizedBox(width: 12),
+                      _buildCheckboxWidget(
+                        isSelected,
+                        onTap: () => _toggleSelection(pkg.id ?? ''),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -1240,6 +1397,12 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
                   _buildPdfPrintDropdown(pkg),
                   _buildDivider(),
                   _buildToolbarButton(
+                    LucideIcons.fileText,
+                    'Invoice',
+                    onPressed: () => _navigateToCreateInvoice(pkg),
+                  ),
+                  _buildDivider(),
+                  _buildToolbarButton(
                     LucideIcons.trash2,
                     'Delete',
                     color: AppTheme.errorRed,
@@ -1266,6 +1429,21 @@ class _PackageDetailPanelState extends ConsumerState<_PackageDetailPanel> {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) => Center(child: Text('Error: $err')),
+    );
+  }
+
+  void _navigateToCreateInvoice(InventoryPackage pkg) {
+    final orgId = GoRouterState.of(context).pathParameters['orgSystemId']!;
+    final firstSoId =
+        pkg.salesOrderIds.isNotEmpty ? pkg.salesOrderIds.first : null;
+    context.pushNamed(
+      AppRoutes.salesInvoicesCreate,
+      pathParameters: {'orgSystemId': orgId},
+      queryParameters: {
+        if (pkg.id != null) 'fromPackageId': pkg.id!,
+        if (pkg.customerId != null) 'customerId': pkg.customerId!,
+        if (firstSoId != null) 'fromOrderId': firstSoId,
+      },
     );
   }
 

@@ -579,7 +579,7 @@ export class ExpensesService {
     const sourceId = expense.id?.toString?.().trim();
     if (sourceId) {
       const { error: deleteError } = await this.client
-        .from("account_transactions")
+        .from("journal_entry_lines")
         .delete()
         .eq("entity_id", tenant.entityId)
         .eq("source_id", sourceId)
@@ -606,7 +606,7 @@ export class ExpensesService {
     }
 
     const { data, error } = await this.client
-      .from("account_transactions")
+      .from("journal_entry_lines")
       .insert(payload)
       .select("*");
     if (error) {
@@ -1767,7 +1767,7 @@ export class ExpensesService {
     } catch (error) {
       if (createdExpenseId) {
         await this.client
-          .from("account_transactions")
+          .from("journal_entry_lines")
           .delete()
           .eq("entity_id", tenant.entityId)
           .eq("source_id", createdExpenseId)
@@ -2142,7 +2142,7 @@ export class ExpensesService {
   async journal(id: string, tenant: TenantContext) {
     const expense = await this.fetchExpenseRow(id, tenant);
     const { data, error } = await this.client
-      .from("account_transactions")
+      .from("journal_entry_lines")
       .select("*")
       .eq("entity_id", tenant.entityId)
       .eq("source_id", id)

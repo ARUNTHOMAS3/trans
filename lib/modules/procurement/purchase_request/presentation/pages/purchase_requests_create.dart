@@ -9,11 +9,14 @@ import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/hover_reveal_text.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 
 // ---------------------------------------------------------------------------
 // Demand pool pre-fill payload
@@ -61,13 +64,13 @@ class DemandPoolPayload {
 
 class _LineItem {
   _LineItem()
-    : itemNameCtrl = TextEditingController(),
-      descCtrl = TextEditingController(),
-      qtyCtrl = TextEditingController(text: '1'),
-      planQtyCtrl = TextEditingController(),
-      pendingQtyCtrl = TextEditingController(text: '0'),
-      rateCtrl = TextEditingController(text: '0.00'),
-      discountCtrl = TextEditingController(text: '0.00');
+      : itemNameCtrl = TextEditingController(),
+        descCtrl = TextEditingController(),
+        qtyCtrl = TextEditingController(text: '1'),
+        planQtyCtrl = TextEditingController(),
+        pendingQtyCtrl = TextEditingController(text: '0'),
+        rateCtrl = TextEditingController(text: '0.00'),
+        discountCtrl = TextEditingController(text: '0.00');
 
   final TextEditingController itemNameCtrl;
   final TextEditingController descCtrl;
@@ -78,14 +81,12 @@ class _LineItem {
   final TextEditingController discountCtrl;
 
   String? category;
-  String?
-  categoryId; // raw UUID — resolved to category name after _loadCategories() runs
+  String? categoryId; // raw UUID — resolved to category name after _loadCategories() runs
   String? preferredVendor; // display name shown in the vendor dropdown
   String? productId;
   String? entityId;
   String? vendorId; // UUID used for DB saves
-  bool vendorChanged =
-      false; // true once user manually picks a vendor in this row
+  bool vendorChanged = false; // true once user manually picks a vendor in this row
   List<String> substitutionChain = []; // original → replaced names, in order
   List<String> demandPoolIds = [];
   String currency = 'INR';
@@ -127,8 +128,31 @@ class _DeliveryAddress {
     required this.zip,
     required this.country,
     required this.phone,
+    this.warehouseId,
+    this.isDefault = false,
   });
 
+  /// A warehouse row from `warehouses-settings` (Settings → Organisation →
+  /// Warehouses). `street`/`place` are the two address lines on that form.
+  factory _DeliveryAddress.fromWarehouse(Map<String, dynamic> w) {
+    String field(String key) => (w[key] ?? '').toString().trim();
+    final country = field('country');
+    return _DeliveryAddress(
+      warehouseId: field('id'),
+      name: field('name'),
+      street1: field('street'),
+      street2: field('place'),
+      city: field('city'),
+      state: field('state'),
+      zip: field('pincode'),
+      country: country.isEmpty ? 'India' : country,
+      phone: field('phone'),
+      isDefault: w['is_default_for_branch'] as bool? ?? false,
+    );
+  }
+
+  /// Null for an address typed into the "New Address" dialog (not persisted).
+  final String? warehouseId;
   final String name;
   final String street1;
   final String street2;
@@ -137,6 +161,7 @@ class _DeliveryAddress {
   final String zip;
   final String country;
   final String phone;
+  final bool isDefault;
 }
 
 class _AssigneeOption {
@@ -193,35 +218,30 @@ class _ProcurementPurchaseRequestsCreatePageState
   bool _showDeliveryAddress = true;
   bool _allExpanded = false;
   bool _isSaving = false;
-  String?
-  _editPrUuid; // resolved UUID of the PR being edited (editId is the request_number)
 
   final _addressLayerLink = LayerLink();
   final _addressCardKey = GlobalKey();
   OverlayEntry? _addressOverlay;
   int _selectedAddressIdx = 0;
-  final List<_DeliveryAddress> _addresses = [
-    _DeliveryAddress(
-      name: 'DEMO ADDRESS',
-      street1: 'DEMO ST1',
-      street2: 'DEMO ST2',
-      city: 'TIRUR',
-      state: 'Kerala',
-      zip: '679322',
-      country: 'India',
-      phone: '08606259910',
-    ),
-  ];
+
+  // Delivery addresses are the org's warehouses (Settings → Organisation →
+  // Warehouses), loaded on init. The "New Address" dialog can append a
+  // session-only entry on top of them.
+  final ApiClient _apiClient = ApiClient();
+  List<_DeliveryAddress> _addresses = [];
+  bool _addressesLoading = true;
+  // Warehouse saved on the PR being edited. _prefillForEdit and
+  // _loadDeliveryAddresses race, so whichever finishes last re-applies it.
+  String? _editWarehouseId;
 
   final List<_LineItem> _items = [];
-  List<String> _categoryNames = [];
   Map<String, String> _categoryIdToName = {};
   List<_VendorOption> _vendorOptions = [];
 
   final _addRowLink = LayerLink();
   OverlayEntry? _addRowOverlay;
   OverlayEntry? _itemDetailsSidebarOverlay;
-  final _pageScrollCtrl = ScrollController();
+  final _pageScrollCtrl  = ScrollController();
   final _tableScrollCtrl = ScrollController();
   final _proxyScrollCtrl = ScrollController();
 
@@ -257,14 +277,16 @@ class _ProcurementPurchaseRequestsCreatePageState
     _loadUsers();
     _loadCategories();
     _loadVendors();
-    _loadDemandPoolRates();
+    _loadRowProductDetails();
+    _loadDeliveryAddresses();
     _tableScrollCtrl.addListener(_onTableScroll);
     _proxyScrollCtrl.addListener(_onProxyScroll);
   }
 
-  /// Batch-fetches cost_price for every pre-filled demand pool item and
-  /// populates each row's Estimated Rate field so the amount auto-computes.
-  Future<void> _loadDemandPoolRates() async {
+  /// Rows pre-filled from the demand pool or from an edit arrive with only a
+  /// product_id, so their Estimated Rate and Category are blank. Batch-fetch
+  /// both from `products` and resolve the category UUID against `categories`.
+  Future<void> _loadRowProductDetails() async {
     final productIds = _items
         .where((i) => i.productId != null)
         .map((i) => i.productId!)
@@ -273,39 +295,91 @@ class _ProcurementPurchaseRequestsCreatePageState
     if (productIds.isEmpty) return;
 
     try {
+      // The category UUID is meaningless without the id → name map.
+      if (_categoryIdToName.isEmpty) await _loadCategories();
+
       final res = await Supabase.instance.client
           .from('products')
-          .select('id, cost_price')
+          .select('id, cost_price, category_id')
           .inFilter('id', productIds);
 
       if (!mounted) return;
 
       final priceMap = <String, double>{};
+      final categoryIdMap = <String, String>{};
       for (final row in (res as List<dynamic>)) {
         final m = row as Map<String, dynamic>;
         final id = m['id'] as String?;
-        final price = (m['cost_price'] as num?)?.toDouble() ?? 0;
-        if (id != null) priceMap[id] = price;
+        if (id == null) continue;
+        priceMap[id] = (m['cost_price'] as num?)?.toDouble() ?? 0;
+        final categoryId = m['category_id'] as String?;
+        if (categoryId != null) categoryIdMap[id] = categoryId;
       }
 
       setState(() {
         for (final item in _items) {
-          if (item.productId != null) {
-            final rate = priceMap[item.productId!] ?? 0;
-            // Only overwrite if DB has a real cost price; preserve demo fallback otherwise
-            if (rate > 0) {
-              item.rateCtrl.text = rate.toStringAsFixed(2);
-            }
+          final productId = item.productId;
+          if (productId == null) continue;
+
+          // Only overwrite if DB has a real cost price; preserve demo fallback otherwise
+          final rate = priceMap[productId] ?? 0;
+          if (rate > 0) item.rateCtrl.text = rate.toStringAsFixed(2);
+
+          final categoryId = categoryIdMap[productId];
+          if (categoryId != null) {
+            item.categoryId = categoryId;
+            item.category = _categoryIdToName[categoryId];
           }
         }
       });
     } catch (e) {
-      AppLogger.error(
-        'Failed to load product rates',
-        error: e,
-        module: 'PRCreate',
-      );
+      AppLogger.error('Failed to load product rates/categories',
+          error: e, module: 'PRCreate');
     }
+  }
+
+  /// Delivery addresses come from the org's warehouses (Settings → Organisation
+  /// → Warehouses). The default-for-branch warehouse is pre-selected.
+  Future<void> _loadDeliveryAddresses() async {
+    try {
+      final orgId = ref.read(authUserProvider)?.orgId.trim() ?? '';
+      final res = await _apiClient.get(
+        'warehouses-settings',
+        queryParameters: orgId.isNotEmpty
+            ? <String, dynamic>{'org_id': orgId}
+            : null,
+      );
+      if (!mounted) return;
+
+      final rows = res.success && res.data is List
+          ? (res.data as List<dynamic>).whereType<Map<String, dynamic>>()
+          : const Iterable<Map<String, dynamic>>.empty();
+      final warehouses = rows
+          .where((w) => w['is_active'] as bool? ?? true)
+          .map(_DeliveryAddress.fromWarehouse)
+          .toList();
+      final defaultIdx = warehouses.indexWhere((a) => a.isDefault);
+
+      setState(() {
+        _addresses = warehouses;
+        _selectedAddressIdx = defaultIdx >= 0 ? defaultIdx : 0;
+        _addressesLoading = false;
+      });
+      _applyEditWarehouseSelection();
+    } catch (e) {
+      AppLogger.error('Failed to load warehouse delivery addresses',
+          error: e, module: 'PRCreate');
+      if (mounted) setState(() => _addressesLoading = false);
+    }
+  }
+
+  /// Re-selects the warehouse saved on the PR being edited, once both the PR
+  /// and the warehouse list have loaded.
+  void _applyEditWarehouseSelection() {
+    final id = _editWarehouseId;
+    if (id == null || id.isEmpty || _addresses.isEmpty || !mounted) return;
+    final idx = _addresses.indexWhere((a) => a.warehouseId == id);
+    if (idx >= 0) setState(() => _selectedAddressIdx = idx);
   }
 
   Future<void> _loadUsers() async {
@@ -344,18 +418,20 @@ class _ProcurementPurchaseRequestsCreatePageState
             .map((r) => r as Map<String, dynamic>)
             .where((r) => (r['name'] as String? ?? '').isNotEmpty)
             .toList();
-        _categoryNames = rows.map((r) => r['name'] as String).toList();
         _categoryIdToName = {
           for (final r in rows)
             if (r['id'] != null) r['id'] as String: r['name'] as String,
         };
+        // A row picked before this master finished loading still holds only the
+        // product's raw category UUID — give it a name now.
+        for (final item in _items) {
+          if (item.categoryId != null && (item.category?.isEmpty ?? true)) {
+            item.category = _categoryIdToName[item.categoryId!];
+          }
+        }
       });
     } catch (e) {
-      AppLogger.error(
-        'Failed to load categories',
-        error: e,
-        module: 'PRCreate',
-      );
+      AppLogger.error('Failed to load categories', error: e, module: 'PRCreate');
     }
   }
 
@@ -368,16 +444,13 @@ class _ProcurementPurchaseRequestsCreatePageState
           .order('display_name');
       if (!mounted) return;
       setState(() {
-        _vendorOptions = (res as List<dynamic>)
-            .map((row) {
-              final m = row as Map<String, dynamic>;
-              return _VendorOption(
-                id: m['id'] as String? ?? '',
-                displayName: m['display_name'] as String? ?? '',
-              );
-            })
-            .where((v) => v.id.isNotEmpty && v.displayName.isNotEmpty)
-            .toList();
+        _vendorOptions = (res as List<dynamic>).map((row) {
+          final m = row as Map<String, dynamic>;
+          return _VendorOption(
+            id: m['id'] as String? ?? '',
+            displayName: m['display_name'] as String? ?? '',
+          );
+        }).where((v) => v.id.isNotEmpty && v.displayName.isNotEmpty).toList();
         _backfillVendorNames();
       });
     } catch (e) {
@@ -389,9 +462,7 @@ class _ProcurementPurchaseRequestsCreatePageState
     if (_vendorOptions.isEmpty) return;
     for (final item in _items) {
       if (item.vendorId != null && item.preferredVendor == null) {
-        final match = _vendorOptions
-            .where((v) => v.id == item.vendorId)
-            .firstOrNull;
+        final match = _vendorOptions.where((v) => v.id == item.vendorId).firstOrNull;
         if (match != null) item.preferredVendor = match.displayName;
       }
     }
@@ -406,15 +477,21 @@ class _ProcurementPurchaseRequestsCreatePageState
 
       final prRes = await supabase
           .from('purchase_requests')
-          .select(
-            'id, expected_date, assignee_id, users!assignee_id(full_name, email)',
-          )
+          .select('id, expected_date, assignee_id, reference_number, reason, '
+              'internal_notes, notes_to_approver, warehouse_id, '
+              'users!assignee_id(full_name, email)')
           .eq('request_number', fullNumber)
           .maybeSingle();
 
       if (prRes == null || !mounted) return;
       final prId = prRes['id'] as String;
-      _editPrUuid = prId;
+
+      _referenceCtrl.text = prRes['reference_number'] as String? ?? '';
+      _reasonCtrl.text = prRes['reason'] as String? ?? '';
+      _internalNotesCtrl.text = prRes['internal_notes'] as String? ?? '';
+      _notesToApproverCtrl.text = prRes['notes_to_approver'] as String? ?? '';
+      _editWarehouseId = prRes['warehouse_id'] as String?;
+      _applyEditWarehouseSelection();
 
       // Expected date (stored as YYYY-MM-DD)
       final rawDate = prRes['expected_date'] as String?;
@@ -422,12 +499,10 @@ class _ProcurementPurchaseRequestsCreatePageState
         final parts = rawDate.split('-');
         if (parts.length == 3) {
           final d = DateTime(
-            int.parse(parts[0]),
-            int.parse(parts[1]),
-            int.parse(parts[2]),
-          );
+              int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
           _expectedDate = d;
-          _expectedDateCtrl.text = '${parts[2]}-${parts[1]}-${parts[0]}';
+          _expectedDateCtrl.text =
+              '${parts[2]}-${parts[1]}-${parts[0]}';
         }
       }
 
@@ -446,11 +521,11 @@ class _ProcurementPurchaseRequestsCreatePageState
       final itemsRes = await supabase
           .from('purchase_request_items')
           .select(
-            'product_id, required_qty, planned_qty, pending_qty, '
-            'estimated_rate, preferred_vendor_id, '
-            'products(product_name), '
-            'vendors!preferred_vendor_id(display_name)',
-          )
+              'product_id, required_qty, planned_qty, pending_qty, '
+              'estimated_rate, discount_percentage, preferred_vendor_id, '
+              'category_id, description, '
+              'products(product_name), '
+              'vendors!preferred_vendor_id(display_name)')
           .eq('purchase_request_id', prId);
 
       if (!mounted) return;
@@ -459,20 +534,26 @@ class _ProcurementPurchaseRequestsCreatePageState
         for (final row in itemsRes as List<dynamic>) {
           final m = row as Map<String, dynamic>;
           final product = m['products'] as Map<String, dynamic>?;
-          final vendor = m['vendors'] as Map<String, dynamic>?;
+          final vendor  = m['vendors']  as Map<String, dynamic>?;
           final item = _LineItem()
-            ..itemNameCtrl.text = product?['product_name'] as String? ?? ''
+            ..itemNameCtrl.text =
+                product?['product_name'] as String? ?? ''
             ..qtyCtrl.text =
                 ((m['required_qty'] as num?)?.toInt().toString()) ?? '0'
             ..planQtyCtrl.text = () {
-              final v = (m['planned_qty'] as num?)?.toInt() ?? 0;
-              return v > 0 ? v.toString() : '';
-            }()
+                  final v = (m['planned_qty'] as num?)?.toInt() ?? 0;
+                  return v > 0 ? v.toString() : '';
+                }()
             ..pendingQtyCtrl.text =
                 ((m['pending_qty'] as num?)?.toInt().toString()) ?? '0'
             ..rateCtrl.text =
                 ((m['estimated_rate'] as num?)?.toStringAsFixed(2)) ?? '0.00'
+            ..discountCtrl.text =
+                ((m['discount_percentage'] as num?)?.toStringAsFixed(2)) ?? '0.00'
+            ..descCtrl.text = m['description'] as String? ?? ''
             ..productId = m['product_id'] as String?
+            ..categoryId = m['category_id'] as String?
+            ..category = _categoryIdToName[m['category_id'] as String? ?? '']
             ..vendorId = m['preferred_vendor_id'] as String?
             ..preferredVendor = vendor?['display_name'] as String?;
           _items.add(item);
@@ -481,30 +562,18 @@ class _ProcurementPurchaseRequestsCreatePageState
         // Race-condition guard: if _loadVendors() already ran, back-fill now
         _backfillVendorNames();
       });
+
+      // These rows only exist now, after initState's pass already ran, so
+      // resolve their rate + category here.
+      await _loadRowProductDetails();
     } catch (e) {
-      AppLogger.error(
-        'Failed to load PR for edit',
-        error: e,
-        module: 'PRCreate',
-      );
-      if (mounted)
-        setState(() {
-          if (_items.isEmpty) _items.add(_LineItem());
-        });
+      AppLogger.error('Failed to load PR for edit', error: e, module: 'PRCreate');
+      if (mounted) setState(() { if (_items.isEmpty) _items.add(_LineItem()); });
     }
   }
 
   // Fallback demo rates used when cost_price is 0 in the DB
-  static const _kDemoRates = [
-    120.00,
-    85.50,
-    200.00,
-    45.00,
-    150.00,
-    75.00,
-    95.00,
-    60.00,
-  ];
+  static const _kDemoRates = [120.00, 85.50, 200.00, 45.00, 150.00, 75.00, 95.00, 60.00];
 
   void _prefillFromDemandPool(List<DemandPoolLineItem> dpItems) {
     for (int idx = 0; idx < dpItems.length; idx++) {
@@ -512,13 +581,9 @@ class _ProcurementPurchaseRequestsCreatePageState
       final item = _LineItem()
         ..itemNameCtrl.text = dp.productName
         ..qtyCtrl.text = dp.reqQty.toInt().toString()
-        ..planQtyCtrl.text = dp.plannedQty > 0
-            ? dp.plannedQty.toInt().toString()
-            : ''
+        ..planQtyCtrl.text = dp.plannedQty > 0 ? dp.plannedQty.toInt().toString() : ''
         ..pendingQtyCtrl.text = dp.pendingQty.toInt().toString()
-        ..rateCtrl.text = _kDemoRates[idx % _kDemoRates.length].toStringAsFixed(
-          2,
-        )
+        ..rateCtrl.text = _kDemoRates[idx % _kDemoRates.length].toStringAsFixed(2)
         ..productId = dp.productId
         ..entityId = dp.entityId
         ..vendorId = dp.vendorId
@@ -614,6 +679,7 @@ class _ProcurementPurchaseRequestsCreatePageState
         item.rateCtrl.clear();
         item.discountCtrl.clear();
         item.category = null;
+        item.categoryId = null;
         item.preferredVendor = null;
         item.productId = null;
         item.vendorId = null;
@@ -633,7 +699,7 @@ class _ProcurementPurchaseRequestsCreatePageState
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildPageHeader(),
           const Divider(height: 1, color: AppTheme.borderColor),
@@ -649,7 +715,7 @@ class _ProcurementPurchaseRequestsCreatePageState
                       controller: _pageScrollCtrl,
                       padding: const EdgeInsets.all(24),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _buildTopFields(),
                           const SizedBox(height: 24),
@@ -657,10 +723,7 @@ class _ProcurementPurchaseRequestsCreatePageState
                           const SizedBox(height: 8),
                           _buildTable(),
                           const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: _buildAddRowButton(),
-                          ),
+                          Align(alignment: Alignment.centerLeft, child: _buildAddRowButton()),
                           const SizedBox(height: 24),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -721,9 +784,7 @@ class _ProcurementPurchaseRequestsCreatePageState
       child: Row(
         children: [
           Icon(
-            widget.editId != null
-                ? LucideIcons.pencil
-                : LucideIcons.clipboardList,
+            widget.editId != null ? LucideIcons.pencil : LucideIcons.clipboardList,
             size: 20,
             color: AppTheme.textPrimary,
           ),
@@ -838,7 +899,10 @@ class _ProcurementPurchaseRequestsCreatePageState
             Expanded(
               child: _FieldLabel(
                 label: 'Reason',
-                child: CustomTextField(controller: _reasonCtrl, hintText: ''),
+                child: CustomTextField(
+                  controller: _reasonCtrl,
+                  hintText: '',
+                ),
               ),
             ),
           ],
@@ -887,7 +951,8 @@ class _ProcurementPurchaseRequestsCreatePageState
                         hint: 'Select assignee',
                         height: 36,
                         displayStringForValue: (u) => u.displayName,
-                        onChanged: (u) => setState(() => _selectedAssignee = u),
+                        onChanged: (u) =>
+                            setState(() => _selectedAssignee = u),
                       ),
               ),
             ),
@@ -932,12 +997,28 @@ class _ProcurementPurchaseRequestsCreatePageState
             ],
           ),
           const SizedBox(height: 6),
-          if (_showDeliveryAddress)
+          if (_showDeliveryAddress && _addressesLoading)
+            const _AddressPlaceholder(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else if (_showDeliveryAddress && _addresses.isEmpty)
+            const _AddressPlaceholder(
+              child: Text(
+                'No warehouse addresses found. Add a warehouse under '
+                'Settings → Organisation → Warehouses.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            )
+          else if (_showDeliveryAddress)
             CompositedTransformTarget(
               link: _addressLayerLink,
               child: _AddressPickerCard(
                 key: _addressCardKey,
-                addr: _addresses[_selectedAddressIdx],
+                addr: _addresses[_selectedAddressIdx.clamp(0, _addresses.length - 1)],
                 onTap: () => _toggleAddressOverlay(context),
               ),
             )
@@ -949,17 +1030,9 @@ class _ProcurementPurchaseRequestsCreatePageState
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.successGreen,
                 side: const BorderSide(color: AppTheme.successGreen),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               ),
             ),
         ],
@@ -1074,46 +1147,35 @@ class _ProcurementPurchaseRequestsCreatePageState
   }
 
   Widget _dot() => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 8),
-    child: Text('•', style: TextStyle(color: AppTheme.textMuted, fontSize: 14)),
-  );
+        padding: EdgeInsets.symmetric(horizontal: 8),
+        child: Text('•', style: TextStyle(color: AppTheme.textMuted, fontSize: 14)),
+      );
 
   // ---------------------------------------------------------------------------
   // Table — horizontal-scroll grid matching CreditNote pattern
   // ---------------------------------------------------------------------------
 
   // Column width constants
-  static const double _colNum = 50;
-  static const double _colItem = 280;
-  static const double _colCategory = 140;
-  static const double _colDesc = 220;
-  static const double _colVendor = 150;
-  static const double _colQty = 130; // Required Qty
-  static const double _colPlanQty = 110; // Planned Qty
+  static const double _colNum        = 50;
+  static const double _colItem       = 280;
+  static const double _colCategory   = 140;
+  static const double _colDesc       = 220;
+  static const double _colVendor     = 150;
+  static const double _colQty        = 130; // Required Qty
+  static const double _colPlanQty    = 110; // Planned Qty
   static const double _colPendingQty = 110; // Pending Qty
-  static const double _colRate = 190;
-  static const double _colDiscount = 120;
-  static const double _colAmount = 220;
+  static const double _colRate       = 190;
+  static const double _colDiscount   = 120;
+  static const double _colAmount     = 220;
   // Row heights used to align external delete buttons with table rows
-  static const double _kHeaderRowHeight =
-      37.0; // vertical:10 + ~17px text + vertical:10
-  static const double _kBodyRowHeight =
-      48.0; // vertical:8  + 32px content + vertical:8
-  static const double _kSubRowHeight = 44.0; // padding 6+8  + 30px content
+  static const double _kHeaderRowHeight = 37.0; // vertical:10 + ~17px text + vertical:10
+  static const double _kBodyRowHeight   = 48.0; // vertical:8  + 32px content + vertical:8
+  static const double _kSubRowHeight    = 44.0; // padding 6+8  + 30px content
 
-  // Total content width of the table — used to size the external scrollbar proxy.
+// Total content width of the table — used to size the external scrollbar proxy.
   static const double _kTotalTableWidth =
-      _colNum +
-      _colItem +
-      _colCategory +
-      _colDesc +
-      _colVendor +
-      _colQty +
-      _colPlanQty +
-      _colPendingQty +
-      _colRate +
-      _colDiscount +
-      _colAmount;
+      _colNum + _colItem + _colCategory + _colDesc + _colVendor +
+      _colQty + _colPlanQty + _colPendingQty + _colRate + _colDiscount + _colAmount;
 
   Widget _buildTable() {
     return Column(
@@ -1139,20 +1201,16 @@ class _ProcurementPurchaseRequestsCreatePageState
                     children: [
                       _buildTableHeader(),
                       Container(height: 1, color: AppTheme.borderColor),
-                      ...List.generate(
-                        _items.length,
-                        (i) => _PrGridRow(
-                          item: _items[i],
-                          index: i,
-                          showBottomBorder: i < _items.length - 1,
-                          onRemove: () => _removeRow(i),
-                          onChanged: () => setState(() {}),
-                          onShowDetails: () => _showItemDetailsSidebar(i),
-                          categories: _categoryNames,
-                          vendors: _vendorOptions,
-                          categoryIdToName: _categoryIdToName,
-                        ),
-                      ),
+                      ...List.generate(_items.length, (i) => _PrGridRow(
+                        item: _items[i],
+                        index: i,
+                        showBottomBorder: i < _items.length - 1,
+                        onRemove: () => _removeRow(i),
+                        onChanged: () => setState(() {}),
+                        onShowDetails: () => _showItemDetailsSidebar(i),
+                        vendors: _vendorOptions,
+                        categoryIdToName: _categoryIdToName,
+                      )),
                     ],
                   ),
                 ),
@@ -1164,36 +1222,32 @@ class _ProcurementPurchaseRequestsCreatePageState
               child: Column(
                 children: [
                   const SizedBox(height: _kHeaderRowHeight + 1),
-                  ...List.generate(
-                    _items.length,
-                    (i) => SizedBox(
-                      height: _items[i].expanded
-                          ? _kBodyRowHeight + _kSubRowHeight
-                          : _kBodyRowHeight,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: SizedBox(
-                          height: _kBodyRowHeight,
-                          child: Center(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _PrRowMenu(
-                                  index: i,
-                                  item: _items[i],
-                                  onRemoveRow: () =>
-                                      setState(() => _removeRow(i)),
-                                  onChanged: () => setState(() {}),
-                                ),
-                                const SizedBox(width: 2),
-                                _PrDeleteButton(onTap: () => _removeRow(i)),
-                              ],
-                            ),
+                  ...List.generate(_items.length, (i) => SizedBox(
+                    height: _items[i].expanded
+                        ? _kBodyRowHeight + _kSubRowHeight
+                        : _kBodyRowHeight,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: SizedBox(
+                        height: _kBodyRowHeight,
+                        child: Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _PrRowMenu(
+                                index: i,
+                                item: _items[i],
+                                onRemoveRow: () => setState(() => _removeRow(i)),
+                                onChanged: () => setState(() {}),
+                              ),
+                              const SizedBox(width: 2),
+                              _PrDeleteButton(onTap: () => _removeRow(i)),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  ),
+                  )),
                 ],
               ),
             ),
@@ -1209,21 +1263,17 @@ class _ProcurementPurchaseRequestsCreatePageState
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _GCell(width: _colNum, label: '#'),
-          _GCell(width: _colItem, label: 'ITEM NAME', required: true),
-          _GCell(width: _colCategory, label: 'CATEGORY', required: true),
-          _GCell(width: _colDesc, label: 'DESCRIPTION'),
-          _GCell(width: _colVendor, label: 'PREFERRED VENDOR'),
-          _GCell(width: _colQty, label: 'REQUIRED QTY', required: true),
-          _GCell(width: _colPlanQty, label: 'PLANNED QTY'),
+          _GCell(width: _colNum,        label: '#'),
+          _GCell(width: _colItem,       label: 'ITEM NAME',          required: true),
+          _GCell(width: _colCategory,   label: 'CATEGORY',           required: true),
+          _GCell(width: _colDesc,       label: 'DESCRIPTION'),
+          _GCell(width: _colVendor,     label: 'PREFERRED VENDOR'),
+          _GCell(width: _colQty,        label: 'REQUIRED QTY',       required: true),
+          _GCell(width: _colPlanQty,    label: 'PLANNED QTY'),
           _GCell(width: _colPendingQty, label: 'PENDING QTY'),
-          _GCell(width: _colRate, label: 'ESTIMATED RATE', required: true),
-          _GCell(width: _colDiscount, label: 'DISCOUNT'),
-          _GCell(
-            width: _colAmount,
-            label: 'ESTIMATED AMOUNT',
-            showDivider: false,
-          ),
+          _GCell(width: _colRate,       label: 'ESTIMATED RATE',     required: true),
+          _GCell(width: _colDiscount,   label: 'DISCOUNT'),
+          _GCell(width: _colAmount,     label: 'ESTIMATED AMOUNT',   showDivider: false),
         ],
       ),
     );
@@ -1257,11 +1307,7 @@ class _ProcurementPurchaseRequestsCreatePageState
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.add_circle_outline,
-                      size: 14,
-                      color: Color(0xFF2563EB),
-                    ),
+                    Icon(Icons.add_circle_outline, size: 14, color: Color(0xFF2563EB)),
                     SizedBox(width: 6),
                     Text(
                       'Add New Row',
@@ -1284,11 +1330,7 @@ class _ProcurementPurchaseRequestsCreatePageState
               ),
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6),
-                child: Icon(
-                  Icons.keyboard_arrow_down,
-                  size: 16,
-                  color: Color(0xFF6B7280),
-                ),
+                child: Icon(Icons.keyboard_arrow_down, size: 16, color: Color(0xFF6B7280)),
               ),
             ),
           ],
@@ -1385,181 +1427,198 @@ class _ProcurementPurchaseRequestsCreatePageState
     return '${parts[2]}-${parts[1]}-${parts[0]}';
   }
 
+  /// The currently selected delivery address, or null when the user removed the
+  /// address block or no warehouses exist.
+  _DeliveryAddress? get _selectedAddress {
+    if (!_showDeliveryAddress || _addresses.isEmpty) return null;
+    return _addresses[_selectedAddressIdx.clamp(0, _addresses.length - 1)];
+  }
+
+  /// Flattens the selected address into the multi-line text stored on
+  /// `purchase_requests.delivery_address` and rendered on the overview pages.
+  String? _deliveryAddressText() {
+    final addr = _selectedAddress;
+    if (addr == null) return null;
+    final cityState =
+        [addr.city, addr.state].where((s) => s.isNotEmpty).join(', ');
+    final countryZip =
+        [addr.country, addr.zip].where((s) => s.isNotEmpty).join(', ');
+    final lines = [
+      addr.name,
+      addr.street1,
+      addr.street2,
+      cityState,
+      countryZip,
+      addr.phone,
+    ].where((l) => l.trim().isNotEmpty).toList();
+    return lines.isEmpty ? null : lines.join('\n');
+  }
+
+  /// A row carries its category as a UUID when it came from the product record,
+  /// but only as a display name when it was resolved through the id → name map.
+  /// Fall back to a reverse lookup so the name still saves as a real FK.
+  String? _resolveCategoryId(_LineItem item) {
+    if (item.categoryId != null) return item.categoryId;
+    final name = item.category;
+    if (name == null || name.isEmpty) return null;
+    for (final entry in _categoryIdToName.entries) {
+      if (entry.value == name) return entry.key;
+    }
+    return null;
+  }
+
+  /// Header fields shared by the insert and update branches.
+  Map<String, dynamic> _headerPayload(String status) {
+    String? trimmedOrNull(TextEditingController c) {
+      final v = c.text.trim();
+      return v.isEmpty ? null : v;
+    }
+
+    return {
+      'status': status,
+      'expected_date': _expectedDateCtrl.text.isNotEmpty
+          ? _toIsoDate(_expectedDateCtrl.text)
+          : null,
+      'assignee_id': _selectedAssignee?.id,
+      'reference_number': trimmedOrNull(_referenceCtrl),
+      'reason': trimmedOrNull(_reasonCtrl),
+      'internal_notes': trimmedOrNull(_internalNotesCtrl),
+      'notes_to_approver': trimmedOrNull(_notesToApproverCtrl),
+      'delivery_address': _deliveryAddressText(),
+      'warehouse_id': _selectedAddress?.warehouseId?.isNotEmpty ?? false
+          ? _selectedAddress!.warehouseId
+          : null,
+    };
+  }
+
   Future<void> _savePurchaseRequest({String status = 'OPEN'}) async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
     try {
       final supabase = Supabase.instance.client;
 
-      // Auto-generate request_number (PR-00001 … PR-99999)
-      final countRes = await supabase
-          .from('purchase_requests')
-          .select('request_number')
-          .order('created_at', ascending: false)
-          .limit(1);
-      int nextNum = 1;
-      if ((countRes as List<dynamic>).isNotEmpty) {
-        final last = countRes.first['request_number'] as String? ?? '';
-        final m = RegExp(r'(\d+)$').firstMatch(last);
-        if (m != null) nextNum = int.parse(m.group(1)!) + 1;
-      }
-      final requestNumber = 'PR-${nextNum.toString().padLeft(5, '0')}';
+      final bool isEdit = widget.editId != null;
 
       // Entity id from pre-filled demand pool items (or fallback)
       final entityItem = _items.firstWhere(
         (i) => i.entityId != null,
         orElse: () => _items.first,
       );
-      final entityId =
-          entityItem.entityId ?? '66d79887-be98-40ab-ac40-9e0a008f9d8a';
+      final entityId = entityItem.entityId ?? '66d79887-be98-40ab-ac40-9e0a008f9d8a';
 
-      // Insert purchase_requests header
-      final prRes = await supabase
-          .from('purchase_requests')
-          .insert({
-            'entity_id': entityId,
-            'request_number': requestNumber,
-            'status': status,
-            if (_expectedDateCtrl.text.isNotEmpty)
-              'expected_date': _toIsoDate(_expectedDateCtrl.text),
-            if (_selectedAssignee != null) 'assignee_id': _selectedAssignee!.id,
-          })
-          .select('id')
-          .single();
-      final prId = prRes['id'] as String;
+      final String prId;
+      if (isEdit) {
+        // ── Edit: UPDATE the existing PR in place (never create a duplicate) ──
+        // The existing PR keeps the demand_pool links made at generation time,
+        // so approving it later can reduce the pool correctly.
+        final fullNumber = widget.editId!.startsWith('PR-')
+            ? widget.editId!
+            : 'PR-${widget.editId!}';
+        final existing = await supabase
+            .from('purchase_requests')
+            .select('id')
+            .eq('request_number', fullNumber)
+            .maybeSingle();
+        if (existing == null) {
+          throw Exception('Purchase request $fullNumber not found');
+        }
+        prId = existing['id'] as String;
+        await supabase
+            .from('purchase_requests')
+            .update(_headerPayload(status))
+            .eq('id', prId);
+        // Replace this PR's line items with the current on-screen rows.
+        await supabase
+            .from('purchase_request_items')
+            .delete()
+            .eq('purchase_request_id', prId);
+      } else {
+        // ── New: auto-generate request_number (PR-00001 … PR-99999) + insert ──
+        final countRes = await supabase
+            .from('purchase_requests')
+            .select('request_number')
+            .order('created_at', ascending: false)
+            .limit(1);
+        int nextNum = 1;
+        if ((countRes as List<dynamic>).isNotEmpty) {
+          final last = countRes.first['request_number'] as String? ?? '';
+          final m = RegExp(r'(\d+)$').firstMatch(last);
+          if (m != null) nextNum = int.parse(m.group(1)!) + 1;
+        }
+        final requestNumber = 'PR-${nextNum.toString().padLeft(5, '0')}';
+        final prRes = await supabase
+            .from('purchase_requests')
+            .insert({
+              'entity_id': entityId,
+              'request_number': requestNumber,
+              ..._headerPayload(status),
+            })
+            .select('id')
+            .single();
+        prId = prRes['id'] as String;
+      }
 
       // Insert purchase_request_items for every line that has a product_id
       final itemInserts = _items
           .where((i) => i.productId != null)
-          .map(
-            (i) => {
-              'purchase_request_id': prId,
-              'product_id': i.productId!,
-              if (i.vendorId != null) 'preferred_vendor_id': i.vendorId,
-              'required_qty':
-                  double.tryParse(i.qtyCtrl.text.replaceAll(',', '')) ?? 0,
-              'planned_qty':
-                  double.tryParse(i.planQtyCtrl.text.replaceAll(',', '')) ?? 0,
-              'pending_qty':
-                  double.tryParse(i.pendingQtyCtrl.text.replaceAll(',', '')) ??
-                  0,
-              'estimated_rate':
-                  double.tryParse(i.rateCtrl.text.replaceAll(',', '')) ?? 0,
-              'discount_percentage':
-                  double.tryParse(i.discountCtrl.text.replaceAll(',', '')) ?? 0,
-              'estimated_amount': i.estimatedAmount,
-              'line_status': 'PENDING',
-            },
-          )
+          .map((i) => {
+                'purchase_request_id': prId,
+                'product_id': i.productId!,
+                if (i.vendorId != null) 'preferred_vendor_id': i.vendorId,
+                'category_id': _resolveCategoryId(i),
+                'description': i.descCtrl.text.trim().isEmpty
+                    ? null
+                    : i.descCtrl.text.trim(),
+                'required_qty':
+                    double.tryParse(i.qtyCtrl.text.replaceAll(',', '')) ?? 0,
+                'planned_qty':
+                    double.tryParse(i.planQtyCtrl.text.replaceAll(',', '')) ?? 0,
+                'pending_qty': double.tryParse(
+                        i.pendingQtyCtrl.text.replaceAll(',', '')) ??
+                    0,
+                'estimated_rate':
+                    double.tryParse(i.rateCtrl.text.replaceAll(',', '')) ?? 0,
+                'discount_percentage':
+                    double.tryParse(i.discountCtrl.text.replaceAll(',', '')) ?? 0,
+                'estimated_amount': i.estimatedAmount,
+                'line_status': 'PENDING',
+              })
           .toList();
 
       if (itemInserts.isNotEmpty) {
         await supabase.from('purchase_request_items').insert(itemInserts);
       }
 
-      // Push the on-screen pending_qty into demand_pool as the new required_qty.
-      // pending_qty = 0 → FULFILLED (removed from pool); > 0 → PR_CREATED (stays in pool).
+      // Link the demand pool rows to this PR and mark them PR_CREATED.
+      // Planned/pending quantities are NOT reduced here — the balance only
+      // changes once the PR is APPROVED (see procurement_approvals_overview.dart
+      // → _applyApprovedQtyToDemandPool).
       final allDpIds = _items.expand((i) => i.demandPoolIds).toSet().toList();
-
-      // Shared helper: distributes each item's screen pending_qty across its
-      // demand_pool rows proportionally (by their current required_qty weight).
-      Future<void> _syncRows(
-        List<dynamic> dpRows, {
-        required Map<String, double> pendingByProduct,
-        Map<String, double>? plannedByProduct,
-        bool linkPrId = false,
-      }) async {
-        final byProduct = <String, List<Map<String, dynamic>>>{};
-        for (final r in dpRows) {
-          final pid =
-              (r as Map<String, dynamic>)['product_id'] as String? ?? '';
-          (byProduct[pid] ??= []).add(r);
-        }
-
-        final futures = <Future>[];
-        for (final entry in byProduct.entries) {
-          final rows = entry.value;
-          final totalPending = pendingByProduct[entry.key] ?? 0;
-          final totalPlanned = plannedByProduct?[entry.key] ?? 0;
-          final totalWeight = rows.fold<double>(
-            0,
-            (s, r) => s + (((r['required_qty'] as num?)?.toDouble()) ?? 0),
-          );
-
-          for (final r in rows) {
-            final id = r['id'] as String;
-            final rowWeight = ((r['required_qty'] as num?)?.toDouble()) ?? 0;
-            final share = totalWeight > 0 ? rowWeight / totalWeight : 1.0;
-            final rowPending = (totalPending * share).clamp(
-              0.0,
-              double.infinity,
-            );
-            final rowPlanned = (totalPlanned * share).clamp(
-              0.0,
-              double.infinity,
-            );
-
-            futures.add(
-              supabase
-                  .from('demand_pool')
-                  .update({
-                    if (linkPrId) 'purchase_request_id': prId,
-                    'planned_qty': rowPlanned,
-                    'pending_qty': rowPending,
-                    'status': rowPending <= 0 ? 'FULFILLED' : 'PR_CREATED',
-                  })
-                  .eq('id', id),
-            );
-          }
-        }
-        if (futures.isNotEmpty) await Future.wait(futures);
-      }
-
-      // Use pendingQtyCtrl and planQtyCtrl (what's shown on screen) as source of truth.
-      final pendingByProduct = <String, double>{
-        for (final item in _items)
-          if (item.productId != null)
-            item.productId!:
-                double.tryParse(item.pendingQtyCtrl.text.replaceAll(',', '')) ??
-                0,
-      };
-      final plannedByProduct = <String, double>{
-        for (final item in _items)
-          if (item.productId != null)
-            item.productId!:
-                double.tryParse(item.planQtyCtrl.text.replaceAll(',', '')) ?? 0,
-      };
-
       if (allDpIds.isNotEmpty) {
-        final dpRows = await supabase
-            .from('demand_pool')
-            .select('id, product_id, required_qty')
-            .inFilter('id', allDpIds);
-        await _syncRows(
-          dpRows as List<dynamic>,
-          pendingByProduct: pendingByProduct,
-          plannedByProduct: plannedByProduct,
-          linkPrId: true,
-        );
-      } else if (_editPrUuid != null) {
-        final dpRows = await supabase
-            .from('demand_pool')
-            .select('id, product_id, required_qty')
-            .eq('purchase_request_id', _editPrUuid!);
-        await _syncRows(
-          dpRows as List<dynamic>,
-          pendingByProduct: pendingByProduct,
-          plannedByProduct: plannedByProduct,
-        );
+        await supabase.from('demand_pool').update({
+          'purchase_request_id': prId,
+          'status': 'PR_CREATED',
+        }).inFilter('id', allDpIds);
       }
 
-      // Create approval record when sent for approval
+      // Create (or refresh) the approval record when sent for approval.
       if (status == 'PENDING_APPROVAL') {
-        await supabase.from('purchase_request_approval').insert({
-          'entity_id': entityId,
-          'purchase_request_id': prId,
-          'status': 'PENDING',
-        });
+        final existingApproval = await supabase
+            .from('purchase_request_approval')
+            .select('id')
+            .eq('purchase_request_id', prId)
+            .maybeSingle();
+        if (existingApproval == null) {
+          await supabase.from('purchase_request_approval').insert({
+            'entity_id': entityId,
+            'purchase_request_id': prId,
+            'status': 'PENDING',
+          });
+        } else {
+          await supabase.from('purchase_request_approval').update({
+            'status': 'PENDING',
+          }).eq('id', existingApproval['id'] as String);
+        }
       }
 
       if (!mounted) return;
@@ -1570,11 +1629,7 @@ class _ProcurementPurchaseRequestsCreatePageState
         pathParameters: {'orgSystemId': orgSystemId},
       );
     } catch (e) {
-      AppLogger.error(
-        'Failed to save purchase request',
-        error: e,
-        module: 'PRCreate',
-      );
+      AppLogger.error('Failed to save purchase request', error: e, module: 'PRCreate');
       if (mounted) {
         setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1592,7 +1647,8 @@ class _ProcurementPurchaseRequestsCreatePageState
   // ---------------------------------------------------------------------------
 
   Widget _buildFooter() {
-    final btnPadding = const EdgeInsets.symmetric(horizontal: 20, vertical: 10);
+    final btnPadding =
+        const EdgeInsets.symmetric(horizontal: 20, vertical: 10);
     final btnRadius = BorderRadius.circular(6);
 
     return Padding(
@@ -1610,10 +1666,8 @@ class _ProcurementPurchaseRequestsCreatePageState
               disabledBackgroundColor: AppTheme.successGreen.withOpacity(0.6),
               padding: btnPadding,
               elevation: 0,
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              textStyle:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               shape: RoundedRectangleBorder(borderRadius: btnRadius),
             ),
             child: _isSaving
@@ -1621,9 +1675,7 @@ class _ProcurementPurchaseRequestsCreatePageState
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
+                        strokeWidth: 2, color: Colors.white),
                   )
                 : const Text('Save & Send to Approve'),
           ),
@@ -1637,10 +1689,8 @@ class _ProcurementPurchaseRequestsCreatePageState
               foregroundColor: AppTheme.primaryBlue,
               side: const BorderSide(color: AppTheme.primaryBlue),
               padding: btnPadding,
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              textStyle:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               shape: RoundedRectangleBorder(borderRadius: btnRadius),
             ),
             child: const Text('Draft & Update'),
@@ -1653,10 +1703,8 @@ class _ProcurementPurchaseRequestsCreatePageState
               foregroundColor: AppTheme.textBody,
               side: const BorderSide(color: AppTheme.borderColor),
               padding: btnPadding,
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              textStyle:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               shape: RoundedRectangleBorder(borderRadius: btnRadius),
             ),
             child: const Text('Cancel'),
@@ -1678,7 +1726,6 @@ class _PrGridRow extends ConsumerStatefulWidget {
     required this.onRemove,
     required this.onChanged,
     required this.onShowDetails,
-    required this.categories,
     required this.vendors,
     required this.categoryIdToName,
     this.showBottomBorder = false,
@@ -1689,7 +1736,6 @@ class _PrGridRow extends ConsumerStatefulWidget {
   final VoidCallback onRemove;
   final VoidCallback onChanged;
   final VoidCallback onShowDetails;
-  final List<String> categories;
   final List<_VendorOption> vendors;
   final Map<String, String> categoryIdToName;
   final bool showBottomBorder;
@@ -1704,15 +1750,15 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
   // a dropdown overlay captures the pointer, so dropdowns stay open.
   String? _hoveredCol;
 
-  static const _kItem = 'item';
-  static const _kCat = 'cat';
-  static const _kDesc = 'desc';
-  static const _kVendor = 'vendor';
-  static const _kQty = 'qty';
-  static const _kPlanQty = 'planqty';
+  static const _kItem       = 'item';
+  static const _kCat        = 'cat';
+  static const _kDesc       = 'desc';
+  static const _kVendor     = 'vendor';
+  static const _kQty        = 'qty';
+  static const _kPlanQty    = 'planqty';
   static const _kPendingQty = 'pendingqty';
-  static const _kRate = 'rate';
-  static const _kDiscount = 'disc';
+  static const _kRate       = 'rate';
+  static const _kDiscount   = 'disc';
 
   bool _is(String col) => _hoveredCol == col;
 
@@ -1720,21 +1766,21 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
   // Also restores _rowHovered so the delete button reappears if the pointer
   // returns to the row from a dropdown overlay.
   Widget _col(String key, Widget cell) => MouseRegion(
-    onEnter: (_) => setState(() => _hoveredCol = key),
-    child: cell,
-  );
+        onEnter: (_) => setState(() => _hoveredCol = key),
+        child: cell,
+      );
 
   Widget _cellText(String value) => SizedBox(
-    height: 32,
-    child: Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        value,
-        style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
-        overflow: TextOverflow.ellipsis,
-      ),
-    ),
-  );
+        height: 32,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
 
   // Keeps the FormDropdown widget mounted at all times so its OverlayEntry
   // can close itself even when _hoveredCol changes (e.g. mouse enters the
@@ -1744,32 +1790,30 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
     required String displayText,
     required Widget input,
   }) {
-    return LayoutBuilder(
-      builder: (ctx, constraints) {
-        final w = constraints.maxWidth.isFinite ? constraints.maxWidth : 120.0;
-        return SizedBox(
-          width: w,
-          height: 32,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Visibility(
-                visible: _is(key),
-                maintainSize: true,
-                maintainAnimation: true,
-                maintainState: true,
-                child: input,
+    return LayoutBuilder(builder: (ctx, constraints) {
+      final w = constraints.maxWidth.isFinite ? constraints.maxWidth : 120.0;
+      return SizedBox(
+        width: w,
+        height: 32,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Visibility(
+              visible: _is(key),
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              child: input,
+            ),
+            if (!_is(key))
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _cellText(displayText),
               ),
-              if (!_is(key))
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: _cellText(displayText),
-                ),
-            ],
-          ),
-        );
-      },
-    );
+          ],
+        ),
+      );
+    });
   }
 
   @override
@@ -1791,9 +1835,7 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
                 isHeader: false,
                 child: GestureDetector(
                   onTap: () {
-                    setState(
-                      () => widget.item.expanded = !widget.item.expanded,
-                    );
+                    setState(() => widget.item.expanded = !widget.item.expanded);
                     widget.onChanged();
                   },
                   child: Row(
@@ -1809,10 +1851,7 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
                       const SizedBox(width: 2),
                       Text(
                         '${widget.index + 1}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
-                        ),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       ),
                     ],
                   ),
@@ -1821,356 +1860,311 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
             ),
 
             // ITEM NAME
-            _col(
-              _kItem,
-              _GCell(
-                width: _ProcurementPurchaseRequestsCreatePageState._colItem,
-                isHeader: false,
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: widget.onShowDetails,
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: Container(
-                          width: 26,
-                          height: 26,
-                          decoration: BoxDecoration(
-                            color: AppTheme.bgDisabled,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AppTheme.borderColor),
-                          ),
-                          child: const Icon(
-                            LucideIcons.image,
-                            size: 13,
-                            color: AppTheme.textMuted,
-                          ),
+            _col(_kItem, _GCell(
+              width: _ProcurementPurchaseRequestsCreatePageState._colItem,
+              isHeader: false,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: widget.onShowDetails,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Container(
+                        width: 26, height: 26,
+                        decoration: BoxDecoration(
+                          color: AppTheme.bgDisabled,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppTheme.borderColor),
                         ),
+                        child: const Icon(LucideIcons.image, size: 13, color: AppTheme.textMuted),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: item.itemNameCtrl.text.isEmpty
-                          ? FormDropdown<Item>(
-                              value: null,
-                              items: ref.watch(itemsControllerProvider).items,
-                              hint: 'Type or select item',
-                              height: 32,
-                              hideBorderDefault: true,
-                              displayStringForValue: (p) => p.productName,
-                              searchStringForValue: (p) =>
-                                  '${p.productName} ${p.sku ?? ''} ${p.itemCode}',
-                              itemBuilder: (product, isSelected, isHovered) {
-                                final active = isSelected || isHovered;
-                                return Container(
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: item.itemNameCtrl.text.isEmpty
+                        ? FormDropdown<Item>(
+                            value: null,
+                            items: ref.watch(itemsControllerProvider).items,
+                            hint: 'Type or select item',
+                            height: 32,
+                            hideBorderDefault: true,
+                            displayStringForValue: (p) => p.productName,
+                            searchStringForValue: (p) =>
+                                '${p.productName} ${p.sku ?? ''} ${p.itemCode}',
+                            itemBuilder: (product, isSelected, isHovered) {
+                              final active = isSelected || isHovered;
+                              return Container(
+                                decoration: BoxDecoration(
                                   color: active
                                       ? AppTheme.primaryBlue
                                       : Colors.transparent,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
+                                  borderRadius: AppTheme.hoverRadius,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      product.productName,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: active
+                                            ? Colors.white
+                                            : AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                    if (product.sku != null &&
+                                        product.sku!.isNotEmpty)
                                       Text(
-                                        product.productName,
+                                        'SKU: ${product.sku}',
                                         style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
+                                          fontSize: 11,
                                           color: active
-                                              ? Colors.white
-                                              : AppTheme.textPrimary,
+                                              ? Colors.white70
+                                              : AppTheme.textMuted,
                                         ),
                                       ),
-                                      if (product.sku != null &&
-                                          product.sku!.isNotEmpty)
-                                        Text(
-                                          'SKU: ${product.sku}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: active
-                                                ? Colors.white70
-                                                : AppTheme.textMuted,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              onChanged: (product) {
-                                if (product != null) {
-                                  setState(() {
-                                    item.itemNameCtrl.text =
-                                        product.productName;
-                                    item.category =
-                                        (product.categoryId != null
-                                            ? widget.categoryIdToName[product
-                                                  .categoryId]
-                                            : null) ??
-                                        product.categoryName;
-                                    if (product.salesDescription != null &&
-                                        product.salesDescription!.isNotEmpty) {
-                                      item.descCtrl.text =
-                                          product.salesDescription!;
-                                    }
-                                    final cost = product.costPrice ?? 0.0;
-                                    if (cost > 0) {
-                                      item.rateCtrl.text = cost.toStringAsFixed(
-                                        2,
-                                      );
-                                    }
-                                  });
-                                  widget.onChanged();
-                                }
-                              },
-                            )
-                          : _PrProductCell(
-                              product: item.substitutionChain.isNotEmpty
-                                  ? item.substitutionChain.first
-                                  : item.itemNameCtrl.text,
-                              substitutionChain:
-                                  item.substitutionChain.length > 1
-                                  ? item.substitutionChain.sublist(1)
-                                  : const [],
-                            ),
-                    ),
-                  ],
-                ),
+                                  ],
+                                ),
+                              );
+                            },
+                            onChanged: (product) {
+                              if (product != null) {
+                                setState(() {
+                                  item.itemNameCtrl.text = product.productName;
+                                  // Without product_id the row is dropped at save.
+                                  item.productId = product.id;
+                                  item.categoryId = product.categoryId;
+                                  item.category =
+                                      (product.categoryId != null
+                                          ? widget.categoryIdToName[product.categoryId]
+                                          : null) ??
+                                      product.categoryName;
+                                  if (product.salesDescription != null &&
+                                      product.salesDescription!.isNotEmpty) {
+                                    item.descCtrl.text =
+                                        product.salesDescription!;
+                                  }
+                                  final cost = product.costPrice ?? 0.0;
+                                  if (cost > 0) {
+                                    item.rateCtrl.text =
+                                        cost.toStringAsFixed(2);
+                                  }
+                                });
+                                widget.onChanged();
+                              }
+                            },
+                          )
+                        : _PrProductCell(
+                            product: item.substitutionChain.isNotEmpty
+                                ? item.substitutionChain.first
+                                : item.itemNameCtrl.text,
+                            substitutionChain: item.substitutionChain.length > 1
+                                ? item.substitutionChain.sublist(1)
+                                : const [],
+                          ),
+                  ),
+                ],
               ),
-            ),
+            )),
 
-            // CATEGORY
-            _col(
-              _kCat,
-              _GCell(
-                width: _ProcurementPurchaseRequestsCreatePageState._colCategory,
-                isHeader: false,
+            // CATEGORY — read-only; comes from the product's category_id,
+            // resolved to a name against the categories master. The column is
+            // too narrow for most names, so hovering reveals the full value.
+            _col(_kCat, _GCell(
+              width: _ProcurementPurchaseRequestsCreatePageState._colCategory,
+              isHeader: false,
+              child: HoverRevealText(
+                text: item.category,
                 child: _cellText(item.category ?? '—'),
               ),
-            ),
+            )),
 
             // DESCRIPTION
-            _col(
-              _kDesc,
-              _GCell(
-                width: _ProcurementPurchaseRequestsCreatePageState._colDesc,
-                isHeader: false,
-                child: _is(_kDesc)
-                    ? CustomTextField(
-                        controller: item.descCtrl,
-                        hintText: '',
-                        height: 32,
-                      )
-                    : _cellText(item.descCtrl.text),
-              ),
-            ),
+            _col(_kDesc, _GCell(
+              width: _ProcurementPurchaseRequestsCreatePageState._colDesc,
+              isHeader: false,
+              child: _is(_kDesc)
+                  ? CustomTextField(
+                      controller: item.descCtrl,
+                      hintText: '',
+                      height: 32,
+                    )
+                  : _cellText(item.descCtrl.text),
+            )),
 
             // PREFERRED VENDOR
-            _col(
-              _kVendor,
-              _GCell(
-                width: _ProcurementPurchaseRequestsCreatePageState._colVendor,
-                isHeader: false,
-                child: _dropdownCell(
-                  key: _kVendor,
-                  displayText: item.preferredVendor ?? '',
-                  input: FormDropdown<String>(
-                    value: item.preferredVendor,
-                    items: widget.vendors.map((v) => v.displayName).toList(),
-                    hint: 'Select',
-                    height: 32,
-                    menuWidth: 300,
-                    displayStringForValue: (v) => v,
-                    onChanged: (name) {
-                      if (name == null) return;
-                      final match = widget.vendors
-                          .where((v) => v.displayName == name)
-                          .firstOrNull;
-                      _showVendorChangePopover(
-                        vendorName: name,
-                        onConfirm: () {
-                          setState(() {
-                            item.preferredVendor = name;
-                            item.vendorId = match?.id;
-                            item.vendorChanged = true;
-                          });
-                          widget.onChanged();
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-
-            // REQUIRED QTY — read-only
-            _col(
-              _kQty,
-              _GCell(
-                width: _ProcurementPurchaseRequestsCreatePageState._colQty,
-                isHeader: false,
-                child: _cellText(item.qtyCtrl.text),
-              ),
-            ),
-
-            // PLANNED QTY
-            _col(
-              _kPlanQty,
-              _GCell(
-                width: _ProcurementPurchaseRequestsCreatePageState._colPlanQty,
-                isHeader: false,
-                child: CustomTextField(
-                  controller: item.planQtyCtrl,
-                  hintText: '0',
+            _col(_kVendor, _GCell(
+              width: _ProcurementPurchaseRequestsCreatePageState._colVendor,
+              isHeader: false,
+              child: _dropdownCell(
+                key: _kVendor,
+                displayText: item.preferredVendor ?? '',
+                input: FormDropdown<String>(
+                  value: item.preferredVendor,
+                  items: widget.vendors.map((v) => v.displayName).toList(),
+                  hint: 'Select',
                   height: 32,
-                  hideBorderDefault: true,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) {
-                    final required =
-                        int.tryParse(item.qtyCtrl.text.replaceAll(',', '')) ??
-                        0;
-                    final planned =
-                        int.tryParse(
-                          item.planQtyCtrl.text.replaceAll(',', ''),
-                        ) ??
-                        0;
-                    final pending = (required - planned).clamp(0, required);
-                    item.pendingQtyCtrl.text = pending.toString();
-                    widget.onChanged();
+                  menuWidth: 300,
+                  displayStringForValue: (v) => v,
+                  onChanged: (name) {
+                    if (name == null) return;
+                    final match = widget.vendors
+                        .where((v) => v.displayName == name)
+                        .firstOrNull;
+                    _showVendorChangePopover(
+                      vendorName: name,
+                      onConfirm: () {
+                        setState(() {
+                          item.preferredVendor = name;
+                          item.vendorId = match?.id;
+                          item.vendorChanged = true;
+                        });
+                        widget.onChanged();
+                      },
+                    );
                   },
                 ),
               ),
-            ),
+            )),
+
+            // REQUIRED QTY — read-only
+            _col(_kQty, _GCell(
+              width: _ProcurementPurchaseRequestsCreatePageState._colQty,
+              isHeader: false,
+              child: _cellText(item.qtyCtrl.text),
+            )),
+
+            // PLANNED QTY
+            _col(_kPlanQty, _GCell(
+              width: _ProcurementPurchaseRequestsCreatePageState._colPlanQty,
+              isHeader: false,
+              child: CustomTextField(
+                      controller: item.planQtyCtrl,
+                      hintText: '0',
+                      height: 32,
+                      hideBorderDefault: true,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onChanged: (_) {
+                        final required = int.tryParse(item.qtyCtrl.text.replaceAll(',', '')) ?? 0;
+                        final planned  = int.tryParse(item.planQtyCtrl.text.replaceAll(',', '')) ?? 0;
+                        final pending  = (required - planned).clamp(0, required);
+                        item.pendingQtyCtrl.text = pending.toString();
+                        widget.onChanged();
+                      },
+                    ),
+            )),
 
             // PENDING QTY — auto-computed: required - planned
-            _col(
-              _kPendingQty,
-              _GCell(
-                width:
-                    _ProcurementPurchaseRequestsCreatePageState._colPendingQty,
-                isHeader: false,
-                child: _cellText(item.pendingQtyCtrl.text),
-              ),
-            ),
+            _col(_kPendingQty, _GCell(
+              width: _ProcurementPurchaseRequestsCreatePageState._colPendingQty,
+              isHeader: false,
+              child: _cellText(item.pendingQtyCtrl.text),
+            )),
 
             // ESTIMATED RATE
-            _col(
-              _kRate,
-              _GCell(
-                width: _ProcurementPurchaseRequestsCreatePageState._colRate,
-                isHeader: false,
-                child: _is(_kRate)
-                    ? CustomTextField(
-                        controller: item.rateCtrl,
-                        hintText: '0.00',
-                        height: 32,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d*'),
-                          ),
-                        ],
-                        onChanged: (_) {
-                          setState(() {});
-                          widget.onChanged();
-                        },
-                      )
-                    : _cellText(item.rateCtrl.text),
-              ),
-            ),
+            _col(_kRate, _GCell(
+              width: _ProcurementPurchaseRequestsCreatePageState._colRate,
+              isHeader: false,
+              child: _is(_kRate)
+                  ? CustomTextField(
+                      controller: item.rateCtrl,
+                      hintText: '0.00',
+                      height: 32,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                      onChanged: (_) {
+                        setState(() {});
+                        widget.onChanged();
+                      },
+                    )
+                  : _cellText(item.rateCtrl.text),
+            )),
 
             // DISCOUNT
-            _col(
-              _kDiscount,
-              _GCell(
-                width: _ProcurementPurchaseRequestsCreatePageState._colDiscount,
-                isHeader: false,
-                child: _is(_kDiscount)
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: CustomTextField(
-                              controller: item.discountCtrl,
-                              hintText: 'Discount',
-                              height: 32,
-                              hideBorderDefault: true,
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(4),
-                                bottomLeft: Radius.circular(4),
-                              ),
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                  RegExp(r'^\d*\.?\d*'),
-                                ),
-                              ],
-                              onChanged: (_) {
-                                setState(() {});
-                                widget.onChanged();
-                              },
+            _col(_kDiscount, _GCell(
+              width: _ProcurementPurchaseRequestsCreatePageState._colDiscount,
+              isHeader: false,
+              child: _is(_kDiscount)
+                  ? Row(
+                      children: [
+                        Expanded(
+                          child: CustomTextField(
+                            controller: item.discountCtrl,
+                            hintText: 'Discount',
+                            height: 32,
+                            hideBorderDefault: true,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(4),
+                              bottomLeft: Radius.circular(4),
                             ),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                            onChanged: (_) {
+                              setState(() {});
+                              widget.onChanged();
+                            },
                           ),
-                          SizedBox(
-                            width: 48,
-                            child: FormDropdown<String>(
-                              value: item.discountIsPercent ? '%' : '₹',
-                              items: const ['%', '₹'],
-                              height: 32,
-                              showSearch: false,
-                              showRightBorder: true,
-                              menuWidth: 56,
-                              borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(4),
-                                bottomRight: Radius.circular(4),
-                              ),
-                              displayStringForValue: (v) => v,
-                              itemBuilder: (symbol, isSelected, isHovered) {
-                                final active = isSelected || isHovered;
-                                return Container(
+                        ),
+                        SizedBox(
+                          width: 48,
+                          child: FormDropdown<String>(
+                            value: item.discountIsPercent ? '%' : '₹',
+                            items: const ['%', '₹'],
+                            height: 32,
+                            showSearch: false,
+                            showRightBorder: true,
+                            menuWidth: 56,
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(4),
+                              bottomRight: Radius.circular(4),
+                            ),
+                            displayStringForValue: (v) => v,
+                            itemBuilder: (symbol, isSelected, isHovered) {
+                              final active = isSelected || isHovered;
+                              return Container(
+                                decoration: BoxDecoration(
                                   color: active
                                       ? AppTheme.primaryBlue
                                       : Colors.transparent,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 10,
-                                  ),
-                                  child: Icon(
-                                    symbol == '%'
-                                        ? LucideIcons.percent
-                                        : LucideIcons.indianRupee,
-                                    size: 15,
-                                    color: active
-                                        ? Colors.white
-                                        : AppTheme.textPrimary,
-                                  ),
-                                );
-                              },
-                              onChanged: (v) {
-                                if (v != null) {
-                                  setState(
-                                    () => item.discountIsPercent = v == '%',
-                                  );
-                                  widget.onChanged();
-                                }
-                              },
-                            ),
+                                  borderRadius: AppTheme.hoverRadius,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                child: Icon(
+                                  symbol == '%'
+                                      ? LucideIcons.percent
+                                      : LucideIcons.indianRupee,
+                                  size: 15,
+                                  color: active
+                                      ? Colors.white
+                                      : AppTheme.textPrimary,
+                                ),
+                              );
+                            },
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(() =>
+                                    item.discountIsPercent = v == '%');
+                                widget.onChanged();
+                              }
+                            },
                           ),
-                        ],
-                      )
-                    : _cellText(
-                        '${item.discountCtrl.text} ${item.discountIsPercent ? '%' : '₹'}',
-                      ),
-              ),
-            ),
+                        ),
+                      ],
+                    )
+                  : _cellText(
+                      '${item.discountCtrl.text} ${item.discountIsPercent ? '%' : '₹'}'),
+            )),
 
             // ESTIMATED AMOUNT — always plain text; entering resets active column
             MouseRegion(
@@ -2183,26 +2177,17 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      '₹',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
+                    const Text('₹', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
                     const SizedBox(width: 2),
                     Text(
                       item.estimatedAmount.toStringAsFixed(2),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textBody,
-                      ),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.textBody),
                     ),
                   ],
                 ),
               ),
             ),
+
           ],
         ),
       ),
@@ -2217,13 +2202,16 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [mainRow, if (item.expanded) _buildSubRow(item)],
+        children: [
+          mainRow,
+          if (item.expanded) _buildSubRow(item),
+        ],
       ),
     );
   }
 
   Widget _buildSubRow(_LineItem item) {
-    const colNum = _ProcurementPurchaseRequestsCreatePageState._colNum;
+    const colNum  = _ProcurementPurchaseRequestsCreatePageState._colNum;
     return Container(
       color: Colors.white,
       child: Row(
@@ -2240,28 +2228,19 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
                 _SubDropdown(
                   label: 'ADGF',
                   value: item.adgf,
-                  onChanged: (v) {
-                    setState(() => item.adgf = v);
-                    widget.onChanged();
-                  },
+                  onChanged: (v) { setState(() => item.adgf = v); widget.onChanged(); },
                 ),
                 const SizedBox(width: 24),
                 _SubDropdown(
                   label: 'SCHEDULE',
                   value: item.schedule,
-                  onChanged: (v) {
-                    setState(() => item.schedule = v);
-                    widget.onChanged();
-                  },
+                  onChanged: (v) { setState(() => item.schedule = v); widget.onChanged(); },
                 ),
                 const SizedBox(width: 24),
                 _SubDropdown(
                   label: 'DEMO ADVANCED REPORTING TAG',
                   value: item.demoReportingTag,
-                  onChanged: (v) {
-                    setState(() => item.demoReportingTag = v);
-                    widget.onChanged();
-                  },
+                  onChanged: (v) { setState(() => item.demoReportingTag = v); widget.onChanged(); },
                 ),
               ],
             ),
@@ -2282,19 +2261,16 @@ class _PrGridRowState extends ConsumerState<_PrGridRow> {
       dismissed = true;
       entry.remove();
     }
-
     entry = OverlayEntry(
       builder: (_) => _PrVendorChangePopover(
         vendorName: vendorName,
-        onConfirm: () {
-          dismiss();
-          onConfirm();
-        },
+        onConfirm: () { dismiss(); onConfirm(); },
         onCancel: dismiss,
       ),
     );
     Overlay.of(context).insert(entry);
   }
+
 }
 
 // ---------------------------------------------------------------------------
@@ -2368,7 +2344,6 @@ class _PrRowMenu extends StatelessWidget {
       _dismissed = true;
       entry.remove();
     }
-
     entry = OverlayEntry(
       builder: (_) => _PrSubstitutePopover(
         originalItem: item.itemNameCtrl.text,
@@ -2402,7 +2377,6 @@ class _PrRowMenu extends StatelessWidget {
       _dismissed = true;
       entry.remove();
     }
-
     entry = OverlayEntry(
       builder: (_) => _PrCancelItemPopover(
         itemName: item.itemNameCtrl.text,
@@ -2425,7 +2399,6 @@ class _PrRowMenu extends StatelessWidget {
       _dismissed = true;
       entry.remove();
     }
-
     entry = OverlayEntry(
       builder: (_) => _PrItemRegistrationPopover(
         itemName: item.itemNameCtrl.text,
@@ -2439,7 +2412,9 @@ class _PrRowMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MenuAnchor(
-      alignmentOffset: const Offset(-220, 0),
+      // Pulled left of the dots so the menu stays inside the viewport, but not
+      // by its full width — it sits slightly right of the row's action column.
+      alignmentOffset: const Offset(-180, 0),
       style: MenuStyle(
         backgroundColor: const WidgetStatePropertyAll(Colors.white),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
@@ -2457,29 +2432,16 @@ class _PrRowMenu extends StatelessWidget {
       menuChildren: [
         if (item.vendorChanged)
           _PrMenuEntry(label: 'Set vendor as preferred vendor', onTap: () {}),
-        _PrMenuEntry(
-          label: 'Substitute',
-          onTap: () => _openSubstituteOverlay(context),
-        ),
-        _PrMenuEntry(
-          label: 'Cancel items',
-          onTap: () => _openCancelItemOverlay(context),
-        ),
-        _PrMenuEntry(
-          label: 'Item registration request',
-          onTap: () => _openItemRegistrationOverlay(context),
-        ),
+        _PrMenuEntry(label: 'Substitute', onTap: () => _openSubstituteOverlay(context)),
+        _PrMenuEntry(label: 'Cancel items', onTap: () => _openCancelItemOverlay(context)),
+        _PrMenuEntry(label: 'Item registration request', onTap: () => _openItemRegistrationOverlay(context)),
       ],
       builder: (context, controller, _) => InkWell(
         onTap: () => controller.isOpen ? controller.close() : controller.open(),
         borderRadius: BorderRadius.circular(4),
         child: const Padding(
           padding: EdgeInsets.all(4),
-          child: Icon(
-            LucideIcons.moreVertical,
-            size: 14,
-            color: AppTheme.textMuted,
-          ),
+          child: Icon(LucideIcons.moreVertical, size: 14, color: AppTheme.textMuted),
         ),
       ),
     );
@@ -2508,7 +2470,10 @@ class _PrMenuEntryState extends State<_PrMenuEntry> {
         onTap: widget.onTap,
         child: Container(
           width: double.infinity,
-          color: _hovered ? AppTheme.infoBlue : Colors.white,
+          decoration: BoxDecoration(
+            color: _hovered ? AppTheme.infoBlue : Colors.white,
+            borderRadius: AppTheme.hoverRadius,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Text(
             widget.label,
@@ -2597,12 +2562,14 @@ class _PrDeleteButtonState extends State<_PrDeleteButton> {
           width: 22,
           height: 22,
           decoration: BoxDecoration(
-            color: _hovered
-                ? AppTheme.errorRed.withValues(alpha: 0.1)
-                : Colors.transparent,
+            color: _hovered ? AppTheme.errorRed.withValues(alpha: 0.1) : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Icon(LucideIcons.x, size: 14, color: AppTheme.errorRed),
+          child: Icon(
+            LucideIcons.x,
+            size: 14,
+            color: AppTheme.errorRed,
+          ),
         ),
       ),
     );
@@ -2634,8 +2601,7 @@ class _GCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg =
-        cellColor ?? (isHeader ? const Color(0xFFF9FAFB) : Colors.transparent);
+    final bg = cellColor ?? (isHeader ? const Color(0xFFF9FAFB) : Colors.transparent);
     final content = isHeader
         ? Text.rich(
             TextSpan(
@@ -2671,10 +2637,14 @@ class _GCell extends StatelessWidget {
         horizontal: 10,
         vertical: isHeader ? 10 : 8,
       ),
-      child: Align(alignment: Alignment.centerLeft, child: content),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: content,
+      ),
     );
   }
 }
+
 
 class _ToolbarAction extends StatelessWidget {
   const _ToolbarAction({
@@ -2713,14 +2683,31 @@ class _ToolbarAction extends StatelessWidget {
   }
 }
 
+// ── Address card placeholder (loading / no warehouses) ───────────────────────
+
+class _AddressPlaceholder extends StatelessWidget {
+  const _AddressPlaceholder({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      alignment: Alignment.centerLeft,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: child,
+    );
+  }
+}
+
 // ── Address picker card (hover → blue border) ────────────────────────────────
 
 class _AddressPickerCard extends StatefulWidget {
-  const _AddressPickerCard({
-    super.key,
-    required this.addr,
-    required this.onTap,
-  });
+  const _AddressPickerCard({super.key, required this.addr, required this.onTap});
   final _DeliveryAddress addr;
   final VoidCallback onTap;
 
@@ -2837,11 +2824,10 @@ class _AddressDropdownPanelState extends State<_AddressDropdownPanel> {
                   final bg = isSelected
                       ? AppTheme.primaryBlue
                       : isHovered
-                      ? const Color(0xFFF1F5F9)
-                      : Colors.white;
-                  final nameColor = isSelected
-                      ? Colors.white
-                      : AppTheme.textPrimary;
+                          ? const Color(0xFFF1F5F9)
+                          : Colors.white;
+                  final nameColor =
+                      isSelected ? Colors.white : AppTheme.textPrimary;
                   final lineColor = isSelected
                       ? Colors.white.withValues(alpha: 0.85)
                       : AppTheme.textBody;
@@ -2873,14 +2859,10 @@ class _AddressDropdownPanelState extends State<_AddressDropdownPanel> {
                               _DropdownAddressLine(a.street2, lineColor),
                             if (a.city.isNotEmpty || a.state.isNotEmpty)
                               _DropdownAddressLine(
-                                '${a.city} , ${a.state}',
-                                lineColor,
-                              ),
+                                  '${a.city} , ${a.state}', lineColor),
                             if (a.country.isNotEmpty || a.zip.isNotEmpty)
                               _DropdownAddressLine(
-                                '${a.country} , ${a.zip}',
-                                lineColor,
-                              ),
+                                  '${a.country} , ${a.zip}', lineColor),
                             if (a.phone.isNotEmpty)
                               _DropdownAddressLine(a.phone, lineColor),
                           ],
@@ -2905,16 +2887,11 @@ class _AddressDropdownPanelState extends State<_AddressDropdownPanel> {
                       ? const Color(0xFFF1F5F9)
                       : Colors.white,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
+                      horizontal: 14, vertical: 12),
                   child: Row(
                     children: [
-                      const Icon(
-                        LucideIcons.plus,
-                        size: 15,
-                        color: AppTheme.primaryBlue,
-                      ),
+                      const Icon(LucideIcons.plus,
+                          size: 15, color: AppTheme.primaryBlue),
                       const SizedBox(width: 6),
                       const Text(
                         'Add New Address',
@@ -2945,7 +2922,8 @@ class _DropdownAddressLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 2),
-      child: Text(text, style: TextStyle(fontSize: 12, color: color)),
+      child: Text(text,
+          style: TextStyle(fontSize: 12, color: color)),
     );
   }
 }
@@ -2962,22 +2940,17 @@ class _NewAddressDialog extends StatefulWidget {
 
 class _NewAddressDialogState extends State<_NewAddressDialog> {
   final _attentionCtrl = TextEditingController();
-  final _street1Ctrl = TextEditingController();
-  final _street2Ctrl = TextEditingController();
-  final _cityCtrl = TextEditingController();
-  final _stateCtrl = TextEditingController();
-  final _zipCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
+  final _street1Ctrl   = TextEditingController();
+  final _street2Ctrl   = TextEditingController();
+  final _cityCtrl      = TextEditingController();
+  final _stateCtrl     = TextEditingController();
+  final _zipCtrl       = TextEditingController();
+  final _phoneCtrl     = TextEditingController();
   String? _country;
 
   static const _kCountries = [
-    'India',
-    'United States',
-    'United Kingdom',
-    'UAE',
-    'Singapore',
-    'Canada',
-    'Australia',
+    'India', 'United States', 'United Kingdom',
+    'UAE', 'Singapore', 'Canada', 'Australia',
   ];
 
   @override
@@ -2993,24 +2966,27 @@ class _NewAddressDialogState extends State<_NewAddressDialog> {
   }
 
   InputDecoration _dec(String hint) => InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    isDense: true,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: const BorderSide(color: AppTheme.borderColor),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: const BorderSide(color: AppTheme.borderColor),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 1.5),
-    ),
-    filled: false,
-  );
+        hintText: hint,
+        hintStyle: const TextStyle(
+            fontSize: 13, color: AppTheme.textMuted),
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12, vertical: 10),
+        isDense: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide:
+              const BorderSide(color: AppTheme.primaryBlue, width: 1.5),
+        ),
+        filled: false,
+      );
 
   Widget _label(String text, {bool required = false}) {
     return Padding(
@@ -3045,7 +3021,8 @@ class _NewAddressDialogState extends State<_NewAddressDialog> {
       backgroundColor: Colors.white,
       alignment: Alignment.topCenter,
       insetPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10)),
       child: SizedBox(
         width: 560,
         child: SingleChildScrollView(
@@ -3071,11 +3048,8 @@ class _NewAddressDialogState extends State<_NewAddressDialog> {
                     borderRadius: BorderRadius.circular(4),
                     child: const Padding(
                       padding: EdgeInsets.all(4),
-                      child: Icon(
-                        LucideIcons.x,
-                        size: 18,
-                        color: AppTheme.errorRed,
-                      ),
+                      child: Icon(LucideIcons.x,
+                          size: 18, color: AppTheme.errorRed),
                     ),
                   ),
                 ],
@@ -3094,12 +3068,8 @@ class _NewAddressDialogState extends State<_NewAddressDialog> {
               TextField(
                 controller: _street1Ctrl,
                 maxLines: 3,
-                decoration: _dec('').copyWith(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                ),
+                decoration: _dec('').copyWith(contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
                 style: const TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 16),
@@ -3108,12 +3078,8 @@ class _NewAddressDialogState extends State<_NewAddressDialog> {
               TextField(
                 controller: _street2Ctrl,
                 maxLines: 3,
-                decoration: _dec('').copyWith(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                ),
+                decoration: _dec('').copyWith(contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
                 style: const TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 16),
@@ -3180,7 +3146,8 @@ class _NewAddressDialogState extends State<_NewAddressDialog> {
                           hint: 'Select',
                           height: 36,
                           displayStringForValue: (v) => v,
-                          onChanged: (v) => setState(() => _country = v),
+                          onChanged: (v) =>
+                              setState(() => _country = v),
                         ),
                       ],
                     ),
@@ -3202,25 +3169,21 @@ class _NewAddressDialogState extends State<_NewAddressDialog> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   ElevatedButton(
-                    onPressed: _country == null
-                        ? null
-                        : () {
-                            widget.onSave(
-                              _DeliveryAddress(
-                                name: _attentionCtrl.text.trim().isEmpty
-                                    ? 'New Address'
-                                    : _attentionCtrl.text.trim(),
-                                street1: _street1Ctrl.text.trim(),
-                                street2: _street2Ctrl.text.trim(),
-                                city: _cityCtrl.text.trim(),
-                                state: _stateCtrl.text.trim(),
-                                zip: _zipCtrl.text.trim(),
-                                country: _country!,
-                                phone: _phoneCtrl.text.trim(),
-                              ),
-                            );
-                            Navigator.of(context).pop();
-                          },
+                    onPressed: _country == null ? null : () {
+                      widget.onSave(_DeliveryAddress(
+                        name: _attentionCtrl.text.trim().isEmpty
+                            ? 'New Address'
+                            : _attentionCtrl.text.trim(),
+                        street1: _street1Ctrl.text.trim(),
+                        street2: _street2Ctrl.text.trim(),
+                        city: _cityCtrl.text.trim(),
+                        state: _stateCtrl.text.trim(),
+                        zip: _zipCtrl.text.trim(),
+                        country: _country!,
+                        phone: _phoneCtrl.text.trim(),
+                      ));
+                      Navigator.of(context).pop();
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.successGreen,
                       disabledBackgroundColor: AppTheme.successGreen,
@@ -3228,16 +3191,11 @@ class _NewAddressDialogState extends State<_NewAddressDialog> {
                       disabledForegroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
+                          horizontal: 20, vertical: 10),
                       textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
+                          fontSize: 13, fontWeight: FontWeight.w600),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
+                          borderRadius: BorderRadius.circular(6)),
                     ),
                     child: const Text('Save'),
                   ),
@@ -3248,16 +3206,11 @@ class _NewAddressDialogState extends State<_NewAddressDialog> {
                       foregroundColor: AppTheme.textBody,
                       side: const BorderSide(color: AppTheme.borderColor),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
+                          horizontal: 20, vertical: 10),
                       textStyle: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
+                          fontSize: 13, fontWeight: FontWeight.w500),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
+                          borderRadius: BorderRadius.circular(6)),
                     ),
                     child: const Text('Cancel'),
                   ),
@@ -3294,7 +3247,10 @@ class _AddressLine extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ItemDetailsSidebar extends StatefulWidget {
-  const _ItemDetailsSidebar({required this.item, required this.onClose});
+  const _ItemDetailsSidebar({
+    required this.item,
+    required this.onClose,
+  });
 
   final _LineItem item;
   final VoidCallback onClose;
@@ -3371,11 +3327,7 @@ class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar>
                     onTap: _handleClose,
                     child: const Padding(
                       padding: EdgeInsets.all(4),
-                      child: Icon(
-                        LucideIcons.x,
-                        size: 18,
-                        color: AppTheme.errorRed,
-                      ),
+                      child: Icon(LucideIcons.x, size: 18, color: AppTheme.errorRed),
                     ),
                   ),
                 ],
@@ -3416,10 +3368,7 @@ class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar>
                         children: [
                           const Text(
                             'Inventory Item',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textMuted,
-                            ),
+                            style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -3437,10 +3386,7 @@ class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar>
                             widget.item.category != null
                                 ? 'Category: ${widget.item.category}'
                                 : 'No category assigned',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
-                            ),
+                            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                           ),
                         ],
                       ),
@@ -3467,9 +3413,7 @@ class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar>
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
-                child: _activeTab == 0
-                    ? _buildItemDetailsTab()
-                    : _buildStockInfoTab(),
+                child: _activeTab == 0 ? _buildItemDetailsTab() : _buildStockInfoTab(),
               ),
             ),
           ],
@@ -3512,10 +3456,7 @@ class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar>
       children: [
         _row('Category', item.category ?? '—'),
         _row('Preferred Vendor', item.preferredVendor ?? '—'),
-        _row(
-          'Description',
-          item.descCtrl.text.isEmpty ? '—' : item.descCtrl.text,
-        ),
+        _row('Description', item.descCtrl.text.isEmpty ? '—' : item.descCtrl.text),
         const Divider(height: 28, color: AppTheme.borderColor),
         _row('Required Qty', item.qtyCtrl.text),
         _row('Planned Qty', item.planQtyCtrl.text),
@@ -3562,10 +3503,7 @@ class _ItemDetailsSidebarState extends State<_ItemDetailsSidebar>
             width: 155,
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppTheme.textSecondary,
-              ),
+              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
           ),
           Expanded(
@@ -3721,11 +3659,8 @@ class _PrSubstitutePopoverState extends ConsumerState<_PrSubstitutePopover> {
                         const Spacer(),
                         GestureDetector(
                           onTap: widget.onCancel,
-                          child: const Icon(
-                            LucideIcons.x,
-                            size: 16,
-                            color: AppTheme.errorRed,
-                          ),
+                          child: const Icon(LucideIcons.x,
+                              size: 16, color: AppTheme.errorRed),
                         ),
                       ],
                     ),
@@ -3743,9 +3678,7 @@ class _PrSubstitutePopoverState extends ConsumerState<_PrSubstitutePopover> {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
+                          horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         color: AppTheme.bgLight,
                         border: Border.all(color: AppTheme.borderColor),
@@ -3754,9 +3687,7 @@ class _PrSubstitutePopoverState extends ConsumerState<_PrSubstitutePopover> {
                       child: Text(
                         widget.originalItem,
                         style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textSecondary,
-                        ),
+                            fontSize: 13, color: AppTheme.textSecondary),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -3770,25 +3701,23 @@ class _PrSubstitutePopoverState extends ConsumerState<_PrSubstitutePopover> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Builder(
-                      builder: (context) {
-                        final items = ref.watch(itemsControllerProvider).items;
-                        return FormDropdown<Item>(
-                          value: _substituteItem,
-                          items: items,
-                          hint: 'Select substitute product',
-                          placeholder: 'Search products...',
-                          menuMaxHeight: 260,
-                          displayStringForValue: (item) =>
-                              (item.billingName?.isNotEmpty == true)
-                              ? item.billingName!
-                              : item.productName,
-                          searchStringForValue: (item) =>
-                              '${item.productName} ${item.itemCode} ${item.sku ?? ''}',
-                          onChanged: (v) => setState(() => _substituteItem = v),
-                        );
-                      },
-                    ),
+                    Builder(builder: (context) {
+                      final items = ref.watch(itemsControllerProvider).items;
+                      return FormDropdown<Item>(
+                        value: _substituteItem,
+                        items: items,
+                        hint: 'Select substitute product',
+                        placeholder: 'Search products...',
+                        menuMaxHeight: 260,
+                        displayStringForValue: (item) =>
+                            (item.billingName?.isNotEmpty == true)
+                                ? item.billingName!
+                                : item.productName,
+                        searchStringForValue: (item) =>
+                            '${item.productName} ${item.itemCode} ${item.sku ?? ''}',
+                        onChanged: (v) => setState(() => _substituteItem = v),
+                      );
+                    }),
                     const SizedBox(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -3799,12 +3728,9 @@ class _PrSubstitutePopoverState extends ConsumerState<_PrSubstitutePopover> {
                             foregroundColor: AppTheme.textBody,
                             side: const BorderSide(color: AppTheme.borderColor),
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
+                                horizontal: 20, vertical: 10),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+                                borderRadius: BorderRadius.circular(6)),
                           ),
                           child: const Text('Cancel'),
                         ),
@@ -3814,21 +3740,18 @@ class _PrSubstitutePopoverState extends ConsumerState<_PrSubstitutePopover> {
                             _substituteItem == null
                                 ? null
                                 : (_substituteItem!.billingName?.isNotEmpty ==
-                                          true
-                                      ? _substituteItem!.billingName!
-                                      : _substituteItem!.productName),
+                                        true
+                                    ? _substituteItem!.billingName!
+                                    : _substituteItem!.productName),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.successGreen,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
+                                horizontal: 20, vertical: 10),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+                                borderRadius: BorderRadius.circular(6)),
                           ),
                           child: const Text('Apply Substitution'),
                         ),
@@ -3906,11 +3829,8 @@ class _PrCancelItemPopover extends StatelessWidget {
                             color: AppTheme.errorRed.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(
-                            LucideIcons.xCircle,
-                            size: 18,
-                            color: AppTheme.errorRed,
-                          ),
+                          child: const Icon(LucideIcons.xCircle,
+                              size: 18, color: AppTheme.errorRed),
                         ),
                         const SizedBox(width: 12),
                         const Text(
@@ -3924,11 +3844,8 @@ class _PrCancelItemPopover extends StatelessWidget {
                         const Spacer(),
                         GestureDetector(
                           onTap: onCancel,
-                          child: const Icon(
-                            LucideIcons.x,
-                            size: 16,
-                            color: AppTheme.errorRed,
-                          ),
+                          child: const Icon(LucideIcons.x,
+                              size: 16, color: AppTheme.errorRed),
                         ),
                       ],
                     ),
@@ -3936,9 +3853,7 @@ class _PrCancelItemPopover extends StatelessWidget {
                     Text(
                       'Remove "$itemName" from this purchase request?',
                       style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
+                          fontSize: 13, color: AppTheme.textSecondary),
                     ),
                     const SizedBox(height: 24),
                     Row(
@@ -3950,12 +3865,9 @@ class _PrCancelItemPopover extends StatelessWidget {
                             foregroundColor: AppTheme.textBody,
                             side: const BorderSide(color: AppTheme.borderColor),
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
+                                horizontal: 20, vertical: 10),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+                                borderRadius: BorderRadius.circular(6)),
                           ),
                           child: const Text('Keep'),
                         ),
@@ -3967,12 +3879,9 @@ class _PrCancelItemPopover extends StatelessWidget {
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
+                                horizontal: 20, vertical: 10),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+                                borderRadius: BorderRadius.circular(6)),
                           ),
                           child: const Text('Remove'),
                         ),
@@ -4080,11 +3989,8 @@ class _PrItemRegistrationPopoverState
                           const Spacer(),
                           GestureDetector(
                             onTap: widget.onCancel,
-                            child: const Icon(
-                              LucideIcons.x,
-                              size: 16,
-                              color: AppTheme.errorRed,
-                            ),
+                            child: const Icon(LucideIcons.x,
+                                size: 16, color: AppTheme.errorRed),
                           ),
                         ],
                       ),
@@ -4099,9 +4005,7 @@ class _PrItemRegistrationPopoverState
                             label: 'Name',
                             required: true,
                             child: CustomTextField(
-                              controller: _nameCtrl,
-                              hintText: '',
-                            ),
+                                controller: _nameCtrl, hintText: ''),
                           ),
                           const SizedBox(height: 14),
                           _PrFormRow(
@@ -4110,12 +4014,10 @@ class _PrItemRegistrationPopoverState
                             child: CustomTextField(
                               controller: _packSizeCtrl,
                               hintText: '',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: false,
-                                  ),
+                              keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: false),
                               inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
+                                FilteringTextInputFormatter.digitsOnly
                               ],
                             ),
                           ),
@@ -4125,14 +4027,11 @@ class _PrItemRegistrationPopoverState
                             child: CustomTextField(
                               controller: _mrpCtrl,
                               hintText: '',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
+                              keyboardType: const TextInputType.numberWithOptions(
+                                  decimal: true),
                               inputFormatters: [
                                 FilteringTextInputFormatter.allow(
-                                  RegExp(r'^\d*\.?\d*'),
-                                ),
+                                    RegExp(r'^\d*\.?\d*'))
                               ],
                             ),
                           ),
@@ -4142,9 +4041,7 @@ class _PrItemRegistrationPopoverState
                     const Divider(height: 1, color: AppTheme.borderColor),
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
+                          horizontal: 24, vertical: 14),
                       child: Row(
                         children: [
                           ElevatedButton(
@@ -4154,12 +4051,9 @@ class _PrItemRegistrationPopoverState
                               foregroundColor: Colors.white,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
+                                  horizontal: 20, vertical: 10),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                                  borderRadius: BorderRadius.circular(6)),
                             ),
                             child: const Text('Submit'),
                           ),
@@ -4168,16 +4062,12 @@ class _PrItemRegistrationPopoverState
                             onPressed: widget.onCancel,
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.textBody,
-                              side: const BorderSide(
-                                color: AppTheme.borderColor,
-                              ),
+                              side:
+                                  const BorderSide(color: AppTheme.borderColor),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
+                                  horizontal: 20, vertical: 10),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                                  borderRadius: BorderRadius.circular(6)),
                             ),
                             child: const Text('Cancel'),
                           ),
@@ -4233,50 +4123,51 @@ class _PrProductCell extends StatelessWidget {
     final arcFrom = allItems[allItems.length - 2];
     final arcTo = allItems[allItems.length - 1];
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: arcWidth,
-          child: CustomPaint(
-            painter: _PrLeftArcArrowPainter(halfLineH: halfLineH),
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: arcWidth,
+            child: CustomPaint(
+                painter: _PrLeftArcArrowPainter(halfLineH: halfLineH)),
           ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Opacity(
-                opacity: 0.4,
-                child: Text(
-                  arcFrom,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Opacity(
+                  opacity: 0.4,
+                  child: Text(
+                    arcFrom,
+                    style: const TextStyle(
+                      fontSize: fontSize,
+                      color: AppTheme.textBody,
+                      decoration: TextDecoration.lineThrough,
+                      decorationColor: AppTheme.textBody,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(height: itemGap),
+                Text(
+                  arcTo,
                   style: const TextStyle(
                     fontSize: fontSize,
-                    color: AppTheme.textBody,
-                    decoration: TextDecoration.lineThrough,
-                    decorationColor: AppTheme.textBody,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(height: itemGap),
-              Text(
-                arcTo,
-                style: const TextStyle(
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -4300,30 +4191,22 @@ class _PrLeftArcArrowPainter extends CustomPainter {
     final path = Path()
       ..moveTo(size.width, startY)
       ..cubicTo(
-        -size.width * 0.8,
-        startY,
-        -size.width * 0.8,
-        endY,
-        size.width,
-        endY,
+        -size.width * 0.8, startY,
+        -size.width * 0.8, endY,
+        size.width, endY,
       );
     canvas.drawPath(path, paint);
 
     const ah = 3.0;
     canvas.drawLine(
-      Offset(size.width, endY),
-      Offset(size.width - ah, endY - ah),
-      paint,
-    );
+        Offset(size.width, endY), Offset(size.width - ah, endY - ah), paint);
     canvas.drawLine(
-      Offset(size.width, endY),
-      Offset(size.width - ah, endY + ah),
-      paint,
-    );
+        Offset(size.width, endY), Offset(size.width - ah, endY + ah), paint);
   }
 
   @override
-  bool shouldRepaint(_PrLeftArcArrowPainter old) => old.halfLineH != halfLineH;
+  bool shouldRepaint(_PrLeftArcArrowPainter old) =>
+      old.halfLineH != halfLineH;
 }
 
 // ---------------------------------------------------------------------------
@@ -4360,10 +4243,8 @@ class _PrFormRow extends StatelessWidget {
                 ),
               ),
               if (required)
-                const Text(
-                  ' *',
-                  style: TextStyle(fontSize: 13, color: AppTheme.errorRed),
-                ),
+                const Text(' *',
+                    style: TextStyle(fontSize: 13, color: AppTheme.errorRed)),
             ],
           ),
         ),
@@ -4434,26 +4315,16 @@ class _PrVendorChangePopover extends StatelessWidget {
                             width: 32,
                             height: 32,
                             decoration: BoxDecoration(
-                              color: AppTheme.successGreen.withValues(
-                                alpha: 0.1,
-                              ),
+                              color: AppTheme.successGreen.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(
-                              LucideIcons.store,
-                              size: 16,
-                              color: AppTheme.successGreen,
-                            ),
+                            child: const Icon(LucideIcons.store, size: 16, color: AppTheme.successGreen),
                           ),
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
                               'Set as Preferred Vendor',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textPrimary,
-                              ),
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
                             ),
                           ),
                           InkWell(
@@ -4461,11 +4332,7 @@ class _PrVendorChangePopover extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                             child: const Padding(
                               padding: EdgeInsets.all(4),
-                              child: Icon(
-                                LucideIcons.x,
-                                size: 16,
-                                color: AppTheme.errorRed,
-                              ),
+                              child: Icon(LucideIcons.x, size: 16, color: AppTheme.errorRed),
                             ),
                           ),
                         ],
@@ -4480,63 +4347,34 @@ class _PrVendorChangePopover extends StatelessWidget {
                         children: [
                           RichText(
                             text: TextSpan(
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textSecondary,
-                                height: 1.5,
-                              ),
+                              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
                               children: [
-                                const TextSpan(
-                                  text: 'Are you sure you want to set ',
-                                ),
+                                const TextSpan(text: 'Are you sure you want to set '),
                                 TextSpan(
                                   text: vendorName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.textPrimary,
-                                  ),
+                                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
                                 ),
-                                const TextSpan(
-                                  text:
-                                      ' as the preferred vendor for this item? This will update the vendor preference.',
-                                ),
+                                const TextSpan(text: ' as the preferred vendor for this item? This will update the vendor preference.'),
                               ],
                             ),
                           ),
                           const SizedBox(height: 16),
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                             decoration: BoxDecoration(
-                              color: AppTheme.successGreen.withValues(
-                                alpha: 0.05,
-                              ),
+                              color: AppTheme.successGreen.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: AppTheme.successGreen.withValues(
-                                  alpha: 0.2,
-                                ),
-                              ),
+                              border: Border.all(color: AppTheme.successGreen.withValues(alpha: 0.2)),
                             ),
                             child: Row(
                               children: [
-                                const Icon(
-                                  LucideIcons.store,
-                                  size: 15,
-                                  color: AppTheme.successGreen,
-                                ),
+                                const Icon(LucideIcons.store, size: 15, color: AppTheme.successGreen),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
                                     vendorName,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.textPrimary,
-                                    ),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
                                   ),
                                 ),
                               ],
@@ -4551,17 +4389,9 @@ class _PrVendorChangePopover extends StatelessWidget {
                                   backgroundColor: AppTheme.successGreen,
                                   foregroundColor: Colors.white,
                                   elevation: 0,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                    vertical: 11,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                                 ),
                                 child: const Text('Yes, Set as Preferred'),
                               ),
@@ -4570,20 +4400,10 @@ class _PrVendorChangePopover extends StatelessWidget {
                                 onPressed: onCancel,
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppTheme.textBody,
-                                  side: const BorderSide(
-                                    color: AppTheme.borderColor,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 22,
-                                    vertical: 11,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  side: const BorderSide(color: AppTheme.borderColor),
+                                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                                 ),
                                 child: const Text('Cancel'),
                               ),

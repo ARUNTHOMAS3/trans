@@ -359,8 +359,8 @@ export const account = pgTable("accounts", {
   modifiedAt: timestamp("modified_at").defaultNow(),
 });
 
-// Account Transaction Table
-export const accountTransaction = pgTable("account_transactions", {
+// Account Transaction / Journal Entry Lines Table
+export const accountTransaction = pgTable("journal_entry_lines", {
   id: uuid("id").primaryKey().defaultRandom(),
   entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
   accountId: uuid("account_id")

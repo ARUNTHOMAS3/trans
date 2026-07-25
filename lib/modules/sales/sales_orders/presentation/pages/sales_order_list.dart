@@ -31,6 +31,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_radio_group.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
+import 'package:zerpai_erp/shared/widgets/tables/zerpai_pagination_widget.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
 import 'package:zerpai_erp/shared/models/column_config.dart';
@@ -320,6 +321,8 @@ class _SalesOrderOverviewScreenState
   Set<String> _selectedSaleIds = <String>{};
   late List<_SalesOrderColumnConfig> _columnConfigs;
   Map<String, double>? _customColumnWidths;
+  int _currentPage = 1;
+  int _pageSize = 30;
 
   List<_SalesOrderColumnConfig> get _visibleColumns =>
       _columnConfigs.where((column) => column.visible).toList();
@@ -348,7 +351,10 @@ class _SalesOrderOverviewScreenState
     _searchController.addListener(() {
       final next = _searchController.text.trim();
       if (next != _searchQuery) {
-        setState(() => _searchQuery = next);
+        setState(() {
+          _searchQuery = next;
+          _currentPage = 1;
+        });
       }
     });
     _loadColumnSettings();
@@ -429,9 +435,37 @@ class _SalesOrderOverviewScreenState
       case 'Instant Invoice':
         context.go('${AppRoutes.salesInvoicesCreate}?fromOrderId=${order.id}');
         return;
+      case 'Sales Return':
+        context.go('${AppRoutes.salesReturnsCreate}?salesOrderId=${order.id}');
+        return;
       default:
         _showUnavailableAction(actionLabel);
     }
+  }
+
+  List<String> _getAvailableCreateActions(SalesOrder order) {
+    final items = order.items ?? [];
+    final actions = <String>[];
+
+    if (items.isEmpty) {
+      return ['Picklist', 'Package', 'Shipment', 'Instant Invoice'];
+    }
+
+    final bool allFullyPicked = items.every((i) => (i.pickedQuantity + i.cancelledQuantity) >= i.quantity);
+    final bool allFullyPacked = items.every((i) => (i.packedQuantity + i.cancelledQuantity) >= i.quantity);
+    final bool allFullyShipped = items.every((i) => (i.shippedQuantity + i.cancelledQuantity) >= i.quantity);
+    final bool allFullyInvoiced = items.every((i) => (i.invoicedQuantity + i.cancelledQuantity) >= i.quantity);
+
+    if (!allFullyPicked) actions.add('Picklist');
+    if (!allFullyPacked) actions.add('Package');
+    if (!allFullyShipped) actions.add('Shipment');
+    if (!allFullyInvoiced) actions.add('Instant Invoice');
+
+    if (actions.isEmpty) {
+      actions.add('Sales Return');
+    }
+
+    return actions;
   }
 
   List<_SalesOrderColumnConfig> _defaultColumnConfigs() {
@@ -886,6 +920,7 @@ class _SalesOrderOverviewScreenState
                 onChanged: (opt) {
                   setState(() {
                     _activeOption = opt;
+                    _currentPage = 1;
                     _activeView = _salesOrderViews.firstWhere(
                       (v) => v.label == (opt.label == 'All' ? 'All Sales Orders' : opt.label),
                       orElse: () => _salesOrderViews.first,
@@ -1567,6 +1602,7 @@ class _SalesOrderOverviewScreenState
                       onChanged: (opt) {
                         setState(() {
                           _activeOption = opt;
+                          _currentPage = 1;
                           _activeView = _salesOrderViews.firstWhere(
                             (v) => v.label == (opt.label == 'All' ? 'All Sales Orders' : opt.label),
                             orElse: () => _salesOrderViews.first,
@@ -1796,6 +1832,7 @@ class _SalesOrderOverviewScreenState
                         _ActionSplitMenu(
                           icon: LucideIcons.plusCircle,
                           label: 'Create',
+                          menuItems: _getAvailableCreateActions(order),
                           onPrimaryTap: () => _showUnavailableAction('Create'),
                           onSelected: (action) => _handleCreateAction(action, order),
                         ),
@@ -1833,6 +1870,7 @@ class _SalesOrderOverviewScreenState
                         _ActionSplitMenu(
                           icon: LucideIcons.plusCircle,
                           label: 'Create',
+                          menuItems: _getAvailableCreateActions(order),
                           onPrimaryTap: () => _showUnavailableAction('Create'),
                           onSelected: (action) => _handleCreateAction(action, order),
                         ),
@@ -2823,52 +2861,80 @@ class _SalesOrderOverviewScreenState
   }
 
   Widget _table(List<SalesOrder> sales) {
-    final allSelected = _allVisibleSelected(sales);
-    return Stack(
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final columnWidths =
-                _customColumnWidths ??
-                _calculateColumnWidths(constraints.maxWidth);
-            const double actualPrefixWidth = 84.0; // Slider + Checkbox space
-            final double totalColumnsWidth = columnWidths.values.fold(
-              0.0,
-              (sum, w) => sum + w,
-            );
-            final screenWidth = math.max(
-              constraints.maxWidth,
-              totalColumnsWidth + actualPrefixWidth + 40,
-            );
+    final totalItems = sales.length;
+    final totalPages = totalItems == 0 ? 1 : (totalItems / _pageSize).ceil();
+    final clampedPage = _currentPage.clamp(1, totalPages);
+    final startIndex = (clampedPage - 1) * _pageSize;
+    final paginatedSales = sales.skip(startIndex).take(_pageSize).toList();
+    final allSelected = _allVisibleSelected(paginatedSales);
 
-            return Scrollbar(
-              controller: _horizontalScrollController,
-              thumbVisibility: screenWidth > constraints.maxWidth,
-              trackVisibility: screenWidth > constraints.maxWidth,
-              child: SingleChildScrollView(
-                controller: _horizontalScrollController,
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: screenWidth,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildTableHeader(sales, allSelected, columnWidths),
-                      Expanded(
-                        child: ListView.builder(
-                          padding: EdgeInsets.zero,
-                          itemCount: sales.length,
-                          itemExtent: 40,
-                          itemBuilder: (context, index) {
-                            return _buildVirtualRow(sales[index], columnWidths);
-                          },
+    return Column(
+      children: [
+        Expanded(
+          child: Stack(
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final columnWidths =
+                      _customColumnWidths ??
+                      _calculateColumnWidths(constraints.maxWidth);
+                  const double actualPrefixWidth = 84.0; // Slider + Checkbox space
+                  final double totalColumnsWidth = columnWidths.values.fold(
+                    0.0,
+                    (sum, w) => sum + w,
+                  );
+                  final screenWidth = math.max(
+                    constraints.maxWidth,
+                    totalColumnsWidth + actualPrefixWidth + 40,
+                  );
+
+                  return Scrollbar(
+                    controller: _horizontalScrollController,
+                    thumbVisibility: screenWidth > constraints.maxWidth,
+                    trackVisibility: screenWidth > constraints.maxWidth,
+                    child: SingleChildScrollView(
+                      controller: _horizontalScrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: screenWidth,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildTableHeader(paginatedSales, allSelected, columnWidths),
+                            Expanded(
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                itemCount: paginatedSales.length,
+                                itemExtent: 40,
+                                itemBuilder: (context, index) {
+                                  return _buildVirtualRow(paginatedSales[index], columnWidths);
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
-            );
+            ],
+          ),
+        ),
+        ZerpaiPaginationWidget(
+          totalItems: totalItems,
+          currentPage: clampedPage,
+          pageSize: _pageSize,
+          onPageChanged: (page) {
+            setState(() {
+              _currentPage = page;
+            });
+          },
+          onPageSizeChanged: (size) {
+            setState(() {
+              _pageSize = size;
+              _currentPage = 1;
+            });
           },
         ),
       ],
@@ -2886,30 +2952,61 @@ class _SalesOrderOverviewScreenState
         color: AppTheme.bgLight,
         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          const SizedBox(width: 8),
-          ZTableHeaderMenu(
-            wrapText: !_clipText,
-            onWrapChange: (v) => setState(() => _clipText = !v),
-            onCustomize: _showCustomizeColumnsDialog,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(width: 84.0),
+              ..._visibleColumns.map((col) {
+                final w = columnWidths[col.key.name] ?? col.width;
+                return _ResizableHeaderCell(
+                  width: w,
+                  onResize: (dx) => _resizeColumn(col.key.name, dx),
+                  child: _buildHeaderForColumn(col, w),
+                );
+              }),
+            ],
           ),
-          const SizedBox(width: 12),
-          _buildCheckboxWidget(
-            allSelected,
-            isPartially: _selectedSaleIds.isNotEmpty && !allSelected,
-            onTap: () => _toggleSelectAll(sales, !allSelected),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: AnimatedBuilder(
+              animation: _horizontalScrollController,
+              builder: (context, child) {
+                final offset = _horizontalScrollController.hasClients
+                    ? _horizontalScrollController.offset
+                    : 0.0;
+                return Transform.translate(
+                  offset: Offset(offset, 0),
+                  child: child,
+                );
+              },
+              child: Container(
+                color: AppTheme.bgLight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(width: 8),
+                    ZTableHeaderMenu(
+                      wrapText: !_clipText,
+                      onWrapChange: (v) => setState(() => _clipText = !v),
+                      onCustomize: _showCustomizeColumnsDialog,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildCheckboxWidget(
+                      allSelected,
+                      isPartially: _selectedSaleIds.isNotEmpty && !allSelected,
+                      onTap: () => _toggleSelectAll(sales, !allSelected),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                ),
+              ),
+            ),
           ),
-          const SizedBox(width: 12),
-          ..._visibleColumns.map((col) {
-            final w = columnWidths[col.key.name] ?? col.width;
-            return _ResizableHeaderCell(
-              width: w,
-              onResize: (dx) => _resizeColumn(col.key.name, dx),
-              child: _buildHeaderForColumn(col, w),
-            );
-          }),
         ],
       ),
     );
@@ -2952,29 +3049,57 @@ class _SalesOrderOverviewScreenState
 
   Widget _buildVirtualRow(SalesOrder sale, Map<String, double> columnWidths) {
     final isSelected = _selectedSaleIds.contains(sale.id);
+    final rowBgColor = isSelected ? const Color(0xFFF0F7FF) : Colors.white;
     return InkWell(
       onTap: () => context.go('/sales/orders/${sale.id}'),
       child: Container(
         height: 40,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF0F7FF) : Colors.transparent,
-          border: const Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            const SizedBox(width: 8),
-            const SizedBox(
-              width: 28,
-            ), // Slider placeholder to match HeaderMenuButton
-            const SizedBox(width: 12),
-            _buildCheckboxWidget(
-              isSelected,
-              onTap: () => _toggleSaleSelection(sale.id, !isSelected),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 84.0),
+                ..._visibleColumns.map(
+                  (col) => _buildCellForColumn(col, sale, columnWidths),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            ..._visibleColumns.map(
-              (col) => _buildCellForColumn(col, sale, columnWidths),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: AnimatedBuilder(
+                animation: _horizontalScrollController,
+                builder: (context, child) {
+                  final offset = _horizontalScrollController.hasClients
+                      ? _horizontalScrollController.offset
+                      : 0.0;
+                  return Transform.translate(
+                    offset: Offset(offset, 0),
+                    child: child,
+                  );
+                },
+                child: Container(
+                  color: rowBgColor,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 8),
+                      const SizedBox(width: 28),
+                      const SizedBox(width: 12),
+                      _buildCheckboxWidget(
+                        isSelected,
+                        onTap: () => _toggleSaleSelection(sale.id, !isSelected),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -3218,6 +3343,7 @@ class _SalesOrderOverviewScreenState
         : TextAlign.left;
     return SizedBox(
       width: width,
+      height: double.infinity,
       child: InkWell(
         onTap: sortField != null ? () => setState(() => _toggleSort(sortField)) : null,
         child: Padding(
@@ -4430,6 +4556,7 @@ class _SalesOrderOverviewScreenState
       _activeSortField = field;
       _isAscending = true;
     }
+    _currentPage = 1;
   }
 
   Widget _message({
@@ -5642,23 +5769,31 @@ class _ActionSplitMenu extends StatelessWidget {
   final String label;
   final VoidCallback? onPrimaryTap;
   final ValueChanged<String> onSelected;
+  final List<String>? menuItems;
 
   const _ActionSplitMenu({
     required this.icon,
     required this.label,
     required this.onPrimaryTap,
     required this.onSelected,
+    this.menuItems,
   });
 
-  static const _menuItems = <String>[
+  static const _defaultMenuItems = <String>[
     'Picklist',
     'Package',
     'Shipment',
     'Instant Invoice',
+    'Sales Return',
   ];
 
   @override
   Widget build(BuildContext context) {
+    final itemsToDisplay = menuItems ?? _defaultMenuItems;
+    if (itemsToDisplay.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Padding(
       padding: const EdgeInsets.only(right: 12),
       child: PopupMenuButton<String>(
@@ -5672,7 +5807,7 @@ class _ActionSplitMenu extends StatelessWidget {
           side: const BorderSide(color: AppTheme.borderLight),
         ),
         onSelected: onSelected,
-        itemBuilder: (context) => _menuItems
+        itemBuilder: (context) => itemsToDisplay
             .map(
               (item) => PopupMenuItem<String>(
                 value: item,

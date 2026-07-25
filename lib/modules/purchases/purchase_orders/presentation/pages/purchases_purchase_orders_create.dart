@@ -1086,7 +1086,11 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         deliveryCustomerId: poState.deliveryCustomerId,
         warehouseId: poState.warehouseId,
         subTotal: poState.subTotal,
-        taxAmount: poState.taxAmount,
+        taxAmount: (vendor.gstTreatment == 'Unregistered Business' ||
+                vendor.gstTreatment == 'unregistered_business' ||
+                vendor.gstTreatment?.toLowerCase().contains('unregistered') == true)
+            ? 0.0
+            : poState.taxAmount,
         discount: poState.discount,
         discountType: poState.discountType,
         tdsTcsType: poState.tdsTcsType ?? 'none',
@@ -5780,6 +5784,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 ),
                 child: IntrinsicHeight(
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_bulkMode)
                         SizedBox(
@@ -6041,7 +6046,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               if (_itemDetailsSearchQuery.isNotEmpty) {
                 final name = (rowItem.productName ?? '').toLowerCase();
                 if (!name.contains(_itemDetailsSearchQuery.toLowerCase())) {
-                  return SizedBox(key: ValueKey('po_row_$i'));
+                  return SizedBox.shrink(key: ValueKey('po_row_$i'));
                 }
               }
               return _buildItemRow(
@@ -6475,7 +6480,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 ),
                 child: IntrinsicHeight(
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // 40px left: checkbox (bulk mode) or drag handle (normal)
                       if (_bulkMode)
@@ -8230,8 +8235,10 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     );
   }
 
-  Widget _vLine() =>
-      const VerticalDivider(width: 1, color: _borderCol, thickness: 1);
+  Widget _vLine() => const SizedBox(
+        width: 1,
+        child: ColoredBox(color: _borderCol),
+      );
 
   // ═══════════════════════════════════════════════════════════════════════════
   // REPORTING TAGS
@@ -9920,14 +9927,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   // TERMS & CONDITIONS + FILE UPLOAD
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _termsAndFileRow() {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Terms
-          SizedBox(
-            width: 650, // Wider Terms box
-            child: Column(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Terms
+        SizedBox(
+          width: 650, // Wider Terms box
+          child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
@@ -9995,9 +10001,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
+      );
+    }
 
   Widget _buildFileUploadSection() {
     return Column(

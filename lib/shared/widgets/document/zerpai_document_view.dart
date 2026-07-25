@@ -198,7 +198,7 @@ class ZerpaiDocumentCornerRibbon extends StatelessWidget {
           ),
           Positioned(
             top: 24,
-            left: -32,
+            left: -46,
             child: Transform.rotate(
               angle: -math.pi / 4,
               child: Container(
@@ -217,8 +217,8 @@ class ZerpaiDocumentCornerRibbon extends StatelessWidget {
             ),
           ),
           Positioned(
-            top: 22,
-            left: -34,
+            top: 24,
+            left: -46,
             child: Transform.rotate(
               angle: -math.pi / 4,
               child: Container(
@@ -242,22 +242,28 @@ class ZerpaiDocumentCornerRibbon extends StatelessWidget {
                   ),
                 ),
                 alignment: Alignment.center,
-                padding: const EdgeInsets.only(bottom: 1),
-                child: Text(
-                  label.toUpperCase(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.8,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black45,
-                        offset: Offset(0, 1),
-                        blurRadius: 2,
+                child: SizedBox(
+                  width: 95,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: Text(
+                      label.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black45,
+                            offset: Offset(0, 1),
+                            blurRadius: 2,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),

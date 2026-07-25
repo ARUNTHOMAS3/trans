@@ -142,10 +142,22 @@ class WarehouseStockData {
           json['orderNumber'] as String?,
       customerName:
           json['customerName'] as String? ?? json['customer_name'] as String?,
-      unitTitle:
-          json['unitTitle'] as String? ??
-          json['unit_title'] as String? ??
-          json['unit']?.toString(),
+      unitTitle: () {
+        final u = json['unitTitle'] ?? json['unit_title'] ?? json['unit_name'] ?? json['unitName'];
+        if (u is String && u.trim().isNotEmpty) return u.trim();
+        if (json['units'] is Map) {
+          final name = json['units']['name'] ?? json['units']['title'] ?? json['units']['symbol'];
+          if (name != null && name.toString().trim().isNotEmpty) return name.toString().trim();
+        }
+        if (json['unit'] is Map) {
+          final name = json['unit']['name'] ?? json['unit']['title'] ?? json['unit']['symbol'];
+          if (name != null && name.toString().trim().isNotEmpty) return name.toString().trim();
+        }
+        if (json['unit'] is String && (json['unit'] as String).trim().isNotEmpty) {
+          return (json['unit'] as String).trim();
+        }
+        return null;
+      }(),
       quantityOrdered:
           (json['quantityOrdered'] as num? ?? json['quantity_ordered'] as num?)
               ?.toDouble(),

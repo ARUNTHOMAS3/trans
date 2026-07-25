@@ -2954,107 +2954,114 @@ class _InventoryPackagesCreateScreenState
         color: Color(0xFFF9FAFB),
         border: Border(bottom: BorderSide(color: _borderCol)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
-              child: _buildHeaderSearchField(
-                label:
-                    'SALES ORDER', // Always show SALES ORDER as per user request
-                controller: _salesOrderSearchCtrl,
-                hintText: 'Search SO...',
-                isSearchVisible: _isSOSearchVisible,
-                onToggle: () =>
-                    setState(() => _isSOSearchVisible = !_isSOSearchVisible),
-                onChanged: (val) => setState(() {
-                  _salesOrderSearchQuery = val;
-                  _currentPage = 0;
-                }),
-              ),
-            ),
-          ),
-          const VerticalDivider(width: 1, color: _borderCol),
-          Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.only(
-                right: 12,
-                left: 12,
-                top: 10,
-                bottom: 10,
-              ),
-              child: _buildHeaderSearchField(
-                label: 'ITEMS & DESCRIPTION',
-                controller: _itemNameSearchCtrl,
-                hintText: 'Search items...',
-                isSearchVisible: _isItemSearchVisible,
-                onToggle: () => setState(
-                  () => _isItemSearchVisible = !_isItemSearchVisible,
-                ),
-                onChanged: (val) => setState(() {
-                  _itemNameSearchQuery = val;
-                  _currentPage = 0;
-                }),
-              ),
-            ),
-          ),
-          const VerticalDivider(width: 1, color: _borderCol),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              child: Text(
-                'ORDERED',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: _textSecondary,
-                  fontFamily: 'Inter',
-                ),
-              ),
-            ),
-          ),
-          const VerticalDivider(width: 1, color: _borderCol),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              child: Text(
-                'PACKED',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: _textSecondary,
-                  fontFamily: 'Inter',
-                ),
-              ),
-            ),
-          ),
-          const VerticalDivider(width: 1, color: _borderCol),
-          Expanded(
-            flex: 1,
-            child: Center(
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 1,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text(
-                  'QTY TO PACK',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _textSecondary,
-                    fontFamily: 'Inter',
+                padding: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
+                child: _buildHeaderSearchField(
+                  label:
+                      'SALES ORDER', // Always show SALES ORDER as per user request
+                  controller: _salesOrderSearchCtrl,
+                  hintText: 'Search SO...',
+                  isSearchVisible: _isSOSearchVisible,
+                  onToggle: () =>
+                      setState(() => _isSOSearchVisible = !_isSOSearchVisible),
+                  onChanged: (val) => setState(() {
+                    _salesOrderSearchQuery = val;
+                    _currentPage = 0;
+                  }),
+                ),
+              ),
+            ),
+            Container(width: 1, color: _borderCol),
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  right: 12,
+                  left: 12,
+                  top: 10,
+                  bottom: 10,
+                ),
+                child: _buildHeaderSearchField(
+                  label: 'ITEMS & DESCRIPTION',
+                  controller: _itemNameSearchCtrl,
+                  hintText: 'Search items...',
+                  isSearchVisible: _isItemSearchVisible,
+                  onToggle: () => setState(
+                    () => _isItemSearchVisible = !_isItemSearchVisible,
+                  ),
+                  onChanged: (val) => setState(() {
+                    _itemNameSearchQuery = val;
+                    _currentPage = 0;
+                  }),
+                ),
+              ),
+            ),
+            Container(width: 1, color: _borderCol),
+            Expanded(
+              flex: 1,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                child: Center(
+                  child: Text(
+                    'ORDERED',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _textSecondary,
+                      fontFamily: 'Inter',
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 40),
-        ],
+            Container(width: 1, color: _borderCol),
+            Expanded(
+              flex: 1,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                child: Center(
+                  child: Text(
+                    'PACKED',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _textSecondary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(width: 1, color: _borderCol),
+            Expanded(
+              flex: 1,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Text(
+                    'QTY TO PACK',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _textSecondary,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(width: 1, color: _borderCol),
+            const SizedBox(width: 40),
+          ],
+        ),
       ),
     );
   }
@@ -3074,21 +3081,19 @@ class _InventoryPackagesCreateScreenState
       onExit: (_) => setState(() => _hoveredManualRowIndex = null),
       child: Container(
         padding: const EdgeInsets.only(left: 24, right: 0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 1,
-              child: Container(
-                decoration: BoxDecoration(
-                  border: isLastInGroup
-                      ? const Border(bottom: BorderSide(color: _borderCol))
-                      : null,
-                ),
-                child: isFirstInGroup && item.salesOrderNumber != null
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text(
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: _borderCol)),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 1,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: isFirstInGroup && item.salesOrderNumber != null
+                      ? Text(
                           item.salesOrderNumber!,
                           style: const TextStyle(
                             fontSize: 13,
@@ -3096,118 +3101,110 @@ class _InventoryPackagesCreateScreenState
                             color: _textPrimary,
                             fontFamily: 'Inter',
                           ),
-                        ),
-                      )
-                    : const SizedBox(),
+                        )
+                      : const SizedBox(),
+                ),
               ),
-            ),
-            const VerticalDivider(width: 1, color: _borderCol),
-            Expanded(
-              flex: 2,
-              child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _borderCol)),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 8,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FormDropdown<SalesOrderItem>(
-                      fillColor: Colors.white,
-                      value: soItems
-                          .where(
-                            (it) =>
-                                it.itemId == item.itemId &&
-                                it.salesOrderId == item.salesOrderId,
-                          )
-                          .firstOrNull,
-                      hint: 'Select Item',
-                      items: soItems.where((si) {
-                        // Filter out already selected items based on source item ID
-                        final isAlreadySelected = _items.asMap().entries.any(
-                          (entry) =>
-                              entry.key != index &&
-                              entry.value.sourceItemId == si.id &&
-                              entry.value.sourceItemId != null,
-                        );
-                        return !isAlreadySelected;
-                      }).toList(),
-                      maxVisibleItems: 6,
-                      itemBuilder: (it, isSelected, isHovered) =>
-                          _commonItemBuilder<SalesOrderItem>(
-                            it,
-                            isSelected,
-                            isHovered,
-                            (val) =>
-                                val.item?.productName ?? val.description ?? '',
-                          ),
-                      displayStringForValue: (val) =>
-                          val.item?.productName ?? val.description ?? '',
-                      searchStringForValue: (val) =>
-                          val.item?.productName ?? val.description ?? '',
-                      onChanged: (val) {
-                        if (val == null) return;
-                        setState(() {
-                          final order = _selectedSalesOrderDataList.firstWhere(
-                            (o) => o.id == val.salesOrderId,
-                            orElse: () => _selectedSalesOrderDataList.isNotEmpty
-                                ? _selectedSalesOrderDataList.first
-                                : SalesOrder(
-                                    id: '',
-                                    customerId: '',
-                                    saleNumber: 'Unknown',
-                                    saleDate: DateTime.now(),
-                                    total: 0,
-                                  ),
+              Container(width: 1, color: _borderCol),
+              Expanded(
+                flex: 2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FormDropdown<SalesOrderItem>(
+                        fillColor: Colors.white,
+                        value: soItems
+                            .where(
+                              (it) =>
+                                  it.itemId == item.itemId &&
+                                  it.salesOrderId == item.salesOrderId,
+                            )
+                            .firstOrNull,
+                        hint: 'Select Item',
+                        items: soItems.where((si) {
+                          // Filter out already selected items based on source item ID
+                          final isAlreadySelected = _items.asMap().entries.any(
+                            (entry) =>
+                                entry.key != index &&
+                                entry.value.sourceItemId == si.id &&
+                                entry.value.sourceItemId != null,
                           );
-                          _items[index] = _items[index].copyWith(
-                            itemId: val.itemId,
-                            itemName:
-                                val.item?.productName ?? val.description ?? '',
-                            ordered: val.quantity,
-                            qtyToPack: val.quantity,
-                            batches:
-                                const [], // Reset batches when product changes
-                            salesOrderId: val.salesOrderId,
-                            salesOrderNumber: order.saleNumber,
-                            sourceItemId: val.id,
-                          );
-                          _rowControllers[index].qtyCtrl.text = val.quantity
-                              .toString();
-                        });
+                          return !isAlreadySelected;
+                        }).toList(),
+                        maxVisibleItems: 6,
+                        itemBuilder: (it, isSelected, isHovered) =>
+                            _commonItemBuilder<SalesOrderItem>(
+                              it,
+                              isSelected,
+                              isHovered,
+                              (val) =>
+                                  val.item?.productName ?? val.description ?? '',
+                            ),
+                        displayStringForValue: (val) =>
+                            val.item?.productName ?? val.description ?? '',
+                        searchStringForValue: (val) =>
+                            val.item?.productName ?? val.description ?? '',
+                        onChanged: (val) {
+                          if (val == null) return;
+                          setState(() {
+                            final order = _selectedSalesOrderDataList.firstWhere(
+                              (o) => o.id == val.salesOrderId,
+                              orElse: () => _selectedSalesOrderDataList.isNotEmpty
+                                  ? _selectedSalesOrderDataList.first
+                                  : SalesOrder(
+                                      id: '',
+                                      customerId: '',
+                                      saleNumber: 'Unknown',
+                                      saleDate: DateTime.now(),
+                                      total: 0,
+                                    ),
+                            );
+                            _items[index] = _items[index].copyWith(
+                              itemId: val.itemId,
+                              itemName:
+                                  val.item?.productName ?? val.description ?? '',
+                              ordered: val.quantity,
+                              qtyToPack: val.quantity,
+                              batches:
+                                  const [], // Reset batches when product changes
+                              salesOrderId: val.salesOrderId,
+                              salesOrderNumber: order.saleNumber,
+                              sourceItemId: val.id,
+                            );
+                            _rowControllers[index].qtyCtrl.text = val.quantity
+                                .toString();
+                          });
 
-                        // Auto-generate new row if this is the last row
-                        if (index == _items.length - 1) {
-                          _insertManualRow();
-                        }
-                      },
-                    ),
-                    if (item.itemId != null && item.itemId!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4, left: 4),
-                        child: Text(
-                          'Unit: ${soItems.firstWhere((it) => it.itemId == item.itemId, orElse: () => soItems.first).item?.unitName ?? "pcs"}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: _textSecondary,
-                            fontFamily: 'Inter',
+                          // Auto-generate new row if this is the last row
+                          if (index == _items.length - 1) {
+                            _insertManualRow();
+                          }
+                        },
+                      ),
+                      if (item.itemId != null && item.itemId!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4, left: 4),
+                          child: Text(
+                            'Unit: ${soItems.firstWhere((it) => it.itemId == item.itemId, orElse: () => soItems.first).item?.unitName ?? "pcs"}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: _textSecondary,
+                              fontFamily: 'Inter',
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const VerticalDivider(width: 1, color: _borderCol),
-            Expanded(
-              flex: 1,
-              child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _borderCol)),
-                ),
+              Container(width: 1, color: _borderCol),
+              Expanded(
+                flex: 1,
                 child: Center(
                   child: Text(
                     item.ordered.toString(),
@@ -3219,14 +3216,9 @@ class _InventoryPackagesCreateScreenState
                   ),
                 ),
               ),
-            ),
-            const VerticalDivider(width: 1, color: _borderCol),
-            Expanded(
-              flex: 1,
-              child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _borderCol)),
-                ),
+              Container(width: 1, color: _borderCol),
+              Expanded(
+                flex: 1,
                 child: Center(
                   child: Text(
                     item.packed.toString(),
@@ -3238,64 +3230,59 @@ class _InventoryPackagesCreateScreenState
                   ),
                 ),
               ),
-            ),
-            const VerticalDivider(width: 1, color: _borderCol),
-            Expanded(
-              flex: 1,
-              child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _borderCol)),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IgnorePointer(
-                      ignoring: item.itemId == null || item.itemId!.isEmpty,
-                      child: Opacity(
-                        opacity:
-                            (item.itemId != null && item.itemId!.isNotEmpty)
-                            ? 1.0
-                            : 0.4,
-                        child: _buildQuantityCell(
-                          index,
-                          _buildQtyInput(index),
-                          _rowSelectedWarehouses[index] ??
-                              (ref
-                                      .watch(warehousesProvider)
-                                      .valueOrNull
-                                      ?.firstOrNull
-                                      ?.name ??
-                                  "Main Office"),
+              Container(width: 1, color: _borderCol),
+              Expanded(
+                flex: 1,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IgnorePointer(
+                        ignoring: item.itemId == null || item.itemId!.isEmpty,
+                        child: Opacity(
+                          opacity:
+                              (item.itemId != null && item.itemId!.isNotEmpty)
+                              ? 1.0
+                              : 0.4,
+                          child: _buildQuantityCell(
+                            index,
+                            _buildQtyInput(index),
+                            _rowSelectedWarehouses[index] ??
+                                (ref
+                                        .watch(warehousesProvider)
+                                        .valueOrNull
+                                        ?.firstOrNull
+                                        ?.name ??
+                                    "Main Office"),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Container(
-              width: 40,
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: _borderCol)),
-              ),
-              child: Center(
-                child: AnimatedOpacity(
-                  opacity: _hoveredManualRowIndex == index ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 100),
-                  child: IconButton(
-                    onPressed: () => _removeItem(index),
-                    icon: const Icon(
-                      LucideIcons.x,
-                      size: 16,
-                      color: _dangerRed,
-                    ),
-                    splashRadius: 20,
+                    ],
                   ),
                 ),
               ),
-            ),
-          ],
+              Container(width: 1, color: _borderCol),
+              SizedBox(
+                width: 40,
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: _hoveredManualRowIndex == index ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 100),
+                    child: IconButton(
+                      onPressed: () => _removeItem(index),
+                      icon: const Icon(
+                        LucideIcons.x,
+                        size: 16,
+                        color: _dangerRed,
+                      ),
+                      splashRadius: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

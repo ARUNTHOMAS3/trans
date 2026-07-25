@@ -17,6 +17,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
+import 'package:zerpai_erp/shared/widgets/tables/zerpai_pagination_widget.dart';
 import '../../../../../core/providers/entity_provider.dart';
 import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
@@ -127,6 +128,10 @@ class _InventoryShipmentsListScreenState
   bool _sortAscending = false;
   bool _shouldWrapText = false;
   FavoriteFilterOption _activeOption = _shipmentFilterOptions.first;
+  int _currentPage = 1;
+  int _pageSize = 30;
+  final ScrollController _horizontalScrollController = ScrollController();
+  Map<String, double>? _customColumnWidths;
   Set<String> _visibleColumns = {
     'date',
     'shipment_number',
@@ -138,6 +143,20 @@ class _InventoryShipmentsListScreenState
     'status',
     'shipping_rate',
   };
+
+  @override
+  void dispose() {
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
+
+  void _resizeColumn(String key, double dx) {
+    setState(() {
+      _customColumnWidths ??= {};
+      final current = _customColumnWidths![key] ?? 120.0;
+      _customColumnWidths![key] = math.max(50.0, current + dx);
+    });
+  }
 
   void _showCustomColumnsDialog() {
     showDialog(
@@ -316,17 +335,39 @@ class _InventoryShipmentsListScreenState
           cmp = (a['date'] ?? '').compareTo(b['date'] ?? '');
           break;
         case 'shipment_number':
-          cmp = (a['shipment_number'] ?? '').compareTo(
-            b['shipment_number'] ?? '',
-          );
+          cmp = (a['shipment_number'] ?? '').compareTo(b['shipment_number'] ?? '');
+          break;
+        case 'customer_name':
+          final aCust = a['customers']?['display_name'] ?? '';
+          final bCust = b['customers']?['display_name'] ?? '';
+          cmp = aCust.compareTo(bCust);
+          break;
+        case 'sales_order#':
+          final aSO = (a['inventory_shipment_sales_orders'] as List?)?.map((e) => e['sales_orders']?['sale_number'] as String?).where((e) => e != null).join(', ') ?? '';
+          final bSO = (b['inventory_shipment_sales_orders'] as List?)?.map((e) => e['sales_orders']?['sale_number'] as String?).where((e) => e != null).join(', ') ?? '';
+          cmp = aSO.compareTo(bSO);
+          break;
+        case 'package#':
+          final aPkg = (a['inventory_shipment_packages'] as List?)?.map((e) => e['inventory_packages']?['package_number'] as String?).where((e) => e != null).join(', ') ?? '';
+          final bPkg = (b['inventory_shipment_packages'] as List?)?.map((e) => e['inventory_packages']?['package_number'] as String?).where((e) => e != null).join(', ') ?? '';
+          cmp = aPkg.compareTo(bPkg);
           break;
         case 'carrier':
           cmp = (a['carrier'] ?? '').compareTo(b['carrier'] ?? '');
           break;
+        case 'tracking#':
         case 'tracking_number':
-          cmp = (a['tracking_number'] ?? '').compareTo(
-            b['tracking_number'] ?? '',
-          );
+          cmp = (a['tracking_number'] ?? '').compareTo(b['tracking_number'] ?? '');
+          break;
+        case 'status':
+          final aDel = a['is_delivered'] == true ? 1 : 0;
+          final bDel = b['is_delivered'] == true ? 1 : 0;
+          cmp = aDel.compareTo(bDel);
+          break;
+        case 'shipping_rate':
+          final double aRate = double.tryParse((a['shipping_charges'] ?? 0.00).toString()) ?? 0.0;
+          final double bRate = double.tryParse((b['shipping_charges'] ?? 0.00).toString()) ?? 0.0;
+          cmp = aRate.compareTo(bRate);
           break;
         case 'created_at':
           cmp = (a['created_at'] ?? '').compareTo(b['created_at'] ?? '');
@@ -510,6 +551,13 @@ class _InventoryShipmentsListScreenState
   }
 
   Widget _buildTableView(List<Map<String, dynamic>> shipments) {
+    final totalItems = shipments.length;
+    final totalPages = totalItems == 0 ? 1 : (totalItems / _pageSize).ceil();
+    final clampedPage = _currentPage.clamp(1, totalPages);
+    final startIndex = (clampedPage - 1) * _pageSize;
+    final paginatedShipments =
+        shipments.skip(startIndex).take(_pageSize).toList();
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
@@ -530,270 +578,366 @@ class _InventoryShipmentsListScreenState
         double totalMinWidth = 0;
         double totalFlex = 0;
         metrics.forEach((key, value) {
-          totalMinWidth += value.min;
-          totalFlex += value.flex;
+          if (_visibleColumns.contains(key)) {
+            totalMinWidth += value.min;
+            totalFlex += value.flex;
+          }
         });
 
-        final extraSpace = math.max(0.0, totalWidth - totalMinWidth);
+        final extraSpace = math.max(0.0, totalWidth - (totalMinWidth + 78.0 + 40));
         final columnWidths = <String, double>{};
         metrics.forEach((key, value) {
-          columnWidths[key] = value.min + (value.flex / totalFlex) * extraSpace;
+          columnWidths[key] = value.min + (value.flex / (totalFlex > 0 ? totalFlex : 1.0)) * extraSpace;
         });
 
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            showCheckboxColumn: false,
-            horizontalMargin: 0,
-            columnSpacing: 0,
-            headingRowColor: WidgetStateProperty.all(const Color(0xFFF9FAFB)),
-            headingTextStyle: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF6B7280),
-              fontFamily: 'Inter',
-            ),
-            columns: [
-              if (_visibleColumns.contains('date'))
-                DataColumn(
-                  label: SizedBox(
-                    width: columnWidths['date']!,
-                    child: Row(
+        final double screenWidth = math.max(
+          totalWidth,
+          totalMinWidth + 78.0 + 40,
+        );
+
+        return Column(
+          children: [
+            Expanded(
+              child: Scrollbar(
+                controller: _horizontalScrollController,
+                thumbVisibility: screenWidth > constraints.maxWidth,
+                trackVisibility: screenWidth > constraints.maxWidth,
+                child: SingleChildScrollView(
+                  controller: _horizontalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: screenWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        ZTableHeaderMenu(
-                          wrapText: _shouldWrapText,
-                          onWrapChange: (v) =>
-                              setState(() => _shouldWrapText = v),
-                          onCustomize: () {
-                            _showCustomColumnsDialog();
-                          },
+                        _buildShipmentTableHeader(columnWidths, paginatedShipments),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            itemCount: paginatedShipments.length,
+                            itemExtent: 40,
+                            itemBuilder: (context, index) =>
+                                _buildShipmentVirtualRow(paginatedShipments[index], columnWidths),
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        _buildCheckboxWidget(
-                          shipments.isNotEmpty &&
-                              _selectedIds.length == shipments.length,
-                          onTap: () {
-                            setState(() {
-                              if (_selectedIds.length == shipments.length) {
-                                _selectedIds.clear();
-                              } else {
-                                _selectedIds.addAll(
-                                  shipments.map((s) => s['id'] as String),
-                                );
-                              }
-                            });
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        const Text('DATE'),
                       ],
                     ),
                   ),
                 ),
-              if (_visibleColumns.contains('shipment_number'))
-                DataColumn(
-                  label: SizedBox(
-                    width: columnWidths['shipment_number']!,
-                    child: const Text('SHIPMENT ORDER#'),
-                  ),
-                ),
-              if (_visibleColumns.contains('customer_name'))
-                DataColumn(
-                  label: SizedBox(
-                    width: columnWidths['customer_name']!,
-                    child: const Text('CUSTOMER NAME'),
-                  ),
-                ),
-              if (_visibleColumns.contains('sales_order#'))
-                DataColumn(
-                  label: SizedBox(
-                    width: columnWidths['sales_order#']!,
-                    child: const Text('SALES ORDER#'),
-                  ),
-                ),
-              if (_visibleColumns.contains('package#'))
-                DataColumn(
-                  label: SizedBox(
-                    width: columnWidths['package#']!,
-                    child: const Text('PACKAGE#'),
-                  ),
-                ),
-              if (_visibleColumns.contains('carrier'))
-                DataColumn(
-                  label: SizedBox(
-                    width: columnWidths['carrier']!,
-                    child: const Text('CARRIER'),
-                  ),
-                ),
-              if (_visibleColumns.contains('tracking#'))
-                DataColumn(
-                  label: SizedBox(
-                    width: columnWidths['tracking#']!,
-                    child: const Text('TRACKING#'),
-                  ),
-                ),
-              if (_visibleColumns.contains('status'))
-                DataColumn(
-                  label: SizedBox(
-                    width: columnWidths['status']!,
-                    child: const Text('STATUS'),
-                  ),
-                ),
-              if (_visibleColumns.contains('shipping_rate'))
-                DataColumn(
-                  label: SizedBox(
-                    width: columnWidths['shipping_rate']!,
-                    child: const Text('SHIPPING RATE'),
-                  ),
-                ),
-            ],
-            rows: shipments.map((s) {
-              final soList =
-                  (s['inventory_shipment_sales_orders'] as List?)
-                      ?.map((e) => e['sales_orders']?['sale_number'] as String?)
-                      .where((e) => e != null)
-                      .join(', ') ??
-                  '';
-
-              final pkgList =
-                  (s['inventory_shipment_packages'] as List?)
-                      ?.map(
-                        (e) =>
-                            e['inventory_packages']?['package_number']
-                                as String?,
-                      )
-                      .where((e) => e != null)
-                      .join(', ') ??
-                  '';
-
-              final isSelected = _selectedIds.contains(s['id']);
-
-              return DataRow(
-                selected: isSelected,
-                onSelectChanged: (selected) {
-                  setState(() {
-                    _activeShipmentId = s['id'];
-                  });
-                },
-                color: WidgetStateProperty.resolveWith<Color?>((states) {
-                  if (isSelected) return const Color(0xFFF0F7FF);
-                  return null;
-                }),
-                cells: [
-                  if (_visibleColumns.contains('date'))
-                    DataCell(
-                      SizedBox(
-                        width: columnWidths['date']!,
-                        child: Row(
-                          children: [
-                            const SizedBox(
-                              width: 28,
-                            ), // Space for ZTableHeaderMenu
-                            const SizedBox(width: 8),
-                            _buildCheckboxWidget(
-                              isSelected,
-                              onTap: () {
-                                setState(() {
-                                  if (isSelected) {
-                                    _selectedIds.remove(s['id']);
-                                  } else {
-                                    _selectedIds.add(s['id']);
-                                  }
-                                });
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              s['date'] != null
-                                  ? DateFormat(
-                                      'dd-MM-yyyy',
-                                    ).format(DateTime.parse(s['date']))
-                                  : '',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (_visibleColumns.contains('shipment_number'))
-                    DataCell(
-                      SizedBox(
-                        width: columnWidths['shipment_number']!,
-                        child: InkWell(
-                          onTap: () {
-                            setState(() {
-                              _activeShipmentId = s['id'];
-                            });
-                          },
-                          child: Text(
-                            s['shipment_number'] ?? '',
-                            style: const TextStyle(color: AppTheme.primaryBlue),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (_visibleColumns.contains('customer_name'))
-                    DataCell(
-                      SizedBox(
-                        width: columnWidths['customer_name']!,
-                        child: Text(s['customers']?['display_name'] ?? ''),
-                      ),
-                    ),
-                  if (_visibleColumns.contains('sales_order#'))
-                    DataCell(
-                      SizedBox(
-                        width: columnWidths['sales_order#']!,
-                        child: Text(soList),
-                      ),
-                    ),
-                  if (_visibleColumns.contains('package#'))
-                    DataCell(
-                      SizedBox(
-                        width: columnWidths['package#']!,
-                        child: Text(pkgList),
-                      ),
-                    ),
-                  if (_visibleColumns.contains('carrier'))
-                    DataCell(
-                      SizedBox(
-                        width: columnWidths['carrier']!,
-                        child: Text(s['carrier'] ?? ''),
-                      ),
-                    ),
-                  if (_visibleColumns.contains('tracking#'))
-                    DataCell(
-                      SizedBox(
-                        width: columnWidths['tracking#']!,
-                        child: Text(s['tracking_number'] ?? ''),
-                      ),
-                    ),
-                  if (_visibleColumns.contains('status'))
-                    DataCell(
-                      SizedBox(
-                        width: columnWidths['status']!,
-                        child: Text(
-                          s['is_delivered'] == true ? 'DELIVERED' : 'SHIPPED',
-                          style: TextStyle(
-                            color: s['is_delivered'] == true
-                                ? Colors.green
-                                : Colors.blue,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (_visibleColumns.contains('shipping_rate'))
-                    DataCell(
-                      SizedBox(
-                        width: columnWidths['shipping_rate']!,
-                        child: Text('₹${s['shipping_charges'] ?? '0.00'}'),
-                      ),
-                    ),
-                ],
-              );
-            }).toList(),
-          ),
+              ),
+            ),
+            ZerpaiPaginationWidget(
+              totalItems: totalItems,
+              currentPage: clampedPage,
+              pageSize: _pageSize,
+              onPageChanged: (page) {
+                setState(() {
+                  _currentPage = page;
+                });
+              },
+              onPageSizeChanged: (size) {
+                setState(() {
+                  _pageSize = size;
+                  _currentPage = 1;
+                });
+              },
+            ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildShipmentTableHeader(
+    Map<String, double> columnWidths,
+    List<Map<String, dynamic>> shipments,
+  ) {
+    return Container(
+      height: 36,
+      decoration: const BoxDecoration(
+        color: AppTheme.bgLight,
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+      ),
+      child: Stack(
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(width: 78.0),
+              ..._visibleColumns.map((colId) {
+                final width = columnWidths[colId] ?? 120.0;
+                final labelText = _getShipmentColumnLabel(colId);
+                return _ResizableHeaderCell(
+                  width: width,
+                  onResize: (dx) => _resizeColumn(colId, dx),
+                  child: _buildShipmentHeaderCell(colId, labelText, width: width),
+                );
+              }),
+            ],
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: AnimatedBuilder(
+              animation: _horizontalScrollController,
+              builder: (context, child) {
+                final offset = _horizontalScrollController.hasClients
+                    ? _horizontalScrollController.offset
+                    : 0.0;
+                return Transform.translate(
+                  offset: Offset(offset, 0),
+                  child: child,
+                );
+              },
+              child: Container(
+                color: AppTheme.bgLight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(width: 8),
+                    ZTableHeaderMenu(
+                      wrapText: _shouldWrapText,
+                      onWrapChange: (v) => setState(() => _shouldWrapText = v),
+                      onCustomize: () {
+                        _showCustomColumnsDialog();
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    _buildCheckboxWidget(
+                      shipments.isNotEmpty &&
+                          _selectedIds.length == shipments.length,
+                      onTap: () {
+                        setState(() {
+                          if (_selectedIds.length == shipments.length) {
+                            _selectedIds.clear();
+                          } else {
+                            _selectedIds.addAll(
+                              shipments.map((s) => s['id'] as String),
+                            );
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getShipmentColumnLabel(String colId) {
+    switch (colId) {
+      case 'date':
+        return 'DATE';
+      case 'shipment_number':
+        return 'SHIPMENT ORDER#';
+      case 'customer_name':
+        return 'CUSTOMER NAME';
+      case 'sales_order#':
+        return 'SALES ORDER#';
+      case 'package#':
+        return 'PACKAGE#';
+      case 'carrier':
+        return 'CARRIER';
+      case 'tracking#':
+        return 'TRACKING#';
+      case 'status':
+        return 'STATUS';
+      case 'shipping_rate':
+        return 'SHIPPING RATE';
+      default:
+        return colId.toUpperCase().replaceAll('_', ' ');
+    }
+  }
+
+  Widget _buildShipmentHeaderCell(String colId, String text, {double? width}) {
+    final isSorted = _sortField == colId;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (_sortField == colId) {
+            _sortAscending = !_sortAscending;
+          } else {
+            _sortField = colId;
+            _sortAscending = true;
+          }
+        });
+      },
+      child: Container(
+        width: width,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.tableHeader.copyWith(fontSize: 11, letterSpacing: 0.5),
+              ),
+            ),
+            if (isSorted) ...[
+              const SizedBox(width: 4),
+              Icon(
+                _sortAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+                size: 12,
+                color: AppTheme.primaryBlue,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShipmentVirtualRow(
+    Map<String, dynamic> s,
+    Map<String, double> columnWidths,
+  ) {
+    final soList = (s['inventory_shipment_sales_orders'] as List?)
+            ?.map((e) => e['sales_orders']?['sale_number'] as String?)
+            .where((e) => e != null)
+            .join(', ') ??
+        '';
+
+    final pkgList = (s['inventory_shipment_packages'] as List?)
+            ?.map((e) => e['inventory_packages']?['package_number'] as String?)
+            .where((e) => e != null)
+            .join(', ') ??
+        '';
+
+    final isSelected = _selectedIds.contains(s['id']);
+    final rowBgColor = isSelected ? const Color(0xFFF0F7FF) : Colors.white;
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _activeShipmentId = s['id'];
+        });
+      },
+      child: Container(
+        height: 40,
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
+        ),
+        child: Stack(
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 78.0),
+                ..._visibleColumns.map((colId) {
+                  final width = columnWidths[colId] ?? 120.0;
+                  Widget content;
+                  switch (colId) {
+                    case 'date':
+                      content = Text(
+                        s['date'] != null
+                            ? DateFormat('dd-MM-yyyy').format(DateTime.parse(s['date']))
+                            : '',
+                        style: AppTheme.tableCell,
+                      );
+                      break;
+                    case 'shipment_number':
+                      content = Text(
+                        s['shipment_number'] ?? '',
+                        style: AppTheme.tableCell.copyWith(color: AppTheme.primaryBlue),
+                      );
+                      break;
+                    case 'customer_name':
+                      content = Text(
+                        s['customers']?['display_name'] ?? '',
+                        style: AppTheme.tableCell,
+                      );
+                      break;
+                    case 'sales_order#':
+                      content = Text(soList, style: AppTheme.tableCell);
+                      break;
+                    case 'package#':
+                      content = Text(pkgList, style: AppTheme.tableCell);
+                      break;
+                    case 'carrier':
+                      content = Text(s['carrier'] ?? '', style: AppTheme.tableCell);
+                      break;
+                    case 'tracking#':
+                      content = Text(s['tracking_number'] ?? '', style: AppTheme.tableCell);
+                      break;
+                    case 'status':
+                      content = Text(
+                        s['is_delivered'] == true ? 'DELIVERED' : 'SHIPPED',
+                        style: AppTheme.tableCell.copyWith(
+                          color: s['is_delivered'] == true ? Colors.green : Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                      break;
+                    case 'shipping_rate':
+                      content = Text('₹${s['shipping_charges'] ?? '0.00'}', style: AppTheme.tableCell);
+                      break;
+                    default:
+                      content = const SizedBox();
+                  }
+
+                  return Container(
+                    width: width,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    alignment: Alignment.centerLeft,
+                    child: content,
+                  );
+                }),
+              ],
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: AnimatedBuilder(
+                animation: _horizontalScrollController,
+                builder: (context, child) {
+                  final offset = _horizontalScrollController.hasClients
+                      ? _horizontalScrollController.offset
+                      : 0.0;
+                  return Transform.translate(
+                    offset: Offset(offset, 0),
+                    child: child,
+                  );
+                },
+                child: Container(
+                  color: rowBgColor,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 8),
+                      const SizedBox(width: 28),
+                      const SizedBox(width: 12),
+                      _buildCheckboxWidget(
+                        isSelected,
+                        onTap: () {
+                          setState(() {
+                            if (isSelected) {
+                              _selectedIds.remove(s['id']);
+                            } else {
+                              _selectedIds.add(s['id']);
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -3363,4 +3507,58 @@ class _CornerFoldPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _ResizableHeaderCell extends StatefulWidget {
+  final double width;
+  final Widget child;
+  final ValueChanged<double> onResize;
+
+  const _ResizableHeaderCell({
+    required this.width,
+    required this.child,
+    required this.onResize,
+  });
+
+  @override
+  State<_ResizableHeaderCell> createState() => _ResizableHeaderCellState();
+}
+
+class _ResizableHeaderCellState extends State<_ResizableHeaderCell> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: Container(
+        width: widget.width,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            widget.child,
+            Positioned(
+              right: -5,
+              top: 0,
+              bottom: 0,
+              width: 10,
+              child: GestureDetector(
+                onHorizontalDragUpdate: (details) =>
+                    widget.onResize(details.delta.dx),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.resizeLeftRight,
+                  child: Container(
+                    color: _isHovering
+                        ? AppTheme.primaryBlue.withValues(alpha: 0.2)
+                        : Colors.transparent,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

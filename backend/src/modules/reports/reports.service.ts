@@ -211,7 +211,7 @@ export class ReportsService {
 
     // 1. Get Transaction Balances
     const txQuery = supabase
-      .from("account_transactions")
+      .from("journal_entry_lines")
       .select("account_id, debit, credit")
       .in("entity_id", scope.entityIds);
 
@@ -263,7 +263,7 @@ export class ReportsService {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const salesTrendQuery = supabase
-      .from("account_transactions")
+      .from("journal_entry_lines")
       .select("transaction_date, credit")
       .in("entity_id", scope.entityIds);
 
@@ -286,7 +286,7 @@ export class ReportsService {
 
     // 4. Top Customers
     const topCustomersQuery = supabase
-      .from("account_transactions")
+      .from("journal_entry_lines")
       .select("contact_id, contact_type, credit")
       .in("entity_id", scope.entityIds);
 
@@ -542,7 +542,7 @@ export class ReportsService {
         a.id as "accountId",
         SUM(t.debit) as "totalDebit",
         SUM(t.credit) as "totalCredit"
-      FROM account_transactions t
+      FROM journal_entry_lines t
       JOIN accounts a ON t.account_id = a.id
       WHERE ${whereClause}
       GROUP BY a.account_type, COALESCE(a.user_account_name, a.system_account_name), a.id
@@ -633,7 +633,7 @@ export class ReportsService {
         a.id as "accountId",
         SUM(t.debit) as "totalDebit",
         SUM(t.credit) as "totalCredit"
-      FROM account_transactions t
+      FROM journal_entry_lines t
       JOIN accounts a ON t.account_id = a.id
       WHERE ${whereClause}
       GROUP BY a.account_type, COALESCE(a.user_account_name, a.system_account_name), a.account_code, a.id
@@ -688,7 +688,7 @@ export class ReportsService {
         t.credit as "credit",
         t.source_id as "sourceId",
         t.source_type as "sourceType"
-      FROM account_transactions t
+      FROM journal_entry_lines t
       WHERE ${whereClause}
       ORDER BY t.transaction_date ASC
     `;
@@ -728,7 +728,7 @@ export class ReportsService {
         a.id as "accountId",
         SUM(t.debit) as "totalDebit",
         SUM(t.credit) as "totalCredit"
-      FROM account_transactions t
+      FROM journal_entry_lines t
       JOIN accounts a ON t.account_id = a.id
       WHERE ${whereClause}
       GROUP BY COALESCE(a.user_account_name, a.system_account_name), a.id

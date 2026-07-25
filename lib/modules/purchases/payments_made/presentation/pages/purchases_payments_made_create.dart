@@ -7,9 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/account_tree_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/transaction_series_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/shared/models/account_node.dart' as shared_account;
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/widgets/tax_preferences_popover.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
@@ -19,7 +22,7 @@ import 'package:zerpai_erp/shared/utils/org_scope_resolver.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/vendor_sidebar.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
 import 'package:zerpai_erp/modules/purchases/bills/providers/purchases_bills_provider.dart';
 import 'package:zerpai_erp/modules/purchases/bills/models/purchases_bills_bill_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -164,8 +167,10 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
 
   final LayerLink _uploadDropdownLink = LayerLink();
   final LayerLink _fileBadgeLink = LayerLink();
+  final LayerLink _billPaymentAmountLink = LayerLink();
   OverlayEntry? _uploadDropdownOverlayEntry;
   OverlayEntry? _fileBadgeOverlayEntry;
+  OverlayEntry? _paymentAmountReflectionOverlayEntry;
   bool _isUploadDropdownOpen = false;
   List<PlatformFile> _uploadedFiles = [];
 
@@ -180,17 +185,20 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   final Map<String, TextEditingController> _billPaymentControllers = {};
   final Map<String, String> _billPaymentDates = {};
   final Map<String, GlobalKey> _billDateKeys = {};
-  String _paymentTransactionSeries = 'Default Transaction Series';
+  final Set<String> _hoveredBillDateIds = <String>{};
+  String? _paymentTransactionSeriesId;
+  List<TransactionSeriesOption> _paymentTransactionSeriesOptions = const [];
   String _paymentLocation = 'ZABNIX PRIVATE LIMITED';
-  DateTime _paymentDateVal = DateTime(2026, 6, 12);
+  DateTime _paymentDateVal = DateTime.now();
   String _paymentMode = 'Cash';
   List<String> _paymentModeOptions = List<String>.from(_defaultPaymentModes);
   PaidThroughItem? _paymentPaidFrom;
   PaidThroughItem? _depositTo;
   bool _showVendorDetailsPanel = false;
-  bool _showIntegrationsBanner = true;
   bool _isBillPayment = true;
   bool _payFullAmount = false;
+  String? _loadedPriorAllocationsVendorId;
+  Map<String, double> _priorBillAllocations = {};
 
   String _sourceOfSupply = '[KL] - Kerala';
   String _destinationOfSupply = '[KL] - Kerala';
@@ -203,8 +211,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   String? _pendingPaidThroughAccountId;
   String? _pendingDepositToAccountId;
   String? _pendingTdsTaxId;
-
-  // Tax options loaded dynamically â€” see paymentsMadeTaxesProvider
 
   static const List<String> _statesOptions = [
     '[KL] - Kerala',
@@ -316,6 +322,101 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     return null;
   }
 
+  List<shared_account.AccountNode> _buildDepositAccountTree(
+    List<AccountNode> roots,
+  ) {
+    final flatAccounts = <AccountNode>[];
+
+    void collect(List<AccountNode> nodes) {
+      for (final node in nodes) {
+        if (node.isActive && !node.isDeleted) {
+          flatAccounts.add(node);
+        }
+        if (node.children.isNotEmpty) {
+          collect(node.children);
+        }
+      }
+    }
+
+    collect(roots);
+
+    final uniqueById = <String, AccountNode>{};
+    for (final account in flatAccounts) {
+      uniqueById[account.id] = account.copyWith(children: const []);
+    }
+
+    final childrenByParent = <String, List<AccountNode>>{};
+    for (final account in uniqueById.values) {
+      final parentId = account.parentId;
+      if (parentId != null &&
+          parentId.isNotEmpty &&
+          uniqueById.containsKey(parentId)) {
+        childrenByParent.putIfAbsent(parentId, () => []).add(account);
+      }
+    }
+
+    shared_account.AccountNode buildNode(AccountNode account) {
+      final childAccounts = List<AccountNode>.from(
+        childrenByParent[account.id] ?? const <AccountNode>[],
+      )..sort((a, b) => a.userAccountName.toLowerCase().compareTo(
+          b.userAccountName.toLowerCase(),
+        ));
+
+      final childNodes = childAccounts.map(buildNode).toList();
+      final displayName = account.userAccountName.trim().isNotEmpty
+          ? account.userAccountName.trim()
+          : account.systemAccountName.trim();
+
+      return shared_account.AccountNode(
+        id: account.id,
+        name: displayName,
+        selectable: childNodes.isEmpty,
+        children: childNodes,
+      );
+    }
+
+    final rootAccounts = uniqueById.values.where((account) {
+      final parentId = account.parentId;
+      return parentId == null ||
+          parentId.isEmpty ||
+          !uniqueById.containsKey(parentId);
+    }).toList();
+
+    final parentRootAccounts = rootAccounts.where((account) {
+      final children = childrenByParent[account.id] ?? const <AccountNode>[];
+      return children.isNotEmpty;
+    }).toList()
+      ..sort((a, b) => a.userAccountName.toLowerCase().compareTo(
+          b.userAccountName.toLowerCase(),
+        ));
+
+    final standaloneRootAccounts = rootAccounts.where((account) {
+      final children = childrenByParent[account.id] ?? const <AccountNode>[];
+      return children.isEmpty;
+    }).toList()
+      ..sort((a, b) => a.userAccountName.toLowerCase().compareTo(
+          b.userAccountName.toLowerCase(),
+        ));
+
+    return [
+      ...parentRootAccounts.map(buildNode),
+      ...standaloneRootAccounts.map(buildNode),
+    ];
+  }
+
+  String? _findDepositAccountLabelById(
+    List<shared_account.AccountNode> nodes,
+    String? id,
+  ) {
+    if (id == null || id.isEmpty) return null;
+    for (final node in nodes) {
+      if (node.id == id) return node.name;
+      final childMatch = _findDepositAccountLabelById(node.children, id);
+      if (childMatch != null) return childMatch;
+    }
+    return null;
+  }
+
   bool _isVendorAdvancePaymentType(
     String? rawPaymentType,
     List<dynamic> allocations,
@@ -368,6 +469,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       ref.read(vendorProvider.notifier).loadVendors(),
       ref.read(billsProvider.notifier).loadBills(),
       _loadPaymentModes(),
+      _loadPaymentTransactionSeries(),
     ]);
     if (_isEditMode) {
       await _loadExistingPayment();
@@ -385,21 +487,17 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             .eq('entity_id', entityId)
             .eq('is_deleted', false)
             .order('name');
-
+        
         if (response.isEmpty) {
-          final List<Map<String, dynamic>> seedRows = _defaultPaymentModes
-              .map(
-                (mode) => {
-                  'entity_id': entityId,
-                  'name': mode,
-                  'is_default': mode.toLowerCase() == 'cash',
-                  'is_deleted': false,
-                },
-              )
-              .toList();
-
+          final List<Map<String, dynamic>> seedRows = _defaultPaymentModes.map((mode) => {
+            'entity_id': entityId,
+            'name': mode,
+            'is_default': mode.toLowerCase() == 'cash',
+            'is_deleted': false,
+          }).toList();
+          
           await supabase.from('payment_made_payment_mode').insert(seedRows);
-
+          
           response = await supabase
               .from('payment_made_payment_mode')
               .select('name, is_default')
@@ -416,12 +514,9 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             _paymentModeOptions = loadedModes;
             final hasDefault = response.any((e) => e['is_default'] == true);
             if (hasDefault) {
-              final defaultModeRow = response.firstWhere(
-                (e) => e['is_default'] == true,
-              );
+              final defaultModeRow = response.firstWhere((e) => e['is_default'] == true);
               _paymentMode = defaultModeRow['name'] as String;
-            } else if (!_paymentModeOptions.contains(_paymentMode) &&
-                _paymentModeOptions.isNotEmpty) {
+            } else if (!_paymentModeOptions.contains(_paymentMode) && _paymentModeOptions.isNotEmpty) {
               _paymentMode = _paymentModeOptions.first;
             }
           });
@@ -429,6 +524,48 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       }
     } catch (e) {
       debugPrint('Failed to load payment modes: $e');
+    }
+  }
+
+  Future<void> _loadPaymentTransactionSeries() async {
+    try {
+      final entityId = ref.read(entityProvider).entityId;
+      if (entityId == null || entityId.isEmpty) return;
+
+      final rows = await Supabase.instance.client
+          .from('transaction_series')
+          .select('id, name, code')
+          .eq('entity_id', entityId)
+          .order('created_at');
+
+      if (!mounted) return;
+
+      final options = (rows as List)
+          .map((raw) => Map<String, dynamic>.from(raw as Map))
+          .map((row) {
+            final id = (row['id'] ?? '').toString();
+            final name = (row['name'] ?? '').toString().trim();
+            final code = (row['code'] ?? '').toString().trim();
+            final label = name.isNotEmpty
+                ? name
+                : code.isNotEmpty
+                    ? code
+                    : id;
+            return TransactionSeriesOption(id: id, name: label);
+          })
+          .where((option) => option.id.isNotEmpty && option.name.isNotEmpty)
+          .toList();
+
+      setState(() {
+        _paymentTransactionSeriesOptions = options;
+        if ((_paymentTransactionSeriesId == null ||
+                _paymentTransactionSeriesId!.isEmpty) &&
+            options.isNotEmpty) {
+          _paymentTransactionSeriesId = options.first.id;
+        }
+      });
+    } catch (e) {
+      debugPrint('Failed to load payment transaction series: $e');
     }
   }
 
@@ -532,9 +669,12 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         allocations,
         taxRow,
       );
-      _paymentTransactionSeries =
-          (master['transaction_series_id'] ?? _paymentTransactionSeries)
-              .toString();
+      final loadedTransactionSeriesId = (master['transaction_series_id'] ?? '')
+          .toString()
+          .trim();
+      if (loadedTransactionSeriesId.isNotEmpty) {
+        _paymentTransactionSeriesId = loadedTransactionSeriesId;
+      }
       _paymentNumberController.text = (master['payment_number'] ?? '')
           .toString();
       _paymentReferenceController.text = (master['reference_number'] ?? '')
@@ -543,6 +683,13 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       _paymentAmountController.text = amountValue > 0
           ? amountValue.toStringAsFixed(2)
           : '';
+      _transferToAccountId = null;
+      _erhjController.clear();
+      _selectedTax = null;
+      _selectedTdsTax = null;
+      _sourceOfSupply = '[KL] - Kerala';
+      _destinationOfSupply = '[KL] - Kerala';
+      _descriptionOfSupplyController.clear();
 
       final loadedPaymentMode = (master['payment_mode'] ?? '')
           .toString()
@@ -638,6 +785,234 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     setState(() {});
   }
 
+  void _dismissPaymentAmountReflectionOverlay() {
+    _paymentAmountReflectionOverlayEntry?.remove();
+    _paymentAmountReflectionOverlayEntry = null;
+  }
+
+  Future<void> _fetchPriorBillAllocations(List<String> billIds) async {
+    if (billIds.isEmpty) {
+      if (mounted) setState(() => _priorBillAllocations = {});
+      return;
+    }
+    try {
+      final supabase = Supabase.instance.client;
+      final rows = await supabase
+          .from('payment_made_bill_allocations')
+          .select('payment_made_id, bill_id, allocated_amount')
+          .filter('bill_id', 'in', billIds);
+
+      final map = <String, double>{};
+      for (final row in (rows as List)) {
+        final pId = (row['payment_made_id'] ?? '').toString();
+        if (_isEditMode && _editingPaymentDbId != null && pId == _editingPaymentDbId) {
+          continue;
+        }
+        final bId = (row['bill_id'] ?? '').toString();
+        final amt = double.tryParse((row['allocated_amount'] ?? '0').toString()) ?? 0.0;
+        map[bId] = (map[bId] ?? 0.0) + amt;
+      }
+      if (mounted) {
+        setState(() {
+          _priorBillAllocations = map;
+        });
+      }
+    } catch (_) {}
+  }
+
+  double _getBillBalance(PurchasesBill bill) {
+    final prior = _priorBillAllocations[bill.id] ?? 0.0;
+    return (bill.total - prior).clamp(0.0, double.infinity);
+  }
+
+  double _getDynamicAmountDue(PurchasesBill bill) {
+    final baseBalance = _getBillBalance(bill);
+    final controller = _billPaymentControllers[bill.id];
+    final entered = controller == null ? 0.0 : (double.tryParse(controller.text.trim()) ?? 0.0);
+    return (baseBalance - entered).clamp(0.0, double.infinity);
+  }
+
+  void _applyEnteredAmountToBillPayments(List<PurchasesBill> vendorBills) {
+    final enteredAmount =
+        double.tryParse(_paymentAmountController.text.trim()) ?? 0.0;
+    double remainingAmount = enteredAmount;
+
+    for (final bill in vendorBills) {
+      final controller = _getBillController(bill.id);
+      final balance = _getBillBalance(bill);
+      if (remainingAmount <= 0 || balance <= 0) {
+        controller.text = '';
+        continue;
+      }
+
+      final allocatedAmount =
+          remainingAmount >= balance ? balance : remainingAmount;
+      controller.text = allocatedAmount.toStringAsFixed(2);
+      remainingAmount -= allocatedAmount;
+    }
+
+    _recalculateTotalAllocated();
+  }
+
+  void _showPaymentAmountReflectionPrompt(List<PurchasesBill> vendorBills) {
+    _dismissPaymentAmountReflectionOverlay();
+
+    final enteredAmount =
+        double.tryParse(_paymentAmountController.text.trim()) ?? 0.0;
+    if (!_isBillPayment || enteredAmount <= 0 || vendorBills.isEmpty || !mounted) {
+      return;
+    }
+
+    _paymentAmountReflectionOverlayEntry = OverlayEntry(
+      builder: (context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _dismissPaymentAmountReflectionOverlay,
+              ),
+            ),
+            CompositedTransformFollower(
+              link: _billPaymentAmountLink,
+              showWhenUnlinked: false,
+              offset: const Offset(-8, 44),
+              child: Material(
+                color: Colors.transparent,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      top: -6,
+                      left: 36,
+                      child: Transform.rotate(
+                        angle: 0.785398,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 206,
+                      padding: const EdgeInsets.fromLTRB(14, 16, 14, 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Would you like this amount to be\nreflected in the Payment field?',
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.45,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  _applyEnteredAmountToBillPayments(vendorBills);
+                                  _dismissPaymentAmountReflectionOverlay();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF22C55E),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'Yes',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: _dismissPaymentAmountReflectionOverlay,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'No',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    Overlay.of(context).insert(_paymentAmountReflectionOverlayEntry!);
+  }
+
+  String _paymentTransactionSeriesLabel() {
+    final selectedId = _paymentTransactionSeriesId;
+    if (selectedId == null || selectedId.isEmpty) {
+      return 'No transaction series selected';
+    }
+
+    for (final option in _paymentTransactionSeriesOptions) {
+      if (option.id == selectedId) {
+        return option.name;
+      }
+    }
+
+    return selectedId;
+  }
+
+  Future<void> _handleAddTransactionSeries() async {
+    if (!mounted) return;
+    ZerpaiToast.info(
+      context,
+      'Create the required transaction series in Settings, then reopen this page.',
+    );
+  }
+
   Future<void> _showPreferencesDialog() async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -645,7 +1020,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       builder: (context) {
         return ConfigurePaymentNumberPreferencesDialog(
           currentLocation: _paymentLocation,
-          currentSeries: _paymentTransactionSeries,
+          currentSeries: _paymentTransactionSeriesLabel(),
           initialPreferences: _paymentPreferences,
         );
       },
@@ -654,7 +1029,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     if (result == null) return;
 
     final autoGenerate = result['autoGenerate'] as bool? ?? true;
-    final prefix = autoGenerate
+    final prefix = autoGenerate 
         ? (result['autoPrefix'] as String? ?? '').trim()
         : (result['manualPrefix'] as String? ?? '').trim();
     final nextNumber = (result['nextNumber'] as String? ?? '').trim();
@@ -693,8 +1068,305 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     );
   }
 
+  Future<PaidThroughItem?> _showExcessPaymentDialog(double excessAmount) async {
+    final accountsState = ref.read(chartOfAccountsProvider);
+    final depositOptions = _buildPaidThroughOptions(accountsState.roots)
+        .where((item) => !item.isHeader)
+        .toList();
+    final depositAccountTree = _buildDepositAccountTree(accountsState.roots);
+
+    PaidThroughItem? selectedDepositTo = _depositTo;
+    if (selectedDepositTo == null && depositOptions.isNotEmpty) {
+      for (final option in depositOptions) {
+        if (option.label == 'Prepaid Expenses') {
+          selectedDepositTo = option;
+          break;
+        }
+      }
+      selectedDepositTo ??= depositOptions.first;
+    }
+
+    return showDialog<PaidThroughItem?>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        bool showDepositDropdown = false;
+        PaidThroughItem? localSelectedDepositTo = selectedDepositTo;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final screenSize = MediaQuery.of(context).size;
+            final dialogWidth = screenSize.width < 500 ? screenSize.width : 500.0;
+            final baseHeight = showDepositDropdown ? 312.0 : 253.22;
+            final dialogHeight = screenSize.height < baseHeight
+                ? screenSize.height
+                : baseHeight;
+
+            return Dialog(
+              alignment: Alignment.topCenter,
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              insetPadding: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(0),
+              ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                width: dialogWidth,
+                height: dialogHeight,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      height: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        border: Border(
+                          bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Excess Payment',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => Navigator.of(dialogContext).pop(),
+                            child: const Icon(
+                              LucideIcons.x,
+                              size: 18,
+                              color: Color(0xFFEF4444),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(0xFFF59E0B),
+                                      width: 2,
+                                    ),
+                                    color: Colors.white,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Text(
+                                    '!',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0xFFF59E0B),
+                                      height: 1,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    "You're about to record an excess payment of ₹${_formatAmount(excessAmount)}. This will be stored as credits for the vendor. Do you want to continue?",
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      height: 1.55,
+                                      color: Color(0xFF374151),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            if (!showDepositDropdown)
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 4,
+                                runSpacing: 2,
+                                children: [
+                                  const Text(
+                                    'Note: The excess amount will be deposited in the',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF6B7280),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      setDialogState(() {
+                                        showDepositDropdown = true;
+                                      });
+                                    },
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          localSelectedDepositTo?.label ??
+                                              'Prepaid Expenses',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppTheme.primaryBlue,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 2),
+                                        const Icon(
+                                          LucideIcons.pencil,
+                                          size: 13,
+                                          color: AppTheme.primaryBlue,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Note: The excess amount will be deposited in the',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF6B7280),
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    width: 218,
+                                    child: AccountTreeDropdown(
+                                      value: localSelectedDepositTo?.id,
+                                      nodes: depositAccountTree,
+                                      hint:
+                                          _findDepositAccountLabelById(
+                                            depositAccountTree,
+                                            localSelectedDepositTo?.id,
+                                          ) ??
+                                          'Select Account',
+                                      onChanged: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return;
+                                        }
+                                        final matchedOption =
+                                            _findPaidThroughItemById(
+                                              depositOptions,
+                                              value,
+                                            );
+                                        setDialogState(() {
+                                          localSelectedDepositTo =
+                                              matchedOption ??
+                                              PaidThroughItem(
+                                                _findDepositAccountLabelById(
+                                                      depositAccountTree,
+                                                      value,
+                                                    ) ??
+                                                    value,
+                                                id: value,
+                                              );
+                                        });
+                                      },
+                                      height: 38,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            const SizedBox(height: 24),
+                            Row(
+                              children: [
+                                SizedBox(
+                                  height: 36,
+                                  child: ElevatedButton(
+                                    onPressed: () => Navigator.of(
+                                      dialogContext,
+                                    ).pop(localSelectedDepositTo),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF22C55E),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Continue to Save',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  height: 36,
+                                  child: OutlinedButton(
+                                    onPressed: () =>
+                                        Navigator.of(dialogContext).pop(),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF111827),
+                                      backgroundColor: const Color(0xFFF9FAFB),
+                                      side: const BorderSide(
+                                        color: Color(0xFFD1D5DB),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Cancel',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
+    _dismissPaymentAmountReflectionOverlay();
     _uploadDropdownOverlayEntry?.remove();
     _uploadDropdownOverlayEntry = null;
     _paymentAmountController.removeListener(_onAmountChanged);
@@ -756,10 +1428,9 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             ),
           if (!_showVendorDetailsPanel &&
               _selectedVendor != null &&
-              !_isEditMode &&
-              !_isBillPayment)
+              !_isEditMode)
             Positioned(
-              top: 80,
+              top: 68,
               right: 0,
               child: AnimatedOpacity(
                 opacity: _isFormAtTop ? 1.0 : 0.0,
@@ -816,11 +1487,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
               ],
             ),
             IconButton(
-              icon: const Icon(
-                LucideIcons.x,
-                size: 22,
-                color: AppTheme.textSecondary,
-              ),
+              icon: const Icon(LucideIcons.x, size: 22, color: AppTheme.textSecondary),
               onPressed: () {
                 final state = GoRouterState.of(context);
                 context.goNamed(
@@ -906,6 +1573,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.textPrimary,
+                
               ),
             ),
           )
@@ -919,6 +1587,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppTheme.primaryBlue,
+                
               ),
             ),
           );
@@ -1040,7 +1709,10 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 const Expanded(
                   child: Text(
                     'This transaction is categorized in Bandhan Bank. Hence, some fields cannot be modified.',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textPrimary,
+                    ),
                   ),
                 ),
                 GestureDetector(
@@ -1080,13 +1752,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         taxOptions,
                         tdsOptions,
                         vendorBills,
-                      )
-                    : _isEditMode
-                    ? _buildVendorAdvanceEditFields(
-                        context,
-                        paidThroughOptions,
-                        taxOptions,
-                        tdsOptions,
+                        _isEditMode,
                       )
                     : _buildVendorAdvanceFields(
                         context,
@@ -1106,9 +1772,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     return Stack(
       children: [
         Padding(
-          padding: EdgeInsets.only(
-            right: _isEditMode && !_isBillPayment ? 260 : 180,
-          ),
+          padding: EdgeInsets.only(right: _isEditMode && !_isBillPayment ? 260 : 180),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1269,9 +1933,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                           ),
                                         ),
                                         if (vendor.vendorNumber != null &&
-                                            vendor
-                                                .vendorNumber!
-                                                .isNotEmpty) ...[
+                                            vendor.vendorNumber!.isNotEmpty) ...[
                                           Text(
                                             ' | ',
                                             style: TextStyle(
@@ -1320,9 +1982,8 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           onUpdate: (val) {
                             setState(() {
                               try {
-                                _selectedVendor = _selectedVendor!.copyWith(
-                                  gstTreatment: val,
-                                );
+                                _selectedVendor =
+                                    _selectedVendor!.copyWith(gstTreatment: val);
                               } catch (_) {}
                             });
                           },
@@ -1427,6 +2088,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             ],
           ),
         ),
+
       ],
     );
   }
@@ -1501,7 +2163,10 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             const SizedBox(height: 4),
             const Text(
               'Will be displayed on the Payment Voucher',
-              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+              style: TextStyle(
+                fontSize: 11,
+                color: AppTheme.textSecondary,
+              ),
             ),
           ],
         ),
@@ -1557,7 +2222,10 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             const SizedBox(height: 6),
             Text(
               'Unused Amount: ₹${_paymentAmountController.text.trim().isEmpty ? '0.00' : _paymentAmountController.text.trim()}*',
-              style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFFDC2626),
+              ),
             ),
           ],
         ),
@@ -1579,7 +2247,10 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             ),
             const Text(
               'This transaction is applicable for reverse charge',
-              style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+              style: TextStyle(
+                fontSize: 13,
+                color: AppTheme.textPrimary,
+              ),
             ),
           ],
         ),
@@ -1709,12 +2380,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         ),
       ),
       const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'erhj',
-        required: true,
-        child: CustomTextField(controller: _erhjController, height: 36),
-      ),
-      const SizedBox(height: 16),
       _buildNotesSection(isEditMode: true),
       const SizedBox(height: 24),
       _buildAttachmentsSection(),
@@ -1727,6 +2392,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     List<TaxItem> taxOptions,
     List<String> tdsOptions,
     List<PurchasesBill> vendorBills,
+    bool isEditMode,
   ) {
     return [
       // Row 3 â€” Payment #
@@ -1737,18 +2403,23 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
           children: [
             SizedBox(
               width: 220,
-              child: FormDropdown<String>(
-                value: _paymentTransactionSeries,
-                items: const [
-                  'Default Transaction Series',
-                  'Custom Transaction Series',
-                ],
-                onChanged: (val) {
-                  if (val == null) return;
-                  setState(() => _paymentTransactionSeries = val);
+              child: TransactionSeriesDropdown(
+                series: _paymentTransactionSeriesOptions,
+                selectedIds: _paymentTransactionSeriesId == null
+                    ? const []
+                    : [_paymentTransactionSeriesId!],
+                multiSelect: false,
+                includeDefaultOption: false,
+                placeholder: 'Select payment series',
+                accentColor: AppTheme.primaryBlue,
+                showAddOption: false,
+                onChanged: (ids) {
+                  setState(() {
+                    _paymentTransactionSeriesId =
+                        ids.isNotEmpty ? ids.first : null;
+                  });
                 },
-                height: 36,
-                showSearch: false,
+                onAddTap: _handleAddTransactionSeries,
               ),
             ),
             const SizedBox(width: 12),
@@ -1787,40 +2458,52 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         required: true,
         child: Row(
           children: [
-            Container(
-              height: 36,
-              width: 56,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                border: Border.all(color: AppTheme.borderColor),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(4),
-                  bottomLeft: Radius.circular(4),
-                ),
-              ),
-              alignment: Alignment.center,
-              child: const Text(
-                'INR',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            ),
             Expanded(
-              child: CustomTextField(
-                controller: _paymentAmountController,
-                height: 36,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                ],
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(4),
-                  bottomRight: Radius.circular(4),
+              child: CompositedTransformTarget(
+                link: _billPaymentAmountLink,
+                child: Row(
+                  children: [
+                    Container(
+                      height: 36,
+                      width: 56,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9FAFB),
+                        border: Border.all(color: AppTheme.borderColor),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(4),
+                          bottomLeft: Radius.circular(4),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        'INR',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textSecondary,
+                          
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: CustomTextField(
+                        controller: _paymentAmountController,
+                        height: 36,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                        ],
+                        onSubmitted: (_) =>
+                            _showPaymentAmountReflectionPrompt(vendorBills),
+                        borderRadius: const BorderRadius.only(
+                          topRight: Radius.circular(4),
+                          bottomRight: Radius.circular(4),
+                        ),
+                        showLeftBorder: false,
+                      ),
+                    ),
+                  ],
                 ),
-                showLeftBorder: false,
               ),
             ),
           ],
@@ -1828,7 +2511,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       ),
       const SizedBox(height: 4),
 
-      // Pay full amount checkbox
       _buildFormRow(
         label: '',
         child: Row(
@@ -1839,14 +2521,17 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 setState(() {
                   _payFullAmount = val ?? false;
                   if (_payFullAmount) {
-                    // Fill every bill row with its full amount due
+                    final totalDue = vendorBills.fold(
+                      0.0,
+                      (sum, bill) => sum + _getBillBalance(bill),
+                    );
                     for (final bill in vendorBills) {
-                      _getBillController(bill.id).text = bill.total
+                      _getBillController(bill.id).text = _getBillBalance(bill)
                           .toStringAsFixed(2);
                     }
+                    _paymentAmountController.text = totalDue.toStringAsFixed(2);
                     _recalculateTotalAllocated();
                   } else {
-                    // Clear all bill rows
                     for (final bill in vendorBills) {
                       _getBillController(bill.id).text = '';
                     }
@@ -1864,10 +2549,15 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 setState(() {
                   _payFullAmount = !_payFullAmount;
                   if (_payFullAmount) {
+                    final totalDue = vendorBills.fold(
+                      0.0,
+                      (sum, bill) => sum + _getBillBalance(bill),
+                    );
                     for (final bill in vendorBills) {
-                      _getBillController(bill.id).text = bill.total
+                      _getBillController(bill.id).text = _getBillBalance(bill)
                           .toStringAsFixed(2);
                     }
+                    _paymentAmountController.text = totalDue.toStringAsFixed(2);
                     _recalculateTotalAllocated();
                   } else {
                     for (final bill in vendorBills) {
@@ -1881,7 +2571,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 builder: (ctx) {
                   final totalDue = vendorBills.fold(
                     0.0,
-                    (sum, b) => sum + b.total,
+                    (sum, b) => sum + _getBillBalance(b),
                   );
                   final fmt = NumberFormat('#,##,##0.00', 'en_IN');
                   final amtStr = totalDue > 0
@@ -1903,14 +2593,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       const SizedBox(height: 8),
 
       // Row 5 — Integrations Banner
-      if (_showIntegrationsBanner) ...[
-        _buildFormRow(
-          label: '',
-          maxWidth: 650,
-          child: _buildIntegrationsBanner(),
-        ),
-        const SizedBox(height: 8),
-      ],
 
       // Row 6 â€” Payment Date
       _buildFormRow(
@@ -1985,6 +2667,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         fontWeight: isSelected
                             ? FontWeight.w500
                             : FontWeight.normal,
+                        
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2034,6 +2717,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textSecondary,
+                    
                   ),
                 ),
               );
@@ -2067,6 +2751,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         fontWeight: isSelected
                             ? FontWeight.w500
                             : FontWeight.normal,
+                        
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2097,46 +2782,39 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       ),
       const SizedBox(height: 12),
 
-      if (widget.paymentId == null) ...[
-        Align(
-          alignment: Alignment.centerRight,
-          child: Padding(
-            padding: const EdgeInsets.only(right: 24),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  for (final controller in _billPaymentControllers.values) {
-                    controller.text = '';
-                  }
-                });
-                _recalculateTotalAllocated();
-              },
-              child: const Text(
-                'Clear Applied Amount',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.primaryBlue,
-                  fontWeight: FontWeight.w500,
-                ),
+      Align(
+        alignment: Alignment.centerRight,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 24),
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                for (final controller in _billPaymentControllers.values) {
+                  controller.text = '';
+                }
+              });
+              _recalculateTotalAllocated();
+            },
+            child: const Text(
+              'Clear Applied Amount',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.primaryBlue,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
         ),
-
-        // Bills Table
-        _buildBillsTable(),
-        const SizedBox(height: 16),
-        _buildTotalRow(),
-        const SizedBox(height: 16),
-        const Divider(height: 1, color: AppTheme.borderColor),
-        const SizedBox(height: 24),
-        Align(
-          alignment: Alignment.centerRight,
-          child: _buildPeachSummaryCard(),
-        ),
-        const SizedBox(height: 24),
-      ],
-      _buildNotesSection(),
+      ),
+      _buildBillsTable(),
+      const SizedBox(height: 16),
+      _buildTotalRow(),
+      const SizedBox(height: 16),
+      const Divider(height: 1, color: AppTheme.borderColor),
+      const SizedBox(height: 24),
+      Align(alignment: Alignment.centerRight, child: _buildPeachSummaryCard()),
+      const SizedBox(height: 24),
+      _buildNotesSection(isEditMode: _isEditMode),
       const SizedBox(height: 24),
       _buildAttachmentsSection(),
     ];
@@ -2157,18 +2835,23 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
           children: [
             SizedBox(
               width: 220,
-              child: FormDropdown<String>(
-                value: _paymentTransactionSeries,
-                items: const [
-                  'Default Transaction Series',
-                  'Custom Transaction Series',
-                ],
-                onChanged: (val) {
-                  if (val == null) return;
-                  setState(() => _paymentTransactionSeries = val);
+              child: TransactionSeriesDropdown(
+                series: _paymentTransactionSeriesOptions,
+                selectedIds: _paymentTransactionSeriesId == null
+                    ? const []
+                    : [_paymentTransactionSeriesId!],
+                multiSelect: false,
+                includeDefaultOption: false,
+                placeholder: 'Select payment series',
+                accentColor: AppTheme.primaryBlue,
+                showAddOption: false,
+                onChanged: (ids) {
+                  setState(() {
+                    _paymentTransactionSeriesId =
+                        ids.isNotEmpty ? ids.first : null;
+                  });
                 },
-                height: 36,
-                showSearch: false,
+                onAddTap: _handleAddTransactionSeries,
               ),
             ),
             const SizedBox(width: 12),
@@ -2217,7 +2900,11 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             const SizedBox(height: 4),
             const Text(
               'Will be displayed on the Payment Voucher',
-              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+              style: TextStyle(
+                fontSize: 11,
+                color: AppTheme.textSecondary,
+                
+              ),
             ),
           ],
         ),
@@ -2248,6 +2935,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.textSecondary,
+                  
                 ),
               ),
             ),
@@ -2275,21 +2963,16 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
           label: '',
           child: const Text(
             'Unused Amount: ₹10,000.00*',
-            style: TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFFDC2626),
+            ),
           ),
         ),
       ],
       const SizedBox(height: 8),
 
       // Row 8 â€” Integrations Banner
-      if (_showIntegrationsBanner) ...[
-        _buildFormRow(
-          label: '',
-          maxWidth: 650,
-          child: _buildIntegrationsBanner(),
-        ),
-        const SizedBox(height: 8),
-      ],
 
       // Row 9 â€” Reverse Charge Checkbox
       _buildFormRow(
@@ -2308,7 +2991,11 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             ),
             const Text(
               'This transaction is applicable for reverse charge',
-              style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+              style: TextStyle(
+                fontSize: 13,
+                color: AppTheme.textPrimary,
+                
+              ),
             ),
           ],
         ),
@@ -2346,6 +3033,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.textSecondary,
+                      
                     ),
                   ),
                 );
@@ -2373,6 +3061,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontWeight: isSelected
                               ? FontWeight.w500
                               : FontWeight.normal,
+                          
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -2399,12 +3088,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         label: 'Transfer To',
         required: false,
         child: FormDropdown<PaidThroughItem>(
-          value: paidThroughOptions.isNotEmpty
-              ? paidThroughOptions.firstWhere(
-                  (e) => e.id == _transferToAccountId,
-                  orElse: () => paidThroughOptions.first,
-                )
-              : null,
+          value: paidThroughOptions.isNotEmpty ? paidThroughOptions.firstWhere((e) => e.id == _transferToAccountId, orElse: () => paidThroughOptions.first) : null,
           items: paidThroughOptions,
           onChanged: (val) {
             if (val != null) {
@@ -2428,12 +3112,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
           controller: _paymentReferenceController,
           height: 36,
         ),
-      ),
-      const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'erhj',
-        required: true,
-        child: CustomTextField(controller: _erhjController, height: 36),
       ),
       const SizedBox(height: 24),
 
@@ -2527,6 +3205,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         fontWeight: isSelected
                             ? FontWeight.w500
                             : FontWeight.normal,
+                        
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2576,6 +3255,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textSecondary,
+                    
                   ),
                 ),
               );
@@ -2609,6 +3289,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         fontWeight: isSelected
                             ? FontWeight.w500
                             : FontWeight.normal,
+                        
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2658,6 +3339,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textSecondary,
+                    
                   ),
                 ),
               );
@@ -2691,6 +3373,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         fontWeight: isSelected
                             ? FontWeight.w500
                             : FontWeight.normal,
+                        
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2727,63 +3410,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     ];
   }
 
-  Widget _buildIntegrationsBanner() {
-    return Container(
-      margin: const EdgeInsets.only(top: 8, bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        border: Border.all(color: const Color(0xFFFDE68A)),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const Icon(
-            LucideIcons.alertTriangle,
-            color: Color(0xFFD97706),
-            size: 16,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: RichText(
-              text: const TextSpan(
-                style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
-                children: [
-                  TextSpan(
-                    text:
-                        'Initiate payments for your bills directly from Zoho Inventory by integrating with one of our partner banks. ',
-                  ),
-                  TextSpan(
-                    text: 'Set Up Now',
-                    style: TextStyle(
-                      color: AppTheme.primaryBlue,
-                      fontWeight: FontWeight.w600,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _showIntegrationsBanner = false;
-              });
-            },
-            child: const Icon(
-              LucideIcons.x,
-              size: 14,
-              color: Color(0xFF92400E),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildFormRow({
     required String label,
     required Widget child,
@@ -2810,7 +3436,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: labelColor,
-
+                  
                   decoration: label == 'Description of Supply'
                       ? TextDecoration.underline
                       : null,
@@ -2859,14 +3485,11 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   }
 
   void _recalculateTotalAllocated() {
-    double total = 0.0;
-    for (final controller in _billPaymentControllers.values) {
-      final text = controller.text.trim();
-      if (text.isNotEmpty) {
-        total += double.tryParse(text) ?? 0.0;
-      }
-    }
-    _paymentAmountController.text = total > 0.0 ? total.toStringAsFixed(2) : '';
+    if (!mounted) return;
+    setState(() {
+      // Bill-row edits should refresh dependent UI, but must not overwrite
+      // the user-entered Payment Made amount.
+    });
   }
 
   Widget _buildBillRow(PurchasesBill bill) {
@@ -2880,16 +3503,32 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             children: [
               // Date
               Expanded(
-                flex: 2,
+                flex: 3,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 8, 12, 8),
                   child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      bill.billDate != null
-                          ? DateFormat('dd-MM-yyyy').format(bill.billDate!)
-                          : '',
-                      style: AppTheme.tableCell,
+                    alignment: Alignment.topLeft,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          bill.billDate != null
+                              ? DateFormat('dd-MM-yyyy').format(bill.billDate!)
+                              : '',
+                          style: AppTheme.tableCell,
+                        ),
+                        if (bill.dueDate != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Due Date: ${DateFormat('dd-MM-yyyy').format(bill.dueDate!)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
@@ -2904,7 +3543,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     vertical: 8,
                   ),
                   child: Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: Alignment.topLeft,
                     child: Text(
                       bill.billNumber ?? '',
                       style: AppTheme.tableCell,
@@ -2922,7 +3561,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     vertical: 8,
                   ),
                   child: Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: Alignment.topLeft,
                     child: Text(
                       bill.orderNumber ?? '',
                       style: AppTheme.tableCell,
@@ -2940,7 +3579,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     vertical: 8,
                   ),
                   child: Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: Alignment.topLeft,
                     child: Text(
                       bill.warehouseName ?? '',
                       style: AppTheme.tableCell,
@@ -2958,7 +3597,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     vertical: 8,
                   ),
                   child: Align(
-                    alignment: Alignment.centerRight,
+                    alignment: Alignment.topRight,
                     child: Text(
                       bill.total.toStringAsFixed(2),
                       style: AppTheme.tableCell,
@@ -2976,9 +3615,9 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                     vertical: 8,
                   ),
                   child: Align(
-                    alignment: Alignment.centerRight,
+                    alignment: Alignment.topRight,
                     child: Text(
-                      bill.total.toStringAsFixed(2),
+                      _getDynamicAmountDue(bill).toStringAsFixed(2),
                       style: AppTheme.tableCell,
                     ),
                   ),
@@ -2995,55 +3634,68 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   ),
                   child: Align(
                     alignment: Alignment.topLeft,
-                    child: GestureDetector(
-                      onTap: () async {
-                        final parsed =
-                            DateFormat(
-                              'dd-MM-yyyy',
-                            ).tryParse(paymentDateText) ??
-                            DateTime.now();
-                        final picked = await ZerpaiDatePicker.show(
-                          context,
-                          initialDate: parsed,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2030),
-                          targetKey: _getBillDateKey(bill.id),
-                        );
-                        if (picked != null) {
-                          setState(() {
-                            _billPaymentDates[bill.id] = DateFormat(
-                              'dd-MM-yyyy',
-                            ).format(picked);
-                          });
-                        }
-                      },
-                      child: Container(
-                        key: _getBillDateKey(bill.id),
-                        height: 32,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppTheme.borderColor),
-                          borderRadius: BorderRadius.circular(4),
-                          color: Colors.white,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                paymentDateText,
-                                style: const TextStyle(
-                                  fontSize: 13,
-
-                                  color: AppTheme.textPrimary,
+                    child: MouseRegion(
+                      onEnter: (_) => setState(() {
+                        _hoveredBillDateIds.add(bill.id);
+                      }),
+                      onExit: (_) => setState(() {
+                        _hoveredBillDateIds.remove(bill.id);
+                      }),
+                      child: GestureDetector(
+                        onTap: () async {
+                          final parsed =
+                              DateFormat(
+                                'dd-MM-yyyy',
+                              ).tryParse(paymentDateText) ??
+                              DateTime.now();
+                          final picked = await ZerpaiDatePicker.show(
+                            context,
+                            initialDate: parsed,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2030),
+                            targetKey: _getBillDateKey(bill.id),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _billPaymentDates[bill.id] = DateFormat(
+                                'dd-MM-yyyy',
+                              ).format(picked);
+                            });
+                          }
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 120),
+                          key: _getBillDateKey(bill.id),
+                          height: 32,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: _hoveredBillDateIds.contains(bill.id)
+                                  ? AppTheme.infoBlue
+                                  : AppTheme.borderColor,
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.white,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  paymentDateText,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    
+                                    color: AppTheme.textPrimary,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const Icon(
-                              LucideIcons.calendar,
-                              size: 14,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ],
+                              const Icon(
+                                LucideIcons.calendar,
+                                size: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -3068,12 +3720,14 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                             controller: billAmtController,
                             height: 32,
                             textAlign: TextAlign.right,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
+                            keyboardType:
+                                const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
                             textStyle: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
+                              
                             ),
                             hintText: '0.00',
                           ),
@@ -3082,25 +3736,17 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         GestureDetector(
                           onTap: () {
                             setState(() {
-                              billAmtController.text = bill.total
+                              billAmtController.text = _getBillBalance(bill)
                                   .toStringAsFixed(2);
                               _recalculateTotalAllocated();
                             });
                           },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 2,
                               vertical: 3,
                             ),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: AppTheme.primaryBlue.withValues(
-                                  alpha: 0.5,
-                                ),
-                              ),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: const Text(
+                            child: Text(
                               'Pay in Full',
                               style: TextStyle(
                                 fontSize: 11,
@@ -3129,6 +3775,15 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         .where((b) => b.vendorId == _selectedVendor?.id)
         .toList();
 
+    if (_selectedVendor != null &&
+        _loadedPriorAllocationsVendorId != _selectedVendor!.id) {
+      _loadedPriorAllocationsVendorId = _selectedVendor!.id;
+      final ids = vendorBills.map((b) => b.id).toList();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchPriorBillAllocations(ids);
+      });
+    }
+
     return Container(
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
@@ -3143,7 +3798,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
               child: Row(
                 children: [
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(24, 12, 12, 12),
                       child: Text(
@@ -3152,6 +3807,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
+                          
                         ),
                       ),
                     ),
@@ -3170,6 +3826,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
+                          
                         ),
                       ),
                     ),
@@ -3188,6 +3845,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
+                          
                         ),
                       ),
                     ),
@@ -3206,6 +3864,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
+                          
                         ),
                       ),
                     ),
@@ -3224,6 +3883,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
+                          
                         ),
                       ),
                     ),
@@ -3242,6 +3902,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
+                          
                         ),
                       ),
                     ),
@@ -3264,14 +3925,14 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 color: Colors.grey.shade600,
+                                
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 4),
                           const ZTooltip(
-                            message:
-                                'The most recent of the Bill Date or Payment Date will be set here.',
+                            message: 'The most recent of the Bill Date or Payment Date will be set here.',
                             direction: ZTooltipDirection.top,
                           ),
                         ],
@@ -3289,6 +3950,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           color: Colors.grey.shade600,
+                          
                         ),
                       ),
                     ),
@@ -3317,6 +3979,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.textPrimary,
+                  
                 ),
               ),
             )
@@ -3337,6 +4000,17 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     return val.toStringAsFixed(2);
   }
 
+  double _getAllocatedPaymentAmount() {
+    double total = 0.0;
+    for (final controller in _billPaymentControllers.values) {
+      final text = controller.text.trim();
+      if (text.isNotEmpty) {
+        total += double.tryParse(text) ?? 0.0;
+      }
+    }
+    return total;
+  }
+
   Widget _buildTotalRow() {
     final amtVal = _getPaymentAmount();
     return Padding(
@@ -3350,6 +4024,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
               fontSize: 13,
               fontWeight: FontWeight.w500,
               color: AppTheme.textPrimary,
+              
             ),
           ),
           const SizedBox(width: 48),
@@ -3359,6 +4034,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppTheme.textPrimary,
+              
             ),
           ),
         ],
@@ -3368,9 +4044,11 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
 
   Widget _buildPeachSummaryCard() {
     final amt = _getPaymentAmount();
+    final amountUsed = _getAllocatedPaymentAmount();
+    final amountInExcess = amt - amountUsed;
     return Container(
-      width: 340,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      width: 400,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: BoxDecoration(
         color: const Color(0xFFFFFBEB),
         border: Border.all(color: const Color(0xFFFDE68A)),
@@ -3380,11 +4058,14 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildSummaryRow('Amount Paid:', _formatAmount(amt)),
-          const SizedBox(height: 8),
-          _buildSummaryRow('Amount used for Payments:', '0.00'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+          _buildSummaryRow(
+            'Amount used for Payments:',
+            _formatAmount(amountUsed),
+          ),
+          const SizedBox(height: 10),
           _buildSummaryRow('Amount Refunded:', '0.00'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           _buildSummaryRow(
             'Amount in Excess:',
             '₹ ${_formatAmount(amt)}',
@@ -3396,6 +4077,9 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   }
 
   Widget _buildSummaryRow(String label, String value, {bool isExcess = false}) {
+    final displayValue = isExcess
+        ? '₹ ${_formatAmount(_getPaymentAmount() - _getAllocatedPaymentAmount())}'
+        : value;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -3406,10 +4090,32 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
               SizedBox(
                 width: 18,
                 child: isExcess
-                    ? const Icon(
-                        Icons.warning_amber_rounded,
-                        size: 14,
-                        color: Color(0xFFD97706),
+                    ? SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: const [
+                            CustomPaint(
+                              size: Size(14, 14),
+                              painter: _FilledTrianglePainter(
+                                color: Color(0xFFF59E0B),
+                              ),
+                            ),
+                            Positioned(
+                              top: 4,
+                              child: Text(
+                                '!',
+                                style: TextStyle(
+                                  fontSize: 7,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       )
                     : null,
               ),
@@ -3418,22 +4124,24 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   label,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF92400E),
+                    
                   ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
         Text(
-          value,
+          displayValue,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: isExcess ? FontWeight.w600 : FontWeight.w500,
             color: const Color(0xFF92400E),
+            
           ),
         ),
       ],
@@ -3445,7 +4153,9 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          isEditMode ? 'Notes (Internal use. Not visible to vendor)' : 'Notes',
+          isEditMode
+              ? 'Notes (Internal use. Not visible to vendor)'
+              : 'Notes',
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -3475,6 +4185,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: AppTheme.textPrimary,
+            
           ),
         ),
         const SizedBox(height: 8),
@@ -3518,6 +4229,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                               fontSize: 13,
                               color: Colors.grey.shade700,
                               fontWeight: FontWeight.w500,
+                              
                             ),
                           ),
                         ],
@@ -3602,12 +4314,20 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         const SizedBox(height: 4),
         const Text(
           'You can upload a maximum of 5 files, 10MB each',
-          style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+          style: TextStyle(
+            fontSize: 11,
+            color: Color(0xFF6B7280),
+            
+          ),
         ),
         const SizedBox(height: 32),
         RichText(
           text: const TextSpan(
-            style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF6B7280),
+              
+            ),
             children: [
               TextSpan(
                 text: 'Additional Fields: ',
@@ -3690,30 +4410,18 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         .entries
                         .map(
                           (e) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(color: AppTheme.borderColor),
-                              ),
+                              border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
                             ),
                             child: Row(
                               children: [
-                                const Icon(
-                                  LucideIcons.file,
-                                  size: 16,
-                                  color: AppTheme.textSecondary,
-                                ),
+                                const Icon(LucideIcons.file, size: 16, color: AppTheme.textSecondary),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     e.value.name,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.textPrimary,
-                                    ),
+                                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -3728,11 +4436,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                       _fileBadgeOverlayEntry?.markNeedsBuild();
                                     }
                                   },
-                                  child: const Icon(
-                                    LucideIcons.trash2,
-                                    size: 16,
-                                    color: Colors.red,
-                                  ),
+                                  child: const Icon(LucideIcons.trash2, size: 16, color: Colors.red),
                                 ),
                               ],
                             ),
@@ -3869,7 +4573,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
 
     try {
       final paidThroughRef = _paymentPaidFrom!.id ?? _paymentPaidFrom!.label;
-      final depositToRef = _depositTo?.id ?? _depositTo?.label;
 
       final List<Map<String, dynamic>> allocations = [];
       final billsState = ref.read(billsProvider);
@@ -3907,6 +4610,16 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         0.0,
         double.infinity,
       );
+
+      if (excess > 0) {
+        final selectedDepositTo = await _showExcessPaymentDialog(excess);
+        if (selectedDepositTo == null) {
+          return;
+        }
+        _depositTo = selectedDepositTo;
+      }
+
+      final depositToRef = _depositTo?.id ?? _depositTo?.label;
 
       String orgId = '';
       try {
@@ -3994,6 +4707,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         entityId: '',
         vendorId: _selectedVendor!.id,
         paymentType: _isBillPayment ? 'RECORD_PAYMENT' : 'VENDOR_ADVANCE',
+        transactionSeriesId: _paymentTransactionSeriesId,
         paymentNumber: _paymentNumberController.text.trim(),
         paymentDate: _paymentDateVal,
         paymentAmount: paymentAmount,
@@ -4043,7 +4757,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   }
 
   Widget _buildBottomActionsBar(BuildContext context) {
-    final bool useEditFooter = _isEditMode && !_isBillPayment;
+    final bool useEditFooter = _isEditMode;
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFFF9FAFB),
@@ -4137,6 +4851,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppTheme.textBody,
+                
               ),
             ),
           ),
@@ -4207,6 +4922,7 @@ class _UploadDropdownMenuState extends State<_UploadDropdownMenu> {
               fontSize: 13,
               fontWeight: FontWeight.normal,
               color: isHovered ? Colors.white : AppTheme.textPrimary,
+              
             ),
           ),
         ),
@@ -4317,17 +5033,15 @@ class _ConfigurePaymentModeDialogState
     if (widget.entityId.isNotEmpty) {
       try {
         final supabase = Supabase.instance.client;
-
+        
         final currentRows = await supabase
             .from('payment_made_payment_mode')
             .select('id, name, is_default')
             .eq('entity_id', widget.entityId);
-
-        final currentModes = List<Map<String, dynamic>>.from(
-          currentRows as List,
-        );
+            
+        final currentModes = List<Map<String, dynamic>>.from(currentRows as List);
         final Map<String, Map<String, dynamic>> dbModesMap = {
-          for (var item in currentModes) item['name'] as String: item,
+          for (var item in currentModes) item['name'] as String: item
         };
 
         final Set<String> newNamesSet = values.toSet();
@@ -4355,12 +5069,14 @@ class _ConfigurePaymentModeDialogState
                 })
                 .eq('id', existing['id']);
           } else {
-            await supabase.from('payment_made_payment_mode').insert({
-              'entity_id': widget.entityId,
-              'name': name,
-              'is_default': isDef,
-              'is_deleted': false,
-            });
+            await supabase
+                .from('payment_made_payment_mode')
+                .insert({
+                  'entity_id': widget.entityId,
+                  'name': name,
+                  'is_default': isDef,
+                  'is_deleted': false,
+                });
           }
         }
       } catch (e) {
@@ -4407,6 +5123,7 @@ class _ConfigurePaymentModeDialogState
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF1F2937),
+                          
                         ),
                       ),
                     ),
@@ -4475,6 +5192,7 @@ class _ConfigurePaymentModeDialogState
                                         fontSize: 10,
                                         fontWeight: FontWeight.w600,
                                         color: Colors.white,
+                                        
                                       ),
                                     ),
                                   ),
@@ -4488,6 +5206,7 @@ class _ConfigurePaymentModeDialogState
                                         fontSize: 12,
                                         fontWeight: FontWeight.w400,
                                         color: Color(0xFF6B7280),
+                                        
                                       ),
                                     ),
                                   ),
@@ -4517,6 +5236,7 @@ class _ConfigurePaymentModeDialogState
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                               color: AppTheme.primaryBlue,
+                              
                             ),
                           ),
                         ),
@@ -4553,6 +5273,7 @@ class _ConfigurePaymentModeDialogState
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
+                          
                         ),
                       ),
                     ),
@@ -4576,6 +5297,7 @@ class _ConfigurePaymentModeDialogState
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
+                          
                         ),
                       ),
                     ),
@@ -4587,6 +5309,33 @@ class _ConfigurePaymentModeDialogState
         ),
       ),
     );
+  }
+}
+
+class _FilledTrianglePainter extends CustomPainter {
+  final Color color;
+
+  const _FilledTrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    final path = Path()
+      ..moveTo(size.width / 2, 1)
+      ..lineTo(size.width - 1, size.height - 1.5)
+      ..lineTo(1, size.height - 1.5)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FilledTrianglePainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 
@@ -4634,3 +5383,4 @@ class VendorSideTag extends StatelessWidget {
     );
   }
 }
+

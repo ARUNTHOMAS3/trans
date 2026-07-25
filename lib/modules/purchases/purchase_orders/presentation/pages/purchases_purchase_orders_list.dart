@@ -9,6 +9,7 @@ import '../../../../../../shared/widgets/z_button.dart';
 import '../../../../../../shared/widgets/zerpai_layout.dart';
 import '../../../../../../shared/widgets/tables/table_header_menu.dart';
 import '../../../../../../shared/widgets/tables/table_more_menu.dart';
+import '../../../../../../shared/widgets/tables/zerpai_pagination_widget.dart';
 import '../../../../../../shared/widgets/skeleton.dart';
 import '../../providers/purchases_purchase_orders_provider.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
@@ -94,6 +95,8 @@ class _PurchaseOrderOverviewScreenState
   bool _shouldWrapText = false;
   FavoriteFilterOption _activeOption = _poFilterOptions.first;
   Map<String, double>? _customColumnWidths;
+  int _currentPage = 1;
+  int _pageSize = 30;
   bool _showPdfView = false;
   bool _showCommentsSidebar = false;
   final LayerLink _attachmentBadgeLink = LayerLink();
@@ -1976,6 +1979,13 @@ class _PurchaseOrderOverviewScreenState
   }
 
   Widget _buildTableView(List<PurchaseOrder> orders) {
+    final totalItems = orders.length;
+    final totalPages = totalItems == 0 ? 1 : (totalItems / _pageSize).ceil();
+    final clampedPage = _currentPage.clamp(1, totalPages);
+    final startIndex = (clampedPage - 1) * _pageSize;
+    final paginatedOrders =
+        orders.skip(startIndex).take(_pageSize).toList();
+
     if (orders.isEmpty) {
       return _buildEmptyState();
     }
@@ -1996,32 +2006,54 @@ class _PurchaseOrderOverviewScreenState
           totalColumnsWidth + actualPrefixWidth + 40,
         );
 
-        return Scrollbar(
-          controller: _horizontalScrollController,
-          thumbVisibility: screenWidth > constraints.maxWidth,
-          child: SingleChildScrollView(
-            controller: _horizontalScrollController,
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: screenWidth,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildTableHeader(columnWidths, orders),
-                  Expanded(
-                    child: ListView.builder(
-                      padding: EdgeInsets.zero,
-                      itemCount: orders.length,
-                      itemExtent: 40, // High density Zoho style
-                      itemBuilder: (context, index) {
-                        return _buildVirtualRow(orders[index], columnWidths);
-                      },
+        return Column(
+          children: [
+            Expanded(
+              child: Scrollbar(
+                controller: _horizontalScrollController,
+                thumbVisibility: screenWidth > constraints.maxWidth,
+                child: SingleChildScrollView(
+                  controller: _horizontalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: screenWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildTableHeader(columnWidths, orders),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: EdgeInsets.zero,
+                            itemCount: paginatedOrders.length,
+                            itemExtent: 40, // High density Zoho style
+                            itemBuilder: (context, index) {
+                              return _buildVirtualRow(paginatedOrders[index], columnWidths);
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
+            ZerpaiPaginationWidget(
+              totalItems: totalItems,
+              currentPage: clampedPage,
+              pageSize: _pageSize,
+              onPageChanged: (page) {
+                setState(() {
+                  _currentPage = page;
+                });
+              },
+              onPageSizeChanged: (size) {
+                setState(() {
+                  _pageSize = size;
+                  _currentPage = 1;
+                });
+              },
+            ),
+          ],
         );
       },
     );
@@ -2087,36 +2119,67 @@ class _PurchaseOrderOverviewScreenState
         color: AppTheme.bgLight,
         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
         children: [
-          const SizedBox(width: 8),
-          ZTableHeaderMenu(
-            wrapText: _shouldWrapText,
-            onWrapChange: (v) => setState(() => _shouldWrapText = v),
-            onCustomize: _showCustomizeColumnsDialog,
-          ),
-          const SizedBox(width: 12),
-          _buildSelectAllCheckbox(orders),
-          const SizedBox(width: 12),
-          ..._visibleColumns.map((colId) {
-            final width = columnWidths[colId]!;
-            final align = (colId == 'received' || colId == 'billed')
-                ? TextAlign.center
-                : TextAlign.left;
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(width: 78.0),
+              ..._visibleColumns.map((colId) {
+                final width = columnWidths[colId]!;
+                final align = (colId == 'received' || colId == 'billed')
+                    ? TextAlign.center
+                    : TextAlign.left;
 
-            return _ResizableHeaderCell(
-              width: width,
-              onResize: (dx) => _resizeColumn(colId, dx),
-              child: _buildHeaderCell(
-                _columnLabels[colId] ??
-                    colId.toUpperCase().replaceAll('_', ' '),
-                colId,
-                width: width,
-                align: align,
+                return _ResizableHeaderCell(
+                  width: width,
+                  onResize: (dx) => _resizeColumn(colId, dx),
+                  child: _buildHeaderCell(
+                    _columnLabels[colId] ??
+                        colId.toUpperCase().replaceAll('_', ' '),
+                    colId,
+                    width: width,
+                    align: align,
+                  ),
+                );
+              }),
+            ],
+          ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: AnimatedBuilder(
+              animation: _horizontalScrollController,
+              builder: (context, child) {
+                final offset = _horizontalScrollController.hasClients
+                    ? _horizontalScrollController.offset
+                    : 0.0;
+                return Transform.translate(
+                  offset: Offset(offset, 0),
+                  child: child,
+                );
+              },
+              child: Container(
+                color: AppTheme.bgLight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(width: 8),
+                    ZTableHeaderMenu(
+                      wrapText: _shouldWrapText,
+                      onWrapChange: (v) => setState(() => _shouldWrapText = v),
+                      onCustomize: _showCustomizeColumnsDialog,
+                    ),
+                    const SizedBox(width: 12),
+                    _buildSelectAllCheckbox(orders),
+                    const SizedBox(width: 12),
+                  ],
+                ),
               ),
-            );
-          }),
+            ),
+          ),
         ],
       ),
     );
@@ -2178,6 +2241,7 @@ class _PurchaseOrderOverviewScreenState
     final isSorted = sortField != null && _sortField == sortField;
     return SizedBox(
       width: width,
+      height: double.infinity,
       child: InkWell(
         onTap: sortField != null ? () => _onHeaderCellTap(colId) : null,
         child: Padding(
@@ -2244,37 +2308,67 @@ class _PurchaseOrderOverviewScreenState
     Map<String, double> columnWidths,
   ) {
     final isSelected = _selectedIds.contains(order.id);
+    final rowBgColor = isSelected ? const Color(0xFFF0F7FF) : Colors.white;
 
     return InkWell(
       onTap: () => context.go('/purchases/purchase-orders/${order.id}'),
       child: Container(
         height: 40,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFF0F7FF) : Colors.transparent,
-          border: const Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppTheme.bgDisabled)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            const SizedBox(width: 8),
-            const SizedBox(width: 28), // Slider placeholder
-            const SizedBox(width: 12),
-            _buildCheckboxWidget(
-              isSelected,
-              onTap: () {
-                setState(() {
-                  if (isSelected) {
-                    _selectedIds.remove(order.id);
-                  } else {
-                    if (order.id != null) _selectedIds.add(order.id!);
-                  }
-                });
-              },
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 78.0),
+                ..._visibleColumns.map((colId) {
+                  return _buildCell(order, colId, width: columnWidths[colId]!);
+                }),
+              ],
             ),
-            const SizedBox(width: 12),
-            ..._visibleColumns.map((colId) {
-              return _buildCell(order, colId, width: columnWidths[colId]!);
-            }),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: AnimatedBuilder(
+                animation: _horizontalScrollController,
+                builder: (context, child) {
+                  final offset = _horizontalScrollController.hasClients
+                      ? _horizontalScrollController.offset
+                      : 0.0;
+                  return Transform.translate(
+                    offset: Offset(offset, 0),
+                    child: child,
+                  );
+                },
+                child: Container(
+                  color: rowBgColor,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 8),
+                      const SizedBox(width: 28), // Slider placeholder
+                      const SizedBox(width: 12),
+                      _buildCheckboxWidget(
+                        isSelected,
+                        onTap: () {
+                          setState(() {
+                            if (isSelected) {
+                              _selectedIds.remove(order.id);
+                            } else {
+                              if (order.id != null) _selectedIds.add(order.id!);
+                            }
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
