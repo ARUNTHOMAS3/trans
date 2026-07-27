@@ -7,6 +7,7 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
@@ -521,6 +522,29 @@ class _ReportingTagCreatePageState
     }
   }
 
+  Future<void> _deleteRow(int index) async {
+    final row = _rows[index];
+    if (row.id == null || row.id!.isEmpty) return;
+    final confirmed = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Delete Reporting Tag',
+      message: 'This reporting tag will be deactivated.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      variant: ZerpaiConfirmationVariant.danger,
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await _apiClient.delete(
+        'settings-customization/reporting-tags/${row.id}',
+      );
+      await _loadReportingTags();
+      if (mounted) ZerpaiToast.success(context, 'Reporting tag deleted');
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to delete reporting tag');
+    }
+  }
+
   void _openRowDetails(int index) {
     setState(() => _selectedRowIndex = index);
   }
@@ -904,6 +928,7 @@ class _ReportingTagCreatePageState
                                             _openRowDetails(index),
                                         onToggleInactive: () =>
                                             _toggleRowInactive(index),
+                                        onDelete: () => _deleteRow(index),
                                       ),
                                       const Divider(
                                         height: 1,
@@ -2470,12 +2495,14 @@ class _ReportingTagDataRow extends StatefulWidget {
     required this.onEdit,
     required this.onOpenDetails,
     required this.onToggleInactive,
+    required this.onDelete,
   });
 
   final _ReportingTagRow row;
   final VoidCallback onEdit;
   final VoidCallback onOpenDetails;
   final VoidCallback onToggleInactive;
+  final VoidCallback onDelete;
 
   @override
   State<_ReportingTagDataRow> createState() => _ReportingTagDataRowState();
@@ -2641,10 +2668,7 @@ class _ReportingTagDataRowState extends State<_ReportingTagDataRow> {
                             label: 'Delete',
                             onPressed: () {
                               _menuController.close();
-                              ZerpaiToast.info(
-                                context,
-                                'Delete is not available yet',
-                              );
+                              widget.onDelete();
                             },
                           ),
                         ],

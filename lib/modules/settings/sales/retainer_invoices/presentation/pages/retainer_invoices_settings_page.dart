@@ -10,6 +10,7 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 enum RetainerInvoicesSettingsTab {
   preferences,
@@ -38,6 +39,8 @@ class RetainerInvoicesSettingsPage extends ConsumerStatefulWidget {
 
 class _RetainerInvoicesSettingsPageState
     extends ConsumerState<RetainerInvoicesSettingsPage> {
+  final SettingsPreferencesRepository _preferencesRepository =
+      SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _termsController = TextEditingController();
@@ -51,6 +54,49 @@ class _RetainerInvoicesSettingsPageState
   void initState() {
     super.initState();
     _activeTab = widget.initialTab;
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final data = await _preferencesRepository.loadSection(
+        'pdf_preferences',
+        const ['documents', 'retainer_invoices'],
+      );
+      if (!mounted || data.isEmpty) return;
+      setState(() {
+        _termsController.text = data['terms']?.toString() ?? '';
+        _customerNotesController.text =
+            data['customer_notes']?.toString() ?? '';
+      });
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(
+          context,
+          'Failed to load retainer invoice preferences',
+        );
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    try {
+      await _preferencesRepository.saveSection(
+        'pdf_preferences',
+        {
+          'terms': _termsController.text,
+          'customer_notes': _customerNotesController.text,
+        },
+        const ['documents', 'retainer_invoices'],
+      );
+      if (mounted)
+        ZerpaiToast.success(context, 'Retainer Invoices preferences saved');
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(
+          context,
+          'Failed to save retainer invoice preferences',
+        );
+    }
   }
 
   @override
@@ -191,6 +237,7 @@ class _RetainerInvoicesSettingsPageState
                                       termsController: _termsController,
                                       customerNotesController:
                                           _customerNotesController,
+                                      onSave: _savePreferences,
                                     ),
                                   ),
                                 ),
@@ -215,10 +262,12 @@ class _RetainerInvoicesPreferencesContent extends StatelessWidget {
   const _RetainerInvoicesPreferencesContent({
     required this.termsController,
     required this.customerNotesController,
+    required this.onSave,
   });
 
   final TextEditingController termsController;
   final TextEditingController customerNotesController;
+  final Future<void> Function() onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -266,12 +315,7 @@ class _RetainerInvoicesPreferencesContent extends StatelessWidget {
         SizedBox(
           height: 36,
           child: ElevatedButton(
-            onPressed: () {
-              ZerpaiToast.success(
-                context,
-                'Retainer Invoices preferences saved',
-              );
-            },
+            onPressed: onSave,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,

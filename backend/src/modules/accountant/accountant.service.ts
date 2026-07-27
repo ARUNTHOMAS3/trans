@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 import { R2StorageService } from "./r2-storage.service";
+import { ACCOUNT_METADATA } from "./accountant-account-metadata";
 import { db } from "../../db/db";
 import {
   getVisibleAccountById,
@@ -441,25 +442,38 @@ export class AccountantService {
         settings,
         tx,
       );
+      const rawDate = dto.journal_date ?? dto.journalDate ?? new Date().toISOString();
+      const rawStatus = dto.status ?? dto.journal_status ?? "draft";
+      const normalizedStatus = this.normalizeManualJournalStatus(rawStatus);
+      const itemsList = dto.items || [];
+      const totalAmount = itemsList
+        .reduce((sum: number, i: any) => sum + (Number(i.debit) || 0), 0)
+        .toFixed(2);
+
       const [journal] = await tx
         .insert(accountsManualJournals)
         .values({
           entityId: tenant.entityId,
           journalNumber,
-          journalDate: this.normalizeDateOnly(dto.journal_date),
-          status: dto.journal_status || "draft",
-          totalAmount: "0",
+          journalDate: this.normalizeDateOnly(rawDate),
+          referenceNumber: dto.reference_number ?? dto.referenceNumber ?? null,
+          notes: dto.notes ?? null,
+          currencyCode: dto.currency_code ?? dto.currency ?? "INR",
+          is13thMonthAdjustment: Boolean(dto.is_13th_month_adjustment ?? dto.is13thMonthAdjustment),
+          reportingMethod: dto.reporting_method ?? dto.reportingMethod ?? "accrual_and_cash",
+          status: normalizedStatus,
+          totalAmount,
           createdById: tenant.userId,
         })
         .returning();
 
       const items = await this.replaceManualJournalItems(
         journal.id,
-        dto.items || [],
+        itemsList,
         tx,
         tenant,
       );
-      if (journal.status === "posted")
+      if (journal.status === "published" || journal.status === "posted" || journal.status === "POSTED")
         await this.postJournalToTransactions(journal.id, tenant, tx, {
           ...journal,
           items,
@@ -723,18 +737,104 @@ export class AccountantService {
     return data;
   }
 
+  private async replaceRecurringJournalItems(
+    recurringJournalId: string,
+    items: any[],
+    tenant: TenantContext,
+  ) {
+    await db
+      .delete(accountsRecurringJournalItems)
+      .where(eq(accountsRecurringJournalItems.recurringJournalId, recurringJournalId));
+
+    if (!items.length) return [];
+
+    return await db
+      .insert(accountsRecurringJournalItems)
+      .values(
+        items.map((x, idx) => {
+          const rawId = x.id?.toString().trim();
+          const cleanId = (rawId && rawId.length > 0) ? rawId : undefined;
+          const rawAccountId = (x.accountId ?? x.account_id)?.toString().trim();
+          const rawContactId = (x.contactId ?? x.contact_id)?.toString().trim();
+          return {
+            ...(cleanId ? { id: cleanId } : {}),
+            recurringJournalId,
+            entityId: tenant.entityId,
+            accountId: rawAccountId,
+            description: x.description || null,
+            contactId: (rawContactId && rawContactId.length > 0) ? rawContactId : null,
+            contactType: x.contactType ?? x.contact_type ?? null,
+            debit: (x.debit ?? 0).toString(),
+            credit: (x.credit ?? 0).toString(),
+            sortOrder: x.sortOrder ?? x.sort_order ?? (idx + 1),
+          };
+        }),
+      )
+      .returning();
+  }
+
   async createRecurringJournal(dto: any, tenant: TenantContext) {
+    const { items, id, ...cleanDto } = dto;
+    const rawId = id?.toString().trim();
+    const cleanId = (rawId && rawId.length > 0) ? rawId : undefined;
+
     const [j] = await db
       .insert(accountsRecurringJournals)
-      .values({ ...dto, entityId: tenant.entityId })
+      .values({
+        ...(cleanId ? { id: cleanId } : {}),
+        entityId: tenant.entityId,
+        profileName: cleanDto.profile_name ?? cleanDto.profileName,
+        repeatEvery: cleanDto.repeat_every ?? cleanDto.repeatEvery ?? "month",
+        interval: cleanDto.interval ?? 1,
+        startDate: this.normalizeDateOnly(cleanDto.start_date ?? cleanDto.startDate ?? new Date().toISOString()),
+        endDate: cleanDto.end_date ?? cleanDto.endDate ? this.normalizeDateOnly(cleanDto.end_date ?? cleanDto.endDate) : null,
+        neverExpires: Boolean(cleanDto.never_expires ?? cleanDto.neverExpires ?? true),
+        referenceNumber: cleanDto.reference_number ?? cleanDto.referenceNumber ?? null,
+        notes: cleanDto.notes ?? null,
+        currencyCode: cleanDto.currency_code ?? cleanDto.currency ?? "INR",
+        reportingMethod: cleanDto.reporting_method ?? cleanDto.reportingMethod ?? "accrual_and_cash",
+        createdById: tenant.userId,
+        status: cleanDto.status || "active",
+      })
       .returning();
-    return j;
+
+    const itemsList = items && Array.isArray(items) ? items : [];
+    const insertedItems = await this.replaceRecurringJournalItems(j.id, itemsList, tenant);
+    return { ...j, items: insertedItems };
   }
 
   async updateRecurringJournal(id: string, dto: any, tenant: TenantContext) {
+    const { items, id: _ignored, ...cleanDto } = dto;
+    const updatePayload: Record<string, any> = {};
+
+    if (cleanDto.profile_name !== undefined || cleanDto.profileName !== undefined) {
+      updatePayload.profileName = cleanDto.profile_name ?? cleanDto.profileName;
+    }
+    if (cleanDto.repeat_every !== undefined || cleanDto.repeatEvery !== undefined) {
+      updatePayload.repeatEvery = cleanDto.repeat_every ?? cleanDto.repeatEvery;
+    }
+    if (cleanDto.interval !== undefined) updatePayload.interval = cleanDto.interval;
+    if (cleanDto.start_date !== undefined || cleanDto.startDate !== undefined) {
+      const sd = cleanDto.start_date ?? cleanDto.startDate;
+      if (sd) updatePayload.startDate = this.normalizeDateOnly(sd);
+    }
+    if (cleanDto.end_date !== undefined || cleanDto.endDate !== undefined) {
+      const ed = cleanDto.end_date ?? cleanDto.endDate;
+      updatePayload.endDate = ed ? this.normalizeDateOnly(ed) : null;
+    }
+    if (cleanDto.never_expires !== undefined || cleanDto.neverExpires !== undefined) {
+      updatePayload.neverExpires = Boolean(cleanDto.never_expires ?? cleanDto.neverExpires);
+    }
+    if (cleanDto.reference_number !== undefined || cleanDto.referenceNumber !== undefined) {
+      updatePayload.referenceNumber = cleanDto.reference_number ?? cleanDto.referenceNumber ?? null;
+    }
+    if (cleanDto.notes !== undefined) updatePayload.notes = cleanDto.notes ?? null;
+    if (cleanDto.status !== undefined) updatePayload.status = cleanDto.status;
+    updatePayload.updatedAt = new Date();
+
     const [j] = await db
       .update(accountsRecurringJournals)
-      .set(dto)
+      .set(updatePayload)
       .where(
         and(
           eq(accountsRecurringJournals.id, id),
@@ -742,10 +842,16 @@ export class AccountantService {
         ),
       )
       .returning();
-    return j;
+
+    const itemsList = items && Array.isArray(items) ? items : [];
+    const updatedItems = await this.replaceRecurringJournalItems(id, itemsList, tenant);
+    return { ...j, items: updatedItems };
   }
 
   async deleteRecurringJournal(id: string, tenant: TenantContext) {
+    await db
+      .delete(accountsRecurringJournalItems)
+      .where(eq(accountsRecurringJournalItems.recurringJournalId, id));
     await db
       .delete(accountsRecurringJournals)
       .where(
@@ -915,7 +1021,15 @@ export class AccountantService {
     return data.map((x) => this.mapToDto(x));
   }
 
-  async saveOpeningBalances(dto: any) {
+  async saveOpeningBalances(dto: any, tenant?: TenantContext) {
+    return { success: true };
+  }
+
+  async getOpeningBalances(tenant: TenantContext) {
+    return { debits: {}, credits: {}, openingDate: new Date().toISOString() };
+  }
+
+  async markRecurringJournalGenerated(id: string, date: string, tenant?: TenantContext) {
     return { success: true };
   }
 
@@ -924,7 +1038,7 @@ export class AccountantService {
   }
 
   async findMetadata() {
-    return {};
+    return ACCOUNT_METADATA;
   }
 
   async findByGroup(group: string, tenant: TenantContext) {
@@ -984,11 +1098,25 @@ export class AccountantService {
     return await tx
       .insert(accountsManualJournalItems)
       .values(
-        items.map((x) => ({
-          ...x,
-          manualJournalId: journalId,
-          entityId: tenant.entityId,
-        })),
+        items.map((x, idx) => {
+          const rawId = x.id?.toString().trim();
+          const cleanId = (rawId && rawId.length > 0) ? rawId : undefined;
+          const rawAccountId = (x.accountId ?? x.account_id)?.toString().trim();
+          const rawContactId = (x.contactId ?? x.contact_id)?.toString().trim();
+          return {
+            ...(cleanId ? { id: cleanId } : {}),
+            manualJournalId: journalId,
+            entityId: tenant.entityId,
+            accountId: rawAccountId,
+            description: x.description || null,
+            contactId: (rawContactId && rawContactId.length > 0) ? rawContactId : null,
+            contactType: x.contactType ?? x.contact_type ?? null,
+            contactName: x.contactName ?? x.contact_name ?? null,
+            debit: (x.debit ?? 0).toString(),
+            credit: (x.credit ?? 0).toString(),
+            sortOrder: x.sortOrder ?? x.sort_order ?? (idx + 1),
+          };
+        }),
       )
       .returning();
   }
@@ -1006,8 +1134,10 @@ export class AccountantService {
 
   private validateManualJournalItems(items: any[]) {}
 
-  private normalizeManualJournalStatus(s: string) {
-    return s || "draft";
+  private normalizeManualJournalStatus(inputStatus: any): string {
+    const s = (inputStatus || "draft").toString().trim().toLowerCase();
+    if (s === "posted" || s === "published") return "published";
+    return "draft";
   }
 
   private normalizeManualJournalItemsInput(items: any[]) {

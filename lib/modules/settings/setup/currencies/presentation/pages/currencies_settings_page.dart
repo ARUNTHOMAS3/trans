@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -10,6 +12,7 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
@@ -20,6 +23,7 @@ import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 class _CurrencyRow {
   const _CurrencyRow({
     this.id,
+    this.exchangeRateId,
     this.code = '',
     required this.name,
     required this.symbol,
@@ -31,6 +35,7 @@ class _CurrencyRow {
   });
 
   final String? id;
+  final String? exchangeRateId;
   final String code;
   final String name;
   final String symbol;
@@ -42,6 +47,7 @@ class _CurrencyRow {
 
   _CurrencyRow copyWith({
     String? id,
+    String? exchangeRateId,
     String? code,
     String? name,
     String? symbol,
@@ -53,6 +59,7 @@ class _CurrencyRow {
   }) {
     return _CurrencyRow(
       id: id ?? this.id,
+      exchangeRateId: exchangeRateId ?? this.exchangeRateId,
       code: code ?? this.code,
       name: name ?? this.name,
       symbol: symbol ?? this.symbol,
@@ -148,29 +155,53 @@ class _CurrenciesSettingsPageState
 
   Future<void> _loadCurrencies() async {
     try {
-      final response = await _apiClient.get(
-        'settings-setup/currencies',
-        useCache: false,
-      );
-      final rows = response.data is List ? response.data as List : const [];
+      final responses = await Future.wait([
+        _apiClient.get('settings-setup/currencies', useCache: false),
+        _apiClient.get(
+          'settings-setup/currency-exchange-rates',
+          useCache: false,
+        ),
+      ]);
+      final rows = responses[0].data is List
+          ? responses[0].data as List
+          : const [];
+      final rates = responses[1].data is List
+          ? responses[1].data as List
+          : const [];
+      final latestRateByCurrency = <String, Map<String, dynamic>>{};
+      for (final row in rates.whereType<Map>()) {
+        final json = Map<String, dynamic>.from(row);
+        final currencyId = json['currency_id']?.toString();
+        if (currencyId != null &&
+            !latestRateByCurrency.containsKey(currencyId)) {
+          latestRateByCurrency[currencyId] = json;
+        }
+      }
       if (!mounted) return;
       setState(() {
         _currencyRowsState
           ..clear()
           ..addAll(
-            rows.whereType<Map>().map((row) {
-              final json = Map<String, dynamic>.from(row);
-              final code = json['code']?.toString() ?? '';
-              final name = json['name']?.toString() ?? '';
-              return _CurrencyRow(
-                id: json['id']?.toString(),
-                code: code,
-                name: code.isEmpty ? name : '$code- $name',
-                symbol: json['symbol']?.toString() ?? '',
-                decimalPlaces: json['decimals']?.toString() ?? '2',
-                format: json['format']?.toString() ?? '',
-              );
-            }),
+            rows.whereType<Map>().where((row) => row['is_active'] != false).map(
+              (row) {
+                final json = Map<String, dynamic>.from(row);
+                final code = json['code']?.toString() ?? '';
+                final name = json['name']?.toString() ?? '';
+                final id = json['id']?.toString();
+                final rate = id == null ? null : latestRateByCurrency[id];
+                return _CurrencyRow(
+                  id: id,
+                  exchangeRateId: rate?['id']?.toString(),
+                  code: code,
+                  name: code.isEmpty ? name : '$code- $name',
+                  symbol: json['symbol']?.toString() ?? '',
+                  decimalPlaces: json['decimals']?.toString() ?? '2',
+                  format: json['format']?.toString() ?? '',
+                  exchangeRate: rate?['exchange_rate']?.toString() ?? '',
+                  asOfDate: rate?['as_of_date']?.toString() ?? '',
+                );
+              },
+            ),
           );
         _syncCurrencyStore();
         _isLoading = false;
@@ -204,6 +235,127 @@ class _CurrenciesSettingsPageState
       await _apiClient.patch('settings-setup/currencies/$id', data: payload);
     }
     await _loadCurrencies();
+  }
+
+  Future<void> _saveCurrencyExchangeRate({
+    required _CurrencyRow currency,
+    required String rate,
+    required String date,
+  }) async {
+    if (currency.id == null || currency.id!.isEmpty) {
+      throw StateError('Save the currency before adding an exchange rate');
+    }
+    final payload = <String, dynamic>{
+      'currency_id': currency.id,
+      'exchange_rate': double.parse(rate),
+      'as_of_date': _toIsoDate(date),
+      'source': 'manual',
+    };
+    if (currency.exchangeRateId != null &&
+        currency.asOfDate == _toIsoDate(date)) {
+      await _apiClient.patch(
+        'settings-setup/currency-exchange-rates/${currency.exchangeRateId}',
+        data: payload,
+      );
+    } else {
+      await _apiClient.post(
+        'settings-setup/currency-exchange-rates',
+        data: payload,
+      );
+    }
+    await _loadCurrencies();
+  }
+
+  Future<void> _showExchangeRates(_CurrencyRow currency) async {
+    if (currency.id == null) return;
+    try {
+      final response = await _apiClient.get(
+        'settings-setup/currency-exchange-rates?currency_id=${currency.id}',
+        useCache: false,
+      );
+      final rates = response.data is List ? response.data as List : const [];
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 520),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: Text('${currency.code} exchange rates'),
+                  trailing: IconButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: rates.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text('No exchange rates found'),
+                        )
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: rates.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (_, index) {
+                            final rate = Map<String, dynamic>.from(
+                              rates[index] as Map,
+                            );
+                            return ListTile(
+                              title: Text(
+                                rate['exchange_rate']?.toString() ?? '',
+                              ),
+                              subtitle: Text(
+                                rate['as_of_date']?.toString() ?? '',
+                              ),
+                              trailing: Text(rate['source']?.toString() ?? ''),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to load exchange rates');
+    }
+  }
+
+  Future<void> _deactivateCurrency(_CurrencyRow currency) async {
+    if (currency.id == null) return;
+    final confirmed = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Deactivate Currency',
+      message: 'This currency will no longer appear in active currency lists.',
+      confirmLabel: 'Deactivate',
+      cancelLabel: 'Cancel',
+      variant: ZerpaiConfirmationVariant.danger,
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await _apiClient.delete('settings-setup/currencies/${currency.id}');
+      await _loadCurrencies();
+      if (mounted) ZerpaiToast.success(context, 'Currency deactivated');
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to deactivate currency');
+    }
+  }
+
+  String _toIsoDate(String value) {
+    final trimmed = value.trim();
+    final parts = trimmed.split(RegExp(r'[-/]'));
+    if (parts.length == 3 && parts[0].length <= 2) {
+      return '${parts[2].padLeft(4, '0')}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')}';
+    }
+    return trimmed;
   }
 
   void _syncCurrencyStore() {
@@ -511,7 +663,7 @@ class _CurrenciesSettingsPageState
                 dateController: dateController,
                 rateController: rateController,
                 onClose: () => Navigator.of(dialogContext).pop(),
-                onSave: () {
+                onSave: () async {
                   final String date = dateController.text.trim();
                   final String rate = rateController.text.trim();
                   if (date.isEmpty || rate.isEmpty) {
@@ -521,16 +673,25 @@ class _CurrenciesSettingsPageState
                     );
                     return;
                   }
-                  setState(() {
-                    _currencyRowsState[index] = _currencyRowsState[index]
-                        .copyWith(exchangeRate: rate, asOfDate: date);
-                    _syncCurrencyStore();
-                  });
-                  Navigator.of(dialogContext).pop();
-                  ZerpaiToast.success(
-                    context,
-                    'Exchange rate added successfully',
-                  );
+                  try {
+                    await _saveCurrencyExchangeRate(
+                      currency: _currencyRowsState[index],
+                      rate: rate,
+                      date: date,
+                    );
+                    if (!dialogContext.mounted) return;
+                    Navigator.of(dialogContext).pop();
+                    ZerpaiToast.success(
+                      context,
+                      'Exchange rate added successfully',
+                    );
+                  } catch (_) {
+                    if (!dialogContext.mounted) return;
+                    ZerpaiToast.error(
+                      dialogContext,
+                      'Failed to save exchange rate',
+                    );
+                  }
                 },
               ),
             ),
@@ -1243,6 +1404,14 @@ class _CurrenciesSettingsPageState
                                                     index,
                                                     _currencyRowsState[index],
                                                   ),
+                                              onViewRates: () =>
+                                                  _showExchangeRates(
+                                                    _currencyRowsState[index],
+                                                  ),
+                                              onDelete: () =>
+                                                  _deactivateCurrency(
+                                                    _currencyRowsState[index],
+                                                  ),
                                             ),
                                         ],
                                       ),
@@ -1723,11 +1892,15 @@ class _CurrencyTableRow extends StatefulWidget {
     required this.row,
     required this.isFeedsEnabled,
     required this.onEdit,
+    required this.onViewRates,
+    required this.onDelete,
   });
 
   final _CurrencyRow row;
   final bool isFeedsEnabled;
   final VoidCallback onEdit;
+  final VoidCallback onViewRates;
+  final VoidCallback onDelete;
 
   @override
   State<_CurrencyTableRow> createState() => _CurrencyTableRowState();
@@ -1835,12 +2008,7 @@ class _CurrencyTableRowState extends State<_CurrencyTableRow> {
                         const SizedBox(width: 8),
                         _CurrencyRowActionText(
                           label: 'view exchange rates',
-                          onTap: () {
-                            ZerpaiToast.info(
-                              context,
-                              'View exchange rates is not available yet',
-                            );
-                          },
+                          onTap: widget.onViewRates,
                         ),
                         const SizedBox(width: 8),
                         const Text(
@@ -1853,12 +2021,7 @@ class _CurrencyTableRowState extends State<_CurrencyTableRow> {
                       ],
                       const SizedBox(width: 8),
                       InkWell(
-                        onTap: () {
-                          ZerpaiToast.info(
-                            context,
-                            'Delete is not available yet',
-                          );
-                        },
+                        onTap: widget.onDelete,
                         hoverColor: Colors.transparent,
                         splashColor: Colors.transparent,
                         highlightColor: Colors.transparent,
@@ -4106,6 +4269,7 @@ class _ImportExchangeRatesPageState
 
   int _stepIndex = 0;
   String? _selectedFileName;
+  List<int>? _selectedFileBytes;
   String _characterEncoding = 'UTF-8 (Unicode)';
   String _fileDelimiter = 'Comma (,)';
   String? _currencyCodeHeader = 'Currency Code';
@@ -4160,8 +4324,8 @@ class _ImportExchangeRatesPageState
     final FilePickerResult? result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
       type: FileType.custom,
-      allowedExtensions: const <String>['csv', 'tsv', 'xls', 'xlsx'],
-      withData: false,
+      allowedExtensions: const <String>['csv', 'tsv'],
+      withData: true,
     );
 
     if (!mounted) {
@@ -4174,6 +4338,7 @@ class _ImportExchangeRatesPageState
 
     setState(() {
       _selectedFileName = result.files.single.name;
+      _selectedFileBytes = result.files.single.bytes;
     });
   }
 
@@ -4197,18 +4362,163 @@ class _ImportExchangeRatesPageState
     }
   }
 
-  void _handleImport() {
-    if (_selectedFileName == null || !_hasRequiredMappings) {
+  Future<void> _handleImport() async {
+    if (_selectedFileName == null ||
+        _selectedFileBytes == null ||
+        !_hasRequiredMappings) {
       ZerpaiToast.info(
         context,
         'Complete the import configuration before importing',
       );
       return;
     }
-    ZerpaiToast.info(
-      context,
-      'Exchange-rate import needs the exchange-rate table from the final SQL.',
-    );
+    try {
+      final delimiter = _selectedFileName!.toLowerCase().endsWith('.tsv')
+          ? '\t'
+          : ',';
+      final rows = _parseDelimitedRows(
+        utf8.decode(_selectedFileBytes!, allowMalformed: true),
+        delimiter,
+      );
+      if (rows.length < 2) {
+        throw const FormatException('No exchange-rate rows found');
+      }
+      final headers = rows.first.map((value) => value.trim()).toList();
+      final codeIndex = headers.indexOf(_currencyCodeHeader!);
+      final dateIndex = headers.indexOf(_dateHeader!);
+      final rateIndex = headers.indexOf(_exchangeRateHeader!);
+      if (codeIndex < 0 || dateIndex < 0 || rateIndex < 0) {
+        throw const FormatException('Mapped columns are missing from the file');
+      }
+
+      final responses = await Future.wait([
+        ApiClient().get('settings-setup/currencies', useCache: false),
+        ApiClient().get(
+          'settings-setup/currency-exchange-rates',
+          useCache: false,
+        ),
+      ]);
+      final currencies = responses[0].data is List
+          ? responses[0].data as List
+          : const [];
+      final rates = responses[1].data is List
+          ? responses[1].data as List
+          : const [];
+      final currencyIdByCode = <String, String>{};
+      for (final row in currencies.whereType<Map>()) {
+        final code = row['code']?.toString().trim().toUpperCase();
+        final id = row['id']?.toString();
+        if (code != null && code.isNotEmpty && id != null) {
+          currencyIdByCode[code] = id;
+        }
+      }
+      final existingRateId = <String, String>{};
+      for (final row in rates.whereType<Map>()) {
+        final currencyId = row['currency_id']?.toString();
+        final date = row['as_of_date']?.toString();
+        final id = row['id']?.toString();
+        if (currencyId != null && date != null && id != null) {
+          existingRateId['$currencyId|$date'] = id;
+        }
+      }
+
+      var imported = 0;
+      var skipped = 0;
+      for (final row in rows.skip(1)) {
+        if (row.length <= codeIndex ||
+            row.length <= dateIndex ||
+            row.length <= rateIndex) {
+          skipped++;
+          continue;
+        }
+        final currencyId =
+            currencyIdByCode[row[codeIndex].trim().toUpperCase()];
+        final rate = double.tryParse(row[rateIndex].trim());
+        final date = _normaliseImportDate(row[dateIndex].trim());
+        if (currencyId == null || rate == null || rate <= 0 || date == null) {
+          skipped++;
+          continue;
+        }
+        final payload = <String, dynamic>{
+          'currency_id': currencyId,
+          'exchange_rate': rate,
+          'as_of_date': date,
+          'source': 'import',
+        };
+        final existingId = existingRateId['$currencyId|$date'];
+        if (existingId == null) {
+          await ApiClient().post(
+            'settings-setup/currency-exchange-rates',
+            data: payload,
+          );
+        } else {
+          await ApiClient().patch(
+            'settings-setup/currency-exchange-rates/$existingId',
+            data: payload,
+          );
+        }
+        imported++;
+      }
+      if (!mounted) return;
+      setState(() => _stepIndex = 2);
+      ZerpaiToast.success(
+        context,
+        skipped == 0
+            ? '$imported exchange rates imported'
+            : '$imported imported, $skipped skipped',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Failed to import exchange rates');
+    }
+  }
+
+  List<List<String>> _parseDelimitedRows(String input, String delimiter) {
+    final rows = <List<String>>[];
+    var row = <String>[];
+    var field = StringBuffer();
+    var quoted = false;
+    for (var index = 0; index < input.length; index++) {
+      final char = input[index];
+      if (char == '"') {
+        if (quoted && index + 1 < input.length && input[index + 1] == '"') {
+          field.write('"');
+          index++;
+        } else {
+          quoted = !quoted;
+        }
+      } else if (!quoted && char == delimiter) {
+        row.add(field.toString());
+        field = StringBuffer();
+      } else if (!quoted && (char == '\n' || char == '\r')) {
+        if (char == '\r' &&
+            index + 1 < input.length &&
+            input[index + 1] == '\n') {
+          index++;
+        }
+        row.add(field.toString());
+        if (row.any((value) => value.trim().isNotEmpty)) rows.add(row);
+        row = <String>[];
+        field = StringBuffer();
+      } else {
+        field.write(char);
+      }
+    }
+    row.add(field.toString());
+    if (row.any((value) => value.trim().isNotEmpty)) rows.add(row);
+    return rows;
+  }
+
+  String? _normaliseImportDate(String value) {
+    final parts = value.split(RegExp(r'[-/]'));
+    if (parts.length != 3) return null;
+    if (parts[0].length == 4) {
+      return '${parts[0]}-${parts[1].padLeft(2, '0')}-${parts[2].padLeft(2, '0')}';
+    }
+    final dayFirst = !_dateFormat.toLowerCase().startsWith('mm');
+    final day = dayFirst ? parts[0] : parts[1];
+    final month = dayFirst ? parts[1] : parts[0];
+    return '${parts[2].padLeft(4, '0')}-${month.padLeft(2, '0')}-${day.padLeft(2, '0')}';
   }
 
   Future<void> _downloadSkippedRows() async {

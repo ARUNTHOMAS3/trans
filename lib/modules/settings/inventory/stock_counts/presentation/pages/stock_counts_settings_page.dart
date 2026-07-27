@@ -10,16 +10,8 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
-
-const List<String> _adjustmentAccounts = <String>[
-  'Cost of Goods Sold',
-  'Advance Tax',
-  'CGST TDS Receivable',
-  'Employee Advance',
-  'Goods In Transit',
-  'IGST TDS Receivable',
-  'Input Tax Credits',
-];
+import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 class StockCountsSettingsPage extends ConsumerStatefulWidget {
   const StockCountsSettingsPage({super.key});
@@ -31,23 +23,62 @@ class StockCountsSettingsPage extends ConsumerStatefulWidget {
 
 class _StockCountsSettingsPageState
     extends ConsumerState<StockCountsSettingsPage> {
+  final ApiClient _apiClient = ApiClient();
+  final SettingsPreferencesRepository _preferencesRepository = SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
-  String _selectedAdjustmentAccount = _adjustmentAccounts.first;
-  String _selectedAdjustmentReason = 'Stocktaking results';
+  List<String> _adjustmentAccounts = [];
+  String _selectedAdjustmentAccount = '';
+  String _selectedAdjustmentReason = '';
+  List<Map<String, dynamic>> _reasons = [];
 
-  List<Map<String, dynamic>> _reasons = [
-    {'name': 'Invalid proof', 'isActive': true},
-    {'name': 'Stock on fire', 'isActive': false},
-    {'name': 'Stolen goods', 'isActive': true},
-    {'name': 'Damaged goods', 'isActive': true},
-    {'name': 'Stock Written off', 'isActive': true},
-    {'name': 'Stocktaking results', 'isActive': true},
-    {'name': 'Inventory Revaluation', 'isActive': true},
-    {'name': 'Transfer Order', 'isActive': true},
-    {'name': 'test', 'isActive': true},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final results = await Future.wait([
+        _apiClient.get('accountant', useCache: false),
+        _apiClient.get('inventory-adjustments/reasons', useCache: false),
+        _preferencesRepository.loadSection('stock_preferences', const ['inventory', 'stock_counts']),
+      ]);
+      final accounts = <String>[];
+      void collect(dynamic rows) {
+        if (rows is! List) return;
+        for (final raw in rows.whereType<Map>()) {
+          final row = Map<String, dynamic>.from(raw);
+          final name = row['user_account_name'] ?? row['system_account_name'] ?? row['name'];
+          if (name != null && name.toString().trim().isNotEmpty) accounts.add(name.toString().trim());
+          collect(row['children']);
+        }
+      }
+      final accountResponse = results[0] as dynamic;
+      final reasonResponse = results[1] as dynamic;
+      collect(accountResponse.data);
+      final reasons = (reasonResponse.data as List? ?? const []).whereType<Map>().map((row) {
+        final value = Map<String, dynamic>.from(row);
+        return <String, dynamic>{
+          'id': value['id'],
+          'name': value['name']?.toString() ?? '',
+          'isActive': value['is_active'] != false,
+        };
+      }).toList();
+      final preferences = Map<String, dynamic>.from(results[2] as Map);
+      if (!mounted) return;
+      setState(() {
+        _adjustmentAccounts = accounts.toSet().toList()..sort();
+        _reasons = reasons;
+        _selectedAdjustmentAccount = preferences['adjustment_account']?.toString() ?? (_adjustmentAccounts.firstOrNull ?? '');
+        _selectedAdjustmentReason = preferences['adjustment_reason']?.toString() ?? reasons.where((r) => r['isActive'] == true).map((r) => r['name'].toString()).firstOrNull ?? '';
+      });
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to load stock count settings');
+    }
+  }
 
   @override
   void dispose() {
@@ -89,8 +120,36 @@ class _StockCountsSettingsPageState
     ];
   }
 
-  void _saveSettings() {
-    ZerpaiToast.success(context, 'Stock counts preferences saved');
+  Future<void> _saveSettings() async {
+    try {
+      await _preferencesRepository.saveSection('stock_preferences', {
+        'adjustment_account': _selectedAdjustmentAccount,
+        'adjustment_reason': _selectedAdjustmentReason,
+      }, const ['inventory', 'stock_counts']);
+      if (mounted) ZerpaiToast.success(context, 'Stock counts preferences saved');
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to save stock count settings');
+    }
+  }
+
+  Future<void> _syncReasons(List<Map<String, dynamic>> rows) async {
+    try {
+      for (final row in rows) {
+        final id = row['id']?.toString();
+        final data = {
+          'name': row['name']?.toString() ?? '',
+          'is_active': row['isActive'] != false,
+        };
+        if (id == null || id.isEmpty) {
+          await _apiClient.post('inventory-adjustments/reasons', data: data);
+        } else {
+          await _apiClient.patch('inventory-adjustments/reasons/$id', data: data);
+        }
+      }
+      await _loadSettings();
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to update adjustment reasons');
+    }
   }
 
   @override
@@ -177,7 +236,7 @@ class _StockCountsSettingsPageState
                                       child: SizedBox(
                                         width: 296,
                                         child: FormDropdown<String>(
-                                          value: _selectedAdjustmentAccount,
+                                          value: _adjustmentAccounts.contains(_selectedAdjustmentAccount) ? _selectedAdjustmentAccount : null,
                                           items: _adjustmentAccounts,
                                           onChanged: (String? value) {
                                             if (value == null) return;
@@ -219,7 +278,7 @@ class _StockCountsSettingsPageState
                                       child: SizedBox(
                                         width: 296,
                                         child: FormDropdown<String>(
-                                          value: _selectedAdjustmentReason,
+                                          value: reasonsList.contains(_selectedAdjustmentReason) ? _selectedAdjustmentReason : null,
                                           items: reasonsList,
                                           onChanged: (String? value) {
                                             if (value == null) return;
@@ -256,6 +315,7 @@ class _StockCountsSettingsPageState
                                                                   .last['name'];
                                                         }
                                                       });
+                                                      _syncReasons(updatedReasons);
                                                     },
                                                   ),
                                             );

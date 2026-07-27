@@ -8,6 +8,7 @@ import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 enum PurchaseOrdersSettingsTab {
   preferences,
@@ -33,6 +34,8 @@ class PurchaseOrdersSettingsPage extends ConsumerStatefulWidget {
 
 class _PurchaseOrdersSettingsPageState
     extends ConsumerState<PurchaseOrdersSettingsPage> {
+  final SettingsPreferencesRepository _preferencesRepository =
+      SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _termsController = TextEditingController();
@@ -47,6 +50,46 @@ class _PurchaseOrdersSettingsPageState
   void initState() {
     super.initState();
     _activeTab = widget.initialTab;
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final data = await _preferencesRepository.loadSection(
+        'stock_preferences',
+        const ['purchase', 'purchase_orders'],
+      );
+      if (!mounted || data.isEmpty) return;
+      setState(() {
+        _closePreference =
+            int.tryParse(data['close_preference']?.toString() ?? '') ??
+            _closePreference;
+        _termsController.text = data['terms']?.toString() ?? '';
+        _notesController.text = data['notes']?.toString() ?? '';
+      });
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to load purchase order preferences');
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    try {
+      await _preferencesRepository.saveSection(
+        'stock_preferences',
+        {
+          'close_preference': _closePreference,
+          'terms': _termsController.text,
+          'notes': _notesController.text,
+        },
+        const ['purchase', 'purchase_orders'],
+      );
+      if (mounted)
+        ZerpaiToast.success(context, 'Purchase Orders preferences saved');
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to save purchase order preferences');
+    }
   }
 
   @override
@@ -182,6 +225,7 @@ class _PurchaseOrdersSettingsPageState
                                             },
                                             termsController: _termsController,
                                             notesController: _notesController,
+                                            onSave: _savePreferences,
                                           )
                                         : Center(
                                             child: Padding(
@@ -224,12 +268,14 @@ class _PurchaseOrdersPreferencesContent extends StatelessWidget {
     required this.onClosePreferenceChanged,
     required this.termsController,
     required this.notesController,
+    required this.onSave,
   });
 
   final int closePreference;
   final ValueChanged<int> onClosePreferenceChanged;
   final TextEditingController termsController;
   final TextEditingController notesController;
+  final Future<void> Function() onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -311,9 +357,7 @@ class _PurchaseOrdersPreferencesContent extends StatelessWidget {
         SizedBox(
           height: 34,
           child: ElevatedButton(
-            onPressed: () {
-              ZerpaiToast.success(context, 'Purchase Orders preferences saved');
-            },
+            onPressed: onSave,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,

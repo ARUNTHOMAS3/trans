@@ -6,7 +6,6 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/providers/manual_journal_template_provider.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
-import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/widgets/manual_journal_template_card.dart';
@@ -51,13 +50,14 @@ class ManualJournalTemplatesListScreen extends ConsumerWidget {
         ),
       ],
       child: state.isLoading
-          ? Skeletonizer(
-              ignoreContainers: true,
-              enabled: true,
-              child: const ZListSkeleton(itemCount: 6),
-            )
+          ? const ZListSkeleton(itemCount: 6)
           : state.error != null
-          ? Center(child: Text('Error: ${state.error}'))
+          ? ZErrorPlaceholder(
+              error: state.error!,
+              onRetry: () => ref
+                  .read(manualJournalTemplateProvider.notifier)
+                  .fetchTemplates(),
+            )
           : state.templates.isEmpty
           ? _buildEmptyState(context)
           : _buildTemplatesList(context, state, ref),

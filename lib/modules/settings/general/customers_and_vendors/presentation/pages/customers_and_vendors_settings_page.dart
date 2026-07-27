@@ -6,6 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
@@ -30,6 +31,8 @@ class _CustomersAndVendorsSettingsPageState
     extends ConsumerState<CustomersAndVendorsSettingsPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final SettingsPreferencesRepository _preferencesRepository =
+      SettingsPreferencesRepository();
 
   late CustomersAndVendorsTab _activeTab;
   final ScrollController _contentScrollController = ScrollController();
@@ -73,6 +76,7 @@ class _CustomersAndVendorsSettingsPageState
           '\${CONTACT.CONTACT_CODE} \${CONTACT.CONTACT_STATE}\n'
           '\${CONTACT.CONTACT_COUNTRY}',
     );
+    _loadSettings();
   }
 
   @override
@@ -98,11 +102,77 @@ class _CustomersAndVendorsSettingsPageState
     }
   }
 
-  void _saveSettings() {
-    ZerpaiToast.success(
-      context,
-      'Customers and Vendors settings saved successfully.',
-    );
+  Future<void> _loadSettings() async {
+    try {
+      final behavior = await _preferencesRepository.loadSection(
+        'discount_preferences',
+        const ['customers_and_vendors'],
+      );
+      final addresses = await _preferencesRepository.loadSection(
+        'address_formats',
+        const ['customers_and_vendors'],
+      );
+      if (!mounted) return;
+      setState(() {
+        _allowDuplicates =
+            behavior['allow_duplicates'] as bool? ?? _allowDuplicates;
+        _defaultCustomerType =
+            behavior['default_customer_type']?.toString() ??
+            _defaultCustomerType;
+        _creditLimitEnabled =
+            behavior['credit_limit_enabled'] as bool? ?? _creditLimitEnabled;
+        _creditLimitExceededAction =
+            behavior['credit_limit_exceeded_action']?.toString() ??
+            _creditLimitExceededAction;
+        _includeSalesOrdersInLimit =
+            behavior['include_sales_orders_in_limit'] as bool? ??
+            _includeSalesOrdersInLimit;
+        _multiCurrencyEnabled =
+            behavior['multi_currency_enabled'] as bool? ??
+            _multiCurrencyEnabled;
+        _billingAddressController.text =
+            addresses['billing']?.toString() ?? _billingAddressController.text;
+        _shippingAddressController.text =
+            addresses['shipping']?.toString() ??
+            _shippingAddressController.text;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Failed to load customer and vendor settings');
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    try {
+      await _preferencesRepository.saveSection(
+        'discount_preferences',
+        <String, dynamic>{
+          'allow_duplicates': _allowDuplicates,
+          'default_customer_type': _defaultCustomerType,
+          'credit_limit_enabled': _creditLimitEnabled,
+          'credit_limit_exceeded_action': _creditLimitExceededAction,
+          'include_sales_orders_in_limit': _includeSalesOrdersInLimit,
+          'multi_currency_enabled': _multiCurrencyEnabled,
+        },
+        const ['customers_and_vendors'],
+      );
+      await _preferencesRepository.saveSection(
+        'address_formats',
+        <String, dynamic>{
+          'billing': _billingAddressController.text,
+          'shipping': _shippingAddressController.text,
+        },
+        const ['customers_and_vendors'],
+      );
+      if (!mounted) return;
+      ZerpaiToast.success(
+        context,
+        'Customers and Vendors settings saved successfully.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Failed to save customer and vendor settings');
+    }
   }
 
   void _showPlaceholderDropdown(
@@ -150,8 +220,7 @@ class _CustomersAndVendorsSettingsPageState
   @override
   Widget build(BuildContext context) {
     final orgName =
-        ref.watch(orgSettingsProvider).valueOrNull?.name ??
-        'ZABNIX PRIVATE LIMITED';
+        ref.watch(orgSettingsProvider).valueOrNull?.name ?? 'Organization';
     final currentPath = GoRouterState.of(context).uri.toString();
 
     return CallbackShortcuts(

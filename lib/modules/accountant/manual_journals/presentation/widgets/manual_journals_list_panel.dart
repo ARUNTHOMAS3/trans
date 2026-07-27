@@ -8,7 +8,7 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart' as di;
-import 'package:skeletonizer/skeletonizer.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import '../../models/manual_journal_model.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/providers/manual_journal_provider.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
@@ -315,24 +315,12 @@ class _ManualJournalsListPanelState
         const Divider(height: 1, color: AppTheme.borderColor),
         Expanded(
           child: state.isLoading && state.journals.isEmpty
-              ? Skeletonizer(
-                  ignoreContainers: true,
-                  enabled: true,
-                  child: widget.compact
-                      ? _buildCompactBody(
-                          state,
-                          ManualJournal.dummyList(5),
-                          notifier,
-                        )
-                      : _buildTableBody(
-                          state,
-                          ManualJournal.dummyList(10),
-                          ManualJournal.dummyList(10),
-                          0,
-                          1,
-                          0,
-                          10,
-                        ),
+              ? Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ZTableSkeleton(
+                    rows: widget.compact ? 5 : 10,
+                    columns: widget.compact ? 1 : 8,
+                  ),
                 )
               : (widget.compact
                     ? _buildCompactBody(state, paged, notifier)
@@ -384,10 +372,10 @@ class _ManualJournalsListPanelState
                         const Divider(height: 1, color: AppTheme.borderColor),
                         Expanded(
                           child: (state.error != null && state.journals.isEmpty)
-                              ? const Center(
+                              ? Center(
                                   child: Text(
-                                    'No manual journals found',
-                                    style: TextStyle(
+                                    state.error!,
+                                    style: const TextStyle(
                                       color: AppTheme.textSecondary,
                                     ),
                                   ),
@@ -469,10 +457,10 @@ class _ManualJournalsListPanelState
     ManualJournalNotifier notifier,
   ) {
     if (state.error != null && state.journals.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'No manual journals found',
-          style: TextStyle(color: AppTheme.textMuted),
+          state.error!,
+          style: const TextStyle(color: AppTheme.textMuted),
         ),
       );
     }
@@ -562,7 +550,7 @@ class _ManualJournalsListPanelState
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            '₹${NumberFormat('#,##0.00').format(journal.totalDebit)}',
+                            '${journal.currency} ${NumberFormat('#,##0.00').format(journal.totalDebit)}',
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -590,52 +578,28 @@ class _ManualJournalsListPanelState
   }
 
   Widget _buildToolbar(ManualJournalState state) {
-    if (widget.compact) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // View Filter (Styled as text dropdown)
-                _buildViewSelector(),
-                const Spacer(),
-                // Split New Button
-                _buildSplitNewButton(),
-                const SizedBox(width: 8),
-                // More Options
-                _buildMoreActionsMenu(),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Period Filter
-            _buildPeriodFilter(),
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      height: 64,
+      padding: EdgeInsets.symmetric(horizontal: widget.compact ? 16 : 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+      ),
+      child: Row(
         children: [
-          Row(
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // View Filter
               _buildViewSelector(),
-              const Spacer(),
-              const SizedBox(width: 12),
-              // New Button (Primary Green)
-              _buildSplitNewButton(showLabel: true),
-              const SizedBox(width: 8),
-              // More Options Dropdown
-              _buildMoreActionsMenu(),
+              const SizedBox(height: 4),
+              _buildPeriodFilter(),
             ],
           ),
-          const SizedBox(height: 12),
-          _buildPeriodFilter(),
+          const Spacer(),
+          _buildSplitNewButton(showLabel: !widget.compact),
+          const SizedBox(width: 8),
+          _buildMoreActionsMenu(),
         ],
       ),
     );
@@ -717,7 +681,7 @@ class _ManualJournalsListPanelState
               Text(
                 _viewLabel(_viewFilter),
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textPrimary,
                 ),
@@ -933,12 +897,12 @@ class _ManualJournalsListPanelState
             children: [
               const Text(
                 'Period: ',
-                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
               Text(
                 _periodLabel(_periodFilter),
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 12,
                   color: AppTheme.textPrimary,
                 ),
               ),
@@ -1435,7 +1399,7 @@ class _ManualJournalsListPanelState
         );
       case 'amount':
         return Text(
-          '₹$amount',
+          '${journal.currency} $amount',
           textAlign: TextAlign.right,
           style: const TextStyle(
             fontSize: 13,
@@ -1445,9 +1409,7 @@ class _ManualJournalsListPanelState
         );
       case 'createdBy':
         return Text(
-          (journal.userId ?? '').isEmpty
-              ? 'zerpaiprivatelimited'
-              : journal.userId!,
+          (journal.userId ?? '').isEmpty ? 'Not available' : journal.userId!,
           maxLines: _clipText ? 2 : null,
           overflow: _clipText ? TextOverflow.ellipsis : null,
           style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
@@ -1890,9 +1852,11 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
         )
         .toList();
     return Dialog(
+      alignment: Alignment.topCenter,
+      insetPadding: EdgeInsets.zero,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       elevation: 0,
-      backgroundColor: AppTheme.bgLight,
+      backgroundColor: Colors.white,
       child: Container(
         width: 500,
         height: 600,

@@ -1802,7 +1802,6 @@ export const transactionLocks = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     orgId: uuid("org_id").notNull(),
     entityId: uuid("entity_id").references(() => organisationBranchMaster.id),
-    branchId: uuid("branch_id"),
     moduleName: varchar("module_name", { length: 100 }).notNull(),
     lockDate: timestamp("lock_date").notNull(),
     reason: text("reason"),

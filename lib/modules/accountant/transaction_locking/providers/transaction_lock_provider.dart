@@ -10,12 +10,18 @@ final transactionLockProvider =
       TransactionLockNotifier,
       Map<String, TransactionLock>
     >((ref) {
+      ref.watch(authUserProvider.select((user) => user?.activeEntityId));
       final dio = ref.watch(dioProvider);
       final isAuthenticated = ref.watch(isAuthenticatedProvider);
       final notifier = TransactionLockNotifier(dio);
       if (isAuthenticated) notifier.init();
       return notifier;
     });
+
+final negativeStockModeProvider = FutureProvider.autoDispose<String>((ref) {
+  ref.watch(authUserProvider.select((user) => user?.activeEntityId));
+  return ref.watch(transactionLockProvider.notifier).fetchNegativeStockMode();
+});
 
 class TransactionLockNotifier
     extends StateNotifier<Map<String, TransactionLock>> {
@@ -48,16 +54,41 @@ class TransactionLockNotifier
     }
   }
 
+  Future<String> fetchNegativeStockMode() async {
+    final response = await _dio.get(
+      'transaction-locking/negative-stock-policy',
+    );
+    final mode = response.data is Map
+        ? (response.data as Map)['mode']?.toString()
+        : null;
+    return mode == 'allow' ? 'allow' : 'restrict';
+  }
+
+  Future<void> saveNegativeStockMode(String mode) async {
+    if (mode != 'allow' && mode != 'restrict') {
+      throw ArgumentError('Negative stock mode must be allow or restrict');
+    }
+    await _dio.put(
+      'transaction-locking/negative-stock-policy',
+      data: {'mode': mode},
+    );
+  }
+
   Future<void> lockModule({
     required String moduleName,
     required DateTime lockDate,
     required String reason,
   }) async {
+    final normalizedReason = reason.trim();
+    if (normalizedReason.isEmpty) {
+      throw ArgumentError('A lock reason is required');
+    }
+
     // Optimistic update
     final lock = TransactionLock(
       moduleName: moduleName,
       lockDate: lockDate,
-      reason: reason,
+      reason: normalizedReason,
       updatedAt: DateTime.now(),
     );
 
@@ -73,6 +104,7 @@ class TransactionLockNotifier
         module: 'transaction_lock',
       );
       state = previousState; // Rollback
+      rethrow;
     }
   }
 
@@ -91,6 +123,7 @@ class TransactionLockNotifier
         module: 'transaction_lock',
       );
       state = previousState; // Rollback
+      rethrow;
     }
   }
 

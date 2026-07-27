@@ -21,19 +21,28 @@ import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_
     as coa;
 import 'package:zerpai_erp/shared/models/account_node.dart' as shared;
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accountant_chart_of_accounts_provider.dart';
+import 'package:zerpai_erp/modules/accountant/models/accountant_lookup_models.dart'
+    as lookup;
+import 'package:zerpai_erp/modules/accountant/providers/currency_provider.dart';
 import 'package:zerpai_erp/modules/accountant/repositories/accountant_repository.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
+import 'package:zerpai_erp/core/utils/error_handler.dart';
 
 class RecurringJournalCreateScreen extends ConsumerStatefulWidget {
   final RecurringJournal? initialJournal;
   final ManualJournal? initialManualJournal;
+  final String? initialManualJournalId;
+  final String? initialReturnTo;
 
   const RecurringJournalCreateScreen({
     super.key,
     this.initialJournal,
     this.initialManualJournal,
+    this.initialManualJournalId,
+    this.initialReturnTo,
   });
 
   @override
@@ -58,7 +67,7 @@ class _RecurringJournalCreateScreenState
   String repeatEvery = 'Week';
   int interval = 1;
   String reportingMethod = 'accrual_and_cash';
-  String selectedCurrency = 'INR';
+  String? selectedCurrencyCode;
   String customFrequencyUnit = 'Week(s)';
   late final TextEditingController intervalCtrl;
 
@@ -67,6 +76,11 @@ class _RecurringJournalCreateScreenState
   double totalCredit = 0.0;
   bool _isSaving = false;
   bool _isDirty = false;
+  bool _isInitializingFromManual = false;
+  String? _initializationError;
+  String get _returnTo => widget.initialReturnTo?.trim().isNotEmpty == true
+      ? widget.initialReturnTo!.trim()
+      : AppRoutes.accountantRecurringJournals;
 
   @override
   void initState() {
@@ -91,9 +105,41 @@ class _RecurringJournalCreateScreenState
       _hydrateFromJournal(initialJournal);
     } else if (initialManualJournal != null) {
       _hydrateFromManualJournal(initialManualJournal);
+    } else if ((widget.initialManualJournalId ?? '').isNotEmpty) {
+      _isInitializingFromManual = true;
+      Future.microtask(_loadInitialManualJournal);
     } else {
       _addRow();
       _addRow();
+    }
+  }
+
+  Future<void> _loadInitialManualJournal() async {
+    final journalId = widget.initialManualJournalId;
+    if (journalId == null || journalId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isInitializingFromManual = false;
+        _initializationError = 'Manual journal id is missing.';
+      });
+      return;
+    }
+
+    try {
+      final journal = await ref
+          .read(manualJournalRepositoryProvider)
+          .getManualJournal(journalId);
+      if (!mounted) return;
+      _hydrateFromManualJournal(journal);
+      setState(() {
+        _isInitializingFromManual = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isInitializingFromManual = false;
+        _initializationError = ErrorHandler.getFriendlyMessage(e);
+      });
     }
   }
 
@@ -107,7 +153,7 @@ class _RecurringJournalCreateScreenState
     repeatEvery = journal.repeatEvery;
     interval = journal.interval;
     reportingMethod = journal.reportingMethod;
-    selectedCurrency = journal.currency;
+    selectedCurrencyCode = journal.currency;
 
     startDateCtrl.text = DateFormat('dd/MM/yyyy').format(startDate);
     if (endDate != null) {
@@ -159,7 +205,7 @@ class _RecurringJournalCreateScreenState
     referenceCtrl.text = journal.referenceNumber ?? '';
     notesCtrl.text = journal.notes ?? '';
     reportingMethod = journal.reportingMethod;
-    selectedCurrency = journal.currency;
+    selectedCurrencyCode = journal.currency;
 
     // Set start date from journal date
     startDate = journal.journalDate;
@@ -289,6 +335,14 @@ class _RecurringJournalCreateScreenState
       return;
     }
     List<String> errors = [];
+    final currency = _resolveCurrency();
+    if (currency == null) {
+      errors.add(
+        selectedCurrencyCode == null
+            ? 'Select a configured currency.'
+            : 'Currency $selectedCurrencyCode is not configured.',
+      );
+    }
 
     if (totalDebit != totalCredit || totalDebit == 0) {
       errors.add('Total Debits must equal Total Credits and be non-zero');
@@ -381,7 +435,7 @@ class _RecurringJournalCreateScreenState
         neverExpires: neverExpires,
         referenceNumber: referenceCtrl.text,
         notes: notesCtrl.text,
-        currency: selectedCurrency,
+        currency: currency!.code,
         reportingMethod: reportingMethod,
         items: journalItems,
         status:
@@ -391,23 +445,21 @@ class _RecurringJournalCreateScreenState
         updatedAt: DateTime.now(),
       );
 
-      if (widget.initialJournal != null) {
-        await ref
-            .read(recurringJournalProvider.notifier)
-            .updateJournal(journal);
-      } else {
-        await ref
-            .read(recurringJournalProvider.notifier)
-            .createJournal(journal);
-      }
+      final savedJournal = widget.initialJournal != null
+          ? await ref
+                .read(recurringJournalProvider.notifier)
+                .updateJournal(journal)
+          : await ref
+                .read(recurringJournalProvider.notifier)
+                .createJournal(journal);
 
       if (mounted) {
-        if (context.canPop()) {
-          context.pop();
-        } else {
-          // Fallback if no history
-          context.go(AppRoutes.accountantRecurringJournals);
-        }
+        context.go(
+          AppRoutes.accountantRecurringJournalsDetail.replaceAll(
+            ':id',
+            savedJournal.id,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -420,6 +472,37 @@ class _RecurringJournalCreateScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (_isInitializingFromManual) {
+      return ZerpaiLayout(
+        pageTitle: 'New Recurring Journal',
+        enableBodyScroll: true,
+        footer: _buildActionButtons(),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: ZFormSkeleton(rows: 8),
+        ),
+      );
+    }
+
+    if (_initializationError != null) {
+      return ZerpaiLayout(
+        pageTitle: 'New Recurring Journal',
+        enableBodyScroll: true,
+        footer: _buildActionButtons(),
+        child: ZErrorPlaceholder(
+          error: _initializationError!,
+          message: 'Failed to load source manual journal',
+          onRetry: () {
+            setState(() {
+              _initializationError = null;
+              _isInitializingFromManual = true;
+            });
+            Future.microtask(_loadInitialManualJournal);
+          },
+        ),
+      );
+    }
+
     return ZerpaiLayout(
       pageTitle: widget.initialJournal == null
           ? 'New Recurring Journal'
@@ -674,14 +757,50 @@ class _RecurringJournalCreateScreenState
             children: [
               SizedBox(
                 width: 540,
-                child: di.FormDropdown<String>(
-                  value: selectedCurrency,
-                  items: const ['INR- Indian Rupee'],
-                  onChanged: (v) {
-                    if (v == null) return;
-                    setState(() => selectedCurrency = v);
-                  },
-                ),
+                child: ref
+                    .watch(currenciesProvider)
+                    .when(
+                      data: (currencies) {
+                        final defaultCurrency = ref
+                            .watch(defaultCurrencyProvider)
+                            .asData
+                            ?.value;
+                        final requestedCode =
+                            selectedCurrencyCode ?? defaultCurrency?.code;
+                        final selected = currencies
+                            .where((currency) => currency.code == requestedCode)
+                            .firstOrNull;
+                        final missingRequestedCurrency =
+                            requestedCode != null && selected == null;
+
+                        return di.FormDropdown<lookup.Currency>(
+                          value: selected,
+                          items: currencies,
+                          showSearch: true,
+                          displayStringForValue: (currency) => currency.label,
+                          hint: currencies.isEmpty
+                              ? 'No currencies configured'
+                              : missingRequestedCurrency
+                              ? '$requestedCode is not configured'
+                              : 'Select currency',
+                          enabled: currencies.isNotEmpty,
+                          onChanged: (currency) {
+                            if (currency == null) return;
+                            setState(
+                              () => selectedCurrencyCode = currency.code,
+                            );
+                          },
+                        );
+                      },
+                      loading: () => const ZBone(height: 38),
+                      error: (_, __) => di.FormDropdown<lookup.Currency>(
+                        value: null,
+                        items: const [],
+                        hint: 'Error loading currencies',
+                        enabled: false,
+                        onChanged: (_) {},
+                      ),
+                    ),
               ),
             ],
           ),
@@ -761,7 +880,7 @@ class _RecurringJournalCreateScreenState
                 _cell(width: 32, child: const SizedBox()), // Drag handle space
                 _cell(flex: 4, child: _headerText('ACCOUNT')),
                 _cell(flex: 4, child: _headerText('DESCRIPTION')),
-                _cell(flex: 3, child: _headerText('CONTACT (INR)')),
+                _cell(flex: 3, child: _headerText(_contactHeader)),
                 _cell(
                   flex: 2,
                   child: _headerText('DEBITS', textAlign: TextAlign.right),
@@ -1030,7 +1149,7 @@ class _RecurringJournalCreateScreenState
                           .toList(),
                       borderRadius: BorderRadius.zero,
                       border: Border.all(color: Colors.transparent),
-                      height: 48,
+                      height: 40,
                       displayStringForValue: (c) =>
                           (c['displayName'] ?? c['display_name'] ?? '')
                               .toString(),
@@ -1061,7 +1180,7 @@ class _RecurringJournalCreateScreenState
                     ),
                     borderRadius: BorderRadius.zero,
                     border: Border.all(color: Colors.transparent),
-                    height: 48,
+                    height: 40,
                     hintText: '0',
                     onTap: () {
                       row.debitCtrl.selection = TextSelection(
@@ -1089,7 +1208,7 @@ class _RecurringJournalCreateScreenState
                     ),
                     borderRadius: BorderRadius.zero,
                     border: Border.all(color: Colors.transparent),
-                    height: 48,
+                    height: 40,
                     hintText: '0',
                     onTap: () {
                       row.creditCtrl.selection = TextSelection(
@@ -1253,11 +1372,44 @@ class _RecurringJournalCreateScreenState
           children: [
             _buildTotalRow('Sub Total', totalDebit, totalCredit),
             const SizedBox(height: 16),
-            _buildTotalRow('Total (₹)', totalDebit, totalCredit, isBold: true),
+            _buildTotalRow(
+              _currencyTotalLabel,
+              totalDebit,
+              totalCredit,
+              isBold: true,
+            ),
           ],
         ),
       ),
     );
+  }
+
+  lookup.Currency? _resolveCurrency() {
+    final currencies = ref.read(currenciesProvider).asData?.value;
+    if (currencies == null || currencies.isEmpty) return null;
+
+    if (selectedCurrencyCode != null) {
+      return currencies
+          .where((currency) => currency.code == selectedCurrencyCode)
+          .firstOrNull;
+    }
+
+    return ref.read(defaultCurrencyProvider).asData?.value;
+  }
+
+  String get _currencyLabel {
+    final currency = _resolveCurrency();
+    return currency?.symbol ?? currency?.code ?? selectedCurrencyCode ?? '';
+  }
+
+  String get _contactHeader {
+    final label = _currencyLabel;
+    return label.isEmpty ? 'CONTACT' : 'CONTACT ($label)';
+  }
+
+  String get _currencyTotalLabel {
+    final label = _currencyLabel;
+    return label.isEmpty ? 'Total' : 'Total ($label)';
   }
 
   bool _isGstAccount(String? name) {
@@ -1334,11 +1486,7 @@ class _RecurringJournalCreateScreenState
           ZButton.secondary(
             label: 'Cancel',
             onPressed: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go(AppRoutes.accountantRecurringJournals);
-              }
+              context.go(_returnTo);
             },
           ),
         ],

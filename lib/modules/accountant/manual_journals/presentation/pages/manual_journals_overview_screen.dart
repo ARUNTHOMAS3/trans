@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import '../../models/manual_journal_model.dart';
 import '../../providers/manual_journal_provider.dart';
 import '../widgets/manual_journals_list_panel.dart';
@@ -31,6 +32,30 @@ class _ManualJournalOverviewScreenState
     extends ConsumerState<ManualJournalOverviewScreen> {
   bool _forceWideTable = false;
 
+  void _ensureRouteJournalSelection(ManualJournalState state) {
+    final routeJournalId = widget.initialJournalId;
+    if (routeJournalId == null || routeJournalId.isEmpty) return;
+    if (state.selectedJournalId == routeJournalId) return;
+    if (state.isLoading) return;
+    if (state.failedJournalIds.contains(routeJournalId)) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(manualJournalProvider.notifier).selectJournal(routeJournalId);
+    });
+  }
+
+  String _statusLabel(ManualJournalStatus status) {
+    switch (status) {
+      case ManualJournalStatus.draft:
+        return 'Draft';
+      case ManualJournalStatus.posted:
+        return 'Published';
+      case ManualJournalStatus.cancelled:
+        return 'Cancelled';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -54,12 +79,23 @@ class _ManualJournalOverviewScreenState
   }
 
   Future<void> _handlePost(String id) async {
+    final previousStatus = ref
+        .read(manualJournalProvider)
+        .selectedJournal
+        ?.status;
     try {
-      await ref
+      final updatedJournal = await ref
           .read(manualJournalProvider.notifier)
           .updateStatus(id, ManualJournalStatus.posted);
       if (mounted) {
-        ZerpaiToast.success(context, 'Journal posted successfully');
+        final fromLabel = _statusLabel(
+          previousStatus ?? ManualJournalStatus.draft,
+        );
+        final toLabel = _statusLabel(updatedJournal.status);
+        ZerpaiToast.success(
+          context,
+          'Status changed from $fromLabel to $toLabel.',
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -91,12 +127,23 @@ class _ManualJournalOverviewScreenState
 
     if (confirmed != true) return;
 
+    final previousStatus = ref
+        .read(manualJournalProvider)
+        .selectedJournal
+        ?.status;
     try {
-      await ref
+      final updatedJournal = await ref
           .read(manualJournalProvider.notifier)
           .updateStatus(id, ManualJournalStatus.cancelled);
       if (mounted) {
-        ZerpaiToast.success(context, 'Journal cancelled successfully');
+        final fromLabel = _statusLabel(
+          previousStatus ?? ManualJournalStatus.draft,
+        );
+        final toLabel = _statusLabel(updatedJournal.status);
+        ZerpaiToast.success(
+          context,
+          'Status changed from $fromLabel to $toLabel.',
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -133,70 +180,90 @@ class _ManualJournalOverviewScreenState
   Widget build(BuildContext context) {
     final state = ref.watch(manualJournalProvider);
     final selectedJournal = state.selectedJournal;
+    final failedSelectedId =
+        widget.initialJournalId != null &&
+        state.failedJournalIds.contains(widget.initialJournalId);
+
+    _ensureRouteJournalSelection(state);
 
     final screenWidth = MediaQuery.of(context).size.width;
-    final bool showDesktopSplit =
+    final bool shouldShowDetailPane =
         widget.initialJournalId != null &&
-        selectedJournal != null &&
         screenWidth >= 1000 &&
         !_forceWideTable;
 
     final Widget listPanel = ManualJournalsListPanel(
-      compact: showDesktopSplit,
+      compact: shouldShowDetailPane,
       initialSearchQuery: widget.initialSearchQuery,
     );
 
     return ZerpaiLayout(
       pageTitle: '',
       enableBodyScroll: false,
+      useHorizontalPadding: false,
+      useTopPadding: false,
       actions: const [],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Card(
-              elevation: 0,
-              margin: EdgeInsets.all(AppTheme.space12).copyWith(top: 0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.space8),
-                side: const BorderSide(color: AppTheme.borderColor),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: !showDesktopSplit
-                  ? listPanel
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(width: 320, child: listPanel),
-                        const VerticalDivider(
-                          width: 1,
-                          thickness: 1,
-                          color: AppTheme.borderColor,
-                        ),
-                        Expanded(
-                          flex: 7,
-                          child: ManualJournalDetailPanel(
-                            journal: selectedJournal,
-                            isBusy: state.isMutating,
-                            onEdit: () => context.go(
-                              AppRoutes.accountantManualJournalsCreate,
-                              extra: selectedJournal,
+      child: !shouldShowDetailPane
+          ? listPanel
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(width: 360, child: listPanel),
+                const VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: AppTheme.borderLight,
+                ),
+                Expanded(
+                  child: selectedJournal != null
+                      ? ManualJournalDetailPanel(
+                          journal: selectedJournal,
+                          isBusy: state.isMutating,
+                          onEdit: () => context.go(
+                            AppRoutes.accountantManualJournalsEdit.replaceAll(
+                              ':id',
+                              selectedJournal.id,
                             ),
-                            onPost: () => _handlePost(selectedJournal.id),
-                            onCancelJournal: () =>
-                                _handleCancelJournal(selectedJournal.id),
-                            onDelete: () => _handleDelete(selectedJournal.id),
-                            onClose: () {
-                              context.go(AppRoutes.accountantManualJournals);
-                            },
+                            extra: selectedJournal,
                           ),
-                        ),
-                      ],
-                    ),
+                          onPost: () => _handlePost(selectedJournal.id),
+                          onCancelJournal: () =>
+                              _handleCancelJournal(selectedJournal.id),
+                          onDelete: () => _handleDelete(selectedJournal.id),
+                          onClose: () {
+                            context.go(AppRoutes.accountantManualJournals);
+                          },
+                        )
+                      : failedSelectedId
+                      ? ZErrorPlaceholder(
+                          error: state.error ?? 'Failed to load journal.',
+                          message: 'Failed to load journal overview',
+                          onRetry: () {
+                            ref
+                                .read(manualJournalProvider.notifier)
+                                .selectJournal(
+                                  widget.initialJournalId,
+                                  forceRefresh: true,
+                                );
+                          },
+                        )
+                      : const _ManualJournalDetailSkeleton(),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
+    );
+  }
+}
+
+class _ManualJournalDetailSkeleton extends StatelessWidget {
+  const _ManualJournalDetailSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.all(20),
+      child: const ZDocumentDetailSkeleton(),
     );
   }
 }

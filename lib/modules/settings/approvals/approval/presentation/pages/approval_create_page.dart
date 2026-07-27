@@ -6,6 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
 import 'package:zerpai_erp/modules/settings/approvals/approval/presentation/providers/approval_provider.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
@@ -18,12 +19,10 @@ class ApprovalCreatePage extends ConsumerStatefulWidget {
   const ApprovalCreatePage({super.key});
 
   @override
-  ConsumerState<ApprovalCreatePage> createState() =>
-      _ApprovalCreatePageState();
+  ConsumerState<ApprovalCreatePage> createState() => _ApprovalCreatePageState();
 }
 
-class _ApprovalCreatePageState
-    extends ConsumerState<ApprovalCreatePage> {
+class _ApprovalCreatePageState extends ConsumerState<ApprovalCreatePage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _seriesNameController = TextEditingController();
@@ -38,7 +37,8 @@ class _ApprovalCreatePageState
   bool _sendEmailAndInApp = false;
   bool _notifySubmitter = false;
   int _selectedNotificationReceiver = 1;
-  final TextEditingController _specificEmailController = TextEditingController();
+  final TextEditingController _specificEmailController =
+      TextEditingController();
   final List<String?> _levels = [null];
   final List<UniqueKey> _levelKeys = [UniqueKey()];
 
@@ -60,11 +60,39 @@ class _ApprovalCreatePageState
     'Multi-level Approval',
   ];
 
-  static const Map<String, String> _approverEmails = {
-    'zabnixprivatelimited': 'zabnixprivatelimited@gmail.com',
-    'admin@zerpai.com': 'admin@zerpai.com',
-    'manager@zerpai.com': 'manager@zerpai.com',
-  };
+  final Map<String, String> _approverNames = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadApprovers();
+  }
+
+  Future<void> _loadApprovers() async {
+    try {
+      final users = await ref.read(allUsersProvider.future);
+      if (!mounted) return;
+      setState(() {
+        _approverNames
+          ..clear()
+          ..addEntries(
+            users
+                .where((user) => user.isActive && user.email.trim().isNotEmpty)
+                .map(
+                  (user) => MapEntry(
+                    user.email.trim(),
+                    user.fullName.trim().isEmpty
+                        ? user.email.trim()
+                        : user.fullName.trim(),
+                  ),
+                ),
+          );
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(_approverNames.clear);
+    }
+  }
 
   @override
   void dispose() {
@@ -81,8 +109,7 @@ class _ApprovalCreatePageState
 
   String _withOrgPrefix(String route) {
     final orgSystemId =
-        GoRouterState.of(context).pathParameters['orgSystemId'] ??
-        '6000000000';
+        GoRouterState.of(context).pathParameters['orgSystemId'] ?? '6000000000';
     return '/$orgSystemId$route';
   }
 
@@ -100,7 +127,9 @@ class _ApprovalCreatePageState
     if (_didLoadInitialRecord) return;
     _didLoadInitialRecord = true;
 
-    final editIndexParam = GoRouterState.of(context).uri.queryParameters['editIndex'];
+    final editIndexParam = GoRouterState.of(
+      context,
+    ).uri.queryParameters['editIndex'];
     final editIndex = int.tryParse(editIndexParam ?? '');
     if (editIndex == null) return;
 
@@ -114,13 +143,18 @@ class _ApprovalCreatePageState
   void _loadRecordForEdit(ApprovalRecord record) {
     _seriesNameController.text = record.seriesName;
     final parts = record.seriesName.split(' - ');
-    if (parts.length >= 2) {
-      _selectedModule = parts[0];
-      _selectedApprovalType = parts[1];
-    } else {
-      _selectedModule = record.seriesName;
-      _selectedApprovalType = 'Simple approval';
-    }
+    _selectedModule = record.module.isNotEmpty
+        ? record.module
+        : (parts.length >= 2 ? parts[0] : record.seriesName);
+    _selectedApprovalType = record.approvalType.isNotEmpty
+        ? record.approvalType
+        : (parts.length >= 2 ? parts[1] : 'Simple approval');
+    _levels
+      ..clear()
+      ..addAll(record.approvers.isEmpty ? <String?>[null] : record.approvers);
+    _levelKeys
+      ..clear()
+      ..addAll(List<UniqueKey>.generate(_levels.length, (_) => UniqueKey()));
 
     final moduleValues = <String, String>{
       'Vendor Payment': record.vendorPayment,
@@ -168,7 +202,7 @@ class _ApprovalCreatePageState
     return '';
   }
 
-  void _saveSeries() {
+  Future<void> _saveSeries() async {
     if (_selectedModule == null || _selectedModule!.isEmpty) {
       ZerpaiToast.error(context, 'Module is required');
       return;
@@ -180,6 +214,8 @@ class _ApprovalCreatePageState
     final seriesName = '$_selectedModule - $_selectedApprovalType';
 
     final record = ApprovalRecord(
+      module: _selectedModule!,
+      approvalType: _selectedApprovalType!,
       seriesName: seriesName,
       vendorPayment: _seriesValueForModule('Vendor Payment'),
       retainerInvoice: _seriesValueForModule('Retainer Invoice'),
@@ -192,16 +228,20 @@ class _ApprovalCreatePageState
       salesOrder: _seriesValueForModule('Sales Order'),
       selfInvoice: _seriesValueForModule('Self-Invoice'),
       associatedLocations: '--',
+      approvers: _levels.whereType<String>().toList(),
     );
 
     final notifier = ref.read(ApprovalProvider.notifier);
-    if (_editingIndex != null) {
-      notifier.updateSeries(_editingIndex!, record);
-    } else {
-      notifier.addSeries(record);
+    try {
+      if (_editingIndex != null) {
+        await notifier.updateSeries(_editingIndex!, record);
+      } else {
+        await notifier.addSeries(record);
+      }
+      if (mounted) context.go(_withOrgPrefix(AppRoutes.settingsApproval));
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to save approval rule');
     }
-
-    context.go(_withOrgPrefix(AppRoutes.settingsApproval));
   }
 
   List<SettingsSearchItem> _buildSearchItems() {
@@ -229,7 +269,7 @@ class _ApprovalCreatePageState
   Widget build(BuildContext context) {
     final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
     final orgName = orgSettings?.name.trim().isNotEmpty == true
-                    ? orgSettings!.name.trim()
+        ? orgSettings!.name.trim()
         : 'ZERPAI ERP';
     final currentPath = GoRouterState.of(context).uri.path;
 
@@ -266,19 +306,12 @@ class _ApprovalCreatePageState
                                 ? 'Edit Approval'
                                 : 'New Approval',
                             onClose: () => context.go(
-                              _withOrgPrefix(
-                                AppRoutes.settingsApproval,
-                              ),
+                              _withOrgPrefix(AppRoutes.settingsApproval),
                             ),
                           ),
                           Expanded(
                             child: SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(
-                                24,
-                                28,
-                                24,
-                                0,
-                              ),
+                              padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -311,15 +344,19 @@ class _ApprovalCreatePageState
                                         items: _approvalTypesList,
                                         onChanged: (v) {
                                           if (v != null) {
-                                            setState(() => _selectedApprovalType = v);
+                                            setState(
+                                              () => _selectedApprovalType = v,
+                                            );
                                           }
                                         },
                                       ),
                                     ),
                                   ),
-                                  if (_selectedApprovalType == 'Simple approval')
+                                  if (_selectedApprovalType ==
+                                      'Simple approval')
                                     _buildSimpleApprovalSection(),
-                                  if (_selectedApprovalType == 'Multi-level Approval')
+                                  if (_selectedApprovalType ==
+                                      'Multi-level Approval')
                                     _buildMultiLevelApprovalSection(),
                                 ],
                               ),
@@ -328,9 +365,7 @@ class _ApprovalCreatePageState
                           _CreateFooter(
                             onSave: _saveSeries,
                             onCancel: () => context.go(
-                              _withOrgPrefix(
-                                AppRoutes.settingsApproval,
-                              ),
+                              _withOrgPrefix(AppRoutes.settingsApproval),
                             ),
                           ),
                         ],
@@ -382,7 +417,8 @@ class _ApprovalCreatePageState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'zabnixprivatelimited',
+                  ref.watch(orgSettingsProvider).valueOrNull?.name ??
+                      'Organization',
                   style: AppTheme.bodyText.copyWith(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -390,7 +426,7 @@ class _ApprovalCreatePageState
                   ),
                 ),
                 Text(
-                  'zabnixprivatelimited@gmail.com',
+                  ref.watch(orgSettingsProvider).valueOrNull?.email ?? '',
                   style: AppTheme.bodyText.copyWith(
                     fontSize: 12,
                     color: const Color(0xFF64748B),
@@ -414,7 +450,8 @@ class _ApprovalCreatePageState
         const SizedBox(height: 16),
         _buildCheckboxRow(
           value: _sendEmailAndInApp,
-          label: 'Send email and in-app notifications when transactions are submitted for approval',
+          label:
+              'Send email and in-app notifications when transactions are submitted for approval',
           onChanged: (val) {
             if (val != null) {
               setState(() => _sendEmailAndInApp = val);
@@ -430,12 +467,14 @@ class _ApprovalCreatePageState
               children: [
                 _buildRadioRow(
                   value: 1,
-                  label: 'Notify all approvers when a non-approver submits a transaction',
+                  label:
+                      'Notify all approvers when a non-approver submits a transaction',
                 ),
                 const SizedBox(height: 12),
                 _buildRadioRow(
                   value: 2,
-                  label: 'Notify all approvers when an approver/non-approver submits a transaction',
+                  label:
+                      'Notify all approvers when an approver/non-approver submits a transaction',
                 ),
                 const SizedBox(height: 12),
                 _buildRadioRow(
@@ -466,7 +505,8 @@ class _ApprovalCreatePageState
         const SizedBox(height: 12),
         _buildCheckboxRow(
           value: _notifySubmitter,
-          label: 'Notify the submitter when a transaction is approved or rejected',
+          label:
+              'Notify the submitter when a transaction is approved or rejected',
           onChanged: (val) {
             if (val != null) {
               setState(() => _notifySubmitter = val);
@@ -479,10 +519,7 @@ class _ApprovalCreatePageState
     );
   }
 
-  Widget _buildRadioRow({
-    required int value,
-    required String label,
-  }) {
+  Widget _buildRadioRow({required int value, required String label}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -532,10 +569,7 @@ class _ApprovalCreatePageState
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
             ),
-            side: const BorderSide(
-              color: Color(0xFFCBD5E1),
-              width: 1.5,
-            ),
+            side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.5),
           ),
         ),
         const SizedBox(width: 10),
@@ -626,11 +660,7 @@ class _ApprovalCreatePageState
                   ],
                 ),
               ),
-              Container(
-                width: 712,
-                height: 1,
-                color: const Color(0xFFE2E8F0),
-              ),
+              Container(width: 712, height: 1, color: const Color(0xFFE2E8F0)),
               ReorderableListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -672,7 +702,9 @@ class _ApprovalCreatePageState
                                   Expanded(
                                     flex: 3,
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
                                       child: Row(
                                         children: [
                                           ReorderableDragStartListener(
@@ -701,55 +733,76 @@ class _ApprovalCreatePageState
                                       ),
                                     ),
                                   ),
-                                  const VerticalDivider(width: 1, color: Color(0xFFE2E8F0)),
+                                  const VerticalDivider(
+                                    width: 1,
+                                    color: Color(0xFFE2E8F0),
+                                  ),
                                   Expanded(
                                     flex: 7,
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 6,
+                                      ),
                                       child: FormDropdown<String>(
                                         height: 38,
                                         value: _levels[i],
-                                        border: Border.all(color: Colors.transparent),
+                                        border: Border.all(
+                                          color: Colors.transparent,
+                                        ),
                                         fillColor: Colors.transparent,
                                         activeBorderColor: Colors.transparent,
-                                        items: const [
-                                          'zabnixprivatelimited',
-                                          'admin@zerpai.com',
-                                          'manager@zerpai.com',
-                                        ],
-                                        itemBuilder: (item, isSelected, isHovered) {
-                                          final email = _approverEmails[item] ?? item;
-                                          final textColor = isHovered ? Colors.white : const Color(0xFF1E293B);
-                                          final emailColor = isHovered ? Colors.white70 : const Color(0xFF64748B);
-                                          final bg = isHovered ? const Color(0xFF3B82F6) : Colors.transparent;
-                                          return Container(
-                                            color: bg,
-                                            width: double.infinity,
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  item,
-                                                  style: AppTheme.bodyText.copyWith(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: textColor,
-                                                  ),
+                                        items: _approverNames.keys.toList(),
+                                        itemBuilder:
+                                            (item, isSelected, isHovered) {
+                                              final email = item;
+                                              final textColor = isHovered
+                                                  ? Colors.white
+                                                  : const Color(0xFF1E293B);
+                                              final emailColor = isHovered
+                                                  ? Colors.white70
+                                                  : const Color(0xFF64748B);
+                                              final bg = isHovered
+                                                  ? const Color(0xFF3B82F6)
+                                                  : Colors.transparent;
+                                              return Container(
+                                                color: bg,
+                                                width: double.infinity,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6,
+                                                    ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      _approverNames[item] ??
+                                                          item,
+                                                      style: AppTheme.bodyText
+                                                          .copyWith(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: textColor,
+                                                          ),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      '[$email]',
+                                                      style: AppTheme.bodyText
+                                                          .copyWith(
+                                                            fontSize: 11,
+                                                            color: emailColor,
+                                                          ),
+                                                    ),
+                                                  ],
                                                 ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  '[$email]',
-                                                  style: AppTheme.bodyText.copyWith(
-                                                    fontSize: 11,
-                                                    color: emailColor,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
+                                              );
+                                            },
                                         onChanged: (val) {
                                           if (val != null) {
                                             setState(() => _levels[i] = val);
@@ -777,7 +830,9 @@ class _ApprovalCreatePageState
                                               _levelKeys.removeAt(i);
                                             });
                                           },
-                                          borderRadius: BorderRadius.circular(999),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
                                           child: const Padding(
                                             padding: EdgeInsets.all(4),
                                             child: DecoratedBox(
@@ -917,7 +972,8 @@ class _ApprovalCreatePageState
         const SizedBox(height: 16),
         _buildCheckboxRow(
           value: _sendEmailAndInApp,
-          label: 'Send email and in-app notifications when transactions are submitted for approval',
+          label:
+              'Send email and in-app notifications when transactions are submitted for approval',
           onChanged: (val) {
             if (val != null) {
               setState(() => _sendEmailAndInApp = val);
@@ -927,7 +983,8 @@ class _ApprovalCreatePageState
         const SizedBox(height: 12),
         _buildCheckboxRow(
           value: _notifySubmitter,
-          label: 'Notify the submitter when a transaction is approved or rejected',
+          label:
+              'Notify the submitter when a transaction is approved or rejected',
           onChanged: (val) {
             if (val != null) {
               setState(() => _notifySubmitter = val);
@@ -1052,11 +1109,7 @@ class _CreateHeader extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(
-                    Icons.close,
-                    size: 15,
-                    color: Color(0xFFFF5C73),
-                  ),
+                  const Icon(Icons.close, size: 15, color: Color(0xFFFF5C73)),
                 ],
               ),
             ),
@@ -1068,10 +1121,7 @@ class _CreateHeader extends StatelessWidget {
 }
 
 class _CreatePaneHeader extends StatelessWidget {
-  const _CreatePaneHeader({
-    required this.title,
-    required this.onClose,
-  });
+  const _CreatePaneHeader({required this.title, required this.onClose});
 
   final String title;
   final VoidCallback onClose;
@@ -1083,9 +1133,7 @@ class _CreatePaneHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderLight),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
       ),
       child: Row(
         children: [
@@ -1103,11 +1151,7 @@ class _CreatePaneHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
             child: const Padding(
               padding: EdgeInsets.all(4),
-              child: Icon(
-                Icons.close,
-                size: 20,
-                color: Color(0xFFFF4A4A),
-              ),
+              child: Icon(Icons.close, size: 20, color: Color(0xFFFF4A4A)),
             ),
           ),
         ],
@@ -1117,11 +1161,7 @@ class _CreatePaneHeader extends StatelessWidget {
 }
 
 class _FormRow extends StatelessWidget {
-  const _FormRow({
-    required this.label,
-    required this.child,
-    this.labelColor,
-  });
+  const _FormRow({required this.label, required this.child, this.labelColor});
 
   final String label;
   final Widget child;
@@ -1149,10 +1189,7 @@ class _FormRow extends StatelessWidget {
 }
 
 class _CreateFooter extends StatelessWidget {
-  const _CreateFooter({
-    required this.onSave,
-    required this.onCancel,
-  });
+  const _CreateFooter({required this.onSave, required this.onCancel});
 
   final VoidCallback onSave;
   final VoidCallback onCancel;
@@ -1163,9 +1200,7 @@ class _CreateFooter extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          top: BorderSide(color: AppTheme.borderLight),
-        ),
+        border: Border(top: BorderSide(color: AppTheme.borderLight)),
       ),
       child: Row(
         children: [
@@ -1211,8 +1246,8 @@ class _SeriesCreateRow {
     this.restartNumbering = 'None',
     this.selectedPlaceholder,
     this.selectedPlaceholderValue,
-  })  : prefixController = TextEditingController(text: prefix),
-        startingController = TextEditingController(text: startingNumber);
+  }) : prefixController = TextEditingController(text: prefix),
+       startingController = TextEditingController(text: startingNumber);
 
   _SeriesCreateRow copy() => _SeriesCreateRow(
     module: module,
@@ -1224,7 +1259,8 @@ class _SeriesCreateRow {
     selectedPlaceholderValue: selectedPlaceholderValue,
   );
 
-  String get previewText => '${prefixController.text}${startingController.text}';
+  String get previewText =>
+      '${prefixController.text}${startingController.text}';
 }
 
 class _SeriesCreateSeed {

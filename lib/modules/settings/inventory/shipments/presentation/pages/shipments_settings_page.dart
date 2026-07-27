@@ -10,6 +10,7 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/address_dialog.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 enum ShipmentsSettingsTab { preferences, fields, buttons, relatedLists }
 
@@ -27,6 +28,7 @@ class ShipmentsSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _ShipmentsSettingsPageState extends ConsumerState<ShipmentsSettingsPage> {
+  final SettingsPreferencesRepository _preferencesRepository = SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _contentScrollController = ScrollController();
@@ -37,27 +39,47 @@ class _ShipmentsSettingsPageState extends ConsumerState<ShipmentsSettingsPage> {
   bool _notifyManualShipments = true;
   late ShipmentsSettingsTab _activeTab;
 
-  List<Map<String, dynamic>> _dispatchAddresses = [
-    {
-      'companyName': 'zabnixprivatelimited',
-      'attention': '',
-      'street1': 'PERINTHALMANNA',
-      'street2': 'MALAPPURAM, Kerala',
-      'city': 'MALAPPURAM',
-      'state': 'KL',
-      'stateName': 'Kerala',
-      'country': 'IN',
-      'countryName': 'India',
-      'zip': '679322',
-      'phone': '8086355500',
-    },
-  ];
+  List<Map<String, dynamic>> _dispatchAddresses = [];
   int _selectedAddressIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _activeTab = widget.initialTab;
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final data = await _preferencesRepository.loadSection('stock_preferences', const ['inventory', 'shipments']);
+      if (!mounted || data.isEmpty) return;
+      setState(() {
+        _notifyCarrierShipments = data['notify_carrier_shipments'] as bool? ?? _notifyCarrierShipments;
+        _notifyManualShipments = data['notify_manual_shipments'] as bool? ?? _notifyManualShipments;
+        final addresses = data['dispatch_addresses'];
+        if (addresses is List) {
+          _dispatchAddresses = addresses.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList();
+        }
+        _selectedAddressIndex = int.tryParse(data['selected_address_index']?.toString() ?? '') ?? 0;
+        if (_selectedAddressIndex >= _dispatchAddresses.length) _selectedAddressIndex = 0;
+      });
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to load shipment preferences');
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    try {
+      await _preferencesRepository.saveSection('stock_preferences', {
+        'notify_carrier_shipments': _notifyCarrierShipments,
+        'notify_manual_shipments': _notifyManualShipments,
+        'dispatch_addresses': _dispatchAddresses,
+        'selected_address_index': _selectedAddressIndex,
+      }, const ['inventory', 'shipments']);
+      if (mounted) ZerpaiToast.success(context, 'Shipments preferences saved');
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to save shipment preferences');
+    }
   }
 
   @override
@@ -355,9 +377,21 @@ class _ShipmentsSettingsPageState extends ConsumerState<ShipmentsSettingsPage> {
         : 'ZERPAI ERP';
     final searchItems = _buildSearchItems();
 
+    final orgAddress = orgSettings == null
+        ? null
+        : <String, dynamic>{
+            'companyName': orgSettings.name,
+            'attention': orgSettings.attention ?? '',
+            'street1': orgSettings.street ?? '',
+            'street2': orgSettings.place ?? '',
+            'city': orgSettings.city ?? '',
+            'countryName': orgSettings.country ?? '',
+            'zip': orgSettings.pincode ?? '',
+            'phone': orgSettings.phone ?? '',
+          };
     final activeAddress = _dispatchAddresses.isNotEmpty
         ? _dispatchAddresses[_selectedAddressIndex]
-        : null;
+        : orgAddress;
 
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
@@ -633,12 +667,7 @@ class _ShipmentsSettingsPageState extends ConsumerState<ShipmentsSettingsPage> {
                                                 SizedBox(
                                                   height: 34,
                                                   child: ElevatedButton(
-                                                    onPressed: () {
-                                                      ZerpaiToast.success(
-                                                        context,
-                                                        'Shipments preferences saved',
-                                                      );
-                                                    },
+                                                    onPressed: _savePreferences,
                                                     style: ElevatedButton.styleFrom(
                                                       backgroundColor:
                                                           const Color(

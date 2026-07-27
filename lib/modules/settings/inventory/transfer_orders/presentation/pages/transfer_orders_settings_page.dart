@@ -9,6 +9,7 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 enum TransferOrdersSettingsTab {
   preferences,
@@ -35,6 +36,7 @@ class TransferOrdersSettingsPage extends ConsumerStatefulWidget {
 
 class _TransferOrdersSettingsPageState
     extends ConsumerState<TransferOrdersSettingsPage> {
+  final SettingsPreferencesRepository _preferencesRepository = SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _contentScrollController = ScrollController();
@@ -49,6 +51,34 @@ class _TransferOrdersSettingsPageState
   void initState() {
     super.initState();
     _activeTab = widget.initialTab;
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final data = await _preferencesRepository.loadSection('stock_preferences', const ['inventory', 'transfer_orders']);
+      if (!mounted || data.isEmpty) return;
+      setState(() {
+        _costPricePreference = CostPricePreferenceType.values.where((v) => v.name == data['cost_price_preference']).firstOrNull ?? _costPricePreference;
+        _showCostPriceInTransferOrders = data['show_cost_price'] as bool? ?? _showCostPriceInTransferOrders;
+        _selectedLocationPreference = data['location_preference']?.toString() ?? _selectedLocationPreference;
+      });
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to load transfer order preferences');
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    try {
+      await _preferencesRepository.saveSection('stock_preferences', {
+        'cost_price_preference': _costPricePreference.name,
+        'show_cost_price': _showCostPriceInTransferOrders,
+        'location_preference': _selectedLocationPreference,
+      }, const ['inventory', 'transfer_orders']);
+      if (mounted) ZerpaiToast.success(context, 'Transfer Orders preferences saved');
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to save transfer order preferences');
+    }
   }
 
   @override
@@ -224,6 +254,7 @@ class _TransferOrdersSettingsPageState
                                             },
                                             dropdownItemBuilder:
                                                 _dropdownItemBuilder,
+                                            onSave: _savePreferences,
                                           )
                                         : Center(
                                             child: Padding(
@@ -269,6 +300,7 @@ class _TransferOrdersPreferencesContent extends StatelessWidget {
     required this.selectedLocationPreference,
     required this.onLocationPreferenceChanged,
     required this.dropdownItemBuilder,
+    required this.onSave,
   });
 
   final CostPricePreferenceType costPricePreference;
@@ -278,6 +310,7 @@ class _TransferOrdersPreferencesContent extends StatelessWidget {
   final String selectedLocationPreference;
   final ValueChanged<String?> onLocationPreferenceChanged;
   final Widget Function(String, bool, bool) dropdownItemBuilder;
+  final Future<void> Function() onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -445,9 +478,7 @@ class _TransferOrdersPreferencesContent extends StatelessWidget {
         SizedBox(
           height: 34,
           child: ElevatedButton(
-            onPressed: () {
-              ZerpaiToast.success(context, 'Transfer Orders preferences saved');
-            },
+            onPressed: onSave,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,

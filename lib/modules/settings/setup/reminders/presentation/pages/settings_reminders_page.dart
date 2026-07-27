@@ -10,6 +10,7 @@ import 'package:web/web.dart' as web;
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/font_family_dropdown.dart';
@@ -17,6 +18,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
 import 'package:zerpai_erp/shared/widgets/settings_page_header.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 
 const List<String> _reminderTimingOptions = <String>['before', 'after'];
@@ -98,7 +100,9 @@ class SetupConfigureReminderPage extends StatefulWidget {
       _SetupConfigureReminderPageState();
 }
 
-class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage> {
+class _SetupConfigureReminderPageState
+    extends State<SetupConfigureReminderPage> {
+  final ApiClient _apiClient = ApiClient();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
@@ -106,6 +110,86 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
   bool _reminderOneEnabled = false;
   bool _reminderTwoEnabled = false;
   bool _reminderThreeEnabled = false;
+  final Map<String, String> _ruleIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReminderRules();
+  }
+
+  Future<void> _loadReminderRules() async {
+    try {
+      final response = await _apiClient.get(
+        'settings-customization/reminder-rules',
+        queryParameters: const {'module': 'invoices'},
+        useCache: false,
+      );
+      final rows = (response.data as List? ?? const []).whereType<Map>();
+      final enabled = <String, bool>{};
+      for (final raw in rows) {
+        final row = Map<String, dynamic>.from(raw);
+        final code = row['event_code']?.toString() ?? '';
+        if (code.isEmpty) continue;
+        enabled[code] = row['is_active'] == true;
+        final id = row['id']?.toString();
+        if (id != null && id.isNotEmpty) _ruleIds[code] = id;
+      }
+      if (!mounted) return;
+      setState(() {
+        _paymentExpectedEnabled = enabled['expected_payment_date'] ?? false;
+        _reminderOneEnabled = enabled['reminder_1'] ?? false;
+        _reminderTwoEnabled = enabled['reminder_2'] ?? false;
+        _reminderThreeEnabled = enabled['reminder_3'] ?? false;
+      });
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to load reminder rules');
+    }
+  }
+
+  Future<void> _persistReminderRule(String eventCode, bool enabled) async {
+    final payload = {
+      'name': eventCode.replaceAll('_', ' '),
+      'module': 'invoices',
+      'event_code': eventCode,
+      'channel': 'email',
+      'offset_days': 0,
+      'is_active': enabled,
+    };
+    final id = _ruleIds[eventCode];
+    final response = id == null
+        ? await _apiClient.post(
+            'settings-customization/reminder-rules',
+            data: payload,
+          )
+        : await _apiClient.patch(
+            'settings-customization/reminder-rules/$id',
+            data: payload,
+          );
+    final savedId = (response.data as Map?)?['id']?.toString();
+    if (savedId != null && savedId.isNotEmpty) _ruleIds[eventCode] = savedId;
+  }
+
+  Future<void> _deleteReminderRule(String eventCode) async {
+    final id = _ruleIds[eventCode];
+    if (id == null) return;
+    final confirmed = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Delete Reminder',
+      message: 'This reminder will be deactivated.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      variant: ZerpaiConfirmationVariant.danger,
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await _apiClient.delete('settings-customization/reminder-rules/$id');
+      await _loadReminderRules();
+      if (mounted) ZerpaiToast.success(context, 'Reminder deleted');
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to delete reminder');
+    }
+  }
 
   @override
   void dispose() {
@@ -211,6 +295,7 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
     required bool currentValue,
     required ValueChanged<bool> applyValue,
     required String milestoneLabel,
+    required String eventCode,
   }) async {
     final shouldEnable = await showDialog<bool>(
       context: context,
@@ -222,7 +307,13 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
     );
 
     if (shouldEnable != null) {
-      applyValue(shouldEnable);
+      try {
+        await _persistReminderRule(eventCode, shouldEnable);
+        applyValue(shouldEnable);
+      } catch (_) {
+        applyValue(currentValue);
+        if (mounted) ZerpaiToast.error(context, 'Failed to save reminder rule');
+      }
       return;
     }
 
@@ -233,12 +324,14 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
     required bool currentValue,
     required ValueChanged<bool> applyValue,
     required String milestoneLabel,
+    required String eventCode,
   }) {
     return _handleReminderToggle(
       nextValue: currentValue,
       currentValue: currentValue,
       applyValue: applyValue,
       milestoneLabel: milestoneLabel,
+      eventCode: eventCode,
     );
   }
 
@@ -257,7 +350,8 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
             searchFocusNode: _searchFocusNode,
             searchItems: _buildSearchItems(context),
             showBackButton: true,
-            onBack: () => context.go(_orgScopedRoute(context, AppRoutes.settings)),
+            onBack: () =>
+                context.go(_orgScopedRoute(context, AppRoutes.settings)),
           ),
           Expanded(
             child: Row(
@@ -280,7 +374,11 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
                                 _buildSectionTitle('Manual Reminders'),
                                 const SizedBox(height: 14),
                                 _ReminderTableCard(
-                                  headers: const ['NAME', 'DESCRIPTION', 'ACTIONS'],
+                                  headers: const [
+                                    'NAME',
+                                    'DESCRIPTION',
+                                    'ACTIONS',
+                                  ],
                                   columnWidths: const <int, TableColumnWidth>{
                                     0: FlexColumnWidth(1.4),
                                     1: FlexColumnWidth(4.8),
@@ -298,7 +396,8 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
                                       thirdCell: _buildActionButton(
                                         icon: LucideIcons.pencil,
                                         onTap: () => _openReminderEditorDialog(
-                                          title: 'Reminder For Overdue Invoices',
+                                          title:
+                                              'Reminder For Overdue Invoices',
                                           subject:
                                               'Payment of %Balance% is outstanding for %InvoiceNumber%',
                                           body:
@@ -412,10 +511,7 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    VoidCallback? onTap,
-  }) {
+  Widget _buildActionButton({required IconData icon, VoidCallback? onTap}) {
     return Center(
       child: InkWell(
         onTap: onTap,
@@ -428,17 +524,14 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: const Color(0xFFE5E7EB)),
           ),
-          child: Icon(
-            icon,
-            size: 14,
-            color: const Color(0xFFC4CAD6),
-          ),
+          child: Icon(icon, size: 14, color: const Color(0xFFC4CAD6)),
         ),
       ),
     );
   }
 
   Widget _buildReminderOverflowAction({
+    required String eventCode,
     required String title,
     required String subject,
     required String body,
@@ -457,17 +550,16 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
             dayCount: '0',
             timing: 'after',
             milestoneLabel: milestoneLabel,
+            onDelete: () => _deleteReminderRule(eventCode),
           ),
         ),
-        onDelete: () => ZerpaiToast.info(
-          context,
-          'Delete reminder is not available yet',
-        ),
+        onDelete: () => _deleteReminderRule(eventCode),
       ),
     );
   }
 
   void _openAutomatedReminderEditor({
+    required String eventCode,
     required String reminderName,
     required String subject,
     required String body,
@@ -484,6 +576,7 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
         dayCount: '0',
         timing: 'after',
         milestoneLabel: milestoneLabel,
+        onDelete: () => _deleteReminderRule(eventCode),
       ),
     );
   }
@@ -511,6 +604,7 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
               applyValue: (next) =>
                   setState(() => _paymentExpectedEnabled = next),
               milestoneLabel: 'expected payment date',
+              eventCode: 'expected_payment_date',
             ),
             onChanged: (value) => _handleReminderToggle(
               nextValue: value,
@@ -518,6 +612,7 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
               applyValue: (next) =>
                   setState(() => _paymentExpectedEnabled = next),
               milestoneLabel: 'expected payment date',
+              eventCode: 'expected_payment_date',
             ),
             action: _buildActionButton(
               icon: LucideIcons.pencil,
@@ -535,6 +630,7 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
             schedule: 'Remind me 0 day(s) After due date',
             enabled: _reminderOneEnabled,
             onNameTap: () => _openAutomatedReminderEditor(
+              eventCode: 'reminder_1',
               reminderName: 'Reminder - 1',
               subject: 'Payment reminder for %InvoiceNumber%',
               body: '',
@@ -546,8 +642,10 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
               currentValue: _reminderOneEnabled,
               applyValue: (next) => setState(() => _reminderOneEnabled = next),
               milestoneLabel: 'due date',
+              eventCode: 'reminder_1',
             ),
             action: _buildReminderOverflowAction(
+              eventCode: 'reminder_1',
               title: 'Reminder - 1',
               subject: 'Payment reminder for %InvoiceNumber%',
               body: '',
@@ -560,6 +658,7 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
             schedule: 'Remind me 0 day(s) After due date',
             enabled: _reminderTwoEnabled,
             onNameTap: () => _openAutomatedReminderEditor(
+              eventCode: 'reminder_2',
               reminderName: 'Reminder - 2',
               subject: 'Payment reminder for %InvoiceNumber%',
               body: '',
@@ -571,8 +670,10 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
               currentValue: _reminderTwoEnabled,
               applyValue: (next) => setState(() => _reminderTwoEnabled = next),
               milestoneLabel: 'due date',
+              eventCode: 'reminder_2',
             ),
             action: _buildReminderOverflowAction(
+              eventCode: 'reminder_2',
               title: 'Reminder - 2',
               subject: 'Payment reminder for %InvoiceNumber%',
               body: '',
@@ -585,6 +686,7 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
             schedule: 'Remind me 0 day(s) After due date',
             enabled: _reminderThreeEnabled,
             onNameTap: () => _openAutomatedReminderEditor(
+              eventCode: 'reminder_3',
               reminderName: 'Reminder - 3',
               subject: 'Payment reminder for %InvoiceNumber%',
               body: '',
@@ -597,8 +699,10 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
               applyValue: (next) =>
                   setState(() => _reminderThreeEnabled = next),
               milestoneLabel: 'due date',
+              eventCode: 'reminder_3',
             ),
             action: _buildReminderOverflowAction(
+              eventCode: 'reminder_3',
               title: 'Reminder - 3',
               subject: 'Payment reminder for %InvoiceNumber%',
               body: '',
@@ -626,25 +730,28 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
                 ),
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 14,
-                          height: 14,
-                          decoration: const BoxDecoration(
-                            color: AppTheme.primaryBlue,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            LucideIcons.plus,
-                            size: 10,
-                            color: Colors.white,
-                          ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primaryBlue,
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(width: 8),
-                        Text(
+                        child: const Icon(
+                          LucideIcons.plus,
+                          size: 10,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
                         'New Reminder',
                         style: AppTheme.bodyText.copyWith(
                           fontSize: 13,
@@ -786,10 +893,7 @@ class _SetupConfigureReminderPageState extends State<SetupConfigureReminderPage>
           SizedBox(
             width: 96,
             child: Center(
-              child: _ReminderToggle(
-                value: enabled,
-                onChanged: onChanged,
-              ),
+              child: _ReminderToggle(value: enabled, onChanged: onChanged),
             ),
           ),
           SizedBox(width: 92, child: action),
@@ -887,6 +991,7 @@ class _AutomatedReminderDialogConfig {
     required this.dayCount,
     required this.timing,
     required this.milestoneLabel,
+    this.onDelete,
   });
 
   final String reminderName;
@@ -894,13 +999,11 @@ class _AutomatedReminderDialogConfig {
   final String dayCount;
   final String timing;
   final String milestoneLabel;
+  final Future<void> Function()? onDelete;
 }
 
 class _ReminderToggle extends StatelessWidget {
-  const _ReminderToggle({
-    required this.value,
-    required this.onChanged,
-  });
+  const _ReminderToggle({required this.value, required this.onChanged});
 
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -954,9 +1057,7 @@ class _ReminderQuickConfigDialogState
   final TextEditingController _dayCountController = TextEditingController(
     text: '0',
   );
-  final TextEditingController _toController = TextEditingController(
-    text: 'zabnixprivatelimited@gmail.com',
-  );
+  final TextEditingController _toController = TextEditingController();
 
   String _timing = 'after';
   List<String> _ccEmails = <String>[];
@@ -1065,8 +1166,7 @@ class _ReminderQuickConfigDialogState
                             setState(() => _enabled = value ?? false),
                         activeColor: AppTheme.primaryBlue,
                         side: const BorderSide(color: Color(0xFFD1D5DB)),
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1233,11 +1333,7 @@ class _ReminderQuickConfigDialogState
         Expanded(
           child: FormDropdown<String>(
             value: null,
-            items: const <String>[
-              'accounts@zabnix.com',
-              'billing@zabnix.com',
-              'support@zabnix.com',
-            ],
+            items: const <String>[],
             hint: '',
             onChanged: (_) {},
             height: 32,
@@ -1260,10 +1356,7 @@ class _ReminderQuickConfigDialogState
 }
 
 class _ReminderOverflowMenu extends StatelessWidget {
-  const _ReminderOverflowMenu({
-    required this.onEdit,
-    required this.onDelete,
-  });
+  const _ReminderOverflowMenu({required this.onEdit, required this.onDelete});
 
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -1331,10 +1424,7 @@ class _ReminderOverflowMenu extends StatelessWidget {
 }
 
 class _ReminderOverflowMenuItem extends StatefulWidget {
-  const _ReminderOverflowMenuItem({
-    required this.icon,
-    required this.label,
-  });
+  const _ReminderOverflowMenuItem({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -1397,11 +1487,7 @@ class _ReminderEditorDialog extends StatefulWidget {
 }
 
 class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
-  final List<String> _emailOptions = const <String>[
-    'accounts@zabnix.com',
-    'billing@zabnix.com',
-    'support@zabnix.com',
-  ];
+  final List<String> _emailOptions = const <String>[];
   final List<String> _headingOptions = const <String>[
     'Normal Text',
     'Heading 1',
@@ -1420,47 +1506,204 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
     '32px',
     '48px',
   ];
-  final List<_PlaceholderOption> _placeholderOptions = const <_PlaceholderOption>[
-    _PlaceholderOption(category: 'Invoice', label: 'Balance', token: '%Balance%'),
-    _PlaceholderOption(category: 'Invoice', label: 'DueDate', token: '%DueDate%'),
-    _PlaceholderOption(category: 'Invoice', label: 'InvoiceDate', token: '%InvoiceDate%'),
-    _PlaceholderOption(category: 'Invoice', label: 'Invoice Issue Date', token: '%InvoiceDate%'),
-    _PlaceholderOption(category: 'Invoice', label: 'InvoiceNumber', token: '%InvoiceNumber%'),
-    _PlaceholderOption(category: 'Invoice', label: 'Invoice URL', token: '%InvoiceURL%'),
-    _PlaceholderOption(category: 'Invoice', label: 'Subject', token: '%Subject%'),
-    _PlaceholderOption(category: 'Invoice', label: 'Total', token: '%Total%'),
-    _PlaceholderOption(category: 'Invoice', label: 'Profile Name', token: '%ProfileName%'),
-    _PlaceholderOption(category: 'Invoice', label: 'Project Name', token: '%ProjectName%'),
-    _PlaceholderOption(category: 'Invoice', label: 'Invoice Payment Link', token: '%InvoicePaymentLink%'),
-    _PlaceholderOption(category: 'Invoice', label: 'Created By', token: '%CreatedBy%'),
-    _PlaceholderOption(category: 'Invoice', label: 'OverdueDays', token: '%OverdueDays%'),
-    _PlaceholderOption(category: 'Customer', label: 'Company Name', token: '%CompanyName%'),
-    _PlaceholderOption(category: 'Customer', label: 'Salutation', token: '%Salutation%'),
-    _PlaceholderOption(category: 'Customer', label: 'Customer Balance', token: '%CustomerBalance%'),
-    _PlaceholderOption(category: 'Customer', label: 'Website', token: '%Website%'),
-    _PlaceholderOption(category: 'Customer', label: 'Outstanding Balance', token: '%OutstandingBalance%'),
-    _PlaceholderOption(category: 'Customer', label: 'Customer Name', token: '%CustomerName%'),
-    _PlaceholderOption(category: 'Customer', label: 'FirstName', token: '%FirstName%'),
-    _PlaceholderOption(category: 'Customer', label: 'LastName', token: '%LastName%'),
-    _PlaceholderOption(category: 'Customer', label: 'Department', token: '%Department%'),
-    _PlaceholderOption(category: 'Customer', label: 'Designation', token: '%Designation%'),
-    _PlaceholderOption(category: 'Customer', label: 'Customer Email', token: '%CustomerEmail%'),
-    _PlaceholderOption(category: 'Customer', label: 'Created By', token: '%CreatedBy%'),
-    _PlaceholderOption(category: 'Customer', label: 'Credit Limit', token: '%CreditLimit%'),
-    _PlaceholderOption(category: 'Customer', label: 'Customer Number', token: '%CustomerNumber%'),
-    _PlaceholderOption(category: 'Customer', label: 'Customer GSTIN', token: '%CustomerGSTIN%'),
-    _PlaceholderOption(category: 'Organization', label: 'Name', token: '%CompanyName%'),
-    _PlaceholderOption(category: 'Organization', label: 'User', token: '%UserName%'),
-    _PlaceholderOption(category: 'Organization', label: 'User Role', token: '%UserRole%'),
-    _PlaceholderOption(category: 'Organization', label: 'Email', token: '%CompanyEmail%'),
-    _PlaceholderOption(category: 'Organization', label: 'Phone#', token: '%CompanyPhone%'),
-    _PlaceholderOption(category: 'Organization', label: 'Fax#', token: '%CompanyFax%'),
-    _PlaceholderOption(category: 'Organization', label: 'Website', token: '%CompanyWebsite%'),
-    _PlaceholderOption(category: 'Organization', label: 'Label 1', token: '%Label1%'),
-    _PlaceholderOption(category: 'Organization', label: 'Value 1', token: '%Value1%'),
-    _PlaceholderOption(category: 'Organization', label: 'Company GSTIN', token: '%CompanyGSTIN%'),
-    _PlaceholderOption(category: 'Organization', label: 'Portal URL', token: '%PortalURL%'),
-  ];
+  final List<_PlaceholderOption> _placeholderOptions =
+      const <_PlaceholderOption>[
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'Balance',
+          token: '%Balance%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'DueDate',
+          token: '%DueDate%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'InvoiceDate',
+          token: '%InvoiceDate%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'Invoice Issue Date',
+          token: '%InvoiceDate%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'InvoiceNumber',
+          token: '%InvoiceNumber%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'Invoice URL',
+          token: '%InvoiceURL%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'Subject',
+          token: '%Subject%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'Total',
+          token: '%Total%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'Profile Name',
+          token: '%ProfileName%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'Project Name',
+          token: '%ProjectName%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'Invoice Payment Link',
+          token: '%InvoicePaymentLink%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'Created By',
+          token: '%CreatedBy%',
+        ),
+        _PlaceholderOption(
+          category: 'Invoice',
+          label: 'OverdueDays',
+          token: '%OverdueDays%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Company Name',
+          token: '%CompanyName%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Salutation',
+          token: '%Salutation%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Customer Balance',
+          token: '%CustomerBalance%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Website',
+          token: '%Website%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Outstanding Balance',
+          token: '%OutstandingBalance%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Customer Name',
+          token: '%CustomerName%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'FirstName',
+          token: '%FirstName%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'LastName',
+          token: '%LastName%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Department',
+          token: '%Department%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Designation',
+          token: '%Designation%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Customer Email',
+          token: '%CustomerEmail%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Created By',
+          token: '%CreatedBy%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Credit Limit',
+          token: '%CreditLimit%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Customer Number',
+          token: '%CustomerNumber%',
+        ),
+        _PlaceholderOption(
+          category: 'Customer',
+          label: 'Customer GSTIN',
+          token: '%CustomerGSTIN%',
+        ),
+        _PlaceholderOption(
+          category: 'Organization',
+          label: 'Name',
+          token: '%CompanyName%',
+        ),
+        _PlaceholderOption(
+          category: 'Organization',
+          label: 'User',
+          token: '%UserName%',
+        ),
+        _PlaceholderOption(
+          category: 'Organization',
+          label: 'User Role',
+          token: '%UserRole%',
+        ),
+        _PlaceholderOption(
+          category: 'Organization',
+          label: 'Email',
+          token: '%CompanyEmail%',
+        ),
+        _PlaceholderOption(
+          category: 'Organization',
+          label: 'Phone#',
+          token: '%CompanyPhone%',
+        ),
+        _PlaceholderOption(
+          category: 'Organization',
+          label: 'Fax#',
+          token: '%CompanyFax%',
+        ),
+        _PlaceholderOption(
+          category: 'Organization',
+          label: 'Website',
+          token: '%CompanyWebsite%',
+        ),
+        _PlaceholderOption(
+          category: 'Organization',
+          label: 'Label 1',
+          token: '%Label1%',
+        ),
+        _PlaceholderOption(
+          category: 'Organization',
+          label: 'Value 1',
+          token: '%Value1%',
+        ),
+        _PlaceholderOption(
+          category: 'Organization',
+          label: 'Company GSTIN',
+          token: '%CompanyGSTIN%',
+        ),
+        _PlaceholderOption(
+          category: 'Organization',
+          label: 'Portal URL',
+          token: '%PortalURL%',
+        ),
+      ];
 
   late final TextEditingController _subjectController;
   late final TextEditingController _bodyController;
@@ -1543,7 +1786,9 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
           .replaceAll('>', '&gt;')
           .replaceAll('"', '&quot;')
           .replaceAll("'", '&#39;');
-      return escapedLine.isEmpty ? '<div><br></div>' : '<div>$escapedLine</div>';
+      return escapedLine.isEmpty
+          ? '<div><br></div>'
+          : '<div>$escapedLine</div>';
     }).join();
   }
 
@@ -1577,22 +1822,37 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
       ..fontFamily = 'Inter, sans-serif'
       ..whiteSpace = 'pre-wrap';
 
-    element.addEventListener('input', ((web.Event _) {
-      _syncWebEditorHtml();
-      _cacheWebSelection();
-    }).toJS);
-    element.addEventListener('mouseup', ((web.Event _) {
-      _cacheWebSelection();
-    }).toJS);
-    element.addEventListener('keyup', ((web.Event _) {
-      _cacheWebSelection();
-    }).toJS);
-    element.addEventListener('focus', ((web.Event _) {
-      _cacheWebSelection();
-    }).toJS);
-    web.document.addEventListener('selectionchange', ((web.Event _) {
-      _cacheWebSelection();
-    }).toJS);
+    element.addEventListener(
+      'input',
+      ((web.Event _) {
+        _syncWebEditorHtml();
+        _cacheWebSelection();
+      }).toJS,
+    );
+    element.addEventListener(
+      'mouseup',
+      ((web.Event _) {
+        _cacheWebSelection();
+      }).toJS,
+    );
+    element.addEventListener(
+      'keyup',
+      ((web.Event _) {
+        _cacheWebSelection();
+      }).toJS,
+    );
+    element.addEventListener(
+      'focus',
+      ((web.Event _) {
+        _cacheWebSelection();
+      }).toJS,
+    );
+    web.document.addEventListener(
+      'selectionchange',
+      ((web.Event _) {
+        _cacheWebSelection();
+      }).toJS,
+    );
   }
 
   void _syncWebEditorHtml() {
@@ -1791,13 +2051,12 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
     return 'https://$trimmed';
   }
 
-  void _insertLink({
-    required String linkText,
-    required String linkUrl,
-  }) {
+  void _insertLink({required String linkText, required String linkUrl}) {
     final normalizedUrl = _normalizeUrl(linkUrl);
     final selectedText = _getSelectedEditorText();
-    final effectiveText = linkText.trim().isEmpty ? selectedText : linkText.trim();
+    final effectiveText = linkText.trim().isEmpty
+        ? selectedText
+        : linkText.trim();
 
     if (normalizedUrl.isEmpty) {
       return;
@@ -1886,7 +2145,9 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
                               contentCase: ContentCase.none,
                               fillColor: Colors.white,
                               borderRadius: BorderRadius.circular(6),
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
                               textStyle: AppTheme.bodyText.copyWith(
                                 fontSize: 13,
                                 color: const Color(0xFF1D1D1D),
@@ -1901,7 +2162,10 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
                               onPressed: () {
                                 final url = imageUrlController.text.trim();
                                 if (url.isEmpty) {
-                                  ZerpaiToast.info(context, 'Enter an image URL');
+                                  ZerpaiToast.info(
+                                    context,
+                                    'Enter an image URL',
+                                  );
                                   return;
                                 }
                                 Navigator.of(dialogContext).pop();
@@ -2039,7 +2303,8 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
                             height: 32,
                             child: ZButton.secondary(
                               label: 'Cancel',
-                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
                             ),
                           ),
                         ],
@@ -2116,17 +2381,17 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1080),
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(context),
-            Expanded(
-              child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(
-                  context,
-                ).copyWith(scrollbars: false),
-                child: Scrollbar(
-                  controller: _dialogScrollController,
-                  thumbVisibility: true,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(context),
+              Expanded(
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(scrollbars: false),
+                  child: Scrollbar(
+                    controller: _dialogScrollController,
+                    thumbVisibility: true,
                     child: SingleChildScrollView(
                       controller: _dialogScrollController,
                       padding: EdgeInsets.fromLTRB(
@@ -2138,7 +2403,7 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (widget.automatedConfig != null) ...[
+                          if (widget.automatedConfig?.onDelete != null) ...[
                             _buildAutomatedReminderSettingsSection(),
                             const SizedBox(height: 18),
                           ],
@@ -2148,11 +2413,12 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 _buildDropdownRow(
-                                  label: widget.automatedConfig != null ? 'Remind' : 'From',
-                                  value:
-                                      widget.automatedConfig != null
-                                          ? _remindEmail
-                                          : _fromEmail,
+                                  label: widget.automatedConfig != null
+                                      ? 'Remind'
+                                      : 'From',
+                                  value: widget.automatedConfig != null
+                                      ? _remindEmail
+                                      : _fromEmail,
                                   onChanged: (value) => setState(() {
                                     if (widget.automatedConfig != null) {
                                       _remindEmail = value;
@@ -2165,7 +2431,8 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
                                 _buildDropdownRow(
                                   label: 'From',
                                   value: _fromEmail,
-                                  onChanged: (value) => setState(() => _fromEmail = value),
+                                  onChanged: (value) =>
+                                      setState(() => _fromEmail = value),
                                   helperText:
                                       'This email address will be used as the from address while sending . Other users can choose their email address if they wish to change it.',
                                 ),
@@ -2188,7 +2455,12 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
                                 const SizedBox(height: 14),
                                 _buildEditorShell(context),
                                 Container(
-                                  padding: const EdgeInsets.fromLTRB(0, 18, 0, 18),
+                                  padding: const EdgeInsets.fromLTRB(
+                                    0,
+                                    18,
+                                    0,
+                                    18,
+                                  ),
                                   decoration: const BoxDecoration(
                                     color: Colors.white,
                                     border: Border(
@@ -2199,22 +2471,28 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
                                     children: [
                                       ZButton.primary(
                                         label: 'Save',
-                                        onPressed: () => Navigator.of(context).pop(),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
                                       ),
                                       const SizedBox(width: 10),
                                       ZButton.secondary(
                                         label: 'Cancel',
-                                        onPressed: () => Navigator.of(context).pop(),
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
                                       ),
                                       if (widget.automatedConfig != null) ...[
                                         const SizedBox(width: 10),
                                         SizedBox(
                                           height: 38,
                                           child: OutlinedButton.icon(
-                                            onPressed: () => ZerpaiToast.info(
-                                              context,
-                                              'Delete reminder is not available yet',
-                                            ),
+                                            onPressed: () async {
+                                              await widget
+                                                  .automatedConfig!
+                                                  .onDelete!();
+                                              if (context.mounted) {
+                                                Navigator.of(context).pop();
+                                              }
+                                            },
                                             style: OutlinedButton.styleFrom(
                                               foregroundColor: const Color(
                                                 0xFF111827,
@@ -2253,13 +2531,13 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
                               ],
                             ),
                           ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
           ),
         ),
       ),
@@ -2290,11 +2568,7 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
             borderRadius: BorderRadius.circular(6),
             child: const Padding(
               padding: EdgeInsets.all(4),
-              child: Icon(
-                LucideIcons.x,
-                size: 18,
-                color: Color(0xFFFF5B5B),
-              ),
+              child: Icon(LucideIcons.x, size: 18, color: Color(0xFFFF5B5B)),
             ),
           ),
         ],
@@ -2307,17 +2581,12 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F8FA),
-        border: const Border(
-          bottom: BorderSide(color: Color(0xFFE8EDF5)),
-        ),
+        border: const Border(bottom: BorderSide(color: Color(0xFFE8EDF5))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildTextFieldRow(
-            label: 'Name',
-            controller: _nameController,
-          ),
+          _buildTextFieldRow(label: 'Name', controller: _nameController),
           const SizedBox(height: 18),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2391,9 +2660,8 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
           Row(
             children: [
               InkWell(
-                onTap: () => setState(
-                  () => _isReminderEnabled = !_isReminderEnabled,
-                ),
+                onTap: () =>
+                    setState(() => _isReminderEnabled = !_isReminderEnabled),
                 borderRadius: BorderRadius.circular(4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -2403,13 +2671,11 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
                       height: 18,
                       child: Checkbox(
                         value: _isReminderEnabled,
-                        onChanged: (value) => setState(
-                          () => _isReminderEnabled = value ?? false,
-                        ),
+                        onChanged: (value) =>
+                            setState(() => _isReminderEnabled = value ?? false),
                         activeColor: AppTheme.successGreen,
                         side: const BorderSide(color: Color(0xFFD1D5DB)),
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -2880,7 +3146,8 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
           .toList(growable: false),
       builder: (context, menuController, child) {
         return _ReminderToolbarHoverSurface(
-          isActive: menuController.isOpen || _activeToolbarControlId == 'heading',
+          isActive:
+              menuController.isOpen || _activeToolbarControlId == 'heading',
           onTap: () {
             _setActiveToolbarControl('heading');
             if (menuController.isOpen) {
@@ -2922,8 +3189,7 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
     FontWeight? fontWeight,
   }) {
     final controller = MenuController();
-    final menuItemWidth =
-        controlId == 'insert-placeholder' ? 168.0 : 92.0;
+    final menuItemWidth = controlId == 'insert-placeholder' ? 168.0 : 92.0;
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -2936,11 +3202,7 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
           ),
         ),
         const SizedBox(width: 6),
-        const Icon(
-          LucideIcons.chevronDown,
-          size: 14,
-          color: Color(0xFF939393),
-        ),
+        const Icon(LucideIcons.chevronDown, size: 14, color: Color(0xFF939393)),
       ],
     );
 
@@ -3017,7 +3279,9 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
         backgroundColor: const WidgetStatePropertyAll<Color>(Colors.white),
         surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.white),
         elevation: const WidgetStatePropertyAll<double>(6),
-        padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(EdgeInsets.zero),
+        padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+          EdgeInsets.zero,
+        ),
         shape: WidgetStatePropertyAll<RoundedRectangleBorder>(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -3104,7 +3368,9 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
         color: color,
         decoration: underline
             ? TextDecoration.underline
-            : (strikeThrough ? TextDecoration.lineThrough : TextDecoration.none),
+            : (strikeThrough
+                  ? TextDecoration.lineThrough
+                  : TextDecoration.none),
         decorationColor: color,
       ),
     );
@@ -3112,8 +3378,7 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 5),
       child: _ReminderToolbarHoverSurface(
-        isActive:
-            controlId != null && _activeToolbarControlId == controlId,
+        isActive: controlId != null && _activeToolbarControlId == controlId,
         onTap: onTap,
         padding: boxed
             ? const EdgeInsets.symmetric(horizontal: 8, vertical: 5)
@@ -3389,12 +3654,12 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
                     (option) => SizedBox(
                       width: 32,
                       height: 32,
-                       child: _ReminderMoreActionMenuItem(
-                         actionType: option,
-                         onTap: () {
-                           onSelected(option);
-                         },
-                       ),
+                      child: _ReminderMoreActionMenuItem(
+                        actionType: option,
+                        onTap: () {
+                          onSelected(option);
+                        },
+                      ),
                     ),
                   )
                   .toList(growable: false),
@@ -3434,8 +3699,7 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: _ReminderToolbarHoverSurface(
-        isActive:
-            controlId != null && _activeToolbarControlId == controlId,
+        isActive: controlId != null && _activeToolbarControlId == controlId,
         onTap: onTap,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
         child: Stack(
@@ -3589,10 +3853,7 @@ class _ReminderEditorDialogState extends State<_ReminderEditorDialog> {
 }
 
 class _ReminderToolbarMenuItem extends StatefulWidget {
-  const _ReminderToolbarMenuItem({
-    required this.label,
-    required this.onTap,
-  });
+  const _ReminderToolbarMenuItem({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;
@@ -3636,10 +3897,9 @@ class _ReminderToolbarHoverSurfaceState
           duration: const Duration(milliseconds: 120),
           padding: widget.padding,
           decoration: BoxDecoration(
-            color:
-                (_isHovered || widget.isActive)
-                    ? Colors.white
-                    : Colors.transparent,
+            color: (_isHovered || widget.isActive)
+                ? Colors.white
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: (_isHovered || widget.isActive)
@@ -3720,7 +3980,8 @@ class _ReminderInlineColorPickerPanelState
               children: [
                 ColorPicker(
                   pickerColor: _draftColor,
-                  onColorChanged: (color) => setState(() => _draftColor = color),
+                  onColorChanged: (color) =>
+                      setState(() => _draftColor = color),
                   enableAlpha: true,
                   portraitOnly: true,
                   labelTypes: const <ColorLabelType>[],
@@ -3978,18 +4239,22 @@ class _ReminderPlaceholderPanelState extends State<_ReminderPlaceholderPanel> {
   @override
   Widget build(BuildContext context) {
     final query = _searchController.text.trim().toLowerCase();
-    final filtered = widget.options.where((option) {
-      if (query.isEmpty) {
-        return true;
-      }
-      return option.label.toLowerCase().contains(query) ||
-          option.token.toLowerCase().contains(query) ||
-          option.category.toLowerCase().contains(query);
-    }).toList(growable: false);
+    final filtered = widget.options
+        .where((option) {
+          if (query.isEmpty) {
+            return true;
+          }
+          return option.label.toLowerCase().contains(query) ||
+              option.token.toLowerCase().contains(query) ||
+              option.category.toLowerCase().contains(query);
+        })
+        .toList(growable: false);
 
     final grouped = <String, List<_PlaceholderOption>>{};
     for (final option in filtered) {
-      grouped.putIfAbsent(option.category, () => <_PlaceholderOption>[]).add(option);
+      grouped
+          .putIfAbsent(option.category, () => <_PlaceholderOption>[])
+          .add(option);
     }
 
     return Container(
@@ -4055,42 +4320,47 @@ class _ReminderPlaceholderPanelState extends State<_ReminderPlaceholderPanel> {
                         )
                       : Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: grouped.entries.map((entry) {
-                            final options = entry.value;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    entry.key.toUpperCase(),
-                                    style: AppTheme.bodyText.copyWith(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF8B95A7),
-                                      letterSpacing: 0.6,
-                                    ),
+                          children: grouped.entries
+                              .map((entry) {
+                                final options = entry.value;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        entry.key.toUpperCase(),
+                                        style: AppTheme.bodyText.copyWith(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF8B95A7),
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 6,
+                                        children: options
+                                            .map(
+                                              (option) => SizedBox(
+                                                width: 182,
+                                                child:
+                                                    _ReminderPlaceholderOptionItem(
+                                                      option: option,
+                                                      onTap: () => widget
+                                                          .onSelected(option),
+                                                    ),
+                                              ),
+                                            )
+                                            .toList(growable: false),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 6,
-                                    children: options
-                                        .map(
-                                          (option) => SizedBox(
-                                            width: 182,
-                                            child: _ReminderPlaceholderOptionItem(
-                                              option: option,
-                                              onTap: () => widget.onSelected(option),
-                                            ),
-                                          ),
-                                        )
-                                        .toList(growable: false),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(growable: false),
+                                );
+                              })
+                              .toList(growable: false),
                         ),
                 ),
               ),
@@ -4173,10 +4443,7 @@ class _PlaceholderOption {
 }
 
 class _ParagraphAlignmentGlyph extends StatelessWidget {
-  const _ParagraphAlignmentGlyph({
-    required this.type,
-    required this.color,
-  });
+  const _ParagraphAlignmentGlyph({required this.type, required this.color});
 
   final _ParagraphAlignmentIconType type;
   final Color color;
@@ -4232,11 +4499,7 @@ class _ParagraphAlignmentGlyph extends StatelessWidget {
           ),
           Align(
             alignment: isLeft ? Alignment.centerLeft : Alignment.centerRight,
-            child: Icon(
-              arrowIcon,
-              size: 8.5,
-              color: color,
-            ),
+            child: Icon(arrowIcon, size: 8.5, color: color),
           ),
         ],
       ),
@@ -4245,10 +4508,7 @@ class _ParagraphAlignmentGlyph extends StatelessWidget {
 }
 
 class _TextAlignmentGlyph extends StatelessWidget {
-  const _TextAlignmentGlyph({
-    required this.type,
-    required this.color,
-  });
+  const _TextAlignmentGlyph({required this.type, required this.color});
 
   final _TextAlignmentMenuType type;
   final Color color;
@@ -4297,10 +4557,7 @@ class _TextAlignmentGlyph extends StatelessWidget {
     );
   }
 
-  Widget _buildLine(
-    double width, {
-    Alignment align = Alignment.centerLeft,
-  }) {
+  Widget _buildLine(double width, {Alignment align = Alignment.centerLeft}) {
     return Align(
       alignment: align,
       child: Container(
@@ -4316,10 +4573,7 @@ class _TextAlignmentGlyph extends StatelessWidget {
 }
 
 class _ListMenuGlyph extends StatelessWidget {
-  const _ListMenuGlyph({
-    required this.type,
-    required this.color,
-  });
+  const _ListMenuGlyph({required this.type, required this.color});
 
   final _ListMenuType type;
   final Color color;

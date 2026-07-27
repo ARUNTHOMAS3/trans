@@ -23,12 +23,14 @@ final orgSettingsProvider = FutureProvider.autoDispose<OrgSettings?>((
 });
 
 /// Convenience provider — returns the org's base currency code (e.g. 'INR').
-/// Falls back to 'INR' while loading or on error.
-final orgCurrencyCodeProvider = Provider<String>((ref) {
-  return ref
-          .watch(orgSettingsProvider)
-          .whenOrNull(data: (s) => s?.baseCurrency) ??
-      'INR';
+/// Returns null while loading, on error, or when empty.
+final orgCurrencyCodeProvider = Provider<String?>((ref) {
+  return ref.watch(orgSettingsProvider).whenOrNull(
+    data: (settings) {
+      final code = settings?.baseCurrency.trim();
+      return code == null || code.isEmpty ? null : code;
+    },
+  );
 });
 
 /// Convenience provider — returns the org's resolved date format pattern

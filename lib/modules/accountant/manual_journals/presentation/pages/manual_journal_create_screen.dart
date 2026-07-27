@@ -18,7 +18,7 @@ import 'package:zerpai_erp/core/services/api_client.dart';
 
 import '../../../../../shared/widgets/shortcut_handler.dart';
 import '../../../../../shared/widgets/zerpai_layout.dart';
-import 'package:skeletonizer/skeletonizer.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/core/utils/error_handler.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/widgets/manual_journal_template_card.dart';
@@ -32,7 +32,6 @@ import 'package:zerpai_erp/shared/widgets/inputs/account_tree_dropdown.dart'
     as dropdown;
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart' as di;
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
-import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart' as shared;
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accountant_chart_of_accounts_provider.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/providers/manual_journal_provider.dart';
@@ -88,12 +87,14 @@ class _PendingAttachment {
 
 class ManualJournalCreateScreen extends ConsumerStatefulWidget {
   final ManualJournal? initialJournal;
+  final String? initialJournalId;
   final ManualJournalTemplate? template;
   final bool showTemplates;
 
   const ManualJournalCreateScreen({
     super.key,
     this.initialJournal,
+    this.initialJournalId,
     this.template,
     this.showTemplates = false,
   });
@@ -118,12 +119,8 @@ class _ManualJournalCreateScreenState
   String? fiscalYearId;
   bool is13thMonthAdjustment = false;
   String reportingMethod = 'accrual_and_cash';
-  late lookup.Currency selectedCurrency = const lookup.Currency(
-    id: 'default',
-    code: 'INR',
-    name: 'Indian Rupee',
-    symbol: '₹',
-  );
+  lookup.Currency? selectedCurrency;
+  String? _requestedCurrencyCode;
 
   double totalDebit = 0.0;
   double totalCredit = 0.0;
@@ -142,7 +139,13 @@ class _ManualJournalCreateScreenState
   OverlayEntry? _attachmentsOverlayEntry;
   static const int _maxAttachmentFiles = 10;
   static const int _maxAttachmentFileSizeBytes = 10 * 1024 * 1024;
-  bool get isEditMode => widget.initialJournal != null;
+  ManualJournal? _resolvedInitialJournal;
+  bool _isInitializingEdit = false;
+  String? _initializationError;
+  bool get isEditMode =>
+      widget.initialJournal != null || widget.initialJournalId != null;
+  ManualJournal? get _activeInitialJournal =>
+      _resolvedInitialJournal ?? widget.initialJournal;
 
   @override
   void initState() {
@@ -154,7 +157,11 @@ class _ManualJournalCreateScreenState
     final initialJournal = widget.initialJournal;
     final template = widget.template;
     if (initialJournal != null) {
+      _resolvedInitialJournal = initialJournal;
       _hydrateFromJournal(initialJournal);
+    } else if ((widget.initialJournalId ?? '').isNotEmpty) {
+      _isInitializingEdit = true;
+      Future.microtask(_loadInitialJournalForEdit);
     } else if (template != null) {
       _hydrateFromTemplate(template);
       Future.microtask(_prefillJournalNumberFromSettings);
@@ -193,6 +200,47 @@ class _ManualJournalCreateScreenState
       row.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _loadInitialJournalForEdit() async {
+    final journalId = widget.initialJournalId;
+    if (journalId == null || journalId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isInitializingEdit = false;
+        _initializationError = 'Journal id is missing.';
+      });
+      return;
+    }
+
+    try {
+      final journal = await ref
+          .read(manualJournalRepositoryProvider)
+          .getManualJournal(journalId);
+      if (!mounted) return;
+      setState(() {
+        _resolvedInitialJournal = journal;
+        _isInitializingEdit = false;
+      });
+      _hydrateFromJournal(journal);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isInitializingEdit = false;
+        _initializationError = ErrorHandler.getFriendlyMessage(e);
+      });
+    }
+  }
+
+  void _goToOverview() {
+    final journalId = _activeInitialJournal?.id ?? widget.initialJournalId;
+    if (isEditMode && (journalId ?? '').isNotEmpty) {
+      context.go(
+        AppRoutes.accountantManualJournalsDetail.replaceAll(':id', journalId!),
+      );
+      return;
+    }
+    context.go(AppRoutes.accountantManualJournals);
   }
 
   Future<void> _prefillJournalNumberFromSettings() async {
@@ -307,18 +355,8 @@ class _ManualJournalCreateScreenState
     fiscalYearId = journal.fiscalYearId;
     is13thMonthAdjustment = journal.is13thMonthAdjustment;
     reportingMethod = journal.reportingMethod;
-    final option = defaultCurrencyOptions.firstWhere(
-      (c) => c.code == journal.currency,
-      orElse: () => defaultCurrencyOptions.first,
-    );
-    selectedCurrency = lookup.Currency(
-      id: 'default-${option.code}',
-      code: option.code,
-      name: option.name,
-      symbol: option.symbol,
-      decimals: option.decimals,
-      format: option.format,
-    );
+    _requestedCurrencyCode = journal.currency;
+    selectedCurrency = null;
 
     journalNumberCtrl.text = journal.journalNumber;
     referenceCtrl.text = journal.referenceNumber ?? '';
@@ -345,18 +383,8 @@ class _ManualJournalCreateScreenState
       rows.clear();
 
       reportingMethod = template.reportingMethod;
-      final option = defaultCurrencyOptions.firstWhere(
-        (c) => c.code == template.currency,
-        orElse: () => defaultCurrencyOptions.first,
-      );
-      selectedCurrency = lookup.Currency(
-        id: 'default-${option.code}',
-        code: option.code,
-        name: option.name,
-        symbol: option.symbol,
-        decimals: option.decimals,
-        format: option.format,
-      );
+      _requestedCurrencyCode = template.currency;
+      selectedCurrency = null;
       referenceCtrl.text = template.referenceNumber ?? '';
       notesCtrl.text = template.notes ?? '';
 
@@ -877,7 +905,10 @@ class _ManualJournalCreateScreenState
       'fiscalYearId': fiscalYearId,
       'is13thMonthAdjustment': is13thMonthAdjustment,
       'reportingMethod': reportingMethod,
-      'currencyCode': selectedCurrency.code,
+      'currencyCode':
+          selectedCurrency?.code ??
+          _requestedCurrencyCode ??
+          _resolveCurrency()?.code,
       'rows': rows
           .map(
             (r) => {
@@ -919,19 +950,11 @@ class _ManualJournalCreateScreenState
       reportingMethod =
           data['reportingMethod'] as String? ?? 'accrual_and_cash';
 
-      final currencyCode = data['currencyCode'] as String? ?? 'INR';
-      final option = defaultCurrencyOptions.firstWhere(
-        (c) => c.code == currencyCode,
-        orElse: () => defaultCurrencyOptions.first,
-      );
-      selectedCurrency = lookup.Currency(
-        id: 'default-${option.code}',
-        code: option.code,
-        name: option.name,
-        symbol: option.symbol,
-        decimals: option.decimals,
-        format: option.format,
-      );
+      final currencyCode = (data['currencyCode'] as String?)?.trim();
+      _requestedCurrencyCode = currencyCode == null || currencyCode.isEmpty
+          ? null
+          : currencyCode;
+      selectedCurrency = null;
 
       final rawRows = data['rows'] as List? ?? [];
       for (final r in rawRows) {
@@ -1035,7 +1058,7 @@ class _ManualJournalCreateScreenState
     return ShortcutHandler(
       onSave: () => _save(ManualJournalStatus.draft),
       onPublish: () => _save(ManualJournalStatus.posted),
-      onCancel: () => context.go(AppRoutes.accountantManualJournals),
+      onCancel: _goToOverview,
       isDirty: _isDirty,
       child: Stack(
         children: [
@@ -1056,32 +1079,47 @@ class _ManualJournalCreateScreenState
                 ),
             ],
             footer: _buildFooter(),
-            child: Form(
-              key: _formKey,
-              onChanged: () => setState(() => _isDirty = true),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1420),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_hasDraft) _buildDraftBanner(),
-                      if (_validationErrors.isNotEmpty)
-                        _buildValidationBanner(),
-                      _buildHeaderSection(),
-                      const SizedBox(height: 18),
-                      _buildItemsTable(accountsState.roots),
-                      const SizedBox(height: 16),
-                      _buildTotalsCard(),
-                      const SizedBox(height: 18),
-                      _buildAttachmentsSection(),
-                      const SizedBox(height: 32),
-                    ],
+            child: _isInitializingEdit
+                ? const Center(
+                    child: SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                    ),
+                  )
+                : _initializationError != null
+                ? Center(
+                    child: Text(
+                      _initializationError!,
+                      style: const TextStyle(color: AppTheme.errorRed),
+                    ),
+                  )
+                : Form(
+                    key: _formKey,
+                    onChanged: () => setState(() => _isDirty = true),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1420),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_hasDraft) _buildDraftBanner(),
+                            if (_validationErrors.isNotEmpty)
+                              _buildValidationBanner(),
+                            _buildHeaderSection(),
+                            const SizedBox(height: 18),
+                            _buildItemsTable(accountsState.roots),
+                            const SizedBox(height: 16),
+                            _buildTotalsCard(),
+                            const SizedBox(height: 18),
+                            _buildAttachmentsSection(),
+                            const SizedBox(height: 32),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
           ),
           if (_showTemplateSidebar) ...[
             Positioned.fill(
@@ -1173,20 +1211,7 @@ class _ManualJournalCreateScreenState
                                 onChanged: (v) =>
                                     setState(() => fiscalYearId = v?['id']),
                               ),
-                          loading: () => Skeletonizer(
-                            ignoreContainers: true,
-                            enabled: true,
-                            child: di.FormDropdown<Map<String, dynamic>>(
-                              value: null,
-                              items: const [
-                                {'id': 'dummy', 'name': 'Loading...'},
-                              ],
-                              hint: 'Loading Fiscal Year...',
-                              displayStringForValue: (val) =>
-                                  val['name'] as String,
-                              onChanged: (val) {},
-                            ),
-                          ),
+                          loading: () => const ZBone(height: 38),
                           error: (_, __) =>
                               di.FormDropdown<Map<String, dynamic>>(
                                 value: null,
@@ -1298,49 +1323,42 @@ class _ManualJournalCreateScreenState
                   .watch(currenciesProvider)
                   .when(
                     data: (dbCurrencies) {
-                      final currencyList = dbCurrencies.isEmpty
-                          ? defaultCurrencyOptions
-                                .map(
-                                  (o) => lookup.Currency(
-                                    id: 'default-${o.code}',
-                                    code: o.code,
-                                    name: o.name,
-                                    symbol: o.symbol,
-                                    decimals: o.decimals,
-                                    format: o.format,
-                                  ),
-                                )
-                                .toList()
-                          : dbCurrencies;
-
-                      final currentCurrency =
-                          currencyList
-                              .where((c) => c.code == selectedCurrency.code)
-                              .firstOrNull ??
-                          currencyList.first;
+                      final defaultCurrency = ref
+                          .watch(defaultCurrencyProvider)
+                          .asData
+                          ?.value;
+                      final requestedCode =
+                          selectedCurrency?.code ??
+                          _requestedCurrencyCode ??
+                          defaultCurrency?.code;
+                      final currentCurrency = dbCurrencies
+                          .where((currency) => currency.code == requestedCode)
+                          .firstOrNull;
+                      final missingRequestedCurrency =
+                          requestedCode != null && currentCurrency == null;
 
                       return di.FormDropdown<lookup.Currency>(
                         value: currentCurrency,
-                        items: currencyList,
+                        items: dbCurrencies,
                         showSearch: true,
                         displayStringForValue: (c) => c.label,
+                        hint: dbCurrencies.isEmpty
+                            ? 'No currencies configured'
+                            : missingRequestedCurrency
+                            ? '$requestedCode is not configured'
+                            : 'Select currency',
                         onChanged: (val) {
                           if (val != null) {
-                            setState(() => selectedCurrency = val);
+                            setState(() {
+                              selectedCurrency = val;
+                              _requestedCurrencyCode = val.code;
+                            });
                           }
                         },
+                        enabled: dbCurrencies.isNotEmpty,
                       );
                     },
-                    loading: () => Skeletonizer(
-                      ignoreContainers: true,
-                      enabled: true,
-                      child: di.FormDropdown<lookup.Currency>(
-                        value: null,
-                        items: const [],
-                        hint: 'Loading Currencies...',
-                        onChanged: (val) {},
-                      ),
-                    ),
+                    loading: () => const ZBone(height: 38),
                     error: (_, __) => di.FormDropdown<lookup.Currency>(
                       value: null,
                       items: const [],
@@ -1544,8 +1562,11 @@ class _ManualJournalCreateScreenState
     final mappedNodes = _mapNodes(roots);
     final bool enableRowScroll = rows.length > 8;
 
-    final String contactHeader =
-        'CONTACT (${selectedCurrency.symbol ?? selectedCurrency.code})';
+    final currency = _resolveCurrency();
+    final currencyLabel = currency?.symbol ?? currency?.code ?? '';
+    final String contactHeader = currencyLabel.isEmpty
+        ? 'CONTACT'
+        : 'CONTACT ($currencyLabel)';
     final String debitHeader = 'DEBITS';
     final String creditHeader = 'CREDITS';
 
@@ -1728,20 +1749,7 @@ class _ManualJournalCreateScreenState
                                     });
                                   },
                                 ),
-                            loading: () => Skeletonizer(
-                              ignoreContainers: true,
-                              enabled: true,
-                              child: di.FormDropdown<Map<String, dynamic>>(
-                                value: null,
-                                items: const [
-                                  {'id': 'dummy', 'displayName': 'Loading...'},
-                                ],
-                                hint: 'Loading Contacts...',
-                                displayStringForValue: (val) =>
-                                    val['displayName'] as String,
-                                onChanged: (val) {},
-                              ),
-                            ),
+                            loading: () => const ZBone(height: 38),
                             error: (e, _) =>
                                 di.FormDropdown<Map<String, dynamic>>(
                                   value: null,
@@ -2102,7 +2110,7 @@ class _ManualJournalCreateScreenState
           ),
           const SizedBox(height: 12),
           _summaryLine(
-            'Total (${selectedCurrency.symbol ?? selectedCurrency.code})',
+            _currencyTotalLabel,
             leftText: totalDebit.toStringAsFixed(2),
             rightText: totalCredit.toStringAsFixed(2),
             bold: true,
@@ -2508,7 +2516,7 @@ class _ManualJournalCreateScreenState
   Widget _buildFooter() {
     final isAlreadyPosted =
         isEditMode &&
-        widget.initialJournal?.status == ManualJournalStatus.posted;
+        _activeInitialJournal?.status == ManualJournalStatus.posted;
 
     final primaryLabel = isEditMode ? 'Update and Post' : 'Save and Publish';
     final draftLabel = isEditMode ? 'Update Draft' : 'Save as Draft';
@@ -2565,7 +2573,7 @@ class _ManualJournalCreateScreenState
                       ? null
                       : () {
                           DraftStorageService.clear(_draftKey);
-                          context.go(AppRoutes.accountantManualJournals);
+                          _goToOverview();
                         },
                 ),
               ],
@@ -2574,10 +2582,39 @@ class _ManualJournalCreateScreenState
           const Spacer(),
           TextButton.icon(
             onPressed: () {
-              final journal = _buildJournalFromForm(ManualJournalStatus.draft);
-              context.push(
-                AppRoutes.accountantRecurringJournalsCreate,
-                extra: journal,
+              final currency = _resolveCurrency();
+              if (currency == null) {
+                ZerpaiToast.error(
+                  context,
+                  _requestedCurrencyCode == null
+                      ? 'Select a configured currency.'
+                      : 'Currency $_requestedCurrencyCode is not configured.',
+                );
+                return;
+              }
+              final journal = _buildJournalFromForm(
+                ManualJournalStatus.draft,
+                currencyCode: currency.code,
+              );
+              final returnTo =
+                  _activeInitialJournal?.id != null &&
+                      (_activeInitialJournal?.id ?? '').isNotEmpty
+                  ? AppRoutes.accountantManualJournalsEdit.replaceAll(
+                      ':id',
+                      _activeInitialJournal!.id,
+                    )
+                  : AppRoutes.accountantManualJournalsCreate;
+              final uri = Uri(
+                path: AppRoutes.accountantRecurringJournalsCreate,
+                queryParameters: {
+                  if (journal.id.trim().isNotEmpty)
+                    'sourceManualJournalId': journal.id,
+                  'returnTo': returnTo,
+                },
+              );
+              context.go(
+                uri.toString(),
+                extra: {'initialManualJournal': journal},
               );
             },
             icon: const Icon(LucideIcons.refreshCw, size: 14),
@@ -2759,7 +2796,30 @@ class _ManualJournalCreateScreenState
     }).toList();
   }
 
-  ManualJournal _buildJournalFromForm(ManualJournalStatus status) {
+  lookup.Currency? _resolveCurrency() {
+    final currencies = ref.read(currenciesProvider).asData?.value;
+    if (currencies == null || currencies.isEmpty) return null;
+
+    final requestedCode = selectedCurrency?.code ?? _requestedCurrencyCode;
+    if (requestedCode != null) {
+      return currencies
+          .where((currency) => currency.code == requestedCode)
+          .firstOrNull;
+    }
+
+    return ref.read(defaultCurrencyProvider).asData?.value;
+  }
+
+  String get _currencyTotalLabel {
+    final currency = _resolveCurrency();
+    final label = currency?.symbol ?? currency?.code;
+    return label == null || label.isEmpty ? 'Total' : 'Total ($label)';
+  }
+
+  ManualJournal _buildJournalFromForm(
+    ManualJournalStatus status, {
+    required String currencyCode,
+  }) {
     final validRows = rows
         .where((r) => r.accountId != null && _rowHasAmount(r))
         .toList();
@@ -2785,7 +2845,7 @@ class _ManualJournalCreateScreenState
 
     final now = DateTime.now();
     final scope = ref.read(journalSettingsScopeProvider);
-    final initialJournal = widget.initialJournal;
+    final initialJournal = _activeInitialJournal;
     return ManualJournal(
       id: initialJournal?.id ?? '',
       orgId: scope['orgId'] as String?,
@@ -2798,7 +2858,7 @@ class _ManualJournalCreateScreenState
       reportingMethod: reportingMethod,
       is13thMonthAdjustment: is13thMonthAdjustment,
       fiscalYearId: fiscalYearId,
-      currency: selectedCurrency.code,
+      currency: currencyCode,
       status: isEditMode ? ManualJournalStatus.draft : status,
       items: manualItems,
       createdAt: initialJournal?.createdAt ?? now,
@@ -2813,6 +2873,16 @@ class _ManualJournalCreateScreenState
       ZerpaiToast.error(
         context,
         'Please add at least one row with an account to save as template.',
+      );
+      return;
+    }
+    final currency = _resolveCurrency();
+    if (currency == null) {
+      ZerpaiToast.error(
+        context,
+        _requestedCurrencyCode == null
+            ? 'Select a configured currency before saving this template.'
+            : 'Currency $_requestedCurrencyCode is not configured.',
       );
       return;
     }
@@ -2938,7 +3008,7 @@ class _ManualJournalCreateScreenState
             : referenceCtrl.text.trim(),
         notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
         reportingMethod: reportingMethod,
-        currency: selectedCurrency.code,
+        currency: currency.code,
         items: validRows
             .map(
               (r) => ManualJournalTemplateItem(
@@ -2979,6 +3049,14 @@ class _ManualJournalCreateScreenState
     final isDraftAction = status == ManualJournalStatus.draft;
 
     List<String> errors = [];
+    final currency = _resolveCurrency();
+    if (currency == null) {
+      errors.add(
+        _requestedCurrencyCode == null
+            ? 'Select a configured currency.'
+            : 'Currency $_requestedCurrencyCode is not configured.',
+      );
+    }
 
     if (!isDraftAction && notesCtrl.text.trim().isEmpty) {
       errors.add('Notes field cannot be left empty.');
@@ -3010,7 +3088,7 @@ class _ManualJournalCreateScreenState
       if (!isDraftAction && hasAnyInput) {
         if (row.accountId == null) {
           errors.add(
-            'Row ${i + 1}: Account is required to post this journal to account_transactions.',
+            'Row ${i + 1}: Account is required to post this journal to journal_entry_lines.',
           );
         }
         if (!hasAmount) {
@@ -3067,7 +3145,10 @@ class _ManualJournalCreateScreenState
     });
 
     try {
-      final journal = _buildJournalFromForm(status);
+      final journal = _buildJournalFromForm(
+        status,
+        currencyCode: currency!.code,
+      );
 
       final notifier = ref.read(manualJournalProvider.notifier);
       ManualJournal savedJournal;
@@ -3111,11 +3192,12 @@ class _ManualJournalCreateScreenState
 
         DraftStorageService.clear(_draftKey);
         ZerpaiToast.success(context, message);
-        if (context.canPop()) {
-          context.pop(savedJournal);
-        } else {
-          context.go(AppRoutes.accountantManualJournals);
-        }
+        context.go(
+          AppRoutes.accountantManualJournalsDetail.replaceAll(
+            ':id',
+            savedJournal.id,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -3172,21 +3254,10 @@ class _ManualJournalCreateScreenState
 
               // Body
               if (templateState.isLoading)
-                Expanded(
-                  child: Skeletonizer(
-                    ignoreContainers: true,
-                    enabled: true,
-                    child: ListView.builder(
-                      itemCount: 5,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemBuilder: (ctx, idx) => const Card(
-                        margin: EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          title: Text('Template Name Loading...'),
-                          subtitle: Text('Loading description and notes...'),
-                        ),
-                      ),
-                    ),
+                const Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: ZListSkeleton(itemCount: 5),
                   ),
                 )
               else if (templateState.error != null)

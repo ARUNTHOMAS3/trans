@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import '../../providers/recurring_journal_provider.dart';
 import '../widgets/recurring_journals_list_panel.dart';
 import '../widgets/recurring_journals_detail_panel.dart';
-import '../widgets/recurring_journal_data_transfer_dialogs.dart';
-import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 
 class RecurringJournalOverviewScreen extends ConsumerStatefulWidget {
   final String? initialJournalId;
@@ -29,6 +27,17 @@ class RecurringJournalOverviewScreen extends ConsumerStatefulWidget {
 class _RecurringJournalOverviewScreenState
     extends ConsumerState<RecurringJournalOverviewScreen> {
   final bool _forceWideTable = false;
+
+  void _ensureRouteJournalSelection(RecurringJournalState state) {
+    final routeJournalId = widget.initialJournalId;
+    if (routeJournalId == null || routeJournalId.isEmpty) return;
+    if (state.selectedJournalId == routeJournalId || state.isLoading) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(recurringJournalProvider.notifier).selectJournal(routeJournalId);
+    });
+  }
 
   @override
   void initState() {
@@ -52,39 +61,19 @@ class _RecurringJournalOverviewScreenState
     }
   }
 
-  void _showImportDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => RecurringJournalImportDialog(
-        onImport: () {
-          Navigator.pop(context);
-          ZerpaiToast.show(context, 'Import starting...');
-        },
-      ),
-    );
-  }
-
-  void _showExportDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => RecurringJournalExportDialog(
-        onExport: () {
-          Navigator.pop(context);
-          ZerpaiToast.show(context, 'Exporting journals...');
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(recurringJournalProvider);
     final selectedJournal = state.selectedJournal;
+    final routeJournalExists = state.journals.any(
+      (journal) => journal.id == widget.initialJournalId,
+    );
+
+    _ensureRouteJournalSelection(state);
 
     final screenWidth = MediaQuery.of(context).size.width;
     final bool showDesktopSplit =
         widget.initialJournalId != null &&
-        selectedJournal != null &&
         screenWidth >= 1000 &&
         !_forceWideTable;
 
@@ -94,132 +83,56 @@ class _RecurringJournalOverviewScreenState
     );
 
     return ZerpaiLayout(
-      pageTitle: '', // Empty title as per ManualJournal design
+      pageTitle: '',
       enableBodyScroll: false,
-      actions: [
-        ElevatedButton.icon(
-          onPressed: () =>
-              context.go(AppRoutes.accountantRecurringJournalsCreate),
-          icon: const Icon(LucideIcons.plus, size: 18),
-          label: const Text('New'),
-          style: ElevatedButton.styleFrom(
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppTheme.space16,
-              vertical: 11,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.space4),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          height: 38,
-          width: 38,
-          child: PopupMenuButton<String>(
-            tooltip: 'More actions',
-            onSelected: (value) {
-              if (value == 'import') {
-                _showImportDialog();
-              } else if (value == 'export') {
-                _showExportDialog();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'import',
-                child: Row(
-                  children: [
-                    Icon(
-                      LucideIcons.download,
-                      size: 16,
-                      color: AppTheme.primaryBlue,
-                    ),
-                    SizedBox(width: 8),
-                    Text('Import Recurring Journals'),
-                  ],
+      useHorizontalPadding: false,
+      useTopPadding: false,
+      actions: const [],
+      child: !showDesktopSplit
+          ? listPanel
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(width: 360, child: listPanel),
+                const VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: AppTheme.borderLight,
                 ),
-              ),
-              const PopupMenuItem(
-                value: 'export',
-                child: Row(
-                  children: [
-                    Icon(
-                      LucideIcons.upload,
-                      size: 16,
-                      color: AppTheme.primaryBlue,
-                    ),
-                    SizedBox(width: 8),
-                    Text('Export Recurring Journals'),
-                  ],
-                ),
-              ),
-            ],
-            offset: const Offset(0, 42),
-            elevation: 8,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.space8),
-              side: const BorderSide(color: AppTheme.borderColor),
-            ),
-            color: Colors.white,
-            padding: EdgeInsets.zero,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppTheme.space4),
-                border: Border.all(color: AppTheme.borderColor),
-              ),
-              alignment: Alignment.center,
-              child: const Icon(
-                LucideIcons.moreHorizontal,
-                size: 16,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-        ),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Card(
-              elevation: 0,
-              margin: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.space8),
-                side: const BorderSide(color: AppTheme.borderColor),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: !showDesktopSplit
-                  ? listPanel
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(width: 360, child: listPanel),
-                        const VerticalDivider(
-                          width: 1,
-                          color: AppTheme.borderColor,
-                        ),
-                        Expanded(
-                          child: RecurringJournalDetailPanel(
-                            journal: selectedJournal,
-                            onClose: () => context.go(
-                              AppRoutes.accountantRecurringJournals,
-                            ),
-                            onEdit: () => context.go(
-                              AppRoutes.accountantRecurringJournalsCreate,
-                              extra: selectedJournal,
-                            ),
+                Expanded(
+                  child: selectedJournal != null
+                      ? RecurringJournalDetailPanel(
+                          journal: selectedJournal,
+                          onClose: () =>
+                              context.go(AppRoutes.accountantRecurringJournals),
+                          onEdit: () => context.go(
+                            AppRoutes.accountantRecurringJournalsCreate,
+                            extra: selectedJournal,
                           ),
+                        )
+                      : state.error != null
+                      ? ZErrorPlaceholder(
+                          error: state.error!,
+                          message: 'Failed to load recurring journal',
+                          onRetry: () => ref
+                              .read(recurringJournalProvider.notifier)
+                              .fetchJournals(),
+                        )
+                      : !state.isLoading && !routeJournalExists
+                      ? ZErrorPlaceholder(
+                          error: 'Recurring journal was not found.',
+                          message: 'Unable to open recurring journal',
+                          onRetry: () => ref
+                              .read(recurringJournalProvider.notifier)
+                              .fetchJournals(),
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: ZDocumentDetailSkeleton(),
                         ),
-                      ],
-                    ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }

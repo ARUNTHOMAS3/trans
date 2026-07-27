@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:skeletonizer/skeletonizer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +10,8 @@ import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accounta
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart';
 import 'package:zerpai_erp/modules/accountant/opening_balances/providers/opening_balance_provider.dart';
 import 'package:intl/intl.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
+import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 
 class OpeningBalancesScreen extends ConsumerStatefulWidget {
   const OpeningBalancesScreen({super.key});
@@ -28,6 +29,8 @@ class _OpeningBalancesScreenState extends ConsumerState<OpeningBalancesScreen> {
 
     // Flatten and take only non-parent accounts (leaves)
     final leafAccounts = _getLeafAccounts(accountsState.roots);
+    final isLoading = accountsState.isLoading || openingState.isLoading;
+    final loadError = openingState.error ?? accountsState.error;
 
     return ZerpaiLayout(
       pageTitle: 'Opening Balances',
@@ -37,51 +40,52 @@ class _OpeningBalancesScreenState extends ConsumerState<OpeningBalancesScreen> {
           _buildToolbar(openingState.openingDate),
           _buildInfoBanner(),
           Expanded(
-            child: leafAccounts.isEmpty
-                ? accountsState.isLoading
-                      ? Skeletonizer(
-                          enabled: true,
-                          ignoreContainers: true,
-                          child: ListView.builder(
-                            itemCount: 10,
-                            itemBuilder: (_, __) => const ListTile(
-                              title: Text('Account name placeholder'),
-                              trailing: SizedBox(width: 120, height: 36),
-                            ),
+            child: isLoading
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24),
+                    child: ZTableSkeleton(rows: 8, columns: 3),
+                  )
+                : loadError != null
+                ? ZErrorPlaceholder(
+                    error: loadError,
+                    message: 'Unable to load opening balances',
+                    onRetry: () {
+                      ref.read(chartOfAccountsProvider.notifier).refresh();
+                      ref.read(openingBalanceProvider.notifier).loadBalances();
+                    },
+                  )
+                : leafAccounts.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          LucideIcons.list,
+                          size: 48,
+                          color: AppTheme.textMuted,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No leaf accounts found.',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
-                        )
-                      : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                LucideIcons.list,
-                                size: 48,
-                                color: AppTheme.textMuted,
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'No leaf accounts found.',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Finalize your Chart of Accounts to see leaf accounts here.',
-                                style: TextStyle(color: AppTheme.textMuted),
-                              ),
-                              const SizedBox(height: 24),
-                              ZButton.secondary(
-                                label: 'Go to Chart of Accounts',
-                                onPressed: () => context.go(
-                                  AppRoutes.accountsChartOfAccounts,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Finalize your Chart of Accounts to see leaf accounts here.',
+                          style: TextStyle(color: AppTheme.textMuted),
+                        ),
+                        const SizedBox(height: 24),
+                        ZButton.secondary(
+                          label: 'Go to Chart of Accounts',
+                          onPressed: () =>
+                              context.go(AppRoutes.accountsChartOfAccounts),
+                        ),
+                      ],
+                    ),
+                  )
                 : _buildBalancesTable(leafAccounts),
           ),
           _buildFooter(),
@@ -243,7 +247,11 @@ class _OpeningBalancesScreenState extends ConsumerState<OpeningBalancesScreen> {
   }
 
   Widget _buildTableRow(AccountNode account, double debit, double credit) {
-    final currencyFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN');
+    final currencyCode = ref.watch(orgCurrencyCodeProvider);
+    final currencyFormat = NumberFormat.currency(
+      name: currencyCode,
+      symbol: currencyCode == null ? '' : '$currencyCode ',
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -298,7 +306,11 @@ class _OpeningBalancesScreenState extends ConsumerState<OpeningBalancesScreen> {
     openingState.debitBalances.forEach((_, v) => totalDebit += v);
     openingState.creditBalances.forEach((_, v) => totalCredit += v);
     final diff = (totalDebit - totalCredit).abs();
-    final currencyFormat = NumberFormat.currency(symbol: '₹', locale: 'en_IN');
+    final currencyCode = ref.watch(orgCurrencyCodeProvider);
+    final currencyFormat = NumberFormat.currency(
+      name: currencyCode,
+      symbol: currencyCode == null ? '' : '$currencyCode ',
+    );
 
     return Container(
       padding: const EdgeInsets.all(24),

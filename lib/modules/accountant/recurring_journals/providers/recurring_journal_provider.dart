@@ -185,6 +185,7 @@ final recurringJournalProvider =
     StateNotifierProvider<RecurringJournalNotifier, RecurringJournalState>((
       ref,
     ) {
+      ref.watch(authUserProvider.select((user) => user?.activeEntityId));
       final repository = ref.watch(recurringJournalRepositoryProvider);
       final isAuthenticated = ref.watch(isAuthenticatedProvider);
       return RecurringJournalNotifier(

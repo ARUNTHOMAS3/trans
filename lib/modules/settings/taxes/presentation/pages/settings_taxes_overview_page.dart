@@ -613,7 +613,6 @@ class _GstSettingsPageState extends State<_GstSettingsPage> {
     const AccountDropdownItem(name: 'C'),
     const AccountDropdownItem(name: 'cost'),
     const AccountDropdownItem(name: 'Cost of Goods Sold'),
-    const AccountDropdownItem(name: 'demo for purchase'),
     const AccountDropdownItem(name: 'Job Costing'),
     const AccountDropdownItem(name: 'Labor'),
     const AccountDropdownItem(name: 'Materials'),
@@ -1651,26 +1650,6 @@ class _GstSettingsPageState extends State<_GstSettingsPage> {
     );
   }
 
-  Widget _underlinedLabel(String text, {String? helper}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          text,
-          style: AppTextStyles.label.copyWith(
-            decoration: TextDecoration.underline,
-            decorationStyle: TextDecorationStyle.dotted,
-          ),
-        ),
-        if (helper != null)
-          const Padding(
-            padding: EdgeInsets.only(top: 4),
-            child: Text('Know more', style: AppTextStyles.bodySmall),
-          ),
-      ],
-    );
-  }
-
   Widget _checkboxLine({
     required bool value,
     required ValueChanged<bool> onChanged,
@@ -1807,7 +1786,7 @@ class _GstTdsSettingsReportState extends State<_GstTdsSettingsReport> {
                               scale: 0.68,
                               child: Switch(
                                 value: _enabled,
-                                activeColor: Colors.white,
+                                activeThumbColor: Colors.white,
                                 activeTrackColor: const Color(0xFF4285F4),
                                 inactiveThumbColor: Colors.white,
                                 inactiveTrackColor: const Color(0xFFD1D5DB),
@@ -4129,17 +4108,16 @@ class _TaxGroupBullet extends StatelessWidget {
 }
 
 class _HeaderCell extends StatelessWidget {
-  const _HeaderCell(this.label, {this.alignCenter = false});
+  const _HeaderCell(this.label);
 
   final String label;
-  final bool alignCenter;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: SettingsTaxesOverviewPage._headerHeight,
       child: Align(
-        alignment: alignCenter ? Alignment.center : Alignment.centerLeft,
+        alignment: Alignment.centerLeft,
         child: Text(
           label,
           style: const TextStyle(
@@ -4156,17 +4134,16 @@ class _HeaderCell extends StatelessWidget {
 }
 
 class _BodyCell extends StatelessWidget {
-  const _BodyCell(this.value, {this.alignCenter = false});
+  const _BodyCell(this.value);
 
   final String value;
-  final bool alignCenter;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: SettingsTaxesOverviewPage._rowHeight,
       child: Align(
-        alignment: alignCenter ? Alignment.center : Alignment.centerLeft,
+        alignment: Alignment.centerLeft,
         child: Text(
           value,
           style: const TextStyle(
@@ -4905,12 +4882,17 @@ class _TaxExemptionDialogState extends State<_TaxExemptionDialog> {
                       const SizedBox(height: 20),
                       _requiredLabel('Type'),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          _typeRadio('Customer'),
-                          const SizedBox(width: 18),
-                          _typeRadio('Item'),
-                        ],
+                      RadioGroup<String>(
+                        groupValue: _type,
+                        onChanged: (next) =>
+                            setState(() => _type = next ?? _type),
+                        child: Row(
+                          children: [
+                            _typeRadio('Customer'),
+                            const SizedBox(width: 18),
+                            _typeRadio('Item'),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -5052,8 +5034,6 @@ class _TaxExemptionDialogState extends State<_TaxExemptionDialog> {
             height: 20,
             child: Radio<String>(
               value: value,
-              groupValue: _type,
-              onChanged: (next) => setState(() => _type = next ?? value),
               activeColor: const Color(0xFF4285F4),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,

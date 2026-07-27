@@ -8,25 +8,17 @@ final currenciesProvider = FutureProvider<List<Currency>>((ref) async {
   return repository.getCurrencies();
 });
 
-/// Returns the org's base currency, resolved from org settings.
-/// Falls back to INR if org settings haven't loaded yet or currency not found.
-final defaultCurrencyProvider = Provider<AsyncValue<Currency>>((ref) {
+/// Returns the organization's configured base currency from persisted rows.
+final defaultCurrencyProvider = Provider<AsyncValue<Currency?>>((ref) {
   final currencies = ref.watch(currenciesProvider);
   final orgCurrencyCode = ref.watch(orgCurrencyCodeProvider);
 
   return currencies.whenData((list) {
-    if (list.isEmpty) {
-      return const Currency(
-        id: '999',
-        code: 'INR',
-        name: 'Indian Rupee',
-        symbol: '₹',
-      );
+    if (list.isEmpty || orgCurrencyCode == null) {
+      return null;
     }
-    return list.firstWhere(
-      (c) => c.code == orgCurrencyCode,
-      orElse: () =>
-          list.firstWhere((c) => c.code == 'INR', orElse: () => list.first),
-    );
+    return list
+        .where((currency) => currency.code == orgCurrencyCode)
+        .firstOrNull;
   });
 });

@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Delete,
+  Body,
+  Param,
+} from "@nestjs/common";
 import { TransactionLockingService } from "./transaction-locking.service";
 import { Tenant } from "../../common/decorators/tenant.decorator";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
@@ -17,8 +26,24 @@ export class TransactionLockingController {
     return this.service.findConfigurations(tenant);
   }
 
+  @Get("negative-stock-policy")
+  async getNegativeStockPolicy(@Tenant() tenant: TenantContext) {
+    return this.service.getNegativeStockPolicy(tenant);
+  }
+
+  @Put("negative-stock-policy")
+  async setNegativeStockPolicy(
+    @Tenant() tenant: TenantContext,
+    @Body() data: any,
+  ) {
+    return this.service.setNegativeStockPolicy(tenant, data?.mode);
+  }
+
   @Post("configurations")
-  async createConfiguration(@Tenant() tenant: TenantContext, @Body() data: any) {
+  async createConfiguration(
+    @Tenant() tenant: TenantContext,
+    @Body() data: any,
+  ) {
     return this.service.createConfiguration(tenant, data);
   }
 

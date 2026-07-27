@@ -41,11 +41,13 @@ class UnitConversion {
 }
 
 class UnitGroup {
+  final String? id;
   final String name;
   final UnitOfMeasurement baseUnit;
   final List<UnitConversion> conversions;
 
   const UnitGroup({
+    this.id,
     required this.name,
     required this.baseUnit,
     required this.conversions,
@@ -89,10 +91,14 @@ class _SettingsUnitsOfMeasurementPageState
       final results = await Future.wait([
         _apiClient.get('products/lookups/uqc', useCache: false),
         _apiClient.get('products/lookups/units', useCache: false),
+        _apiClient.get('settings-setup/unit-groups', useCache: false),
       ]);
       final uqcs = results[0].data is List ? results[0].data as List : const [];
       final units = results[1].data is List
           ? results[1].data as List
+          : const [];
+      final groups = results[2].data is List
+          ? results[2].data as List
           : const [];
       final uqcLabelById = <String, String>{};
       final nextUqcOptions = <String>[];
@@ -110,6 +116,57 @@ class _SettingsUnitsOfMeasurementPageState
         nextUqcIds[label] = id;
       }
 
+      final nextUnits = units.whereType<Map>().map((row) {
+        final json = Map<String, dynamic>.from(row);
+        final uqcId = json['uqc_id']?.toString();
+        return UnitOfMeasurement(
+          id: json['id']?.toString(),
+          name: json['unit_name']?.toString() ?? '',
+          symbol: json['unit_symbol']?.toString() ?? '',
+          uqc: uqcId == null ? '' : (uqcLabelById[uqcId] ?? ''),
+          uqcId: uqcId,
+        );
+      }).toList();
+      final unitsById = <String, UnitOfMeasurement>{
+        for (final unit in nextUnits)
+          if (unit.id != null) unit.id!: unit,
+      };
+      final nextGroups = <UnitGroup>[];
+      for (final row in groups.whereType<Map>()) {
+        final json = Map<String, dynamic>.from(row);
+        final baseUnit = unitsById[json['base_unit_id']?.toString()];
+        if (baseUnit == null) continue;
+        final conversions = json['conversions'] is List
+            ? json['conversions'] as List
+            : const [];
+        nextGroups.add(
+          UnitGroup(
+            id: json['id']?.toString(),
+            name: json['name']?.toString() ?? '',
+            baseUnit: baseUnit,
+            conversions: conversions
+                .whereType<Map>()
+                .map((row) {
+                  final conversion = Map<String, dynamic>.from(row);
+                  final target =
+                      unitsById[conversion['target_unit_id']?.toString()];
+                  return target == null
+                      ? null
+                      : UnitConversion(
+                          targetUnit: target,
+                          rate:
+                              double.tryParse(
+                                conversion['conversion_rate']?.toString() ?? '',
+                              ) ??
+                              0,
+                        );
+                })
+                .whereType<UnitConversion>()
+                .toList(),
+          ),
+        );
+      }
+
       if (!mounted) return;
       setState(() {
         _uqcOptions
@@ -120,19 +177,10 @@ class _SettingsUnitsOfMeasurementPageState
           ..addAll(nextUqcIds);
         _units
           ..clear()
-          ..addAll(
-            units.whereType<Map>().map((row) {
-              final json = Map<String, dynamic>.from(row);
-              final uqcId = json['uqc_id']?.toString();
-              return UnitOfMeasurement(
-                id: json['id']?.toString(),
-                name: json['unit_name']?.toString() ?? '',
-                symbol: json['unit_symbol']?.toString() ?? '',
-                uqc: uqcId == null ? '' : (uqcLabelById[uqcId] ?? ''),
-                uqcId: uqcId,
-              );
-            }),
-          );
+          ..addAll(nextUnits);
+        _unitGroups
+          ..clear()
+          ..addAll(nextGroups);
         _isLoading = false;
       });
     } catch (_) {
@@ -178,6 +226,39 @@ class _SettingsUnitsOfMeasurementPageState
         },
       ],
     );
+    await _loadUnits();
+  }
+
+  Future<void> _saveUnitGroup({
+    String? id,
+    required String name,
+    required UnitOfMeasurement baseUnit,
+    required List<UnitConversion> conversions,
+  }) async {
+    final payload = <String, dynamic>{
+      'name': name,
+      'base_unit_id': baseUnit.id,
+      'is_active': true,
+      'conversions': conversions
+          .map(
+            (conversion) => <String, dynamic>{
+              'target_unit_id': conversion.targetUnit.id,
+              'conversion_rate': conversion.rate,
+            },
+          )
+          .toList(),
+    };
+    if (id == null || id.isEmpty) {
+      await _apiClient.post('settings-setup/unit-groups', data: payload);
+    } else {
+      await _apiClient.patch('settings-setup/unit-groups/$id', data: payload);
+    }
+    await _loadUnits();
+  }
+
+  Future<void> _deleteUnitGroup(UnitGroup group) async {
+    if (group.id == null || group.id!.isEmpty) return;
+    await _apiClient.delete('settings-setup/unit-groups/${group.id}');
     await _loadUnits();
   }
 
@@ -1859,7 +1940,7 @@ class _SettingsUnitsOfMeasurementPageState
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             ElevatedButton(
-                              onPressed: () {
+                              onPressed: () async {
                                 dialogErrors.clear();
                                 nameHasError = false;
                                 baseUnitHasError = false;
@@ -1911,31 +1992,37 @@ class _SettingsUnitsOfMeasurementPageState
                                   return;
                                 }
 
-                                setState(() {
-                                  _unitGroups.add(
-                                    UnitGroup(
-                                      name: nameController.text.trim(),
-                                      baseUnit: selectedBaseUnit!,
-                                      conversions: conversions
-                                          .map(
-                                            (c) => UnitConversion(
-                                              targetUnit:
-                                                  c['targetUnit']
-                                                      as UnitOfMeasurement,
-                                              rate: double.parse(
-                                                c['rateController'].text.trim(),
-                                              ),
-                                            ),
-                                          )
-                                          .toList(),
-                                    ),
+                                final newConversions = conversions
+                                    .map(
+                                      (c) => UnitConversion(
+                                        targetUnit:
+                                            c['targetUnit']
+                                                as UnitOfMeasurement,
+                                        rate: double.parse(
+                                          c['rateController'].text.trim(),
+                                        ),
+                                      ),
+                                    )
+                                    .toList();
+                                try {
+                                  await _saveUnitGroup(
+                                    name: nameController.text.trim(),
+                                    baseUnit: selectedBaseUnit!,
+                                    conversions: newConversions,
                                   );
-                                });
-                                Navigator.pop(context);
-                                ZerpaiToast.success(
-                                  context,
-                                  'Unit Group created successfully.',
-                                );
+                                  if (!context.mounted) return;
+                                  Navigator.pop(context);
+                                  ZerpaiToast.success(
+                                    this.context,
+                                    'Unit Group created successfully.',
+                                  );
+                                } catch (_) {
+                                  if (!context.mounted) return;
+                                  ZerpaiToast.error(
+                                    context,
+                                    'Failed to create unit group',
+                                  );
+                                }
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Theme.of(
@@ -2516,7 +2603,7 @@ class _SettingsUnitsOfMeasurementPageState
                           mainAxisAlignment: MainAxisAlignment.start,
                           children: [
                             ElevatedButton(
-                              onPressed: () {
+                              onPressed: () async {
                                 dialogErrors.clear();
                                 nameHasError = false;
 
@@ -2564,29 +2651,38 @@ class _SettingsUnitsOfMeasurementPageState
                                   return;
                                 }
 
-                                setState(() {
-                                  _unitGroups[index] = UnitGroup(
+                                final nextConversions = conversions
+                                    .map(
+                                      (c) => UnitConversion(
+                                        targetUnit:
+                                            c['targetUnit']
+                                                as UnitOfMeasurement,
+                                        rate: double.parse(
+                                          c['rateController'].text.trim(),
+                                        ),
+                                      ),
+                                    )
+                                    .toList();
+                                try {
+                                  await _saveUnitGroup(
+                                    id: group.id,
                                     name: nameController.text.trim(),
                                     baseUnit: selectedBaseUnit,
-                                    conversions: conversions
-                                        .map(
-                                          (c) => UnitConversion(
-                                            targetUnit:
-                                                c['targetUnit']
-                                                    as UnitOfMeasurement,
-                                            rate: double.parse(
-                                              c['rateController'].text.trim(),
-                                            ),
-                                          ),
-                                        )
-                                        .toList(),
+                                    conversions: nextConversions,
                                   );
-                                });
-                                Navigator.pop(context);
-                                ZerpaiToast.success(
-                                  context,
-                                  'Unit Group updated successfully.',
-                                );
+                                  if (!context.mounted) return;
+                                  Navigator.pop(context);
+                                  ZerpaiToast.success(
+                                    this.context,
+                                    'Unit Group updated successfully.',
+                                  );
+                                } catch (_) {
+                                  if (!context.mounted) return;
+                                  ZerpaiToast.error(
+                                    context,
+                                    'Failed to update unit group',
+                                  );
+                                }
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Theme.of(
@@ -3698,17 +3794,25 @@ class _SettingsUnitsOfMeasurementPageState
                                                               context,
                                                               message:
                                                                   'Once you delete this Unit Group, you cannot retrieve it.',
-                                                              onDelete: () {
-                                                                setState(() {
-                                                                  _unitGroups
-                                                                      .removeAt(
-                                                                        index,
-                                                                      );
-                                                                });
-                                                                ZerpaiToast.success(
-                                                                  context,
-                                                                  'Unit Group deleted successfully.',
-                                                                );
+                                                              onDelete: () async {
+                                                                try {
+                                                                  await _deleteUnitGroup(
+                                                                    group,
+                                                                  );
+                                                                  if (!mounted)
+                                                                    return;
+                                                                  ZerpaiToast.success(
+                                                                    context,
+                                                                    'Unit Group deleted successfully.',
+                                                                  );
+                                                                } catch (_) {
+                                                                  if (!mounted)
+                                                                    return;
+                                                                  ZerpaiToast.error(
+                                                                    context,
+                                                                    'Failed to delete unit group',
+                                                                  );
+                                                                }
                                                               },
                                                             );
                                                           },

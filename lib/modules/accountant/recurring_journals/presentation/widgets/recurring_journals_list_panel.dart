@@ -10,6 +10,7 @@ import '../../providers/recurring_journal_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
 enum RecurringJournalSortField {
   profileName,
@@ -156,86 +157,310 @@ class _RecurringJournalsListPanelState
         ? <RecurringJournal>[]
         : filtered.sublist(start, end);
 
-    if (widget.compact)
-      return const Center(child: Text('Compact view not implemented'));
-
     return Column(
       children: [
         _buildTopBar(),
         const Divider(height: 1, color: AppTheme.borderColor),
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final tableWidth = math.max(constraints.maxWidth, _minTableWidth);
-              return Scrollbar(
-                controller: _horizontalScrollCtrl,
-                child: SingleChildScrollView(
-                  controller: _horizontalScrollCtrl,
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: tableWidth,
-                    height: constraints.maxHeight,
-                    child: Column(
-                      children: [
-                        _buildTableHeader(paged),
-                        const Divider(height: 1, color: AppTheme.borderColor),
-                        Expanded(
-                          child: ListView.separated(
-                            itemCount: paged.length,
-                            separatorBuilder: (_, __) => const Divider(
-                              height: 1,
-                              color: AppTheme.borderColor,
-                            ),
-                            itemBuilder: (context, index) => _buildDataRow(
-                              paged[index],
-                              state.selectedJournalId,
-                            ),
+          child: state.isLoading && state.journals.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ZTableSkeleton(
+                    rows: widget.compact ? 6 : 10,
+                    columns: widget.compact ? 1 : 7,
+                  ),
+                )
+              : state.error != null && state.journals.isEmpty
+              ? ZErrorPlaceholder(
+                  error: state.error!,
+                  message: 'Failed to load recurring journals',
+                  onRetry: () => ref
+                      .read(recurringJournalProvider.notifier)
+                      .fetchJournals(),
+                )
+              : paged.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No recurring journals found',
+                    style: TextStyle(color: AppTheme.textSecondary),
+                  ),
+                )
+              : widget.compact
+              ? _buildCompactBody(paged, state.selectedJournalId)
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final tableWidth = math.max(
+                      constraints.maxWidth,
+                      _minTableWidth,
+                    );
+                    return Scrollbar(
+                      controller: _horizontalScrollCtrl,
+                      child: SingleChildScrollView(
+                        controller: _horizontalScrollCtrl,
+                        scrollDirection: Axis.horizontal,
+                        child: SizedBox(
+                          width: tableWidth,
+                          height: constraints.maxHeight,
+                          child: Column(
+                            children: [
+                              _buildTableHeader(paged),
+                              const Divider(
+                                height: 1,
+                                color: AppTheme.borderColor,
+                              ),
+                              Expanded(
+                                child: ListView.separated(
+                                  itemCount: paged.length,
+                                  separatorBuilder: (_, __) => const Divider(
+                                    height: 1,
+                                    color: AppTheme.borderColor,
+                                  ),
+                                  itemBuilder: (context, index) =>
+                                      _buildDataRow(
+                                        paged[index],
+                                        state.selectedJournalId,
+                                      ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
-        _buildPagination(filtered.length, start + 1, end, pageCount),
+        if (!widget.compact)
+          _buildPagination(
+            filtered.length,
+            filtered.isEmpty ? 0 : start + 1,
+            end,
+            pageCount,
+          ),
       ],
     );
   }
 
   Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.all(12),
+    return Container(
+      height: 64,
+      padding: EdgeInsets.symmetric(horizontal: widget.compact ? 16 : 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+      ),
       child: Row(
         children: [
           const Text(
             'All Recurring Journals',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
           ),
           const Spacer(),
-          SizedBox(
-            width: 250,
-            child: CustomTextField(
-              controller: _searchCtrl,
-              hintText: 'Search...',
-              prefixIcon: LucideIcons.search,
-              onChanged: (_) => setState(() => _pageIndex = 0),
+          if (!widget.compact) ...[
+            SizedBox(
+              width: 220,
+              child: CustomTextField(
+                controller: _searchCtrl,
+                hintText: 'Search',
+                prefixIcon: LucideIcons.search,
+                onChanged: (_) => setState(() => _pageIndex = 0),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 120,
+              child: di.FormDropdown<String>(
+                value: _selectedFilter,
+                items: const ['all', 'active', 'stopped', 'expired'],
+                displayStringForValue: _filterLabel,
+                onChanged: (val) =>
+                    setState(() => _selectedFilter = val ?? 'all'),
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
+          _buildCreateButton(showLabel: !widget.compact),
           const SizedBox(width: 8),
-          SizedBox(
-            width: 120,
-            child: di.FormDropdown<String>(
-              value: _selectedFilter,
-              items: const ['all', 'active', 'stopped', 'expired'],
-              onChanged: (val) =>
-                  setState(() => _selectedFilter = val ?? 'all'),
-            ),
-          ),
+          _buildMoreMenu(),
         ],
       ),
+    );
+  }
+
+  Widget _buildCreateButton({required bool showLabel}) {
+    return InkWell(
+      onTap: () => context.go(AppRoutes.accountantRecurringJournalsCreate),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        height: 32,
+        padding: EdgeInsets.symmetric(horizontal: showLabel ? 12 : 8),
+        decoration: BoxDecoration(
+          color: AppTheme.accentGreen,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(LucideIcons.plus, size: 16, color: Colors.white),
+            if (showLabel) ...[
+              const SizedBox(width: 8),
+              const Text(
+                'New',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMoreMenu() {
+    return MenuAnchor(
+      alignmentOffset: const Offset(-150, 4),
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: AppTheme.borderLight),
+          ),
+        ),
+      ),
+      menuChildren: [
+        MenuItemButton(
+          onPressed: _showCustomizeColumnsDialog,
+          child: const Text('Customize Columns'),
+        ),
+      ],
+      builder: (context, controller, child) => InkWell(
+        onTap: () => controller.isOpen ? controller.close() : controller.open(),
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppTheme.borderLight),
+          ),
+          child: const Icon(
+            LucideIcons.moreHorizontal,
+            size: 16,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCustomizeColumnsDialog() async {
+    final updated = await showDialog<List<_ColumnDef>>(
+      context: context,
+      builder: (context) => _CustomizeColumnsDialog(columns: _columns),
+    );
+    if (!mounted || updated == null) return;
+    setState(() {
+      _columns
+        ..clear()
+        ..addAll(updated);
+    });
+  }
+
+  String _filterLabel(String value) {
+    return switch (value) {
+      'active' => 'Active',
+      'stopped' => 'Stopped',
+      'expired' => 'Expired',
+      _ => 'All',
+    };
+  }
+
+  Widget _buildCompactBody(
+    List<RecurringJournal> journals,
+    String? selectedId,
+  ) {
+    return ListView.separated(
+      itemCount: journals.length,
+      separatorBuilder: (_, __) =>
+          const Divider(height: 1, color: AppTheme.borderLight),
+      itemBuilder: (context, index) {
+        final journal = journals[index];
+        final selected = selectedId == journal.id;
+        return InkWell(
+          onTap: () => context.go(
+            AppRoutes.accountantRecurringJournalsDetail.replaceAll(
+              ':id',
+              journal.id,
+            ),
+          ),
+          child: Container(
+            color: selected ? AppTheme.selectionActiveBg : Colors.white,
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Checkbox(
+                  value: _checkedJournalIds.contains(journal.id),
+                  visualDensity: VisualDensity.compact,
+                  onChanged: (value) => setState(
+                    () => value == true
+                        ? _checkedJournalIds.add(journal.id)
+                        : _checkedJournalIds.remove(journal.id),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        journal.profileName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatFrequency(journal),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _StatusBadge(journal: journal),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${journal.currency} ${NumberFormat('#,##0.00').format(journal.totalDebit)}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -390,7 +615,8 @@ class _RecurringJournalsListPanelState
                 case 'amount':
                   cell = Text(
                     NumberFormat.currency(
-                      symbol: '₹',
+                      name: journal.currency,
+                      symbol: '${journal.currency} ',
                     ).format(journal.totalDebit),
                     textAlign: TextAlign.right,
                   );
@@ -422,8 +648,25 @@ class _RecurringJournalsListPanelState
       ),
       child: Row(
         children: [
-          Text('Total Journals: $total'),
+          Text('Total Count: $total'),
           const Spacer(),
+          SizedBox(
+            width: 170,
+            child: di.FormDropdown<int>(
+              value: _pageSize,
+              items: const [10, 25, 50, 100, 200],
+              showSearch: false,
+              displayStringForValue: (value) => '$value per page',
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _pageSize = value;
+                  _pageIndex = 0;
+                });
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
           IconButton(
             onPressed: _pageIndex > 0
                 ? () => setState(() => _pageIndex--)
@@ -520,6 +763,17 @@ class _ColumnDef {
     this.headerAlignment = Alignment.centerLeft,
     this.padding = EdgeInsets.zero,
   });
+
+  _ColumnDef copy() => _ColumnDef(
+    id: id,
+    label: label,
+    flex: flex,
+    sortColumn: sortColumn,
+    isLocked: isLocked,
+    textAlign: textAlign,
+    headerAlignment: headerAlignment,
+    padding: padding,
+  )..isVisible = isVisible;
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -564,12 +818,14 @@ class _CustomizeColumnsDialogState extends State<_CustomizeColumnsDialog> {
   @override
   void initState() {
     super.initState();
-    _temp = List.from(widget.columns);
+    _temp = widget.columns.map((column) => column.copy()).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      alignment: Alignment.topCenter,
+      insetPadding: EdgeInsets.zero,
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       child: Container(

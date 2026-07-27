@@ -81,7 +81,7 @@ export class AccountantController {
     return this.accountantService.deleteManualJournal(id, tenant);
   }
 
-  @Post("manual-journals/:id([0-9a-fA-F-]{36})/status")
+  @Put("manual-journals/:id([0-9a-fA-F-]{36})/status")
   async updateStatus(
     @Param("id") id: string,
     @Body() data: any,
@@ -217,8 +217,8 @@ export class AccountantController {
   // --- Recurring Journal Routes ---
 
   @Get("recurring-journals/trigger-cron")
-  async triggerCron() {
-    await this.cronService.processRecurringJournals();
+  async triggerCron(@Tenant() tenant: TenantContext) {
+    await this.cronService.processRecurringJournals(tenant);
     return { success: true, message: "Recurring journals evaluated." };
   }
 
@@ -301,6 +301,10 @@ export class AccountantController {
     @Query("endDate") endDate?: string,
     @Query("minAmount") minAmount?: number,
     @Query("maxAmount") maxAmount?: number,
+    @Query("contactId") contactId?: string,
+    @Query("contactType") contactType?: string,
+    @Query("page") page?: number,
+    @Query("pageSize") pageSize?: number,
     @Query("limit") limit?: number,
     @Tenant() tenant?: TenantContext,
   ) {
@@ -310,6 +314,10 @@ export class AccountantController {
       endDate,
       minAmount,
       maxAmount,
+      contactId,
+      contactType,
+      page,
+      pageSize,
       limit,
       tenant: tenant as TenantContext,
     });
@@ -327,9 +335,14 @@ export class AccountantController {
     );
   }
 
+  @Get("opening-balances")
+  getOpeningBalances(@Tenant() tenant: TenantContext) {
+    return this.accountantService.getOpeningBalances(tenant);
+  }
+
   @Post("opening-balances")
   saveOpeningBalances(@Tenant() tenant: TenantContext, @Body() data: any) {
-    return this.accountantService.saveOpeningBalances({ ...data, tenant });
+    return this.accountantService.saveOpeningBalances(data, tenant);
   }
 
   // --- Transaction Locking Routes ---

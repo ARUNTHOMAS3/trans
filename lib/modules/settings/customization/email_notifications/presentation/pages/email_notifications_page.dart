@@ -15,6 +15,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 
 enum EmailNotificationsSection {
   senderPreferences,
@@ -45,11 +46,6 @@ class _EmailNotificationsPageState
     extends ConsumerState<EmailNotificationsPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
-  static const List<String> _emailOptions = <String>[
-    'althaf.m@zabnix.com',
-    'info@starlex.in',
-    'zabnixprivatelimited@gmail.com',
-  ];
   static const _EmailTemplateConfig _defaultTemplateConfig =
       _EmailTemplateConfig(
         name: 'Customer Review Notification',
@@ -206,11 +202,15 @@ class _EmailNotificationsPageState
       });
       return;
     }
+    final orgEmail = ref.read(orgSettingsProvider).asData?.value?.email?.trim();
+    final emailOptions = orgEmail == null || orgEmail.isEmpty
+        ? const <String>[]
+        : <String>[orgEmail];
     await showDialog<void>(
       context: context,
       barrierColor: const Color(0x992A3140),
       builder: (dialogContext) {
-        return const _AddAdditionalContactDialog(emailOptions: _emailOptions);
+        return _AddAdditionalContactDialog(emailOptions: emailOptions);
       },
     );
     _clearDialogRoute();
@@ -1085,6 +1085,7 @@ class _CustomerReviewNotificationContent extends StatefulWidget {
 
 class _CustomerReviewNotificationContentState
     extends State<_CustomerReviewNotificationContent> {
+  final ApiClient _apiClient = ApiClient();
   int? _hoveredIndex;
   bool _isEditingTemplate = false;
   bool _isNewTemplate = false;
@@ -1098,18 +1099,8 @@ class _CustomerReviewNotificationContentState
     super.initState();
     _templateNameController = TextEditingController(text: 'Default');
     _subjectController = TextEditingController(text: widget.template.subject);
-    _templatesList =
-        (widget.template.name == 'Customer Review Notification' ||
-            widget.template.name == 'Customer Portal Invitation' ||
-            widget.template.name == 'Vendor Portal Invitation')
-        ? [
-            {
-              'name': 'Default',
-              'isDefault': true,
-              'subject': widget.template.subject,
-            },
-          ]
-        : [];
+    _templatesList = [];
+    _loadTemplates();
     _isEditingTemplate =
         widget.initialEditIsNew || widget.initialEditTemplateName != null;
     _isNewTemplate = widget.initialEditIsNew;
@@ -1129,6 +1120,31 @@ class _CustomerReviewNotificationContentState
     }
   }
 
+  Future<void> _loadTemplates() async {
+    try {
+      final response = await _apiClient.get(
+        'settings-customization/email-notification-templates',
+        queryParameters: {'module': widget.template.name},
+        useCache: false,
+      );
+      final rows = (response.data as List? ?? const []).whereType<Map>().map((
+        raw,
+      ) {
+        final row = Map<String, dynamic>.from(raw);
+        return <String, dynamic>{
+          'id': row['id']?.toString(),
+          'name': row['event_code']?.toString() ?? '',
+          'isDefault': false,
+          'subject': row['subject_template']?.toString() ?? '',
+          'body': row['body_template']?.toString() ?? '',
+        };
+      }).toList();
+      if (mounted) setState(() => _templatesList = rows);
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to load email templates');
+    }
+  }
+
   @override
   void didUpdateWidget(covariant _CustomerReviewNotificationContent oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -1139,18 +1155,8 @@ class _CustomerReviewNotificationContentState
       _subjectController.text = widget.template.subject;
       _isEditingTemplate = false;
       _hoveredIndex = null;
-      _templatesList =
-          (widget.template.name == 'Customer Review Notification' ||
-              widget.template.name == 'Customer Portal Invitation' ||
-              widget.template.name == 'Vendor Portal Invitation')
-          ? [
-              {
-                'name': 'Default',
-                'isDefault': true,
-                'subject': widget.template.subject,
-              },
-            ]
-          : [];
+      _templatesList = [];
+      _loadTemplates();
     }
     if (editStateChanged) {
       _isEditingTemplate =
@@ -1212,43 +1218,44 @@ class _CustomerReviewNotificationContentState
           });
           _closeEditRoute();
         },
-        onSave: (name, subject, isDefault) {
+        onSave: (name, subject, isDefault) async {
           final cleanName = name.trim().isEmpty ? 'Untitled' : name.trim();
           final cleanSubject = subject.trim();
-          setState(() {
-            if (_isNewTemplate) {
-              final newTemplate = {
-                'name': cleanName,
-                'isDefault': isDefault,
-                'subject': cleanSubject,
-              };
-              if (isDefault) {
-                for (var t in _templatesList) {
-                  t['isDefault'] = false;
-                }
-              }
-              _templatesList.add(newTemplate);
-            } else {
-              final idx = _templatesList.indexWhere(
-                (t) => t['name'] == _originalTemplateName,
+          try {
+            final existingIndex = _templatesList.indexWhere(
+              (item) => item['name'] == _originalTemplateName,
+            );
+            final existingId = existingIndex == -1
+                ? null
+                : _templatesList[existingIndex]['id']?.toString();
+            final payload = {
+              'module': widget.template.name,
+              'event_code': cleanName,
+              'subject_template': cleanSubject,
+              'body_template': existingIndex == -1
+                  ? ''
+                  : _templatesList[existingIndex]['body']?.toString() ?? '',
+              'is_active': true,
+            };
+            if (_isNewTemplate || existingId == null || existingId.isEmpty) {
+              await _apiClient.post(
+                'settings-customization/email-notification-templates',
+                data: payload,
               );
-              if (idx != -1) {
-                if (isDefault) {
-                  for (var t in _templatesList) {
-                    t['isDefault'] = false;
-                  }
-                }
-                _templatesList[idx] = {
-                  'name': cleanName,
-                  'isDefault': isDefault,
-                  'subject': cleanSubject,
-                };
-              }
+            } else {
+              await _apiClient.patch(
+                'settings-customization/email-notification-templates/$existingId',
+                data: payload,
+              );
             }
-            _isEditingTemplate = false;
-          });
-          _closeEditRoute();
-          ZerpaiToast.success(context, 'Template saved successfully');
+            await _loadTemplates();
+            if (!mounted) return;
+            setState(() => _isEditingTemplate = false);
+            _closeEditRoute();
+            ZerpaiToast.success(context, 'Template saved successfully');
+          } catch (_) {
+            if (mounted) ZerpaiToast.error(context, 'Failed to save template');
+          }
         },
       );
     }
@@ -1555,16 +1562,31 @@ class _CustomerReviewNotificationContentState
                                                 widget.template.name ==
                                                     'Vendor Portal Invitation')
                                             ? null
-                                            : () {
-                                                setState(() {
-                                                  _templatesList.removeAt(
-                                                    index,
+                                            : () async {
+                                                final id = item['id']
+                                                    ?.toString();
+                                                if (id == null || id.isEmpty)
+                                                  return;
+                                                try {
+                                                  await _apiClient.delete(
+                                                    'settings-customization/email-notification-templates/$id',
                                                   );
-                                                });
-                                                ZerpaiToast.deleted(
-                                                  context,
-                                                  item['name'] as String,
-                                                );
+                                                  if (!mounted) return;
+                                                  setState(
+                                                    () => _templatesList
+                                                        .removeAt(index),
+                                                  );
+                                                  ZerpaiToast.deleted(
+                                                    context,
+                                                    item['name'] as String,
+                                                  );
+                                                } catch (_) {
+                                                  if (mounted)
+                                                    ZerpaiToast.error(
+                                                      context,
+                                                      'Failed to delete template',
+                                                    );
+                                                }
                                               },
                                       ),
                                     ),
@@ -1645,7 +1667,7 @@ class _CustomerReviewNotificationEditContent extends StatefulWidget {
 class _CustomerReviewNotificationEditContentState
     extends State<_CustomerReviewNotificationEditContent> {
   bool _isDefault = false;
-  String? _selectedFromEmail = 'althaf.m@zabnix.com';
+  String? _selectedFromEmail;
   List<String> _selectedCcEmails = <String>[];
   List<String> _selectedBccEmails = <String>[];
   static const List<_PlaceholderItem> _placeholderItems = <_PlaceholderItem>[
@@ -2492,11 +2514,7 @@ class _CustomerReviewNotificationEditContentState
                                   child: FormDropdown<String>(
                                     value: _selectedFromEmail,
                                     allowClear: true,
-                                    items: const <String>[
-                                      'althaf.m@zabnix.com',
-                                      'info@starlex.in',
-                                      'zabnixprivatelimited@gmail.com',
-                                    ],
+                                    items: const <String>[],
                                     hint: 'Select email',
                                     onChanged: (value) {
                                       setState(() {
@@ -2776,11 +2794,7 @@ class _CustomerReviewNotificationEditContentState
                               value: null,
                               multiSelect: true,
                               selectedValues: _selectedCcEmails,
-                              items: const <String>[
-                                'althaf.m@zabnix.com',
-                                'info@starlex.in',
-                                'zabnixprivatelimited@gmail.com',
-                              ],
+                              items: const <String>[],
                               hint: 'Select emails',
                               onChanged: (value) {},
                               onSelectedValuesChanged: (values) {
@@ -2825,11 +2839,7 @@ class _CustomerReviewNotificationEditContentState
                               value: null,
                               multiSelect: true,
                               selectedValues: _selectedBccEmails,
-                              items: const <String>[
-                                'althaf.m@zabnix.com',
-                                'info@starlex.in',
-                                'zabnixprivatelimited@gmail.com',
-                              ],
+                              items: const <String>[],
                               hint: 'Select emails',
                               onChanged: (value) {},
                               onSelectedValuesChanged: (values) {
@@ -2895,11 +2905,7 @@ class _CustomerReviewNotificationEditContentState
                                   child: FormDropdown<String>(
                                     value: _selectedFromEmail,
                                     allowClear: true,
-                                    items: const <String>[
-                                      'althaf.m@zabnix.com',
-                                      'info@starlex.in',
-                                      'zabnixprivatelimited@gmail.com',
-                                    ],
+                                    items: const <String>[],
                                     hint: 'Select email',
                                     onChanged: (value) {
                                       setState(() {
@@ -6736,8 +6742,8 @@ class _EmailNotificationsContentState
   @override
   void initState() {
     super.initState();
-    _senderNameController = TextEditingController(text: 'STARLEX');
-    _senderEmailController = TextEditingController(text: 'info@starlex.in');
+    _senderNameController = TextEditingController();
+    _senderEmailController = TextEditingController();
   }
 
   @override
@@ -6929,7 +6935,7 @@ class _EmailNotificationsContentState
                                   ),
                                   const SizedBox(width: 10),
                                   Text(
-                                    'starlex.in',
+                                    'Sender domain',
                                     style: AppTheme.pageTitle.copyWith(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w600,
@@ -7040,10 +7046,8 @@ class _EmailNotificationsContentState
                                       label: 'Cancel',
                                       onPressed: () {
                                         setState(() {
-                                          _senderNameController.text =
-                                              'STARLEX';
-                                          _senderEmailController.text =
-                                              'info@starlex.in';
+                                          _senderNameController.clear();
+                                          _senderEmailController.clear();
                                           _isEditingSender = false;
                                         });
                                       },
@@ -7347,14 +7351,15 @@ class _EmailNotificationsContentState
                                   thickness: 1,
                                   color: AppTheme.borderLight,
                                 ),
-                                const _PublicDomainRow(
-                                  name: 'zabnixprivatelimited',
-                                  email: 'zabnixprivatelimited@gmail.com',
-                                  primary: true,
-                                ),
-                                const _PublicDomainRow(
-                                  name: 'ALTHAF-M',
-                                  email: 'malayanakathalthaf@gmail.com',
+                                const Padding(
+                                  padding: EdgeInsets.all(18),
+                                  child: Text(
+                                    'No public domain senders configured',
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
@@ -7554,9 +7559,8 @@ class _AddAdditionalContactDialogState
 class _AuthenticateDomainDialog extends StatelessWidget {
   const _AuthenticateDomainDialog();
 
-  static const String _hostName = '29143813487._domainkey.starlex.in';
-  static const String _value =
-      'k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCYbX...';
+  static const String _hostName = '';
+  static const String _value = '';
 
   @override
   Widget build(BuildContext context) {
@@ -7587,7 +7591,7 @@ class _AuthenticateDomainDialog extends StatelessWidget {
                         children: const [
                           TextSpan(text: 'Authenticate '),
                           TextSpan(
-                            text: 'starlex.in',
+                            text: 'configured domain',
                             style: TextStyle(fontWeight: FontWeight.w700),
                           ),
                         ],
@@ -7840,15 +7844,10 @@ class _DialogFieldRow extends StatelessWidget {
 }
 
 class _PublicDomainRow extends StatefulWidget {
-  const _PublicDomainRow({
-    required this.name,
-    required this.email,
-    this.primary = false,
-  });
+  const _PublicDomainRow({required this.name, required this.email});
 
   final String name;
   final String email;
-  final bool primary;
 
   @override
   State<_PublicDomainRow> createState() => _PublicDomainRowState();
@@ -7967,27 +7966,6 @@ class _PublicDomainRowState extends State<_PublicDomainRow> {
                       style: AppTheme.bodyText.copyWith(fontSize: 13),
                     ),
                   ),
-                  if (widget.primary) ...[
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF63A81A),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Text(
-                        'PRIMARY',
-                        style: AppTheme.captionText.copyWith(
-                          fontSize: 10,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

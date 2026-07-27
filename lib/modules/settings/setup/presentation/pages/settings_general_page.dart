@@ -18,6 +18,7 @@ import 'package:zerpai_erp/shared/models/account_node.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/account_tree_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/resizable_box.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/got_it_popover.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 class SettingsGeneralPage extends ConsumerStatefulWidget {
   const SettingsGeneralPage({super.key});
@@ -28,6 +29,8 @@ class SettingsGeneralPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsGeneralPageState extends ConsumerState<SettingsGeneralPage> {
+  final SettingsPreferencesRepository _preferencesRepository =
+      SettingsPreferencesRepository();
   // State variables for form controls
   String _stockTrackingMode = 'physical'; // 'physical' or 'accounting'
   String _stockReconcileMode = 'automatically'; // 'automatically' or 'manually'
@@ -125,6 +128,106 @@ class _SettingsGeneralPageState extends ConsumerState<SettingsGeneralPage> {
   );
 
   @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final data = await _preferencesRepository.load();
+      if (!mounted || data.isEmpty) return;
+      final modules = _map(data['enabled_modules']);
+      final pdf = _map(data['pdf_preferences']);
+      final discounts = _map(data['discount_preferences']);
+      final charges = _map(data['charges_preferences']);
+      final stock = _map(data['stock_preferences']);
+      final rounding = _map(data['rounding_preferences']);
+      final labels = _map(data['document_copy_labels']);
+      final retention = _map(data['retention_preferences']);
+      final addresses = _map(data['address_formats']);
+      setState(() {
+        _moduleBillOfSupply = _bool(
+          modules['bill_of_supply'],
+          _moduleBillOfSupply,
+        );
+        _moduleDeliveryChallans = _bool(
+          modules['delivery_challans'],
+          _moduleDeliveryChallans,
+        );
+        _moduleRetainerInvoices = _bool(
+          modules['retainer_invoices'],
+          _moduleRetainerInvoices,
+        );
+        _modulePicklists = _bool(modules['picklists'], _modulePicklists);
+        _moduleStockCounts = _bool(modules['stock_counts'], _moduleStockCounts);
+        _moduleTasks = _bool(modules['tasks'], _moduleTasks);
+        _pdfAttach = _bool(pdf['attach'], _pdfAttach);
+        _pdfEncrypt = _bool(pdf['encrypt'], _pdfEncrypt);
+        _printPreference = _string(pdf['print_preference'], _printPreference);
+        _discountType = _string(discounts['type'], _discountType);
+        _discountTaxTreatment = _string(
+          discounts['tax_treatment'],
+          _discountTaxTreatment,
+        );
+        _transactionDiscountTiming = _string(
+          discounts['transaction_timing'],
+          _transactionDiscountTiming,
+        );
+        _chargeAdjustments = _bool(charges['adjustments'], _chargeAdjustments);
+        _chargeShipping = _bool(charges['shipping'], _chargeShipping);
+        _shippingSacController.text = _string(
+          charges['shipping_sac'],
+          _shippingSacController.text,
+        );
+        _taxInclusivity = _string(charges['tax_inclusivity'], _taxInclusivity);
+        _addSalespersonField = _bool(
+          charges['add_salesperson_field'],
+          _addSalespersonField,
+        );
+        _enableProfitMargin = _bool(
+          charges['enable_profit_margin'],
+          _enableProfitMargin,
+        );
+        _defaultMarkupController.text = _string(
+          charges['default_markup'],
+          _defaultMarkupController.text,
+        );
+        _stockTrackingMode = _string(
+          stock['tracking_mode'],
+          _stockTrackingMode,
+        );
+        _stockReconcileMode = _string(
+          stock['reconcile_mode'],
+          _stockReconcileMode,
+        );
+        _roundingType = _string(rounding['type'], _roundingType);
+        _currentRoundingIncrement = _string(
+          rounding['increment'],
+          _currentRoundingIncrement,
+        );
+        _applyLabels(labels);
+        _paymentRetentionEnabled = _bool(
+          retention['enabled'],
+          _paymentRetentionEnabled,
+        );
+        _applyRetentions(retention['rows']);
+        _addressFormatController.text = _string(
+          addresses['organization'],
+          _addressFormatController.text,
+        );
+        _dispatchAddressFormatController.text = _string(
+          addresses['dispatch'],
+          _dispatchAddressFormatController.text,
+        );
+      });
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to load general settings');
+    }
+  }
+
+  @override
   void dispose() {
     _shippingSacController.dispose();
     _defaultMarkupController.dispose();
@@ -146,9 +249,135 @@ class _SettingsGeneralPageState extends ConsumerState<SettingsGeneralPage> {
     super.dispose();
   }
 
-  void _handleSave() {
-    ZerpaiToast.success(context, 'General settings saved successfully.');
+  Future<void> _handleSave() async {
+    try {
+      await _preferencesRepository.save({
+        'enabled_modules': {
+          'bill_of_supply': _moduleBillOfSupply,
+          'delivery_challans': _moduleDeliveryChallans,
+          'retainer_invoices': _moduleRetainerInvoices,
+          'picklists': _modulePicklists,
+          'stock_counts': _moduleStockCounts,
+          'tasks': _moduleTasks,
+        },
+        'pdf_preferences': {
+          'attach': _pdfAttach,
+          'encrypt': _pdfEncrypt,
+          'print_preference': _printPreference,
+        },
+        'discount_preferences': {
+          'type': _discountType,
+          'tax_treatment': _discountTaxTreatment,
+          'transaction_timing': _transactionDiscountTiming,
+        },
+        'charges_preferences': {
+          'adjustments': _chargeAdjustments,
+          'shipping': _chargeShipping,
+          'shipping_sac': _shippingSacController.text.trim(),
+          'tax_inclusivity': _taxInclusivity,
+          'add_salesperson_field': _addSalespersonField,
+          'enable_profit_margin': _enableProfitMargin,
+          'default_markup': _defaultMarkupController.text.trim(),
+        },
+        'stock_preferences': {
+          'tracking_mode': _stockTrackingMode,
+          'reconcile_mode': _stockReconcileMode,
+        },
+        'rounding_preferences': {
+          'type': _roundingType,
+          'increment': _currentRoundingIncrement,
+        },
+        'document_copy_labels': _labelsPayload(),
+        'retention_preferences': {
+          'enabled': _paymentRetentionEnabled,
+          'rows': _retentions
+              .map(
+                (row) => {
+                  'name': row.nameController.text.trim(),
+                  'rate': row.rateController.text.trim(),
+                  'description': row.descriptionController.text.trim(),
+                  'receivable_account': row.receivableAccount,
+                  'payable_account': row.payableAccount,
+                },
+              )
+              .toList(),
+        },
+        'address_formats': {
+          'organization': _addressFormatController.text,
+          'dispatch': _dispatchAddressFormatController.text,
+        },
+      });
+      if (mounted)
+        ZerpaiToast.success(context, 'General settings saved successfully.');
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to save general settings');
+    }
   }
+
+  Map<String, dynamic> _labelsPayload() => {
+    'two': [_twoCopyOriginal.text, _twoCopyDuplicate.text],
+    'three': [
+      _threeCopyOriginal.text,
+      _threeCopyDuplicate.text,
+      _threeCopyTriplicate.text,
+    ],
+    'five': [
+      _fourFiveCopyOriginal.text,
+      _fourFiveCopyDuplicate.text,
+      _fourFiveCopyTriplicate.text,
+      _fourFiveCopyQuadruplicate.text,
+      _fourFiveCopyQuintuplicate.text,
+    ],
+  };
+
+  void _applyLabels(Map<String, dynamic> labels) {
+    void apply(dynamic values, List<TextEditingController> controllers) {
+      if (values is! List) return;
+      for (var i = 0; i < values.length && i < controllers.length; i++) {
+        controllers[i].text = values[i]?.toString() ?? '';
+      }
+    }
+
+    apply(labels['two'], [_twoCopyOriginal, _twoCopyDuplicate]);
+    apply(labels['three'], [
+      _threeCopyOriginal,
+      _threeCopyDuplicate,
+      _threeCopyTriplicate,
+    ]);
+    apply(labels['five'], [
+      _fourFiveCopyOriginal,
+      _fourFiveCopyDuplicate,
+      _fourFiveCopyTriplicate,
+      _fourFiveCopyQuadruplicate,
+      _fourFiveCopyQuintuplicate,
+    ]);
+  }
+
+  void _applyRetentions(dynamic rows) {
+    if (rows is! List) return;
+    for (final row in _retentions) row.dispose();
+    _retentions
+      ..clear()
+      ..addAll(
+        rows.whereType<Map>().map(
+          (row) => RetentionRowData(
+            name: row['name']?.toString() ?? '',
+            rate: row['rate']?.toString() ?? '',
+            description: row['description']?.toString() ?? '',
+            receivableAccount: row['receivable_account']?.toString(),
+            payableAccount: row['payable_account']?.toString(),
+          ),
+        ),
+      );
+  }
+
+  static Map<String, dynamic> _map(dynamic value) =>
+      value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
+  static bool _bool(dynamic value, bool fallback) =>
+      value is bool ? value : fallback;
+  static String _string(dynamic value, String fallback) =>
+      value?.toString() ?? fallback;
 
   @override
   Widget build(BuildContext context) {
@@ -2051,7 +2280,7 @@ class _SettingsGeneralPageState extends ConsumerState<SettingsGeneralPage> {
               scale: 0.8,
               child: Switch(
                 value: _paymentRetentionEnabled,
-                activeColor: Colors.white,
+                activeThumbColor: Colors.white,
                 activeTrackColor: AppTheme.primaryBlue,
                 inactiveThumbColor: Colors.white,
                 inactiveTrackColor: const Color(0xFFE5E7EB),

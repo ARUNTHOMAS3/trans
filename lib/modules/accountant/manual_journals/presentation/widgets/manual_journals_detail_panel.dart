@@ -9,7 +9,8 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/core/utils/error_handler.dart';
-import 'dart:math' as math;
+import 'package:zerpai_erp/shared/widgets/document/zerpai_document_view.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 
 class ManualJournalDetailPanel extends ConsumerWidget {
   final ManualJournal journal;
@@ -38,28 +39,32 @@ class ManualJournalDetailPanel extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildTopHeader(context, ref),
+          _buildTopHeader(context),
+          _buildActionToolbar(context, ref),
           _buildActionsBar(context, ref),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 850),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildJournalDocument(context),
-                          const SizedBox(height: 48),
-                          _buildMoreInformation(context),
-                          const SizedBox(height: 60),
-                        ],
+            child: ColoredBox(
+              color: AppTheme.bgLight,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+                child: Column(
+                  children: [
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 850),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildJournalDocument(context),
+                            const SizedBox(height: 48),
+                            _buildMoreInformation(context),
+                            const SizedBox(height: 60),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -68,34 +73,79 @@ class ManualJournalDetailPanel extends ConsumerWidget {
     );
   }
 
-  Widget _buildTopHeader(BuildContext context, WidgetRef ref) {
+  Widget _buildTopHeader(BuildContext context) {
     return Container(
-      height: 48,
+      height: 92,
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(18, 15, 18, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              const Text(
+                'Manual Journal',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              const Spacer(),
+              ZTooltip(
+                message: 'Close journal',
+                direction: ZTooltipDirection.bottom,
+                child: InkWell(
+                  onTap: () {
+                    if (context.canPop()) {
+                      onClose();
+                    } else {
+                      context.go(AppRoutes.accountantManualJournals);
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.borderLight),
+                    ),
+                    child: const Icon(
+                      LucideIcons.x,
+                      size: 16,
+                      color: AppTheme.errorRed,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
           Text(
             journal.journalNumber,
             style: const TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
               color: AppTheme.textPrimary,
             ),
           ),
-          const Spacer(),
-          if (isBusy) ...[
-            const SizedBox(
-              height: 16,
-              width: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            const SizedBox(width: 16),
-          ],
-          // Action Buttons
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionToolbar(BuildContext context, WidgetRef ref) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 48),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8F9FA),
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+      ),
+      child: Row(
+        children: [
           _headerAction(
             icon: LucideIcons.pencil,
             label: 'Edit',
@@ -110,32 +160,22 @@ class ManualJournalDetailPanel extends ConsumerWidget {
             label: 'Make Recurring',
             tooltip: 'Convert to Recurring Journal',
             onTap: () {
-              context.push(
-                AppRoutes.accountantRecurringJournalsCreate,
-                extra: journal,
+              final uri = Uri(
+                path: AppRoutes.accountantRecurringJournalsCreate,
+                queryParameters: {
+                  'sourceManualJournalId': journal.id,
+                  'returnTo': AppRoutes.accountantManualJournalsDetail
+                      .replaceAll(':id', journal.id),
+                },
+              );
+              context.go(
+                uri.toString(),
+                extra: {'initialManualJournal': journal},
               );
             },
           ),
           _headerDivider(),
           _buildMoreMenu(context, ref),
-          _headerDivider(),
-          IconButton(
-            onPressed: () {
-              if (context.canPop()) {
-                onClose();
-              } else {
-                context.go(AppRoutes.accountantManualJournals);
-              }
-            },
-            tooltip: 'Close Panel',
-            icon: const Icon(
-              LucideIcons.x,
-              size: 20,
-              color: AppTheme.textSecondary,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
         ],
       ),
     );
@@ -176,7 +216,11 @@ class ManualJournalDetailPanel extends ConsumerWidget {
     );
 
     if (tooltip != null) {
-      return Tooltip(message: tooltip, child: body);
+      return ZTooltip(
+        message: tooltip,
+        direction: ZTooltipDirection.bottom,
+        child: body,
+      );
     }
     return body;
   }
@@ -191,6 +235,8 @@ class ManualJournalDetailPanel extends ConsumerWidget {
   Widget _buildPrintMenu(BuildContext context) {
     return PopupMenuButton<String>(
       tooltip: 'PDF/Print Options',
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
       offset: const Offset(0, 32),
       onSelected: (value) {
         ZerpaiToast.info(
@@ -214,6 +260,8 @@ class ManualJournalDetailPanel extends ConsumerWidget {
   Widget _buildMoreMenu(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<String>(
       tooltip: 'More actions',
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
       offset: const Offset(0, 32),
       icon: const Icon(
         LucideIcons.moreHorizontal,
@@ -310,7 +358,11 @@ class ManualJournalDetailPanel extends ConsumerWidget {
   }
 
   Widget _buildJournalDocument(BuildContext context) {
-    final currencyFormat = NumberFormat('#,##0.00');
+    final currencyFormat = NumberFormat.currency(
+      name: journal.currency,
+      symbol: '${journal.currency} ',
+      decimalDigits: 2,
+    );
     final statusColor = _statusColor(journal.status);
 
     return Container(
@@ -391,7 +443,7 @@ class ManualJournalDetailPanel extends ConsumerWidget {
                           ),
                           _docInfoRow(
                             'Amount:',
-                            '₹${currencyFormat.format(journal.totalDebit)}',
+                            currencyFormat.format(journal.totalDebit),
                           ),
                           _docInfoRow(
                             'Reference Number:',
@@ -417,8 +469,8 @@ class ManualJournalDetailPanel extends ConsumerWidget {
                     const Divider(),
                     _summaryRow(
                       'Total',
-                      '₹${currencyFormat.format(journal.totalDebit)}',
-                      '₹${currencyFormat.format(journal.totalCredit)}',
+                      currencyFormat.format(journal.totalDebit),
+                      currencyFormat.format(journal.totalCredit),
                       isBold: true,
                     ),
                   ],
@@ -430,7 +482,10 @@ class ManualJournalDetailPanel extends ConsumerWidget {
           Positioned(
             top: 0,
             left: 0,
-            child: _statusRibbon(_statusLabel(journal.status), statusColor),
+            child: ZerpaiDocumentCornerRibbon(
+              label: _statusLabel(journal.status),
+              color: statusColor,
+            ),
           ),
         ],
       ),
@@ -454,61 +509,6 @@ class ManualJournalDetailPanel extends ConsumerWidget {
               fontSize: 13,
               color: AppTheme.textPrimary,
               fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statusRibbon(String label, Color color) {
-    return SizedBox(
-      width: 80,
-      height: 80,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Fold behind card (left side)
-          Positioned(
-            left: 0,
-            top: 48,
-            child: _RibbonFold(color: color, isLeft: true),
-          ),
-          // Fold behind card (top side)
-          Positioned(
-            left: 48,
-            top: 0,
-            child: _RibbonFold(color: color, isLeft: false),
-          ),
-          // Main Ribbon Bar
-          Positioned(
-            top: 14,
-            left: -24,
-            child: Transform.rotate(
-              angle: -math.pi / 4,
-              child: Container(
-                width: 110,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                decoration: BoxDecoration(
-                  color: color,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
             ),
           ),
         ],
@@ -785,7 +785,10 @@ class ManualJournalDetailPanel extends ConsumerWidget {
       if (!context.mounted) return;
       ZerpaiToast.success(context, 'Journal cloned successfully as Draft.');
       context.push(
-        AppRoutes.accountantManualJournalsCreate,
+        AppRoutes.accountantManualJournalsEdit.replaceAll(
+          ':id',
+          clonedJournal.id,
+        ),
         extra: clonedJournal,
       );
     } catch (e) {
@@ -890,47 +893,4 @@ class ManualJournalDetailPanel extends ConsumerWidget {
       ],
     );
   }
-}
-
-class _RibbonFold extends StatelessWidget {
-  final Color color;
-  final bool isLeft;
-
-  const _RibbonFold({required this.color, required this.isLeft});
-
-  @override
-  Widget build(BuildContext context) {
-    final darkColor = Color.lerp(color, Colors.black, 0.3)!;
-    return CustomPaint(
-      size: const Size(8, 8),
-      painter: _TrianglePainter(darkColor, isLeft: isLeft),
-    );
-  }
-}
-
-class _TrianglePainter extends CustomPainter {
-  final Color color;
-  final bool isLeft;
-
-  _TrianglePainter(this.color, {required this.isLeft});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final path = Path();
-    if (isLeft) {
-      path.moveTo(size.width, 0);
-      path.lineTo(size.width, size.height);
-      path.lineTo(0, size.height);
-    } else {
-      path.moveTo(0, size.height);
-      path.lineTo(size.width, size.height);
-      path.lineTo(size.width, 0);
-    }
-    path.close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

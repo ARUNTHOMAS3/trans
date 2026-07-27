@@ -52,10 +52,11 @@ class ManualJournal {
     this.reportingMethod = 'accrual_and_cash',
     required this.items,
     this.status = ManualJournalStatus.draft,
-    required this.createdAt,
-    required this.updatedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
     this.recurringJournalId,
-  });
+  })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   double get totalDebit => items.fold(0.0, (sum, item) => sum + item.debit);
   double get totalCredit => items.fold(0.0, (sum, item) => sum + item.credit);
@@ -97,6 +98,12 @@ class ManualJournal {
   }
 
   factory ManualJournal.fromJson(Map<String, dynamic> json) {
+    final currencyRaw =
+        (json['currency_code'] ?? json['currencyCode'] ?? json['currency'])
+            ?.toString()
+            .trim();
+    final currency = (currencyRaw != null && currencyRaw.isNotEmpty) ? currencyRaw : 'INR';
+
     return ManualJournal(
       id: json['id'] as String? ?? '',
       orgId: (json['org_id'] ?? json['orgId']) as String?,
@@ -119,7 +126,7 @@ class ManualJournal {
       referenceNumber:
           (json['reference_number'] ?? json['referenceNumber']) as String?,
       notes: json['notes'] as String?,
-      currency: (json['currency_code'] ?? json['currency']) as String? ?? 'INR',
+      currency: currency,
       is13thMonthAdjustment:
           (json['is_13th_month_adjustment'] ?? json['is13thMonthAdjustment'])
               as bool? ??
@@ -151,22 +158,6 @@ class ManualJournal {
           (json['recurring_journal_id'] ?? json['recurringJournalId'])
               as String?,
     );
-  }
-
-  static ManualJournal dummy() {
-    return ManualJournal(
-      id: 'dummy',
-      journalDate: DateTime.now(),
-      journalNumber: 'MJ-000',
-      items: [],
-      status: ManualJournalStatus.posted,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-  }
-
-  static List<ManualJournal> dummyList(int count) {
-    return List.generate(count, (_) => dummy());
   }
 }
 
@@ -227,7 +218,16 @@ class ManualJournalItem {
       id: json['id'] as String? ?? '',
       accountId: (json['account_id'] ?? json['accountId']) as String? ?? '',
       accountName:
-          (json['account_name'] ?? json['accountName']) as String? ?? '',
+          (json['account_name'] ??
+                  json['accountName'] ??
+                  json['account']?['user_account_name'] ??
+                  json['account']?['userAccountName'] ??
+                  json['account']?['system_account_name'] ??
+                  json['account']?['systemAccountName'] ??
+                  json['account']?['account_name'] ??
+                  json['account']?['accountName'])
+              as String? ??
+          '',
       description: json['description'] as String?,
       contactId: (json['contact_id'] ?? json['contactId']) as String?,
       contactType: (json['contact_type'] ?? json['contactType']) as String?,
@@ -261,7 +261,7 @@ class ManualJournalTemplate {
     this.referenceNumber,
     this.notes,
     this.reportingMethod = 'accrual_and_cash',
-    this.currency = 'INR',
+    required this.currency,
     this.enterAmount = false,
     this.isActive = true,
     required this.items,
@@ -290,6 +290,13 @@ class ManualJournalTemplate {
   }
 
   factory ManualJournalTemplate.fromJson(Map<String, dynamic> json) {
+    final currency = (json['currency_code'] ?? json['currency'])
+        ?.toString()
+        .trim();
+    if (currency == null || currency.isEmpty) {
+      throw const FormatException('Journal template currency is missing.');
+    }
+
     return ManualJournalTemplate(
       id: json['id'] as String? ?? '',
       templateName:
@@ -300,7 +307,7 @@ class ManualJournalTemplate {
       reportingMethod:
           (json['reporting_method'] ?? json['reportingMethod']) as String? ??
           'accrual_and_cash',
-      currency: (json['currency_code'] ?? json['currency']) as String? ?? 'INR',
+      currency: currency,
       enterAmount:
           (json['enter_amount'] ?? json['enterAmount'] ?? false) as bool,
       isActive: (json['is_active'] ?? json['isActive'] ?? true) as bool,

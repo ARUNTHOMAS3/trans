@@ -13,7 +13,6 @@ import 'package:zerpai_erp/modules/accountant/manual_journals/providers/manual_j
 import 'package:zerpai_erp/modules/accountant/models/accountant_lookup_models.dart'
     as lookup;
 import 'package:zerpai_erp/modules/accountant/providers/currency_provider.dart';
-import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart' as shared;
 import 'package:zerpai_erp/modules/accountant/repositories/accountant_repository.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/account_tree_dropdown.dart'
@@ -69,12 +68,8 @@ class _JournalTemplateCreateScreenState
   bool _enterAmount = false;
   bool _isSaving = false;
   String _reportingMethod = 'accrual_and_cash';
-  late lookup.Currency _selectedCurrency = const lookup.Currency(
-    id: 'default',
-    code: 'INR',
-    name: 'Indian Rupee',
-    symbol: '₹',
-  );
+  lookup.Currency? _selectedCurrency;
+  String? _requestedCurrencyCode;
   double _totalDebit = 0;
   double _totalCredit = 0;
   double _difference = 0;
@@ -378,6 +373,14 @@ class _JournalTemplateCreateScreenState
     if (!(_formKey.currentState?.validate() ?? true)) return;
 
     List<String> errors = [];
+    final currency = _resolveCurrency();
+    if (currency == null) {
+      errors.add(
+        _requestedCurrencyCode == null
+            ? 'Select a configured currency.'
+            : 'Currency $_requestedCurrencyCode is not configured.',
+      );
+    }
 
     if (_notesCtrl.text.trim().isEmpty) {
       errors.add('Notes field cannot be left empty.');
@@ -397,6 +400,23 @@ class _JournalTemplateCreateScreenState
       }
       if (d > 0 && c > 0) {
         errors.add('Row ${i + 1} cannot have both Debit and Credit values.');
+      }
+    }
+    if (_enterAmount) {
+      final totalDebit = _rows.fold<double>(
+        0,
+        (total, row) =>
+            total + (double.tryParse(row.debitCtrl.text.trim()) ?? 0),
+      );
+      final totalCredit = _rows.fold<double>(
+        0,
+        (total, row) =>
+            total + (double.tryParse(row.creditCtrl.text.trim()) ?? 0),
+      );
+      if (totalDebit <= 0 || totalCredit <= 0) {
+        errors.add('Enter debit and credit amounts.');
+      } else if ((totalDebit - totalCredit).abs() > 0.005) {
+        errors.add('Total debit and credit must balance.');
       }
     }
 
@@ -439,7 +459,7 @@ class _JournalTemplateCreateScreenState
         referenceNumber: _referenceCtrl.text.trim(),
         notes: _notesCtrl.text.trim(),
         reportingMethod: _reportingMethod,
-        currency: _selectedCurrency.code,
+        currency: currency!.code,
         enterAmount: _enterAmount,
         items: templateItems,
       );
@@ -579,37 +599,39 @@ class _JournalTemplateCreateScreenState
                   .watch(currenciesProvider)
                   .when(
                     data: (dbCurrencies) {
-                      final currencyList = dbCurrencies.isEmpty
-                          ? defaultCurrencyOptions
-                                .map(
-                                  (o) => lookup.Currency(
-                                    id: 'default-${o.code}',
-                                    code: o.code,
-                                    name: o.name,
-                                    symbol: o.symbol,
-                                    decimals: o.decimals,
-                                    format: o.format,
-                                  ),
-                                )
-                                .toList()
-                          : dbCurrencies;
-
-                      final currentCurrency =
-                          currencyList
-                              .where((c) => c.code == _selectedCurrency.code)
-                              .firstOrNull ??
-                          currencyList.first;
+                      final defaultCurrency = ref
+                          .watch(defaultCurrencyProvider)
+                          .asData
+                          ?.value;
+                      final requestedCode =
+                          _selectedCurrency?.code ??
+                          _requestedCurrencyCode ??
+                          defaultCurrency?.code;
+                      final currentCurrency = dbCurrencies
+                          .where((currency) => currency.code == requestedCode)
+                          .firstOrNull;
+                      final missingRequestedCurrency =
+                          requestedCode != null && currentCurrency == null;
 
                       return di.FormDropdown<lookup.Currency>(
                         value: currentCurrency,
-                        items: currencyList,
+                        items: dbCurrencies,
                         showSearch: true,
                         displayStringForValue: (c) => c.label,
+                        hint: dbCurrencies.isEmpty
+                            ? 'No currencies configured'
+                            : missingRequestedCurrency
+                            ? '$requestedCode is not configured'
+                            : 'Select currency',
                         onChanged: (val) {
                           if (val != null) {
-                            setState(() => _selectedCurrency = val);
+                            setState(() {
+                              _selectedCurrency = val;
+                              _requestedCurrencyCode = val.code;
+                            });
                           }
                         },
+                        enabled: dbCurrencies.isNotEmpty,
                       );
                     },
                     loading: () => const ZBone(height: 40, width: 120),
@@ -1303,6 +1325,26 @@ class _JournalTemplateCreateScreenState
     );
   }
 
+  lookup.Currency? _resolveCurrency() {
+    final currencies = ref.read(currenciesProvider).asData?.value;
+    if (currencies == null || currencies.isEmpty) return null;
+
+    final requestedCode = _selectedCurrency?.code ?? _requestedCurrencyCode;
+    if (requestedCode != null) {
+      return currencies
+          .where((currency) => currency.code == requestedCode)
+          .firstOrNull;
+    }
+
+    return ref.read(defaultCurrencyProvider).asData?.value;
+  }
+
+  String get _currencyTotalLabel {
+    final currency = _resolveCurrency();
+    final label = currency?.symbol ?? currency?.code;
+    return label == null || label.isEmpty ? 'Total' : 'Total ($label)';
+  }
+
   Widget _buildTotalsCard() {
     final card = Container(
       width: 540,
@@ -1321,7 +1363,7 @@ class _JournalTemplateCreateScreenState
           ),
           const SizedBox(height: 12),
           _summaryLine(
-            'Total (${(_selectedCurrency.symbol?.trim().isNotEmpty ?? false) ? _selectedCurrency.symbol : _selectedCurrency.code})',
+            _currencyTotalLabel,
             leftText: _totalDebit.toStringAsFixed(2),
             rightText: _totalCredit.toStringAsFixed(2),
             bold: true,

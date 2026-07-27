@@ -282,8 +282,8 @@ class RolePermissionScheme {
             actions: ['view', 'edit'],
           ),
           PermissionRowMeta(
-            label: 'Account Transactions',
-            key: 'account_transactions',
+            label: 'Journal Entry Lines',
+            key: 'journal_entry_lines',
             actions: ['view', 'export'],
           ),
           PermissionRowMeta(

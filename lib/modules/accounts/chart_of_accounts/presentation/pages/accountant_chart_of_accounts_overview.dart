@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/app/routing/app_router.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart';
@@ -17,6 +16,7 @@ import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dar
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
 class ChartOfAccountsPage extends ConsumerStatefulWidget {
   final String? initialAccountId;
@@ -35,6 +35,8 @@ class ChartOfAccountsPage extends ConsumerStatefulWidget {
 
 class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
   bool _forceWideTable = false;
+  int _pageSize = 50;
+  int _pageIndex = 0;
   final FocusNode _searchFocusNode = FocusNode();
 
   @override
@@ -167,6 +169,13 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isLargeScreen = screenWidth > 900;
     final roots = state.filteredRoots;
+    final pageCount = roots.isEmpty ? 1 : ((roots.length - 1) ~/ _pageSize) + 1;
+    final effectivePageIndex = _pageIndex.clamp(0, pageCount - 1);
+    final pageStartIndex = roots.isEmpty ? 0 : effectivePageIndex * _pageSize;
+    final pageEndIndex = math.min(pageStartIndex + _pageSize, roots.length);
+    final pagedRoots = roots.isEmpty
+        ? <AccountNode>[]
+        : roots.sublist(pageStartIndex, pageEndIndex);
 
     // View States
     final bool showMobileDetail =
@@ -189,63 +198,76 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
 
     final Widget leftPanel = Column(
       children: [
-        // Toolbar: View Filter + Search
-        Padding(
-          padding: const EdgeInsets.all(AppTheme.space12),
+        Container(
+          height: 64,
+          padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+          ),
           child: Row(
             children: [
-              Flexible(
-                flex: 2,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 160),
-                  child: FormDropdown<String>(
-                    height: 32,
-                    value: state.selectedView,
-                    items: _views,
-                    onChanged: (v) {
-                      if (v != null) notifier.setView(v);
+              _buildViewSelector(state, notifier),
+              const Spacer(),
+              if (canCreate)
+                SizedBox(
+                  height: 32,
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        context.push(AppRoutes.accountsChartOfAccountsCreate),
+                    icon: const Icon(LucideIcons.plus, size: 14),
+                    label: compact
+                        ? const SizedBox.shrink()
+                        : const Text('New', style: TextStyle(fontSize: 13)),
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: compact ? 8 : 16,
+                      ),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                ),
+              if (canCreate) const SizedBox(width: 8),
+              CompositedTransformTarget(
+                link: _moreMenuLink,
+                child: Container(
+                  height: 32,
+                  width: 32,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.borderColor),
+                    borderRadius: BorderRadius.circular(4),
+                    color: Colors.white,
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      if (_moreMenuEntry != null) {
+                        _closeAllMenus();
+                      } else {
+                        _openMoreMenu();
+                      }
                     },
-                    itemBuilder: (item, isSelected, isHovered) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppTheme.space12,
-                          vertical: AppTheme.space8,
-                        ),
-                        color: isSelected
-                            ? AppTheme.bgDisabled
-                            : isHovered
-                            ? AppTheme.bgLight
-                            : Colors.transparent,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                item,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                  color: AppTheme.textPrimary,
-                                ),
-                              ),
-                            ),
-                            const Icon(
-                              LucideIcons.star,
-                              size: 16,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                    borderRadius: BorderRadius.circular(4),
+                    child: const Icon(
+                      LucideIcons.moreHorizontal,
+                      color: AppTheme.textSecondary,
+                      size: 16,
+                    ),
                   ),
                 ),
               ),
-              const Spacer(),
             ],
           ),
         ),
+        if (hasSelection)
+          _buildBulkActionBar(
+            state,
+            notifier,
+            canEdit: canEdit,
+            canDelete: canDelete,
+          ),
 
         Expanded(
           child: LayoutBuilder(
@@ -283,54 +305,50 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
                         ref,
                       ),
                       Expanded(
-                        child: Skeletonizer(
-                          ignoreContainers: true,
-                          enabled: state.isLoading,
-                          child: ListView.builder(
-                            itemCount: state.isLoading ? 12 : roots.length,
-                            itemBuilder: (context, index) {
-                              final node = state.isLoading
-                                  ? AccountNode.dummy()
-                                  : roots[index];
-                              return AccountRow(
-                                node: node,
-                                level: 0,
-                                isExpanded:
-                                    !state.isLoading &&
-                                    state.expandedIds.contains(node.id),
-                                onToggle: () => notifier.toggleExpand(node.id),
-                                onTap: () => context.go(
-                                  AppRoutes.accountsChartOfAccountsDetail
-                                      .replaceAll(':id', node.id),
-                                ),
-                                expandedIds: state.isLoading
-                                    ? {}
-                                    : state.expandedIds,
-                                onToggleChild: notifier.toggleExpand,
-                                onTapChild: (id) => context.go(
-                                  AppRoutes.accountsChartOfAccountsDetail
-                                      .replaceAll(':id', id),
-                                ),
-                                isLast: state.isLoading
-                                    ? index == 11
-                                    : index == roots.length - 1,
-                                ancestorHasNext: const [],
-                                compact: compact,
-                                selectedAccountId: selectedAccountId,
-                                columnOrder: state.columnOrder,
-                                nameWidth: widths?.name,
-                                codeWidth: widths?.code,
-                                balanceWidth: widths?.balance,
-                                typeWidth: widths?.type,
-                                documentsWidth: widths?.documents,
-                                parentWidth: widths?.parent,
-                                canEdit: canEdit,
-                                canDelete: canDelete,
-                                canSelectForBulk: canEdit || canDelete,
-                              );
-                            },
-                          ),
-                        ),
+                        child: state.isLoading
+                            ? const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: ZTableSkeleton(rows: 12, columns: 7),
+                              )
+                            : ListView.builder(
+                                itemCount: pagedRoots.length,
+                                itemBuilder: (context, index) {
+                                  final node = pagedRoots[index];
+                                  return AccountRow(
+                                    node: node,
+                                    level: 0,
+                                    isExpanded: state.expandedIds.contains(
+                                      node.id,
+                                    ),
+                                    onToggle: () =>
+                                        notifier.toggleExpand(node.id),
+                                    onTap: () => context.go(
+                                      AppRoutes.accountsChartOfAccountsDetail
+                                          .replaceAll(':id', node.id),
+                                    ),
+                                    expandedIds: state.expandedIds,
+                                    onToggleChild: notifier.toggleExpand,
+                                    onTapChild: (id) => context.go(
+                                      AppRoutes.accountsChartOfAccountsDetail
+                                          .replaceAll(':id', id),
+                                    ),
+                                    isLast: index == pagedRoots.length - 1,
+                                    ancestorHasNext: const [],
+                                    compact: compact,
+                                    selectedAccountId: selectedAccountId,
+                                    columnOrder: state.columnOrder,
+                                    nameWidth: widths?.name,
+                                    codeWidth: widths?.code,
+                                    balanceWidth: widths?.balance,
+                                    typeWidth: widths?.type,
+                                    documentsWidth: widths?.documents,
+                                    parentWidth: widths?.parent,
+                                    canEdit: canEdit,
+                                    canDelete: canDelete,
+                                    canSelectForBulk: canEdit || canDelete,
+                                  );
+                                },
+                              ),
                       ),
                     ],
                   ),
@@ -339,132 +357,199 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
             },
           ),
         ),
+        if (!compact)
+          _buildPaginationBar(
+            totalCount: roots.length,
+            rangeStart: roots.isEmpty ? 0 : pageStartIndex + 1,
+            rangeEnd: pageEndIndex,
+            canGoPrev: effectivePageIndex > 0,
+            canGoNext: effectivePageIndex < pageCount - 1,
+            onPrev: () {
+              if (effectivePageIndex <= 0) return;
+              setState(() => _pageIndex = effectivePageIndex - 1);
+            },
+            onNext: () {
+              if (effectivePageIndex >= pageCount - 1) return;
+              setState(() => _pageIndex = effectivePageIndex + 1);
+            },
+          ),
       ],
     );
 
     // 1. MOBILE DETAIL VIEW
     if (showMobileDetail) {
       return ZerpaiLayout(
-        pageTitle: 'Account Details',
+        pageTitle: '',
         enableBodyScroll: false,
-        actions: const [], // No actions in detail view
-        child: Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.space8),
-            side: const BorderSide(color: AppTheme.borderColor),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: AccountOverviewPanel(
-            account: selectedAccount,
-            onClose: () => notifier.clearSelection(),
-          ),
+        useHorizontalPadding: false,
+        useTopPadding: false,
+        actions: const [],
+        child: AccountOverviewPanel(
+          account: selectedAccount,
+          onClose: () => notifier.clearSelection(),
         ),
       );
     }
 
     // 2. DESKTOP VIEW (List or Split)
     return ZerpaiLayout(
-      pageTitle: 'Chart of Accounts',
+      pageTitle: '',
       enableBodyScroll: false,
+      useHorizontalPadding: false,
+      useTopPadding: false,
       searchFocusNode: _searchFocusNode,
-      actions: [
-        // NEW ACCOUNT BUTTON
-        if (canCreate)
-          SizedBox(
-            height: 32,
-            child: ElevatedButton.icon(
-              onPressed: () =>
-                  context.push(AppRoutes.accountsChartOfAccountsCreate),
-              icon: const Icon(LucideIcons.plus, size: 14),
-              label: const Text('New', style: TextStyle(fontSize: 13)),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
+      actions: const [],
+      child: !showDesktopSplit
+          ? leftPanel
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(width: 360, child: leftPanel),
+                const VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: AppTheme.borderLight,
+                ),
+                Expanded(
+                  child: AccountOverviewPanel(
+                    account: selectedAccount,
+                    onClose: () {
+                      setState(() => _forceWideTable = true);
+                      context.go(AppRoutes.accountsChartOfAccounts);
+                    },
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildViewSelector(
+    ChartOfAccountsState state,
+    ChartOfAccountsNotifier notifier,
+  ) {
+    return MenuAnchor(
+      style: MenuStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+        elevation: const WidgetStatePropertyAll(8),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
+      menuChildren: _views
+          .map(
+            (view) => MenuItemButton(
+              onPressed: () {
+                notifier.setView(view);
+                setState(() => _pageIndex = 0);
+              },
+              child: SizedBox(
+                width: 200,
+                child: Text(
+                  view,
+                  style: TextStyle(
+                    color: view == state.selectedView
+                        ? AppTheme.primaryBlue
+                        : AppTheme.textPrimary,
+                    fontWeight: view == state.selectedView
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
                 ),
               ),
             ),
-          ),
-        if (canCreate) const SizedBox(width: 8),
-        // MORE MENU BUTTON
-        CompositedTransformTarget(
-          link: _moreMenuLink,
-          child: Container(
-            height: 32,
-            width: 32,
-            decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.borderColor),
-              borderRadius: BorderRadius.circular(4),
-              color: Colors.white,
-            ),
-            child: InkWell(
-              onTap: () {
-                if (_moreMenuEntry != null) {
-                  _closeAllMenus();
-                } else {
-                  _openMoreMenu();
-                }
-              },
-              borderRadius: BorderRadius.circular(4),
-              child: const Icon(
-                LucideIcons.moreHorizontal,
-                color: AppTheme.textSecondary,
-                size: 16,
+          )
+          .toList(),
+      builder: (context, controller, child) => InkWell(
+        onTap: () => controller.isOpen ? controller.close() : controller.open(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              state.selectedView,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
               ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Icon(
+              controller.isOpen
+                  ? LucideIcons.chevronUp
+                  : LucideIcons.chevronDown,
+              size: 16,
+              color: AppTheme.primaryBlue,
+            ),
+          ],
         ),
-      ],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      ),
+    );
+  }
+
+  Widget _buildPaginationBar({
+    required int totalCount,
+    required int rangeStart,
+    required int rangeEnd,
+    required bool canGoPrev,
+    required bool canGoNext,
+    required VoidCallback onPrev,
+    required VoidCallback onNext,
+  }) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
+      ),
+      child: Row(
         children: [
-          if (hasSelection)
-            _buildBulkActionBar(
-              state,
-              notifier,
-              canEdit: canEdit,
-              canDelete: canDelete,
+          Text(
+            'Total Count: $totalCount',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w500,
             ),
-          Expanded(
-            child: Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.space8),
-                side: const BorderSide(color: AppTheme.borderColor),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: !showDesktopSplit
-                  ? leftPanel
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(width: 300, child: leftPanel),
-                        const VerticalDivider(
-                          width: 1,
-                          color: AppTheme.borderColor,
-                        ),
-                        Expanded(
-                          flex: 7,
-                          child: AccountOverviewPanel(
-                            // Use ! since isSplitView guarantees selectedAccountId/Account is not null
-                            account: selectedAccount,
-                            onClose: () {
-                              setState(() {
-                                _forceWideTable = true;
-                              });
-                              // Don't clear selection if we just want to hide the panel
-                              // but keep the highlight in the list.
-                              // Actually, if they click 'X', it should clear selection.
-                              // Let's keep it consistent.
-                              context.go(AppRoutes.accountsChartOfAccounts);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
+          ),
+          const Spacer(),
+          SizedBox(
+            width: 170,
+            child: FormDropdown<int>(
+              value: _pageSize,
+              items: const [10, 25, 50, 100, 200],
+              hint: '50 per page',
+              showSearch: true,
+              displayStringForValue: (value) => '$value per page',
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _pageSize = value;
+                  _pageIndex = 0;
+                });
+              },
             ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: canGoPrev ? onPrev : null,
+            icon: const Icon(LucideIcons.chevronLeft, size: 16),
+            visualDensity: VisualDensity.compact,
+          ),
+          Text(
+            '$rangeStart - $rangeEnd',
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          IconButton(
+            onPressed: canGoNext ? onNext : null,
+            icon: const Icon(LucideIcons.chevronRight, size: 16),
+            visualDensity: VisualDensity.compact,
           ),
         ],
       ),
@@ -995,20 +1080,17 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
     }
 
     return Container(
-      height: 40,
+      height: 51,
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: AppTheme.borderColor),
-          bottom: BorderSide(color: AppTheme.borderColor),
-        ),
+        color: AppTheme.bgLight,
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
       ),
       child: Row(
         children: [
           // 1. Combined Header Filter / Select Toggle
           SizedBox(
             width: 42,
-            height: 40,
+            height: 50,
             child: Row(
               children: [
                 const SizedBox(width: 20), // Alignment padding
@@ -1766,6 +1848,10 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
   void _openSortMenu() {
     if (_sortMenuEntry != null) return;
     final overlay = Overlay.of(context);
+    final openRight =
+        widget.initialAccountId != null &&
+        MediaQuery.sizeOf(context).width >= 800 &&
+        !_forceWideTable;
     _sortMenuEntry = OverlayEntry(
       builder: (context) {
         return Positioned(
@@ -1773,7 +1859,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
           child: CompositedTransformFollower(
             link: _sortRowLink,
             showWhenUnlinked: false,
-            offset: const Offset(-204, 0),
+            offset: Offset(openRight ? 244 : -204, 0),
             child: MouseRegion(
               onEnter: (_) => _isHoveringSortMenu = true,
               onExit: (_) {
@@ -1810,6 +1896,10 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
   void _openExportMenu() {
     if (_exportMenuEntry != null) return;
     final overlay = Overlay.of(context);
+    final openRight =
+        widget.initialAccountId != null &&
+        MediaQuery.sizeOf(context).width >= 800 &&
+        !_forceWideTable;
     _exportMenuEntry = OverlayEntry(
       builder: (context) {
         return Positioned(
@@ -1817,7 +1907,7 @@ class _ChartOfAccountsPageState extends ConsumerState<ChartOfAccountsPage> {
           child: CompositedTransformFollower(
             link: _exportRowLink,
             showWhenUnlinked: false,
-            offset: const Offset(-204, 0),
+            offset: Offset(openRight ? 244 : -204, 0),
             child: MouseRegion(
               onEnter: (_) => _isHoveringExportMenu = true,
               onExit: (_) {

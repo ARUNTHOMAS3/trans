@@ -8,10 +8,11 @@ class AccountTransaction {
   final String? description;
   final double debit;
   final double credit;
-  final double bcyDebit;
-  final double bcyCredit;
+  final double? bcyDebit;
+  final double? bcyCredit;
   final String? currencyCode;
-  final double exchangeRate;
+  final String? bcyCurrencyCode;
+  final double? exchangeRate;
   final String? transactionNumber;
   final String? sourceId;
   final String? sourceType;
@@ -27,10 +28,11 @@ class AccountTransaction {
     this.description,
     this.debit = 0.0,
     this.credit = 0.0,
-    this.bcyDebit = 0.0,
-    this.bcyCredit = 0.0,
+    this.bcyDebit,
+    this.bcyCredit,
     this.currencyCode,
-    this.exchangeRate = 1.0,
+    this.bcyCurrencyCode,
+    this.exchangeRate,
     this.sourceId,
     this.sourceType,
   });
@@ -42,35 +44,52 @@ class AccountTransaction {
     return fallback;
   }
 
+  static double? _asNullableDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
   factory AccountTransaction.fromJson(Map<String, dynamic> json) {
+    final rawDate = json['transaction_date'];
+    final transactionDate = rawDate == null
+        ? null
+        : DateTime.tryParse(rawDate.toString());
+    if (transactionDate == null) {
+      throw const FormatException('Transaction date is required');
+    }
     return AccountTransaction(
       id: json['id'] ?? '',
       accountId: json['account_id'] ?? '',
-      accountName: json['account_name'],
-      transactionDate: DateTime.parse(
-        json['transaction_date'] ?? DateTime.now().toIso8601String(),
-      ),
-      transactionType: json['transaction_type'],
-      transactionNumber: json['transaction_number'],
+      accountName:
+          json['account_name'] ??
+          json['accountName'] ??
+          json['account']?['user_account_name'] ??
+          json['account']?['userAccountName'] ??
+          json['account']?['system_account_name'] ??
+          json['account']?['systemAccountName'] ??
+          json['account']?['account_name'] ??
+          json['account']?['accountName'],
+      transactionDate: transactionDate,
+      transactionType: json['transaction_type'] ?? json['source_type'],
+      transactionNumber: json['transaction_number'] ?? json['reference_number'],
       referenceNumber: json['reference_number'],
       description: json['description'],
       debit: _asDouble(json['debit']),
       credit: _asDouble(json['credit']),
-      bcyDebit: _asDouble(
-        json['bcy_debit'],
-        fallback: _asDouble(json['debit']),
-      ),
-      bcyCredit: _asDouble(
-        json['bcy_credit'],
-        fallback: _asDouble(json['credit']),
-      ),
+      bcyDebit: _asNullableDouble(json['bcy_debit']),
+      bcyCredit: _asNullableDouble(json['bcy_credit']),
       currencyCode: json['currency_code'],
-      exchangeRate: _asDouble(json['exchange_rate'], fallback: 1.0),
+      bcyCurrencyCode: json['bcy_currency_code'],
+      exchangeRate: _asNullableDouble(json['exchange_rate']),
       sourceId: json['source_id'],
       sourceType: json['source_type'],
     );
   }
 
   double get amount => debit > 0 ? debit : credit;
-  double get bcyAmount => bcyDebit > 0 ? bcyDebit : bcyCredit;
+  double? get bcyAmount {
+    if (bcyDebit == null || bcyCredit == null) return null;
+    return bcyDebit! > 0 ? bcyDebit : bcyCredit;
+  }
 }

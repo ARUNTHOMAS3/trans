@@ -13,6 +13,8 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 enum ExpensesSettingsTab { preferences, vehicle, categories, fields }
 
@@ -23,11 +25,15 @@ enum _VehicleDialogMode { create, edit }
 enum _CategoryDialogMode { create, edit }
 
 class _CategoryRow {
-  _CategoryRow({required this.name, required this.description});
+  _CategoryRow({
+    required this.name,
+    required this.description,
+    this.isActive = true,
+  });
 
   String name;
   String description;
-  bool isActive = true;
+  bool isActive;
 }
 
 class _MileageRateRow {
@@ -81,19 +87,6 @@ class _DraftMileageRateRowModel {
   }
 }
 
-const List<String> _expenseAccountOptions = <String>[
-  'Fuel/Mileage Expenses',
-  'Office Supplies',
-  'Advertising And Marketing',
-  'Bank Fees and Charges',
-  'Credit Card Charges',
-  'Travel Expense',
-  'Telephone Expense',
-  'Automobile Expense',
-];
-
-const List<String> _vehicleOptions = <String>['Car', 'Bike', 'Truck'];
-
 class ExpensesSettingsPage extends ConsumerStatefulWidget {
   const ExpensesSettingsPage({
     super.key,
@@ -108,66 +101,27 @@ class ExpensesSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
+  final ApiClient _apiClient = ApiClient();
+  final SettingsPreferencesRepository _preferencesRepository =
+      SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
   late ExpensesSettingsTab _activeTab;
-  late final List<String> _accountOptions;
-  String _selectedAccount = _expenseAccountOptions.first;
+  final List<String> _accountOptions = [];
+  String _selectedAccount = '';
   _DistanceUnit _distanceUnit = _DistanceUnit.km;
-  final List<_MileageRateRow> _mileageRates = <_MileageRateRow>[
-    const _MileageRateRow(
-      startDate: '20-06-2026',
-      vehicle: '',
-      rate: '\u20B930',
-    ),
-    const _MileageRateRow(
-      startDate: '25-06-2026',
-      vehicle: '',
-      rate: '\u20B950',
-    ),
-  ];
+  final List<_MileageRateRow> _mileageRates = <_MileageRateRow>[];
   late final List<_DraftMileageRateRowModel> _draftMileageRows;
   int? _editingMileageRowIndex;
   _DraftMileageRateRowModel? _editingMileageRow;
-  final List<_VehicleRow> _vehicleRows = <_VehicleRow>[
-    const _VehicleRow(name: 'MERCEDES BENZ', hint: 'benz'),
-  ];
+  final List<_VehicleRow> _vehicleRows = <_VehicleRow>[];
   _VehicleDialogDraft? _vehicleDialogDraft;
   _VehicleDialogMode? _vehicleDialogDraftMode;
   int? _vehicleDialogDraftIndex;
 
   // Categories State
-  final List<_CategoryRow> _categoryRows = <_CategoryRow>[
-    _CategoryRow(name: 'Zoho Payroll - Loan Account', description: ''),
-    _CategoryRow(name: 'Zoho Book', description: ''),
-    _CategoryRow(name: 'Utilities', description: ''),
-    _CategoryRow(
-      name: 'Travel Expense',
-      description:
-          'Expenses on business travels like hotel bookings, flight charges, etc. are recorded as travel expenses.',
-    ),
-    _CategoryRow(name: 'Travel Allowance', description: ''),
-    _CategoryRow(
-      name: 'Transportation Expense',
-      description:
-          'An expense account to track the amount spent on transporting goods or providing services.',
-    ),
-    _CategoryRow(
-      name: 'Telephone Expense',
-      description:
-          'The expenses on your telephone, mobile and fax usage are accounted as telephone expenses.',
-    ),
-    _CategoryRow(name: 'TDS Receivable', description: ''),
-    _CategoryRow(name: 'TDS Payable', description: ''),
-    _CategoryRow(name: 'TCS Receivable', description: ''),
-    _CategoryRow(name: 'TCS Payable', description: ''),
-    _CategoryRow(
-      name: 'Tax Payable',
-      description:
-          'The amount of money which you owe to your tax authority is recorded under the tax payable account. This amount is a sum of your',
-    ),
-  ];
+  final List<_CategoryRow> _categoryRows = <_CategoryRow>[];
   final Set<int> _selectedCategoryIndices = <int>{};
   String _categoryFilter = 'All';
   bool _categorySortAscending = true;
@@ -182,11 +136,124 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
   void initState() {
     super.initState();
     _activeTab = widget.initialTab;
-    _accountOptions = List<String>.from(_expenseAccountOptions);
     _draftMileageRows = <_DraftMileageRateRowModel>[
       _DraftMileageRateRowModel(),
     ];
+    _loadExpenseSettings();
   }
+
+  Future<void> _loadExpenseSettings() async {
+    try {
+      final accountResponse = await _apiClient.get(
+        'accountant',
+        useCache: false,
+      );
+      final preferences = await _preferencesRepository.loadSection(
+        'charges_preferences',
+        const ['expenses'],
+      );
+      final accountNames = <String>[];
+      void collect(dynamic rows) {
+        if (rows is! List) return;
+        for (final raw in rows.whereType<Map>()) {
+          final row = Map<String, dynamic>.from(raw);
+          final name =
+              row['user_account_name'] ??
+              row['system_account_name'] ??
+              row['name'];
+          if (name != null && name.toString().trim().isNotEmpty)
+            accountNames.add(name.toString().trim());
+          collect(row['children']);
+        }
+      }
+
+      collect(accountResponse.data);
+      if (!mounted) return;
+      setState(() {
+        _accountOptions
+          ..clear()
+          ..addAll(accountNames.toSet()..toList());
+        _accountOptions.sort();
+        _selectedAccount =
+            preferences['default_mileage_account']?.toString() ??
+            (_accountOptions.firstOrNull ?? '');
+        _distanceUnit =
+            _DistanceUnit.values
+                .where((value) => value.name == preferences['distance_unit'])
+                .firstOrNull ??
+            _distanceUnit;
+        _mileageRates
+          ..clear()
+          ..addAll(
+            (preferences['mileage_rates'] as List? ?? const [])
+                .whereType<Map>()
+                .map(
+                  (row) => _MileageRateRow(
+                    startDate: row['start_date']?.toString() ?? '',
+                    vehicle: row['vehicle']?.toString() ?? '',
+                    rate: row['rate']?.toString() ?? '',
+                  ),
+                ),
+          );
+        _vehicleRows
+          ..clear()
+          ..addAll(
+            (preferences['vehicles'] as List? ?? const []).whereType<Map>().map(
+              (row) => _VehicleRow(
+                name: row['name']?.toString() ?? '',
+                hint: row['hint']?.toString() ?? '',
+              ),
+            ),
+          );
+        _categoryRows
+          ..clear()
+          ..addAll(
+            (preferences['categories'] as List? ?? const [])
+                .whereType<Map>()
+                .map(
+                  (row) => _CategoryRow(
+                    name: row['name']?.toString() ?? '',
+                    description: row['description']?.toString() ?? '',
+                    isActive: row['is_active'] != false,
+                  ),
+                ),
+          );
+      });
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to load expense settings');
+    }
+  }
+
+  Future<void> _persistExpenseSettings() => _preferencesRepository.saveSection(
+    'charges_preferences',
+    {
+      'default_mileage_account': _selectedAccount,
+      'distance_unit': _distanceUnit.name,
+      'mileage_rates': _mileageRates
+          .map(
+            (row) => {
+              'start_date': row.startDate,
+              'vehicle': row.vehicle,
+              'rate': row.rate,
+            },
+          )
+          .toList(),
+      'vehicles': _vehicleRows
+          .map((row) => {'name': row.name, 'hint': row.hint})
+          .toList(),
+      'categories': _categoryRows
+          .map(
+            (row) => {
+              'name': row.name,
+              'description': row.description,
+              'is_active': row.isActive,
+            },
+          )
+          .toList(),
+    },
+    const ['expenses'],
+  );
 
   @override
   void dispose() {
@@ -358,6 +425,7 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
           ? 'Vehicle updated successfully'
           : 'Vehicle created successfully',
     );
+    _persistExpenseSettings();
   }
 
   Future<void> _deleteVehicle(int index) async {
@@ -394,6 +462,7 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
     }
 
     ZerpaiToast.success(context, 'Vehicle deleted successfully');
+    await _persistExpenseSettings();
   }
 
   void _openNewCategoryDialog() {
@@ -448,6 +517,7 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
     });
 
     ZerpaiToast.success(context, 'Category saved successfully');
+    _persistExpenseSettings();
   }
 
   void _deleteCategory(int index) async {
@@ -466,6 +536,7 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
       _selectedCategoryIndices.remove(index);
     });
     ZerpaiToast.success(context, 'Category deleted successfully');
+    await _persistExpenseSettings();
   }
 
   void _toggleCategoryActive(int index) {
@@ -479,6 +550,7 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
           ? 'Category marked as active'
           : 'Category marked as inactive',
     );
+    _persistExpenseSettings();
   }
 
   void _toggleSelectAllCategories(bool? val) {
@@ -520,6 +592,7 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
       _selectedCategoryIndices.clear();
     });
     ZerpaiToast.success(context, 'Selected categories marked as active');
+    _persistExpenseSettings();
   }
 
   void _bulkMarkInactive() {
@@ -532,6 +605,7 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
       _selectedCategoryIndices.clear();
     });
     ZerpaiToast.success(context, 'Selected categories marked as inactive');
+    _persistExpenseSettings();
   }
 
   void _bulkDelete() async {
@@ -555,6 +629,7 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
       _selectedCategoryIndices.clear();
     });
     ZerpaiToast.success(context, 'Selected categories deleted');
+    await _persistExpenseSettings();
   }
 
   void _sortCategories() {
@@ -573,7 +648,7 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
     });
   }
 
-  void _savePreferences() {
+  Future<void> _savePreferences() async {
     if (_editingMileageRowIndex != null && _editingMileageRow != null) {
       final String startDate = _editingMileageRow!.startDateController.text
           .trim();
@@ -613,7 +688,13 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
     }
 
     if (completedRows.isEmpty) {
-      ZerpaiToast.success(context, 'Expenses preferences saved');
+      try {
+        await _persistExpenseSettings();
+        if (mounted) ZerpaiToast.success(context, 'Expenses preferences saved');
+      } catch (_) {
+        if (mounted)
+          ZerpaiToast.error(context, 'Failed to save expense settings');
+      }
       return;
     }
 
@@ -654,13 +735,13 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
         ..add(_DraftMileageRateRowModel());
     });
 
-    final int addedCount = completedRows.length;
-    ZerpaiToast.success(
-      context,
-      addedCount == 1
-          ? 'Mileage rate added successfully'
-          : '$addedCount mileage rates added successfully',
-    );
+    try {
+      await _persistExpenseSettings();
+      if (mounted) ZerpaiToast.success(context, 'Expenses preferences saved');
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to save expense settings');
+    }
   }
 
   void _clearDraftMileageRate(int index) {
@@ -1102,6 +1183,7 @@ class _ExpensesSettingsPageState extends ConsumerState<ExpensesSettingsPage> {
           setState(() => _distanceUnit = value);
         },
         mileageRates: _mileageRates,
+        vehicleOptions: _vehicleRows.map((row) => row.name).toList(),
         editingMileageRowIndex: _editingMileageRowIndex,
         editingMileageRow: _editingMileageRow,
         onEditMileageRow: _startEditingMileageRow,
@@ -1354,6 +1436,7 @@ class _ExpensesPreferencesContent extends StatelessWidget {
     required this.distanceUnit,
     required this.onUnitChanged,
     required this.mileageRates,
+    required this.vehicleOptions,
     required this.editingMileageRowIndex,
     required this.editingMileageRow,
     required this.onEditMileageRow,
@@ -1374,6 +1457,7 @@ class _ExpensesPreferencesContent extends StatelessWidget {
   final _DistanceUnit distanceUnit;
   final ValueChanged<_DistanceUnit?> onUnitChanged;
   final List<_MileageRateRow> mileageRates;
+  final List<String> vehicleOptions;
   final int? editingMileageRowIndex;
   final _DraftMileageRateRowModel? editingMileageRow;
   final ValueChanged<int> onEditMileageRow;
@@ -1457,6 +1541,7 @@ class _ExpensesPreferencesContent extends StatelessWidget {
         const SizedBox(height: 16),
         _MileageRatesTable(
           rows: mileageRates,
+          vehicleOptions: vehicleOptions,
           editingRowIndex: editingMileageRowIndex,
           editingRow: editingMileageRow,
           onEdit: onEditMileageRow,
@@ -1467,6 +1552,7 @@ class _ExpensesPreferencesContent extends StatelessWidget {
         const SizedBox(height: 16),
         for (int index = 0; index < draftMileageRows.length; index++) ...[
           _MileageRateDraftRow(
+            vehicleOptions: vehicleOptions,
             startDateController: draftMileageRows[index].startDateController,
             selectedVehicle: draftMileageRows[index].selectedVehicle,
             onVehicleChanged: (String? value) =>
@@ -1706,6 +1792,7 @@ class _UnitRadio extends StatelessWidget {
 class _MileageRatesTable extends StatefulWidget {
   const _MileageRatesTable({
     required this.rows,
+    required this.vehicleOptions,
     required this.editingRowIndex,
     required this.editingRow,
     required this.onEdit,
@@ -1715,6 +1802,7 @@ class _MileageRatesTable extends StatefulWidget {
   });
 
   final List<_MileageRateRow> rows;
+  final List<String> vehicleOptions;
   final int? editingRowIndex;
   final _DraftMileageRateRowModel? editingRow;
   final ValueChanged<int> onEdit;
@@ -1755,6 +1843,7 @@ class _MileageRatesTableState extends State<_MileageRatesTable> {
                       ),
                     ),
                     child: _MileageRateDraftRow(
+                      vehicleOptions: widget.vehicleOptions,
                       startDateController:
                           widget.editingRow!.startDateController,
                       selectedVehicle: widget.editingRow!.selectedVehicle,
@@ -1924,6 +2013,7 @@ class _CurrencyInputField extends StatelessWidget {
 class _MileageRateDraftRow extends StatefulWidget {
   const _MileageRateDraftRow({
     required this.startDateController,
+    required this.vehicleOptions,
     required this.selectedVehicle,
     required this.onVehicleChanged,
     required this.rateController,
@@ -1931,6 +2021,7 @@ class _MileageRateDraftRow extends StatefulWidget {
   });
 
   final TextEditingController startDateController;
+  final List<String> vehicleOptions;
   final String? selectedVehicle;
   final ValueChanged<String?> onVehicleChanged;
   final TextEditingController rateController;
@@ -2021,7 +2112,7 @@ class _MileageRateDraftRowState extends State<_MileageRateDraftRow> {
               width: 124,
               child: FormDropdown<String>(
                 value: widget.selectedVehicle,
-                items: _vehicleOptions,
+                items: widget.vehicleOptions,
                 hint: '',
                 onChanged: widget.onVehicleChanged,
                 displayStringForValue: (String value) => value,

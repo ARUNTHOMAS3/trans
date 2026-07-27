@@ -395,7 +395,7 @@ class AppRoutes {
   static const String salesByCustomer = '/reports/sales-by-customer';
   static const String inventoryValuation = '/reports/inventory-valuation';
 
-  // Accounts
+ // Accounts
   static const String accountsChartOfAccounts = '/accounts/chart-of-accounts';
   static const String accountsChartOfAccountsDetail =
       '/accounts/chart-of-accounts/:id';
@@ -411,6 +411,8 @@ class AppRoutes {
   static const String accountantManualJournals = '/accountant/manual-journals';
   static const String accountantManualJournalsDetail =
       '/accountant/manual-journals/:id';
+  static const String accountantManualJournalsEdit =
+      '/accountant/manual-journals/:id/edit';
   static const String accountantManualJournalsCreate =
       '/accountant/manual-journals/create';
   static const String accountantJournalTemplates =

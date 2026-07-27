@@ -16,24 +16,25 @@ export class RecurringJournalsCronService {
   }
 
   // Exposed for testing/triggering manually if needed
-  async processRecurringJournals() {
+  async processRecurringJournals(requestTenant?: TenantContext) {
     try {
-      // Use the global fetcher which doesn't filter by a single tenant
-      const activeJournals =
-        await this.accountantService.findAllGlobalRecurringJournals();
+      const activeJournals = requestTenant
+        ? (await this.accountantService.findRecurringJournals(requestTenant))
+            .filter((journal: any) => journal.status === "active")
+            .map((journal: any) => ({
+              ...journal,
+              orgId: requestTenant.orgId,
+              entityId: requestTenant.entityId,
+              branchId: requestTenant.branchId,
+            }))
+        : await this.accountantService.findAllGlobalRecurringJournals();
 
       let processedCount = 0;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       for (const journal of activeJournals) {
-        const resolvedUserId = (
-          journal.createdById ||
-          journal.created_by ||
-          ""
-        )
-          .toString()
-          .trim();
+        const resolvedUserId = (journal.createdById || "").toString().trim();
         if (!resolvedUserId) {
           this.logger.warn(
             `Skipping recurring journal [${journal.profileName}] due to missing created_by user context.`,
@@ -41,21 +42,24 @@ export class RecurringJournalsCronService {
           continue;
         }
 
-        // Construct a mock TenantContext from the journal record
-        // This is necessary because the service methods now expect a tenant object.
         const tenant: TenantContext = {
-          orgId: journal.orgId || journal.org_id,
-          entityId: journal.entityId || journal.entity_id,
-          branchId: journal.branchId || journal.branch_id,
+          orgId: journal.orgId,
+          entityId: journal.entityId,
+          branchId: journal.branchId,
           userId: resolvedUserId,
-          email: "system@zerpai.com", // Mock email for background tasks
-          role: "ho_admin", // Assume HO Admin privileges for automated background tasks
+          email: "",
+          role: "",
           accessibleBranchIds: [],
-          defaultBusinessBranchId:
-            journal.branchId || journal.branch_id || null,
+          defaultBusinessBranchId: journal.branchId || null,
           defaultWarehouseBranchId: null,
-          permissions: { full_access: true },
+          permissions: null,
         };
+        if (!tenant.orgId || !tenant.entityId) {
+          this.logger.warn(
+            `Skipping recurring journal [${journal.profileName}] because its entity context is incomplete.`,
+          );
+          continue;
+        }
 
         // Skip if there's an end date and it's already past
         if (journal.endDate && !journal.neverExpires) {
@@ -121,6 +125,11 @@ export class RecurringJournalsCronService {
               );
               processedCount++;
             }
+            await this.accountantService.markRecurringJournalGenerated(
+              journal.id,
+              generationDate,
+              tenant,
+            );
             iterations++;
 
             // Move to the next date

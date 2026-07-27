@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/app/routing/app_router.dart';
+import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart';
@@ -46,7 +47,7 @@ class _ChartOfAccountsCreationPageState
     text: '0',
   );
   String _closingBalanceType = 'Dr';
-  String _currency = 'INR';
+  String? _currency;
   bool _isSubAccount = false;
   bool _showInZerpaiExpense = false;
   bool _addToWatchlist = false;
@@ -298,6 +299,7 @@ class _ChartOfAccountsCreationPageState
 
     final metadata = ref.read(chartOfAccountsProvider).accountMetadata;
     final String name = _nameController.text.trim();
+    final currency = _currency ?? ref.read(orgCurrencyCodeProvider)?.trim();
 
     // Validation Rules
     final bool isNameEmpty = name.isEmpty;
@@ -317,6 +319,15 @@ class _ChartOfAccountsCreationPageState
     }
     if (isCodeMissing) {
       ZerpaiToast.error(context, 'Enter the Account Code');
+      return;
+    }
+    if (currency == null ||
+        currency.isEmpty ||
+        !ref
+            .read(chartOfAccountsProvider)
+            .currencies
+            .any((item) => item.code == currency)) {
+      ZerpaiToast.error(context, 'Select a configured currency.');
       return;
     }
 
@@ -433,10 +444,7 @@ class _ChartOfAccountsCreationPageState
     // even if the UI state was somehow left in a stale _isSubAccount = true condition.
     final bool _createForcesNoParent =
         _editingAccount == null &&
-        (accountType == 'Bank' ||
-            accountType == 'Credit Card' ||
-            accountType == 'Other Income' ||
-            accountType == 'Accounts Receivable');
+        (accountType == 'Bank' || accountType == 'Credit Card');
     final String? parentId = (_isSubAccount && !_createForcesNoParent)
         ? _parentAccountId
         : null;
@@ -451,7 +459,7 @@ class _ChartOfAccountsCreationPageState
           'description': _descriptionController.text.trim(),
           'account_number': _accountNumberController.text.trim(),
           'ifsc': _ifscController.text.trim(),
-          'currency': _currency,
+          'currency': currency,
           'show_in_zerpai_expense': _showInZerpaiExpense,
           'add_to_watchlist': _addToWatchlist,
           'parent_id': parentId,
@@ -470,7 +478,7 @@ class _ChartOfAccountsCreationPageState
               'description': _descriptionController.text.trim(),
               'account_number': _accountNumberController.text.trim(),
               'ifsc': _ifscController.text.trim(),
-              'currency': _currency,
+              'currency': currency,
               'show_in_zerpai_expense': _showInZerpaiExpense,
               'add_to_watchlist': _addToWatchlist,
               'parent_id': parentId,
@@ -1490,14 +1498,16 @@ class _ChartOfAccountsCreationPageState
   }
 
   Widget _buildCurrencyDropdown(ChartOfAccountsState state) {
-    // Prepare items
-    final items = state.currencies.isEmpty
-        ? [const Currency(id: 'inr', code: 'INR', name: 'Indian Rupee')]
-        : state.currencies;
+    final items = state.currencies;
+    final selectedCode =
+        _currency ?? ref.watch(orgCurrencyCodeProvider)?.trim();
 
     return FormDropdown<Currency>(
-      value: items.where((c) => c.code == _currency).firstOrNull ?? items.first,
+      value: items.where((c) => c.code == selectedCode).firstOrNull,
       items: items,
+      hintText: items.isEmpty ? 'No configured currencies' : 'Select currency',
+      enabled: items.isNotEmpty,
+      emptyText: 'No configured currencies',
       onChanged: (val) {
         if (val != null) {
           setState(() => _currency = val.code);
@@ -1508,7 +1518,7 @@ class _ChartOfAccountsCreationPageState
       itemBuilder: (item, isSelected, isHovered) {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: isHovered ? AppTheme.bgLight : Colors.transparent,
+          color: isHovered ? AppTheme.primaryBlueDark : Colors.transparent,
           child: Row(
             children: [
               Expanded(
@@ -1522,14 +1532,16 @@ class _ChartOfAccountsCreationPageState
                         fontWeight: isSelected
                             ? FontWeight.bold
                             : FontWeight.normal,
-                        color: AppTheme.textBody,
+                        color: isHovered ? Colors.white : AppTheme.textBody,
                       ),
                     ),
                     Text(
                       item.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        color: AppTheme.textSecondary,
+                        color: isHovered
+                            ? Colors.white
+                            : AppTheme.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1538,10 +1550,10 @@ class _ChartOfAccountsCreationPageState
                 ),
               ),
               if (isSelected)
-                const Icon(
+                Icon(
                   LucideIcons.check,
                   size: 16,
-                  color: AppTheme.primaryBlueDark,
+                  color: isHovered ? Colors.white : AppTheme.primaryBlueDark,
                 ),
             ],
           ),

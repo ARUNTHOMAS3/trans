@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/services/api_client.dart';
 import '../../../../core/utils/error_handler.dart';
@@ -157,16 +158,16 @@ class ManualJournalNotifier extends StateNotifier<ManualJournalState> {
     state = state.copyWith(selectedJournalId: id, isLoading: true, error: null);
 
     try {
-      // Assuming getManualJournal(id) fetches fresh detail if not full in list
       final journal = await repository.getManualJournal(id);
       if (!mounted) return;
 
       final newFailedSet = Set<String>.from(state.failedJournalIds)..remove(id);
-
-      // Update the journal in the list if found, or just update the state
-      final updatedJournals = state.journals
-          .map((j) => j.id == id ? journal : j)
-          .toList();
+      final existingIndex = state.journals.indexWhere((j) => j.id == id);
+      final updatedJournals = existingIndex >= 0
+          ? state.journals
+                .map((j) => j.id == id ? journal : j)
+                .toList(growable: false)
+          : <ManualJournal>[journal, ...state.journals];
 
       state = state.copyWith(
         journals: updatedJournals,
@@ -400,68 +401,60 @@ final fiscalYearsProvider = FutureProvider<List<Map<String, dynamic>>>((
   ref,
 ) async {
   final dio = ref.watch(dioProvider);
-  try {
-    final response = await dio.get('accountant/fiscal-years');
-    final years = _extractListPayload(response.data);
-    years.sort((a, b) {
-      final aDate = (a['start_date'] ?? '').toString();
-      final bDate = (b['start_date'] ?? '').toString();
-      return aDate.compareTo(bDate);
-    });
-    return years;
-  } catch (_) {
-    return [];
-  }
+  final response = await dio.get('accountant/fiscal-years');
+  final years = _extractListPayload(response.data);
+  years.sort((a, b) {
+    final aDate = (a['start_date'] ?? '').toString();
+    final bDate = (b['start_date'] ?? '').toString();
+    return aDate.compareTo(bDate);
+  });
+  return years;
 });
 
 final manualJournalContactsProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
       final dio = ref.watch(dioProvider);
-      try {
-        final response = await dio.get('accountant/contacts');
-        final raw = _extractListPayload(response.data);
-        final dedupe = <String>{};
+      final response = await dio.get('accountant/contacts');
+      final raw = _extractListPayload(response.data);
+      final dedupe = <String>{};
 
-        return raw
-            .map((item) {
-              final id = (item['id'] ?? '').toString().trim();
-              final displayName =
-                  (item['displayName'] ?? item['display_name'] ?? '')
-                      .toString()
-                      .trim();
-              final rawType =
-                  (item['contact_type'] ??
-                          item['type'] ??
-                          (item['vendor_type'] != null ? 'vendor' : 'customer'))
-                      .toString()
-                      .trim()
-                      .toLowerCase();
-              final type = rawType == 'vendor' ? 'vendor' : 'customer';
+      return raw
+          .map((item) {
+            final id = (item['id'] ?? '').toString().trim();
+            final displayName =
+                (item['displayName'] ?? item['display_name'] ?? '')
+                    .toString()
+                    .trim();
+            final rawType =
+                (item['contact_type'] ??
+                        item['type'] ??
+                        (item['vendor_type'] != null ? 'vendor' : 'customer'))
+                    .toString()
+                    .trim()
+                    .toLowerCase();
+            final type = rawType == 'vendor' ? 'vendor' : 'customer';
 
-              return <String, dynamic>{
-                ...item,
-                'id': id,
-                'displayName': displayName,
-                'type': type,
-                'contact_type': type,
-              };
-            })
-            .where((item) {
-              final id = (item['id'] ?? '').toString();
-              final displayName = (item['displayName'] ?? '').toString();
-              final contactType = (item['contact_type'] ?? 'customer')
-                  .toString()
-                  .toLowerCase();
-              final key = '$contactType:$id';
-              if (id.isEmpty || displayName.isEmpty) return false;
-              if (dedupe.contains(key)) return false;
-              dedupe.add(key);
-              return true;
-            })
-            .toList();
-      } catch (_) {
-        return [];
-      }
+            return <String, dynamic>{
+              ...item,
+              'id': id,
+              'displayName': displayName,
+              'type': type,
+              'contact_type': type,
+            };
+          })
+          .where((item) {
+            final id = (item['id'] ?? '').toString();
+            final displayName = (item['displayName'] ?? '').toString();
+            final contactType = (item['contact_type'] ?? 'customer')
+                .toString()
+                .toLowerCase();
+            final key = '$contactType:$id';
+            if (id.isEmpty || displayName.isEmpty) return false;
+            if (dedupe.contains(key)) return false;
+            dedupe.add(key);
+            return true;
+          })
+          .toList();
     });
 
 final searchContactsProvider =
@@ -470,33 +463,28 @@ final searchContactsProvider =
       query,
     ) async {
       final dio = ref.watch(dioProvider);
-      try {
-        final response = await dio.get(
-          'accountant/contacts/search',
-          queryParameters: {'q': query},
-        );
-        final raw = _extractListPayload(response.data);
-        return raw.map((item) {
-          final id = (item['id'] ?? '').toString().trim();
-          final displayName =
-              (item['displayName'] ?? item['display_name'] ?? '')
-                  .toString()
-                  .trim();
-          final type = (item['contact_type'] ?? item['type'] ?? 'customer')
-              .toString()
-              .trim()
-              .toLowerCase();
-          return <String, dynamic>{
-            ...item,
-            'id': id,
-            'displayName': displayName,
-            'type': type,
-            'contact_type': type,
-          };
-        }).toList();
-      } catch (_) {
-        return [];
-      }
+      final response = await dio.get(
+        'accountant/contacts/search',
+        queryParameters: {'q': query},
+      );
+      final raw = _extractListPayload(response.data);
+      return raw.map((item) {
+        final id = (item['id'] ?? '').toString().trim();
+        final displayName = (item['displayName'] ?? item['display_name'] ?? '')
+            .toString()
+            .trim();
+        final type = (item['contact_type'] ?? item['type'] ?? 'customer')
+            .toString()
+            .trim()
+            .toLowerCase();
+        return <String, dynamic>{
+          ...item,
+          'id': id,
+          'displayName': displayName,
+          'type': type,
+          'contact_type': type,
+        };
+      }).toList();
     });
 
 final journalSettingsProvider = FutureProvider<Map<String, dynamic>>((
@@ -518,15 +506,15 @@ final journalSettingsProvider = FutureProvider<Map<String, dynamic>>((
       queryParameters: query,
     );
     return _extractMapPayload(response.data);
-  } catch (e) {
+  } on DioException {
     try {
       final response = await dio.get(
         'accountant/journal-settings',
         queryParameters: query,
       );
       return _extractMapPayload(response.data);
-    } catch (_) {
-      return {'auto_generate': true, 'prefix': 'MJ', 'next_number': 1};
+    } on DioException {
+      rethrow;
     }
   }
 });

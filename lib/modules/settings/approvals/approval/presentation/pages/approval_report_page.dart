@@ -17,12 +17,10 @@ class ApprovalReportPage extends ConsumerStatefulWidget {
   const ApprovalReportPage({super.key});
 
   @override
-  ConsumerState<ApprovalReportPage> createState() =>
-      _ApprovalReportPageState();
+  ConsumerState<ApprovalReportPage> createState() => _ApprovalReportPageState();
 }
 
-class _ApprovalReportPageState
-    extends ConsumerState<ApprovalReportPage> {
+class _ApprovalReportPageState extends ConsumerState<ApprovalReportPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _horizontalController = ScrollController();
@@ -38,8 +36,7 @@ class _ApprovalReportPageState
 
   String _withOrgPrefix(String route) {
     final orgSystemId =
-        GoRouterState.of(context).pathParameters['orgSystemId'] ??
-        '6000000000';
+        GoRouterState.of(context).pathParameters['orgSystemId'] ?? '6000000000';
     return '/$orgSystemId$route';
   }
 
@@ -48,147 +45,6 @@ class _ApprovalReportPageState
     _searchController.selection = TextSelection(
       baseOffset: 0,
       extentOffset: _searchController.text.length,
-    );
-  }
-
-
-  Future<void> _showDeleteBlockedDialog() async {
-    await showDialog<void>(
-      context: context,
-      barrierColor: const Color(0x992A3140),
-      builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          alignment: Alignment.topCenter,
-          insetPadding: const EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 0,
-            bottom: 24,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: SizedBox(
-            width: 500,
-            height: 276.17,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: 500,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 20, 20, 14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        margin: const EdgeInsets.only(top: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF4DB),
-                          borderRadius: BorderRadius.circular(17),
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.warning_amber_rounded,
-                            size: 23,
-                            color: Color(0xFFE58B00),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          'You cannot delete this transaction series as it is the default\n'
-                          'transaction series in the following locations:',
-                          style: AppTheme.bodyText.copyWith(
-                            fontSize: 15,
-                            height: 1.55,
-                            color: const Color(0xFF313A4D),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFFCF4),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Text(
-                          '•',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Color(0xFF232B3A),
-                            height: 1,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'ZABNIX PRIVATE LIMITED',
-                          style: AppTheme.bodyText.copyWith(
-                            fontSize: 15,
-                            color: const Color(0xFF313A4D),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
-                  child: Text(
-                    'Remove this transaction series as the default transaction series from the\n'
-                    'above locations and try again.',
-                    style: AppTheme.bodyText.copyWith(
-                      fontSize: 15,
-                      height: 1.55,
-                      color: const Color(0xFF313A4D),
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.fromLTRB(22, 26, 22, 26),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    border: Border(
-                      top: BorderSide(color: AppTheme.borderLight),
-                    ),
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: SizedBox(
-                      height: 36,
-                      child: ZButton.primary(
-                        label: 'Okay',
-                        padding: const EdgeInsets.symmetric(horizontal: 18),
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                      ),
-                    ),
-                  ),
-                ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -224,7 +80,7 @@ class _ApprovalReportPageState
     final orgName =
         ref.watch(orgSettingsProvider).asData?.value?.name.trim().isNotEmpty ==
             true
-                    ? ref.watch(orgSettingsProvider).asData!.value!.name.trim()
+        ? ref.watch(orgSettingsProvider).asData!.value!.name.trim()
         : 'ZERPAI ERP';
     final currentPath = GoRouterState.of(context).uri.path;
 
@@ -258,9 +114,7 @@ class _ApprovalReportPageState
                         children: [
                           _ReportTitleBar(
                             onCreate: () => context.go(
-                              _withOrgPrefix(
-                                AppRoutes.settingsApprovalCreate,
-                              ),
+                              _withOrgPrefix(AppRoutes.settingsApprovalCreate),
                             ),
                           ),
                           Expanded(
@@ -277,7 +131,26 @@ class _ApprovalReportPageState
                                 ).toString();
                                 context.go(target);
                               },
-                              onDeleteTap: _showDeleteBlockedDialog,
+                              onDeleteTap: (index) async {
+                                try {
+                                  await ref
+                                      .read(ApprovalProvider.notifier)
+                                      .deactivateSeries(index);
+                                  if (mounted) {
+                                    ZerpaiToast.success(
+                                      context,
+                                      'Approval rule marked inactive',
+                                    );
+                                  }
+                                } catch (_) {
+                                  if (mounted) {
+                                    ZerpaiToast.error(
+                                      context,
+                                      'Failed to update approval rule',
+                                    );
+                                  }
+                                }
+                              },
                               horizontalController: _horizontalController,
                               verticalController: _verticalController,
                             ),
@@ -407,11 +280,7 @@ class _ReportHeader extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(
-                    Icons.close,
-                    size: 15,
-                    color: Color(0xFFFF5C73),
-                  ),
+                  const Icon(Icons.close, size: 15, color: Color(0xFFFF5C73)),
                 ],
               ),
             ),
@@ -423,9 +292,7 @@ class _ReportHeader extends StatelessWidget {
 }
 
 class _ReportTitleBar extends StatelessWidget {
-  const _ReportTitleBar({
-    required this.onCreate,
-  });
+  const _ReportTitleBar({required this.onCreate});
 
   final VoidCallback onCreate;
 
@@ -436,9 +303,7 @@ class _ReportTitleBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderLight),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
       ),
       child: Row(
         children: [
@@ -476,7 +341,7 @@ class _SeriesTableSection extends StatefulWidget {
 
   final List<ApprovalRecord> rows;
   final ValueChanged<int> onRowTap;
-  final VoidCallback onDeleteTap;
+  final ValueChanged<int> onDeleteTap;
   final ScrollController horizontalController;
   final ScrollController verticalController;
 
@@ -514,7 +379,7 @@ class _SeriesTableSectionState extends State<_SeriesTableSection> {
                   color: const Color(0xFFA8A2BF),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                  child: Center(
+                child: Center(
                   child: Text(
                     '${rows.length}',
                     style: AppTheme.captionText.copyWith(
@@ -550,75 +415,78 @@ class _SeriesTableSectionState extends State<_SeriesTableSection> {
                     1: FlexColumnWidth(1),
                     2: FixedColumnWidth(64),
                   },
-                      children: [
-                        TableRow(
-                          children: columns
-                              .asMap()
-                              .entries
-                              .map(
-                                (entry) => _HeaderCell(
-                                  label: entry.value.label,
-                                  showRightBorder:
-                                      entry.key != columns.length - 2,
-                                ),
-                              )
-                              .toList(growable: false),
-                        ),
-                        for (var rowIndex = 0; rowIndex < rows.length; rowIndex++)
-                          TableRow(
-                            children: [
-                              _BodyCell(
-                                value: _moduleFromSeriesName(rows[rowIndex].seriesName),
-                                isHovered: _hoveredRowIndex == rowIndex,
-                                showHoverAction: false,
-                                showRightBorder: true,
-                                actionMenu: null,
-                                onTap: () => widget.onRowTap(rowIndex),
-                                onHoverChanged: (hovered) {
-                                  setState(() {
-                                    _hoveredRowIndex = hovered ? rowIndex : null;
-                                  });
-                                },
-                                isLink: true,
-                              ),
-                              _BodyCell(
-                                value: _approvalTypeFromSeriesName(rows[rowIndex].seriesName),
-                                isHovered: _hoveredRowIndex == rowIndex,
-                                showHoverAction: false,
-                                showRightBorder: false,
-                                actionMenu: null,
-                                onTap: () => widget.onRowTap(rowIndex),
-                                onHoverChanged: (hovered) {
-                                  setState(() {
-                                    _hoveredRowIndex = hovered ? rowIndex : null;
-                                  });
-                                },
-                                isLink: false,
-                              ),
-                              _BodyCell(
-                                value: '',
-                                isHovered: _hoveredRowIndex == rowIndex,
-                                showHoverAction: true,
-                                showRightBorder: false,
-                                actionMenu: _RowActionMenu(
-                                  onEdit: () => widget.onRowTap(rowIndex),
-                                  onDelete: widget.onDeleteTap,
-                                ),
-                                onTap: null,
-                                onHoverChanged: (hovered) {
-                                  setState(() {
-                                    _hoveredRowIndex = hovered ? rowIndex : null;
-                                  });
-                                },
-                                isLink: false,
-                              ),
-                            ],
-                          ),
-                      ],
+                  children: [
+                    TableRow(
+                      children: columns
+                          .asMap()
+                          .entries
+                          .map(
+                            (entry) => _HeaderCell(
+                              label: entry.value.label,
+                              showRightBorder: entry.key != columns.length - 2,
+                            ),
+                          )
+                          .toList(growable: false),
                     ),
-                  ),
+                    for (var rowIndex = 0; rowIndex < rows.length; rowIndex++)
+                      TableRow(
+                        children: [
+                          _BodyCell(
+                            value: _moduleFromSeriesName(
+                              rows[rowIndex].seriesName,
+                            ),
+                            isHovered: _hoveredRowIndex == rowIndex,
+                            showHoverAction: false,
+                            showRightBorder: true,
+                            actionMenu: null,
+                            onTap: () => widget.onRowTap(rowIndex),
+                            onHoverChanged: (hovered) {
+                              setState(() {
+                                _hoveredRowIndex = hovered ? rowIndex : null;
+                              });
+                            },
+                            isLink: true,
+                          ),
+                          _BodyCell(
+                            value: _approvalTypeFromSeriesName(
+                              rows[rowIndex].seriesName,
+                            ),
+                            isHovered: _hoveredRowIndex == rowIndex,
+                            showHoverAction: false,
+                            showRightBorder: false,
+                            actionMenu: null,
+                            onTap: () => widget.onRowTap(rowIndex),
+                            onHoverChanged: (hovered) {
+                              setState(() {
+                                _hoveredRowIndex = hovered ? rowIndex : null;
+                              });
+                            },
+                            isLink: false,
+                          ),
+                          _BodyCell(
+                            value: '',
+                            isHovered: _hoveredRowIndex == rowIndex,
+                            showHoverAction: true,
+                            showRightBorder: false,
+                            actionMenu: _RowActionMenu(
+                              onEdit: () => widget.onRowTap(rowIndex),
+                              onDelete: () => widget.onDeleteTap(rowIndex),
+                            ),
+                            onTap: null,
+                            onHoverChanged: (hovered) {
+                              setState(() {
+                                _hoveredRowIndex = hovered ? rowIndex : null;
+                              });
+                            },
+                            isLink: false,
+                          ),
+                        ],
+                      ),
+                  ],
                 ),
               ),
+            ),
+          ),
         ),
       ],
     );
@@ -636,10 +504,7 @@ class _SeriesTableSectionState extends State<_SeriesTableSection> {
 }
 
 class _HeaderCell extends StatelessWidget {
-  const _HeaderCell({
-    required this.label,
-    this.showRightBorder = true,
-  });
+  const _HeaderCell({required this.label, this.showRightBorder = true});
 
   final String label;
   final bool showRightBorder;
@@ -650,9 +515,7 @@ class _HeaderCell extends StatelessWidget {
       height: 54,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       alignment: Alignment.centerLeft,
-      decoration: const BoxDecoration(
-        color: Color(0xFFFCFCFE),
-      ).copyWith(
+      decoration: const BoxDecoration(color: Color(0xFFFCFCFE)).copyWith(
         border: Border(
           right: showRightBorder
               ? const BorderSide(color: AppTheme.borderLight)
@@ -739,17 +602,17 @@ class _BodyCellState extends State<_BodyCell> {
                   ),
                 )
               : widget.customChild ??
-                  Text(
-                    widget.value,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.bodyText.copyWith(
-                      fontSize: 13,
-                      color: widget.isLink
-                          ? const Color(0xFF2962FF)
-                          : AppTheme.textPrimary,
-                      fontWeight: FontWeight.w400,
+                    Text(
+                      widget.value,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.bodyText.copyWith(
+                        fontSize: 13,
+                        color: widget.isLink
+                            ? const Color(0xFF2962FF)
+                            : AppTheme.textPrimary,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
-                  ),
         ),
       ),
     );
@@ -787,34 +650,35 @@ class _RowActionMenu extends StatelessWidget {
         ),
       ),
       menuChildren: [
-        _RowActionMenuItem(
-          label: 'Edit',
-          onTap: onEdit,
-        ),
+        _RowActionMenuItem(label: 'Edit', onTap: onEdit),
         const SizedBox(height: 4),
         _RowActionMenuItem(
           label: 'Inactive',
-          onTap: onInactive ?? () => ZerpaiToast.info(context, 'Inactive action triggered'),
+          onTap:
+              onInactive ??
+              () => ZerpaiToast.info(context, 'Inactive action triggered'),
         ),
         const SizedBox(height: 4),
         _RowActionMenuItem(
           label: 'Disable',
-          onTap: onDisable ?? () => ZerpaiToast.info(context, 'Disable action triggered'),
+          onTap:
+              onDisable ??
+              () => ZerpaiToast.info(context, 'Disable action triggered'),
         ),
         const SizedBox(height: 4),
-        _RowActionMenuItem(
-          label: 'Delete',
-          onTap: onDelete,
-        ),
+        _RowActionMenuItem(label: 'Delete', onTap: onDelete),
         const SizedBox(height: 4),
         _RowActionMenuItem(
           label: 'Clone',
-          onTap: onClone ?? () => ZerpaiToast.info(context, 'Clone action triggered'),
+          onTap:
+              onClone ??
+              () => ZerpaiToast.info(context, 'Clone action triggered'),
         ),
       ],
       builder: (context, controller, child) {
         return InkWell(
-          onTap: () => controller.isOpen ? controller.close() : controller.open(),
+          onTap: () =>
+              controller.isOpen ? controller.close() : controller.open(),
           borderRadius: BorderRadius.circular(999),
           child: Container(
             width: 20,
@@ -842,12 +706,8 @@ class _RowActionMenu extends StatelessWidget {
   }
 }
 
-
 class _RowActionMenuItem extends StatefulWidget {
-  const _RowActionMenuItem({
-    required this.label,
-    this.onTap,
-  });
+  const _RowActionMenuItem({required this.label, this.onTap});
 
   final String label;
   final VoidCallback? onTap;
@@ -903,7 +763,6 @@ class _RowActionMenuItemState extends State<_RowActionMenuItem> {
     );
   }
 }
-
 
 class _SeriesColumn {
   const _SeriesColumn(this.label, this.width);

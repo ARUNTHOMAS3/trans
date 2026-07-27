@@ -11,6 +11,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 enum CreditNotesSettingsTab {
   preferences,
@@ -111,14 +112,7 @@ class _StatusDialogResult {
 
 final ValueNotifier<List<_CreditNoteStatusRecord>> _creditNoteStatusesNotifier =
     ValueNotifier<List<_CreditNoteStatusRecord>>(
-      const <_CreditNoteStatusRecord>[
-        _CreditNoteStatusRecord(
-          customStatusFor: 'Confirmed',
-          statusName: 'ef',
-          description: 'wfwef',
-          labelColor: Color(0xFFFF2B6D),
-        ),
-      ],
+      const <_CreditNoteStatusRecord>[],
     );
 
 class CreditNotesSettingsPage extends ConsumerStatefulWidget {
@@ -136,6 +130,8 @@ class CreditNotesSettingsPage extends ConsumerStatefulWidget {
 
 class _CreditNotesSettingsPageState
     extends ConsumerState<CreditNotesSettingsPage> {
+  final SettingsPreferencesRepository _preferencesRepository =
+      SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _termsController = TextEditingController();
@@ -158,6 +154,61 @@ class _CreditNotesSettingsPageState
   void initState() {
     super.initState();
     _activeTab = widget.initialTab;
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final data = await _preferencesRepository.loadSection(
+        'pdf_preferences',
+        const ['documents', 'credit_notes'],
+      );
+      if (!mounted || data.isEmpty) return;
+      setState(() {
+        _overrideCostPrices =
+            data['override_cost_prices'] as bool? ?? _overrideCostPrices;
+        _qrCodeEnabled = data['qr_code_enabled'] as bool? ?? _qrCodeEnabled;
+        _qrCodeType =
+            _qrCodeTypeItems
+                .where((v) => v.id == data['qr_code_type'])
+                .firstOrNull ??
+            _qrCodeType;
+        _qrCodeDescController.text =
+            data['qr_code_description']?.toString() ??
+            _qrCodeDescController.text;
+        _customQrCodeValueController.text =
+            data['custom_qr_code_value']?.toString() ?? '';
+        _termsController.text = data['terms']?.toString() ?? '';
+        _customerNotesController.text =
+            data['customer_notes']?.toString() ?? '';
+      });
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to load credit note preferences');
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    try {
+      await _preferencesRepository.saveSection(
+        'pdf_preferences',
+        {
+          'override_cost_prices': _overrideCostPrices,
+          'qr_code_enabled': _qrCodeEnabled,
+          'qr_code_type': _qrCodeType.id,
+          'qr_code_description': _qrCodeDescController.text,
+          'custom_qr_code_value': _customQrCodeValueController.text,
+          'terms': _termsController.text,
+          'customer_notes': _customerNotesController.text,
+        },
+        const ['documents', 'credit_notes'],
+      );
+      if (mounted)
+        ZerpaiToast.success(context, 'Credit Notes preferences saved');
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to save credit note preferences');
+    }
   }
 
   @override
@@ -340,6 +391,7 @@ class _CreditNotesSettingsPageState
                                                       _termsController,
                                                   customerNotesController:
                                                       _customerNotesController,
+                                                  onSave: _savePreferences,
                                                   onOverrideCostPricesChanged:
                                                       (value) {
                                                         setState(
@@ -395,6 +447,7 @@ class _CreditNotesPreferencesContent extends StatelessWidget {
     required this.onOverrideCostPricesChanged,
     required this.onQrCodeEnabledChanged,
     required this.onQrCodeTypeChanged,
+    required this.onSave,
   });
 
   final bool overrideCostPrices;
@@ -408,6 +461,7 @@ class _CreditNotesPreferencesContent extends StatelessWidget {
   final ValueChanged<bool> onOverrideCostPricesChanged;
   final ValueChanged<bool> onQrCodeEnabledChanged;
   final ValueChanged<_QrCodeTypeItem?> onQrCodeTypeChanged;
+  final Future<void> Function() onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -524,7 +578,7 @@ class _CreditNotesPreferencesContent extends StatelessWidget {
                                   ? Colors.white
                                   : AppTheme.textPrimary;
                               final descColor = isHovered
-                                  ? Colors.white.withOpacity(0.9)
+                                  ? Colors.white.withValues(alpha: 0.9)
                                   : AppTheme.textSecondary;
                               final checkmarkColor = isHovered
                                   ? Colors.white
@@ -735,9 +789,7 @@ class _CreditNotesPreferencesContent extends StatelessWidget {
         SizedBox(
           height: 34,
           child: ElevatedButton(
-            onPressed: () {
-              ZerpaiToast.success(context, 'Credit Notes preferences saved');
-            },
+            onPressed: onSave,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
@@ -1689,7 +1741,6 @@ _qrPlaceholderSections = <_QrPlaceholderSection>[
         label: 'Credit Limit',
         token: '{{customer_credit_limit}}',
       ),
-      _QrPlaceholderItem(label: 'demo feild', token: '{{customer_demo_field}}'),
       _QrPlaceholderItem(label: 'Twitter', token: '{{customer_twitter}}'),
       _QrPlaceholderItem(label: 'Facebook', token: '{{customer_facebook}}'),
       _QrPlaceholderItem(label: 'Website', token: '{{customer_website}}'),

@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
@@ -11,6 +14,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
 import 'package:zerpai_erp/shared/widgets/settings_page_header.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 class DirectTaxesCreatePage extends StatefulWidget {
   const DirectTaxesCreatePage({super.key});
@@ -25,27 +29,33 @@ enum _TdsApplyMode { transaction, lineItem }
 
 class _TdsRateRow {
   const _TdsRateRow({
+    this.id,
     required this.taxName,
     required this.rate,
     required this.taxType,
     required this.status,
     this.isGroup = false,
+    this.source = const <String, dynamic>{},
   });
 
+  final String? id;
   final String taxName;
   final String rate;
   final String taxType;
   final String status;
   final bool isGroup;
+  final Map<String, dynamic> source;
 }
 
 class _SectionOption {
   const _SectionOption({
+    this.id,
     required this.title,
     required this.description,
     required this.earlier,
   });
 
+  final String? id;
   final String title;
   final String description;
   final String earlier;
@@ -53,71 +63,34 @@ class _SectionOption {
 
 class _HigherTdsReasonOption {
   const _HigherTdsReasonOption({
+    this.id,
     required this.title,
     required this.description,
   });
 
+  final String? id;
   final String title;
   final String description;
 }
 
-const List<String> _directTaxAccountOptions = <String>[
-  'Other Current Liability',
-  '[ Payroll-004 ] Deductions Payable',
-  'Director salary payables',
-  '• Dr.Irfan-Salary',
-  '• Mr.Favas-Salary',
-  '• Mr.Sameer-Salary',
-  '• Mr.Shabin-Salary',
-  'GST PAYABLE',
-  '[ Payroll-006 ] Hold Salary Payable',
-  '[ Payroll-005 ] Net Salary Payable',
-  '[ Payroll-002 ] Payroll Tax Payable',
-  'RCM Output CGST 9%',
-  'RCM Output SGST 9%',
-  '[ Payroll-001 ] Reimbursements Payable',
-  'Rent Payable A/C',
-  'Staff Salary Payable',
-  '• Althaf -Salary',
-  '• Bijisha -Salary',
-  '• Deepthi -Salary',
-  '• Fathima -Salary',
-  '• Nandana -Salary',
-  '• RAHUL MURALEEDARAN - SALARY',
-  '• Reshama -Salary',
-  '[ Payroll-003 ] Statutory Deductions Payable',
-  'TCS Payable',
-];
-
-const String _directTaxAccountHeading = 'Other Current Liability';
-
-const List<String> _directTaxReceivableAccountOptions = <String>[
-  'Other Current Asset',
-  'Advance Tax',
-  'Goods In Transit',
-  'Prepaid Expenses',
-  'RCM Input CGST 9%',
-  'RCM Input SGST 9%',
-  'TCS Receivable',
-  'TDS Receivable',
-  'Zoho Payroll - Loan Account',
-];
-
-const String _directTaxReceivableAccountHeading = 'Other Current Asset';
-
 class _GroupTaxSelectableRate {
   const _GroupTaxSelectableRate({
+    required this.id,
     required this.name,
     required this.rate,
     this.sectionLabel,
   });
 
+  final String id;
   final String name;
   final String rate;
   final String? sectionLabel;
 }
 
 class _DirectTaxesCreatePageState extends State<DirectTaxesCreatePage> {
+  final ApiClient _apiClient = ApiClient();
+  final SettingsPreferencesRepository _preferencesRepository =
+      SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
@@ -125,130 +98,17 @@ class _DirectTaxesCreatePageState extends State<DirectTaxesCreatePage> {
   _TdsApplyMode _selectedApplyMode = _TdsApplyMode.transaction;
   bool _enableTdsLiabilitiesReport = false;
   String? _selectedStartPeriod;
-  String? _selectedPenaltyAccount = 'Other Expenses';
-  String? _selectedInterestAccount = 'Other Expenses';
+  String? _selectedPenaltyAccount;
+  String? _selectedInterestAccount;
   String _selectedTdsRatesFilter = 'All';
-
-  static const List<_TdsRateRow> _tdsRateRows = <_TdsRateRow>[
-    _TdsRateRow(
-      taxName: 'althaf 2 demo',
-      rate: '12',
-      taxType: 'Section 195',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'althaf demo',
-      rate: '12',
-      taxType: 'Section 195',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Commission or Brokerage',
-      rate: '2',
-      taxType: 'Section 194 H',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Commission or Brokerage (Reduced)',
-      rate: '3.75',
-      taxType: 'Section 194 H',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'd (TDS Tax Group)',
-      rate: '24',
-      taxType: '',
-      status: 'Expired',
-      isGroup: true,
-    ),
-    _TdsRateRow(
-      taxName: 'Dividend',
-      rate: '10',
-      taxType: 'Section 194',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Dividend (Reduced)',
-      rate: '7.5',
-      taxType: 'Section 194',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Other Interest than securities',
-      rate: '10',
-      taxType: 'Section 194 A',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Other Interest than securities (Reduced)',
-      rate: '7.5',
-      taxType: 'Section 194 A',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Payment of contractors for Others',
-      rate: '2',
-      taxType: 'Section 194 C',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Payment of contractors for Others (Reduced)',
-      rate: '1.5',
-      taxType: 'Section 194 C',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Payment of contractors HUF/Indiv',
-      rate: '1',
-      taxType: 'Section 194 C',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Payment of contractors HUF/Indiv (Reduced)',
-      rate: '0.75',
-      taxType: 'Section 194 C',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Professional Fees',
-      rate: '10',
-      taxType: 'Section 194 J',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Professional Fees (Reduced)',
-      rate: '7.5',
-      taxType: 'Section 194 J',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Rent on land or furniture etc',
-      rate: '10',
-      taxType: 'Section 194 I',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Rent on land or furniture etc (Reduced)',
-      rate: '7.5',
-      taxType: 'Section 194 I',
-      status: 'Expired',
-    ),
-    _TdsRateRow(
-      taxName: 'Technical Fees (2%)',
-      rate: '2',
-      taxType: 'Section 194 J',
-      status: 'Expired',
-    ),
-  ];
-
-  static const List<_TdsRateRow> _tcsRateRows = <_TdsRateRow>[
-    _TdsRateRow(
-      taxName: 'gb',
-      rate: '23',
-      taxType: 'Section 394(1) SI2',
-      status: 'Active',
-    ),
-  ];
+  final List<_TdsRateRow> _dbTdsRateRows = <_TdsRateRow>[];
+  final List<_TdsRateRow> _dbTcsRateRows = <_TdsRateRow>[];
+  final List<_SectionOption> _dbTdsSections = <_SectionOption>[];
+  final List<_SectionOption> _dbTcsNatures = <_SectionOption>[];
+  final List<_HigherTdsReasonOption> _dbTcsHigherReasons =
+      <_HigherTdsReasonOption>[];
+  final Map<String, String> _accountIdByName = <String, String>{};
+  bool _isLoadingRates = true;
 
   static const List<String> _tdsRatesFilters = <String>[
     'All',
@@ -263,6 +123,233 @@ class _DirectTaxesCreatePageState extends State<DirectTaxesCreatePage> {
     'New TDS Cess',
   ];
 
+  List<_TdsRateRow> get _filteredTdsRows => _dbTdsRateRows.where((row) {
+    switch (_selectedTdsRatesFilter) {
+      case 'Active':
+      case 'Inactive':
+      case 'Expired':
+        return row.status == _selectedTdsRatesFilter;
+      case 'TDS':
+        return !row.isGroup;
+      case 'TDS Group':
+        return row.isGroup;
+      default:
+        return true;
+    }
+  }).toList();
+  @override
+  void initState() {
+    super.initState();
+    _loadDirectTaxRates();
+  }
+
+  Future<void> _loadDirectTaxRates() async {
+    try {
+      final responses = await Future.wait<dynamic>([
+        _apiClient.get('settings-taxes/tds/sections', useCache: false),
+        _apiClient.get('settings-taxes/tds/rates', useCache: false),
+        _apiClient.get('settings-taxes/tds/groups', useCache: false),
+        _apiClient.get('settings-taxes/tcs/natures', useCache: false),
+        _apiClient.get('settings-taxes/tcs/rates', useCache: false),
+        _apiClient.get(
+          'settings-taxes/tcs/higher-rate-reasons',
+          useCache: false,
+        ),
+        _apiClient.get('accountant', useCache: false),
+        _preferencesRepository.loadSection('charges_preferences', const [
+          'direct_taxes',
+        ]),
+      ]);
+      final sectionNames = <String, String>{
+        for (final row
+            in (responses[0].data as List? ?? const []).whereType<Map>())
+          if (row['id'] != null)
+            row['id'].toString(): row['section_name']?.toString() ?? '',
+      };
+      final natureNames = <String, String>{
+        for (final row
+            in (responses[3].data as List? ?? const []).whereType<Map>())
+          if (row['id'] != null)
+            row['id'].toString(): row['nature_name']?.toString() ?? '',
+      };
+      final tdsRows = <_TdsRateRow>[
+        for (final raw
+            in (responses[1].data as List? ?? const []).whereType<Map>())
+          _TdsRateRow(
+            id: raw['id']?.toString(),
+            taxName: raw['tax_name']?.toString() ?? '',
+            rate: raw['base_rate']?.toString() ?? '0',
+            taxType: sectionNames[raw['section_id']?.toString()] ?? '',
+            status: _directTaxStatus(raw),
+            source: Map<String, dynamic>.from(raw),
+          ),
+        for (final raw
+            in (responses[2].data as List? ?? const []).whereType<Map>())
+          _TdsRateRow(
+            id: raw['id']?.toString(),
+            taxName: raw['group_name']?.toString() ?? '',
+            rate: (raw['rates'] as List? ?? const [])
+                .whereType<Map>()
+                .fold<double>(
+                  0,
+                  (sum, rate) =>
+                      sum +
+                      (double.tryParse(rate['base_rate']?.toString() ?? '') ??
+                          0),
+                )
+                .toString(),
+            taxType: 'TDS Group',
+            status: _directTaxStatus(raw),
+            isGroup: true,
+            source: Map<String, dynamic>.from(raw),
+          ),
+      ];
+      final tcsRows = <_TdsRateRow>[
+        for (final raw
+            in (responses[4].data as List? ?? const []).whereType<Map>())
+          _TdsRateRow(
+            id: raw['id']?.toString(),
+            taxName: raw['tax_name']?.toString() ?? '',
+            rate: raw['rate']?.toString() ?? '0',
+            taxType: natureNames[raw['nature_id']?.toString()] ?? '',
+            status: _directTaxStatus(raw),
+            source: Map<String, dynamic>.from(raw),
+          ),
+      ];
+      final accounts = <String, String>{};
+      void collectAccounts(dynamic rows) {
+        if (rows is! List) return;
+        for (final raw in rows.whereType<Map>()) {
+          final id = raw['id']?.toString();
+          final name =
+              (raw['user_account_name'] ??
+                      raw['system_account_name'] ??
+                      raw['name'])
+                  ?.toString()
+                  .trim();
+          if (id != null && name != null && name.isNotEmpty) {
+            accounts[name] = id;
+          }
+          collectAccounts(raw['children']);
+        }
+      }
+
+      collectAccounts(responses[6].data);
+      final preferences = Map<String, dynamic>.from(
+        responses[7] as Map? ?? const <String, dynamic>{},
+      );
+      if (!mounted) return;
+      setState(() {
+        _dbTdsRateRows
+          ..clear()
+          ..addAll(tdsRows);
+        _dbTcsRateRows
+          ..clear()
+          ..addAll(tcsRows);
+        _dbTdsSections
+          ..clear()
+          ..addAll(
+            (responses[0].data as List? ?? const []).whereType<Map>().map(
+              (row) => _SectionOption(
+                id: row['id']?.toString(),
+                title: row['section_name']?.toString() ?? '',
+                description: row['description']?.toString() ?? '',
+                earlier: '',
+              ),
+            ),
+          );
+        _dbTcsNatures
+          ..clear()
+          ..addAll(
+            (responses[3].data as List? ?? const []).whereType<Map>().map(
+              (row) => _SectionOption(
+                id: row['id']?.toString(),
+                title: row['nature_name']?.toString() ?? '',
+                description: row['description']?.toString() ?? '',
+                earlier: '',
+              ),
+            ),
+          );
+        _dbTcsHigherReasons
+          ..clear()
+          ..addAll(
+            (responses[5].data as List? ?? const []).whereType<Map>().map(
+              (row) => _HigherTdsReasonOption(
+                id: row['id']?.toString(),
+                title: row['reason_name']?.toString() ?? '',
+                description: row['description']?.toString() ?? '',
+              ),
+            ),
+          );
+        _accountIdByName
+          ..clear()
+          ..addAll(accounts);
+        _selectedApplyMode = preferences['apply_mode'] == 'lineItem'
+            ? _TdsApplyMode.lineItem
+            : _TdsApplyMode.transaction;
+        _enableTdsLiabilitiesReport =
+            preferences['enable_liabilities_report'] == true;
+        _selectedStartPeriod = preferences['start_period']?.toString();
+        final penaltyAccount = preferences['penalty_account_name']?.toString();
+        final interestAccount = preferences['interest_account_name']
+            ?.toString();
+        _selectedPenaltyAccount = accounts.containsKey(penaltyAccount)
+            ? penaltyAccount
+            : null;
+        _selectedInterestAccount = accounts.containsKey(interestAccount)
+            ? interestAccount
+            : null;
+        _isLoadingRates = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingRates = false);
+      ZerpaiToast.error(context, 'Failed to load direct tax rates');
+    }
+  }
+
+  String _directTaxStatus(Map<dynamic, dynamic> row) {
+    if (row['is_active'] == false) return 'Inactive';
+    final end = DateTime.tryParse(row['applicable_to']?.toString() ?? '');
+    return end != null && end.isBefore(DateTime.now()) ? 'Expired' : 'Active';
+  }
+
+  Future<void> _deleteDirectTax(_TdsRateRow row, {required bool isTcs}) async {
+    if (row.id == null) return;
+    final confirmed = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Delete Direct Tax',
+      message: 'This tax master will be removed.',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      variant: ZerpaiConfirmationVariant.danger,
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      final path = isTcs
+          ? 'settings-taxes/tcs/rates/${row.id}'
+          : 'settings-taxes/tds/${row.isGroup ? 'groups' : 'rates'}/${row.id}';
+      await _apiClient.delete(path);
+      await _loadDirectTaxRates();
+      if (mounted) ZerpaiToast.success(context, 'Direct tax deleted');
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to delete direct tax');
+    }
+  }
+
+  Future<void> _toggleDirectTax(_TdsRateRow row, {required bool isTcs}) async {
+    if (row.id == null) return;
+    try {
+      final path = isTcs
+          ? 'settings-taxes/tcs/rates/${row.id}'
+          : 'settings-taxes/tds/${row.isGroup ? 'groups' : 'rates'}/${row.id}';
+      await _apiClient.patch(path, data: {'is_active': row.status != 'Active'});
+      await _loadDirectTaxRates();
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to update direct tax');
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -270,22 +357,129 @@ class _DirectTaxesCreatePageState extends State<DirectTaxesCreatePage> {
     super.dispose();
   }
 
-  Future<void> _showNewTdsDialog({String title = 'New TDS'}) {
+  Future<void> _showNewTdsDialog({
+    String title = 'New TDS',
+    _TdsRateRow? existing,
+  }) {
+    if (title == 'New TDS Surcharge' || title == 'New TDS Cess') {
+      ZerpaiToast.info(
+        context,
+        'Surcharge and cess are configured on a TDS rate.',
+      );
+      return Future<void>.value();
+    }
+    final isTcs = title == 'New TCS';
     return showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.5),
       useSafeArea: false,
-      builder: (BuildContext context) => _NewTdsDialog(title: title),
+      builder: (BuildContext context) => _NewTdsDialog(
+        title: existing == null ? title : (isTcs ? 'Edit TCS' : 'Edit TDS'),
+        options: isTcs ? _dbTcsNatures : _dbTdsSections,
+        higherRateReasons: isTcs
+            ? _dbTcsHigherReasons
+            : const <_HigherTdsReasonOption>[],
+        accountIdByName: _accountIdByName,
+        initial: existing?.source,
+        isTcs: isTcs,
+        onSave: (payload) async {
+          try {
+            final path = isTcs
+                ? 'settings-taxes/tcs/rates'
+                : 'settings-taxes/tds/rates';
+            if (existing?.id == null) {
+              await _apiClient.post(path, data: payload);
+            } else {
+              await _apiClient.patch('$path/${existing!.id}', data: payload);
+            }
+            await _loadDirectTaxRates();
+            return true;
+          } catch (_) {
+            return false;
+          }
+        },
+      ),
     );
   }
 
-  Future<void> _showNewTdsGroupTaxDialog() {
+  Future<void> _showNewTdsGroupTaxDialog([_TdsRateRow? existing]) {
     return showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.5),
       useSafeArea: false,
-      builder: (BuildContext context) => const _NewTdsGroupTaxDialog(),
+      builder: (BuildContext context) => _NewTdsGroupTaxDialog(
+        initial: existing?.source,
+        rates: _dbTdsRateRows
+            .where((row) => !row.isGroup && row.id != null)
+            .map(
+              (row) => _GroupTaxSelectableRate(
+                id: row.id!,
+                name: row.taxName,
+                sectionLabel: row.taxType,
+                rate: '${row.rate} %',
+              ),
+            )
+            .toList(),
+        onSave: (name, rateIds, from, to) async {
+          try {
+            final payload = {
+              'group_name': name,
+              'tds_rate_ids': rateIds,
+              'applicable_from': from,
+              'applicable_to': to,
+              'is_active': existing?.source['is_active'] ?? true,
+            };
+            if (existing?.id == null) {
+              await _apiClient.post('settings-taxes/tds/groups', data: payload);
+            } else {
+              await _apiClient.patch(
+                'settings-taxes/tds/groups/${existing!.id}',
+                data: payload,
+              );
+            }
+            await _loadDirectTaxRates();
+            return true;
+          } catch (_) {
+            return false;
+          }
+        },
+      ),
     );
+  }
+
+  Future<void> _editDirectTax(_TdsRateRow row, {required bool isTcs}) {
+    if (row.isGroup) return _showNewTdsGroupTaxDialog(row);
+    return _showNewTdsDialog(
+      title: isTcs ? 'New TCS' : 'New TDS',
+      existing: row,
+    );
+  }
+
+  Future<void> _saveDirectTaxPreferences() async {
+    if (_enableTdsLiabilitiesReport && _selectedStartPeriod == null) {
+      ZerpaiToast.info(context, 'Select the TDS liabilities start period');
+      return;
+    }
+    try {
+      await _preferencesRepository.saveSection(
+        'charges_preferences',
+        {
+          'apply_mode': _selectedApplyMode.name,
+          'enable_liabilities_report': _enableTdsLiabilitiesReport,
+          'start_period': _selectedStartPeriod,
+          'penalty_account_id': _accountIdByName[_selectedPenaltyAccount],
+          'penalty_account_name': _selectedPenaltyAccount,
+          'interest_account_id': _accountIdByName[_selectedInterestAccount],
+          'interest_account_name': _selectedInterestAccount,
+        },
+        const ['direct_taxes'],
+      );
+      if (mounted) ZerpaiToast.success(context, 'Direct tax settings saved');
+    } catch (_) {
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to save direct tax settings');
+      }
+    }
   }
 
   List<SettingsSearchItem> _buildSearchItems() {
@@ -628,7 +822,7 @@ class _DirectTaxesCreatePageState extends State<DirectTaxesCreatePage> {
                   child: SizedBox(
                     height: 38,
                     child: ElevatedButton(
-                      onPressed: () {},
+                      onPressed: _saveDirectTaxPreferences,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
@@ -797,8 +991,8 @@ class _DirectTaxesCreatePageState extends State<DirectTaxesCreatePage> {
         const SizedBox(height: 8),
         _buildStyledPatternDropdown(
           value: value,
-          items: _directTaxAccountOptions,
-          hint: 'Other Expenses',
+          items: _accountIdByName.keys.toList()..sort(),
+          hint: 'Select an account',
           onChanged: onChanged,
         ),
       ],
@@ -931,9 +1125,19 @@ class _DirectTaxesCreatePageState extends State<DirectTaxesCreatePage> {
                     ],
                   ),
                 ),
-                for (final row in _tdsRateRows)
-                  _buildTdsRateRow(row, showMarkAsInactive: false),
-                _buildRatesTableFooter(totalCount: _tdsRateRows.length),
+                if (_isLoadingRates)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  for (final row in _filteredTdsRows)
+                    _buildTdsRateRow(
+                      row,
+                      isTcs: false,
+                      showMarkAsInactive: true,
+                    ),
+                _buildRatesTableFooter(totalCount: _filteredTdsRows.length),
               ],
             ),
           ),
@@ -996,9 +1200,19 @@ class _DirectTaxesCreatePageState extends State<DirectTaxesCreatePage> {
                     ],
                   ),
                 ),
-                for (final row in _tcsRateRows)
-                  _buildTdsRateRow(row, showMarkAsInactive: true),
-                _buildRatesTableFooter(totalCount: _tcsRateRows.length),
+                if (_isLoadingRates)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  for (final row in _dbTcsRateRows)
+                    _buildTdsRateRow(
+                      row,
+                      isTcs: true,
+                      showMarkAsInactive: true,
+                    ),
+                _buildRatesTableFooter(totalCount: _dbTcsRateRows.length),
               ],
             ),
           ),
@@ -1317,10 +1531,17 @@ class _DirectTaxesCreatePageState extends State<DirectTaxesCreatePage> {
     );
   }
 
-  Widget _buildTdsRateRow(_TdsRateRow row, {required bool showMarkAsInactive}) {
+  Widget _buildTdsRateRow(
+    _TdsRateRow row, {
+    required bool isTcs,
+    required bool showMarkAsInactive,
+  }) {
     return _HoverableTdsRateTableRow(
       row: row,
       showMarkAsInactive: showMarkAsInactive,
+      onDelete: () => _deleteDirectTax(row, isTcs: isTcs),
+      onEdit: () => _editDirectTax(row, isTcs: isTcs),
+      onToggleStatus: () => _toggleDirectTax(row, isTcs: isTcs),
     );
   }
 }
@@ -1329,10 +1550,16 @@ class _HoverableTdsRateTableRow extends StatefulWidget {
   const _HoverableTdsRateTableRow({
     required this.row,
     required this.showMarkAsInactive,
+    required this.onDelete,
+    required this.onEdit,
+    required this.onToggleStatus,
   });
 
   final _TdsRateRow row;
   final bool showMarkAsInactive;
+  final VoidCallback onDelete;
+  final VoidCallback onEdit;
+  final VoidCallback onToggleStatus;
 
   @override
   State<_HoverableTdsRateTableRow> createState() =>
@@ -1484,22 +1711,23 @@ class _HoverableTdsRateTableRowState extends State<_HoverableTdsRateTableRow> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const _TdsRateRowActionMenuItem(
-                          icon: LucideIcons.refreshCcw,
-                          label: 'View Associated Records',
-                        ),
-                        const _TdsRateRowActionMenuItem(
+                        _TdsRateRowActionMenuItem(
                           icon: LucideIcons.edit3,
                           label: 'Edit',
+                          onPressed: widget.onEdit,
                         ),
-                        const _TdsRateRowActionMenuItem(
+                        _TdsRateRowActionMenuItem(
                           icon: LucideIcons.trash2,
                           label: 'Delete',
+                          onPressed: widget.onDelete,
                         ),
                         if (widget.showMarkAsInactive)
-                          const _TdsRateRowActionMenuItem(
+                          _TdsRateRowActionMenuItem(
                             icon: LucideIcons.ban,
-                            label: 'Mark as Inactive',
+                            label: row.status == 'Active'
+                                ? 'Mark as Inactive'
+                                : 'Mark as Active',
+                            onPressed: widget.onToggleStatus,
                           ),
                       ],
                     ),
@@ -1558,12 +1786,12 @@ class _TdsRateRowActionMenuItem extends StatefulWidget {
   const _TdsRateRowActionMenuItem({
     required this.icon,
     required this.label,
-    this.highlighted = false,
+    this.onPressed,
   });
 
   final IconData icon;
   final String label;
-  final bool highlighted;
+  final VoidCallback? onPressed;
 
   @override
   State<_TdsRateRowActionMenuItem> createState() =>
@@ -1575,40 +1803,46 @@ class _TdsRateRowActionMenuItemState extends State<_TdsRateRowActionMenuItem> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isHighlighted = widget.highlighted || _hovered;
+    final bool isHighlighted = _hovered;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: isHighlighted ? const Color(0xFF4A86E8) : Colors.white,
-          borderRadius: BorderRadius.circular(7),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              widget.icon,
-              size: 17,
-              color: isHighlighted ? Colors.white : const Color(0xFF4A86E8),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                widget.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                softWrap: false,
-                style: AppTheme.bodyText.copyWith(
-                  fontSize: 13.2,
-                  fontWeight: FontWeight.w400,
-                  color: isHighlighted ? Colors.white : const Color(0xFF4B5563),
+      child: InkWell(
+        onTap: widget.onPressed,
+        borderRadius: BorderRadius.circular(7),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isHighlighted ? const Color(0xFF4A86E8) : Colors.white,
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: 17,
+                color: isHighlighted ? Colors.white : const Color(0xFF4A86E8),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: AppTheme.bodyText.copyWith(
+                    fontSize: 13.2,
+                    fontWeight: FontWeight.w400,
+                    color: isHighlighted
+                        ? Colors.white
+                        : const Color(0xFF4B5563),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -2127,7 +2361,21 @@ class _MonthYearPickerFieldState extends State<_MonthYearPickerField> {
 }
 
 class _NewTdsGroupTaxDialog extends StatefulWidget {
-  const _NewTdsGroupTaxDialog();
+  const _NewTdsGroupTaxDialog({
+    required this.rates,
+    required this.onSave,
+    this.initial,
+  });
+
+  final List<_GroupTaxSelectableRate> rates;
+  final Map<String, dynamic>? initial;
+  final Future<bool> Function(
+    String name,
+    List<String> rateIds,
+    String? applicableFrom,
+    String? applicableTo,
+  )
+  onSave;
 
   @override
   State<_NewTdsGroupTaxDialog> createState() => _NewTdsGroupTaxDialogState();
@@ -2139,71 +2387,62 @@ class _NewTdsGroupTaxDialogState extends State<_NewTdsGroupTaxDialog> {
   final TextEditingController _endDateController = TextEditingController();
   final GlobalKey _startDateKey = GlobalKey();
   final GlobalKey _endDateKey = GlobalKey();
-  final Set<String> _selectedRateNames = <String>{};
+  final Set<String> _selectedRateIds = <String>{};
 
   DateTime? _startDateValue;
   DateTime? _endDateValue;
   late final List<_GroupTaxSelectableRate> _rateItems;
 
-  static const List<_GroupTaxSelectableRate> _rates = <_GroupTaxSelectableRate>[
-    _GroupTaxSelectableRate(
-      name: 'althaf 2 demo',
-      sectionLabel: 'Section 195',
-      rate: '12 %',
-    ),
-    _GroupTaxSelectableRate(
-      name: 'althaf demo',
-      sectionLabel: 'Section 195',
-      rate: '12 %',
-    ),
-    _GroupTaxSelectableRate(name: 'Commission or Brokerage', rate: '2 %'),
-    _GroupTaxSelectableRate(
-      name: 'Commission or Brokerage (Reduced)',
-      rate: '3.75 %',
-    ),
-    _GroupTaxSelectableRate(name: 'Dividend', rate: '10 %'),
-    _GroupTaxSelectableRate(name: 'Dividend (Reduced)', rate: '7.5 %'),
-    _GroupTaxSelectableRate(
-      name: 'Other Interest than securities',
-      rate: '10 %',
-    ),
-    _GroupTaxSelectableRate(
-      name: 'Other Interest than securities (Reduced)',
-      rate: '7.5 %',
-    ),
-    _GroupTaxSelectableRate(
-      name: 'Payment of contractors for Others',
-      rate: '2 %',
-    ),
-    _GroupTaxSelectableRate(
-      name: 'Payment of contractors for Others (Reduced)',
-      rate: '1.5 %',
-    ),
-    _GroupTaxSelectableRate(
-      name: 'Payment of contractors HUF/Indiv',
-      rate: '1 %',
-    ),
-    _GroupTaxSelectableRate(
-      name: 'Payment of contractors HUF/Indiv (Reduced)',
-      rate: '0.75 %',
-    ),
-    _GroupTaxSelectableRate(name: 'Professional Fees', rate: '10 %'),
-    _GroupTaxSelectableRate(name: 'Professional Fees (Reduced)', rate: '7.5 %'),
-    _GroupTaxSelectableRate(
-      name: 'Rent on land or furniture etc',
-      rate: '10 %',
-    ),
-    _GroupTaxSelectableRate(
-      name: 'Rent on land or furniture etc (Reduced)',
-      rate: '7.5 %',
-    ),
-    _GroupTaxSelectableRate(name: 'Technical Fees (2%)', rate: '2 %'),
-  ];
-
   @override
   void initState() {
     super.initState();
-    _rateItems = List<_GroupTaxSelectableRate>.from(_rates);
+    _rateItems = List<_GroupTaxSelectableRate>.from(widget.rates);
+    final initial = widget.initial;
+    if (initial != null) {
+      _groupTaxNameController.text = initial['group_name']?.toString() ?? '';
+      _selectedRateIds.addAll(
+        (initial['tds_rate_ids'] as List? ?? const []).map(
+          (id) => id.toString(),
+        ),
+      );
+      _startDateValue = DateTime.tryParse(
+        initial['applicable_from']?.toString() ?? '',
+      );
+      _endDateValue = DateTime.tryParse(
+        initial['applicable_to']?.toString() ?? '',
+      );
+      if (_startDateValue != null) {
+        _startDateController.text = _formatDate(_startDateValue!);
+      }
+      if (_endDateValue != null) {
+        _endDateController.text = _formatDate(_endDateValue!);
+      }
+    }
+  }
+
+  Future<void> _save() async {
+    final name = _groupTaxNameController.text.trim();
+    final selected = _rateItems
+        .where((rate) => _selectedRateIds.contains(rate.id))
+        .map((rate) => rate.id)
+        .toList();
+    if (name.isEmpty || selected.isEmpty) {
+      ZerpaiToast.info(context, 'Enter a group name and select TDS rates');
+      return;
+    }
+    final saved = await widget.onSave(
+      name,
+      selected,
+      _startDateValue?.toIso8601String(),
+      _endDateValue?.toIso8601String(),
+    );
+    if (!mounted) return;
+    if (!saved) {
+      ZerpaiToast.error(context, 'Failed to create TDS group');
+      return;
+    }
+    Navigator.of(context).pop();
+    ZerpaiToast.success(context, 'TDS group created');
   }
 
   @override
@@ -2489,8 +2728,7 @@ class _NewTdsGroupTaxDialogState extends State<_NewTdsGroupTaxDialog> {
                                 SizedBox(
                                   height: 31,
                                   child: ElevatedButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(),
+                                    onPressed: _save,
                                     style: ElevatedButton.styleFrom(
                                       elevation: 0,
                                       backgroundColor: Theme.of(
@@ -2632,13 +2870,13 @@ class _NewTdsGroupTaxDialogState extends State<_NewTdsGroupTaxDialog> {
           SizedBox(
             width: 34,
             child: Checkbox(
-              value: _selectedRateNames.contains(rate.name),
+              value: _selectedRateIds.contains(rate.id),
               onChanged: (bool? value) {
                 setState(() {
                   if (value ?? false) {
-                    _selectedRateNames.add(rate.name);
+                    _selectedRateIds.add(rate.id);
                   } else {
-                    _selectedRateNames.remove(rate.name);
+                    _selectedRateIds.remove(rate.id);
                   }
                 });
               },
@@ -2788,9 +3026,23 @@ class _NewTdsGroupTaxDialogState extends State<_NewTdsGroupTaxDialog> {
 }
 
 class _NewTdsDialog extends StatefulWidget {
-  const _NewTdsDialog({required this.title});
+  const _NewTdsDialog({
+    required this.title,
+    required this.isTcs,
+    required this.options,
+    required this.higherRateReasons,
+    required this.accountIdByName,
+    required this.onSave,
+    this.initial,
+  });
 
   final String title;
+  final bool isTcs;
+  final List<_SectionOption> options;
+  final List<_HigherTdsReasonOption> higherRateReasons;
+  final Map<String, String> accountIdByName;
+  final Future<bool> Function(Map<String, dynamic> payload) onSave;
+  final Map<String, dynamic>? initial;
 
   @override
   State<_NewTdsDialog> createState() => _NewTdsDialogState();
@@ -2799,10 +3051,13 @@ class _NewTdsDialog extends StatefulWidget {
 class _NewTdsDialogState extends State<_NewTdsDialog> {
   final TextEditingController _taxNameController = TextEditingController();
   final TextEditingController _rateController = TextEditingController();
-  final TextEditingController _startDateController = TextEditingController(
-    text: '01-04-2026',
-  );
+  final TextEditingController _surchargeRateController =
+      TextEditingController();
+  final TextEditingController _cessRateController = TextEditingController();
+  final TextEditingController _startDateController = TextEditingController();
   final TextEditingController _endDateController = TextEditingController();
+  final TextEditingController _higherRateReasonController =
+      TextEditingController();
   final GlobalKey _startDateKey = GlobalKey();
   final GlobalKey _endDateKey = GlobalKey();
 
@@ -2813,140 +3068,12 @@ class _NewTdsDialogState extends State<_NewTdsDialog> {
   String? _selectedTdsReceivableAccount;
   bool _showAccountDropdowns = false;
   bool _isHigherTdsRate = false;
-  DateTime _startDateValue = DateTime(2026, 4, 1);
+  DateTime _startDateValue = DateTime.now();
   DateTime? _endDateValue;
 
   static const List<String> _incomeTaxActOptions = <String>[
     'New Income Tax Act 2025',
     'Income Tax Act 1961',
-  ];
-
-  static const List<_HigherTdsReasonOption>
-  _higherTdsReasonOptions = <_HigherTdsReasonOption>[
-    _HigherTdsReasonOption(
-      title: 'Non-furnishing of PAN',
-      description:
-          'Deduction is on higher rate under section 206AA/397(2)(b)(i) on account of non-furnishing of PAN',
-    ),
-    _HigherTdsReasonOption(
-      title: 'Non-filing of return of income',
-      description:
-          'Deduction is on higher rate in view of section 206AB for non-filing of return of income',
-    ),
-    _HigherTdsReasonOption(
-      title: 'Invalid PAN details',
-      description:
-          'Deduction is on higher rate because the PAN details available are invalid or mismatched',
-    ),
-  ];
-
-  static const List<_SectionOption> _sectionOptions = <_SectionOption>[
-    _SectionOption(
-      title: 'Section 392 – Indian Government Employees',
-      description: 'Payment to Indian Government employees',
-      earlier: 'Earlier: 192',
-    ),
-    _SectionOption(
-      title: 'Section 392 – Other Government Employees',
-      description: 'Payment to employees other than Government employees',
-      earlier: 'Earlier: 192',
-    ),
-    _SectionOption(
-      title: 'Section 392 – Non Union Employees',
-      description:
-          'Payment to Government employees other than Union Government employees',
-      earlier: 'Earlier: 192',
-    ),
-    _SectionOption(
-      title: 'Section 392(7)',
-      description: 'Specified salary and payroll-related payments',
-      earlier: 'Earlier: 192',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) – Contract Payments – Individual/HUF',
-      description: 'Payment to contractors who are Individuals or HUF',
-      earlier: 'Earlier: 194C',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) – Contract Payments – Others',
-      description: 'Payment to contractors other than Individuals or HUF',
-      earlier: 'Earlier: 194C',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) – Professional Fees',
-      description: 'Payment of professional fees',
-      earlier: 'Earlier: 194J',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) – Technical Fees',
-      description: 'Payment of technical fees',
-      earlier: 'Earlier: 194J',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) – Director Fees/Commission',
-      description: 'Payment of director fees or commission',
-      earlier: 'Earlier: 194J',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) – Commission/Brokerage',
-      description: 'Payment of commission or brokerage',
-      earlier: 'Earlier: 194H',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) – Rent Payments',
-      description: 'Payment of rent',
-      earlier: 'Earlier: 194I',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) Sl2(i)',
-      description: 'Any rent – Individual/HUF',
-      earlier: 'Earlier: 194IB',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) Sl2(ii)D(a)',
-      description: 'Rent on plant and machinery',
-      earlier: 'Earlier: 194I(a)',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) Sl2(ii)D(b)',
-      description: 'Rent on land or furniture etc',
-      earlier: 'Earlier: 194I(b)',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) – Interest Other Than Securities',
-      description: 'Payment of interest other than securities',
-      earlier: 'Earlier: 194A',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) – Royalty',
-      description: 'Payment of royalty',
-      earlier: 'Earlier: 194J',
-    ),
-    _SectionOption(
-      title: 'Section 393(1) – Call Centre Payments',
-      description: 'Payment made to call centres',
-      earlier: 'Earlier: 194J',
-    ),
-    _SectionOption(
-      title: 'Section 393(2) – Non Resident Interest',
-      description: 'Payment of interest to non-residents',
-      earlier: 'Earlier: 195',
-    ),
-    _SectionOption(
-      title: 'Section 393(2) – Foreign Company Payments',
-      description: 'Payments made to foreign companies',
-      earlier: 'Earlier: 195',
-    ),
-    _SectionOption(
-      title: 'Section 393(2) – Long Term Capital Gains',
-      description: 'Long term capital gains payments',
-      earlier: 'Earlier: 195',
-    ),
-    _SectionOption(
-      title: 'Section 393(2) – Dividend / Bond Income',
-      description: 'Dividend or bond income payments',
-      earlier: 'Earlier: 195',
-    ),
   ];
 
   bool get _isChargeDialog =>
@@ -2957,19 +3084,89 @@ class _NewTdsDialogState extends State<_NewTdsDialog> {
 
   String get _dialogTitle => _isChargeDialog ? 'New TDS' : widget.title;
 
+  bool get _isTcs => widget.isTcs;
+
+  Future<void> _save() async {
+    final name = _taxNameController.text.trim();
+    final rate = double.tryParse(_rateController.text.trim());
+    final surchargeRate =
+        double.tryParse(_surchargeRateController.text.trim()) ?? 0;
+    final cessRate = double.tryParse(_cessRateController.text.trim()) ?? 0;
+    if (name.isEmpty || rate == null || rate < 0 || rate > 100) {
+      ZerpaiToast.info(context, 'Enter a valid tax name and rate');
+      return;
+    }
+    if (surchargeRate < 0 ||
+        surchargeRate > 100 ||
+        cessRate < 0 ||
+        cessRate > 100) {
+      ZerpaiToast.info(context, 'Enter valid surcharge and cess rates');
+      return;
+    }
+    if (_selectedSection?.id == null) {
+      ZerpaiToast.info(
+        context,
+        _isTcs ? 'Select a TCS nature' : 'Select a TDS section',
+      );
+      return;
+    }
+    if (_isHigherTdsRate && _isTcs && _selectedHigherTdsReason?.id == null) {
+      ZerpaiToast.info(context, 'Select a higher-rate reason');
+      return;
+    }
+    if (_isHigherTdsRate &&
+        !_isTcs &&
+        _higherRateReasonController.text.trim().isEmpty) {
+      ZerpaiToast.info(context, 'Enter a higher-rate reason');
+      return;
+    }
+    final payload = <String, dynamic>{
+      'tax_name': name,
+      if (_isTcs) ...{
+        'nature_id': _selectedSection!.id,
+        'rate': rate,
+        'higher_rate_reason_id': _selectedHigherTdsReason?.id,
+        'income_tax_act': _selectedIncomeTaxAct,
+      } else ...{
+        'section_id': _selectedSection!.id,
+        'base_rate': rate,
+        'surcharge_rate': surchargeRate,
+        'cess_rate': cessRate,
+        'reason_higher_rate': _isHigherTdsRate
+            ? _higherRateReasonController.text.trim()
+            : null,
+      },
+      'payable_account_id': widget.accountIdByName[_selectedTdsPayableAccount],
+      'receivable_account_id':
+          widget.accountIdByName[_selectedTdsReceivableAccount],
+      'is_higher_rate': _isHigherTdsRate,
+      'applicable_from': _startDateController.text.isEmpty
+          ? null
+          : _startDateValue.toIso8601String(),
+      'applicable_to': _endDateController.text.isEmpty
+          ? null
+          : _endDateValue?.toIso8601String(),
+      'is_active': widget.initial?['is_active'] ?? true,
+    };
+    final saved = await widget.onSave(payload);
+    if (!mounted) return;
+    if (!saved) {
+      ZerpaiToast.error(context, 'Failed to save direct tax');
+      return;
+    }
+    Navigator.of(context).pop();
+    ZerpaiToast.success(context, 'Direct tax saved');
+  }
+
   Widget _buildAccountDropdown({
     required String? value,
     required ValueChanged<String?> onChanged,
     required List<String> items,
-    required String heading,
   }) {
     return FormDropdown<String>(
       value: value,
       items: items,
-      onChanged: (String? nextValue) {
-        if (nextValue == heading) return;
-        onChanged(nextValue);
-      },
+      onChanged: onChanged,
       hint: 'Select an account',
       height: 34,
       showSearch: true,
@@ -2982,24 +3179,6 @@ class _NewTdsDialogState extends State<_NewTdsDialog> {
       boldSelected: false,
       paintSelectionBackground: false,
       itemBuilder: (String item, bool isSelected, bool isHovered) {
-        final bool isHeading = item == heading;
-
-        if (isHeading) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-            child: Text(
-              item,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTheme.bodyText.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF4B5563),
-              ),
-            ),
-          );
-        }
-
         final Color backgroundColor = isHovered
             ? const Color(0xFF4A86E8)
             : (isSelected ? const Color(0xFFE9EDF5) : Colors.white);
@@ -3052,8 +3231,56 @@ class _NewTdsDialogState extends State<_NewTdsDialog> {
   @override
   void initState() {
     super.initState();
-    if (_isChargeDialog) {
-      _startDateController.clear();
+    final initial = widget.initial;
+    if (initial != null) {
+      _taxNameController.text = initial['tax_name']?.toString() ?? '';
+      _rateController.text =
+          initial[_isTcs ? 'rate' : 'base_rate']?.toString() ?? '';
+      _surchargeRateController.text =
+          initial['surcharge_rate']?.toString() ?? '';
+      _cessRateController.text = initial['cess_rate']?.toString() ?? '';
+      final optionId = initial[_isTcs ? 'nature_id' : 'section_id']?.toString();
+      _selectedSection = widget.options
+          .where((option) => option.id == optionId)
+          .firstOrNull;
+      _selectedIncomeTaxAct =
+          initial['income_tax_act']?.toString() ?? _selectedIncomeTaxAct;
+      _isHigherTdsRate = initial['is_higher_rate'] == true;
+      _higherRateReasonController.text =
+          initial['reason_higher_rate']?.toString() ?? '';
+      final reasonId = initial['higher_rate_reason_id']?.toString();
+      _selectedHigherTdsReason = widget.higherRateReasons
+          .where((reason) => reason.id == reasonId)
+          .firstOrNull;
+      String? accountName(String? id) {
+        if (id == null) return null;
+        for (final entry in widget.accountIdByName.entries) {
+          if (entry.value == id) return entry.key;
+        }
+        return null;
+      }
+
+      _selectedTdsPayableAccount = accountName(
+        initial['payable_account_id']?.toString(),
+      );
+      _selectedTdsReceivableAccount = accountName(
+        initial['receivable_account_id']?.toString(),
+      );
+      _showAccountDropdowns =
+          _selectedTdsPayableAccount != null ||
+          _selectedTdsReceivableAccount != null;
+      _startDateValue =
+          DateTime.tryParse(initial['applicable_from']?.toString() ?? '') ??
+          _startDateValue;
+      _endDateValue = DateTime.tryParse(
+        initial['applicable_to']?.toString() ?? '',
+      );
+      if (initial['applicable_from'] != null) {
+        _startDateController.text = _formatDate(_startDateValue);
+      }
+      if (_endDateValue != null) {
+        _endDateController.text = _formatDate(_endDateValue!);
+      }
     }
   }
 
@@ -3061,8 +3288,11 @@ class _NewTdsDialogState extends State<_NewTdsDialog> {
   void dispose() {
     _taxNameController.dispose();
     _rateController.dispose();
+    _surchargeRateController.dispose();
+    _cessRateController.dispose();
     _startDateController.dispose();
     _endDateController.dispose();
+    _higherRateReasonController.dispose();
     super.dispose();
   }
 
@@ -3166,6 +3396,45 @@ class _NewTdsDialogState extends State<_NewTdsDialog> {
                               ),
                             ],
                           ),
+                          if (!_isTcs) ...[
+                            const SizedBox(height: 14),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _buildLabeledField(
+                                    label: 'Surcharge Rate (%)',
+                                    child: CustomTextField(
+                                      controller: _surchargeRateController,
+                                      height: 34,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      forceUppercase: false,
+                                      contentCase: ContentCase.none,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 26),
+                                Expanded(
+                                  child: _buildLabeledField(
+                                    label: 'Cess Rate (%)',
+                                    child: CustomTextField(
+                                      controller: _cessRateController,
+                                      height: 34,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      forceUppercase: false,
+                                      contentCase: ContentCase.none,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                           if (!_isChargeDialog) ...[
                             const SizedBox(height: 14),
                             _buildLabeledField(
@@ -3235,12 +3504,12 @@ class _NewTdsDialogState extends State<_NewTdsDialog> {
                             ),
                             const SizedBox(height: 12),
                             _buildLabeledField(
-                              label: 'Section*',
+                              label: _isTcs ? 'Nature*' : 'Section*',
                               child: SizedBox(
                                 width: 302,
                                 child: FormDropdown<_SectionOption>(
                                   value: _selectedSection,
-                                  items: _sectionOptions,
+                                  items: widget.options,
                                   onChanged: (_SectionOption? value) {
                                     setState(() => _selectedSection = value);
                                   },
@@ -3441,8 +3710,8 @@ class _NewTdsDialogState extends State<_NewTdsDialog> {
                                     label: 'TDS Payable Account',
                                     child: _buildAccountDropdown(
                                       value: _selectedTdsPayableAccount,
-                                      items: _directTaxAccountOptions,
-                                      heading: _directTaxAccountHeading,
+                                      items: widget.accountIdByName.keys
+                                          .toList(),
                                       onChanged: (String? value) {
                                         setState(
                                           () => _selectedTdsPayableAccount =
@@ -3458,9 +3727,8 @@ class _NewTdsDialogState extends State<_NewTdsDialog> {
                                     label: 'TDS Receivable Account',
                                     child: _buildAccountDropdown(
                                       value: _selectedTdsReceivableAccount,
-                                      items: _directTaxReceivableAccountOptions,
-                                      heading:
-                                          _directTaxReceivableAccountHeading,
+                                      items: widget.accountIdByName.keys
+                                          .toList(),
                                       onChanged: (String? value) {
                                         setState(
                                           () => _selectedTdsReceivableAccount =
@@ -3519,111 +3787,134 @@ class _NewTdsDialogState extends State<_NewTdsDialog> {
                             if (_isHigherTdsRate) ...[
                               const SizedBox(height: 16),
                               _buildLabeledField(
-                                label: 'Reason for Higher TDS Rate*',
+                                label: _isTcs
+                                    ? 'Reason for Higher TCS Rate*'
+                                    : 'Reason for Higher TDS Rate*',
                                 child: SizedBox(
                                   width: 302,
-                                  child: FormDropdown<_HigherTdsReasonOption>(
-                                    value: _selectedHigherTdsReason,
-                                    items: _higherTdsReasonOptions,
-                                    onChanged: (_HigherTdsReasonOption? value) {
-                                      setState(
-                                        () => _selectedHigherTdsReason = value,
-                                      );
-                                    },
-                                    hint: '',
-                                    height: 34,
-                                    showSearch: true,
-                                    showSearchIcon: true,
-                                    allowClear: false,
-                                    showCustomValueAction: false,
-                                    boldSelected: false,
-                                    menuWidth: 430,
-                                    menuMaxHeight: 220,
-                                    itemHeight: 74,
-                                    itemEstimatedHeight: 74,
-                                    displayStringForValue:
-                                        (_HigherTdsReasonOption value) =>
-                                            value.title,
-                                    searchStringForValue:
-                                        (_HigherTdsReasonOption value) =>
-                                            '${value.title} ${value.description}',
-                                    paintSelectionBackground: false,
-                                    textStyle: AppTheme.bodyText.copyWith(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w400,
-                                      color: const Color(0xFF4B5563),
-                                    ),
-                                    itemBuilder:
-                                        (
-                                          _HigherTdsReasonOption item,
-                                          bool isSelected,
-                                          bool isHovered,
-                                        ) {
-                                          final Color bgColor = isHovered
-                                              ? const Color(0xFF4A86E8)
-                                              : Colors.white;
-                                          final Color titleColor = isHovered
-                                              ? Colors.white
-                                              : const Color(0xFF1F2937);
-                                          final Color descColor = isHovered
-                                              ? Colors.white
-                                              : const Color(0xFF667085);
+                                  child: _isTcs
+                                      ? FormDropdown<_HigherTdsReasonOption>(
+                                          value: _selectedHigherTdsReason,
+                                          items: widget.higherRateReasons,
+                                          onChanged:
+                                              (_HigherTdsReasonOption? value) {
+                                                setState(
+                                                  () =>
+                                                      _selectedHigherTdsReason =
+                                                          value,
+                                                );
+                                              },
+                                          hint: '',
+                                          height: 34,
+                                          showSearch: true,
+                                          showSearchIcon: true,
+                                          allowClear: false,
+                                          showCustomValueAction: false,
+                                          boldSelected: false,
+                                          menuWidth: 430,
+                                          menuMaxHeight: 220,
+                                          itemHeight: 74,
+                                          itemEstimatedHeight: 74,
+                                          displayStringForValue:
+                                              (_HigherTdsReasonOption value) =>
+                                                  value.title,
+                                          searchStringForValue:
+                                              (_HigherTdsReasonOption value) =>
+                                                  '${value.title} ${value.description}',
+                                          paintSelectionBackground: false,
+                                          textStyle: AppTheme.bodyText.copyWith(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w400,
+                                            color: const Color(0xFF4B5563),
+                                          ),
+                                          itemBuilder:
+                                              (
+                                                _HigherTdsReasonOption item,
+                                                bool isSelected,
+                                                bool isHovered,
+                                              ) {
+                                                final Color bgColor = isHovered
+                                                    ? const Color(0xFF4A86E8)
+                                                    : Colors.white;
+                                                final Color titleColor =
+                                                    isHovered
+                                                    ? Colors.white
+                                                    : const Color(0xFF1F2937);
+                                                final Color descColor =
+                                                    isHovered
+                                                    ? Colors.white
+                                                    : const Color(0xFF667085);
 
-                                          return Container(
-                                            padding: const EdgeInsets.fromLTRB(
-                                              12,
-                                              10,
-                                              12,
-                                              10,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: bgColor,
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            margin: const EdgeInsets.symmetric(
-                                              horizontal: 4,
-                                              vertical: 1,
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  item.title,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: AppTheme.bodyText
-                                                      .copyWith(
-                                                        fontSize: 12.9,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color: titleColor,
+                                                return Container(
+                                                  padding:
+                                                      const EdgeInsets.fromLTRB(
+                                                        12,
+                                                        10,
+                                                        12,
+                                                        10,
                                                       ),
-                                                ),
-                                                const SizedBox(height: 3),
-                                                Text(
-                                                  item.description,
-                                                  maxLines: 3,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: AppTheme.bodyText
-                                                      .copyWith(
-                                                        fontSize: 12,
-                                                        fontWeight:
-                                                            FontWeight.w400,
-                                                        color: descColor,
-                                                        height: 1.25,
+                                                  decoration: BoxDecoration(
+                                                    color: bgColor,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          6,
+                                                        ),
+                                                  ),
+                                                  margin:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 4,
+                                                        vertical: 1,
                                                       ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Text(
+                                                        item.title,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: AppTheme.bodyText
+                                                            .copyWith(
+                                                              fontSize: 12.9,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                              color: titleColor,
+                                                            ),
+                                                      ),
+                                                      const SizedBox(height: 3),
+                                                      Text(
+                                                        item.description,
+                                                        maxLines: 3,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: AppTheme.bodyText
+                                                            .copyWith(
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w400,
+                                                              color: descColor,
+                                                              height: 1.25,
+                                                            ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                        )
+                                      : CustomTextField(
+                                          controller:
+                                              _higherRateReasonController,
+                                          height: 34,
+                                          forceUppercase: false,
+                                          contentCase: ContentCase.none,
+                                        ),
                                 ),
                               ),
                             ],
@@ -3727,7 +4018,7 @@ class _NewTdsDialogState extends State<_NewTdsDialog> {
                       SizedBox(
                         height: 28,
                         child: ElevatedButton(
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: _save,
                           style: ElevatedButton.styleFrom(
                             elevation: 0,
                             backgroundColor: Theme.of(

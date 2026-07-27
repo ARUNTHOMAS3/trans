@@ -11,6 +11,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 enum InvoicesSettingsTab {
   preferences,
@@ -110,14 +111,7 @@ class _StatusDialogResult {
 }
 
 final ValueNotifier<List<_InvoiceStatusRecord>> _invoiceStatusesNotifier =
-    ValueNotifier<List<_InvoiceStatusRecord>>(const <_InvoiceStatusRecord>[
-      _InvoiceStatusRecord(
-        customStatusFor: 'Confirmed',
-        statusName: 'ef',
-        description: 'wfwef',
-        labelColor: Color(0xFFFF2B6D),
-      ),
-    ]);
+    ValueNotifier<List<_InvoiceStatusRecord>>(const <_InvoiceStatusRecord>[]);
 
 class InvoicesSettingsPage extends ConsumerStatefulWidget {
   const InvoicesSettingsPage({
@@ -133,6 +127,8 @@ class InvoicesSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _InvoicesSettingsPageState extends ConsumerState<InvoicesSettingsPage> {
+  final SettingsPreferencesRepository _preferencesRepository =
+      SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _termsController = TextEditingController();
@@ -159,6 +155,81 @@ class _InvoicesSettingsPageState extends ConsumerState<InvoicesSettingsPage> {
   void initState() {
     super.initState();
     _activeTab = widget.initialTab;
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final data = await _preferencesRepository.loadSection(
+        'pdf_preferences',
+        const ['documents', 'invoices'],
+      );
+      if (!mounted || data.isEmpty) return;
+      setState(() {
+        _allowEditingSentInvoice =
+            data['allow_editing_sent_invoice'] as bool? ??
+            _allowEditingSentInvoice;
+        _associateExpenseReceipts =
+            data['associate_expense_receipts'] as bool? ??
+            _associateExpenseReceipts;
+        _invoiceOrderNumberOption =
+            _InvoiceOrderNumberOption.values
+                .where((v) => v.name == data['order_number_option'])
+                .firstOrNull ??
+            _invoiceOrderNumberOption;
+        _getNotifiedPayOnline =
+            data['notify_pay_online'] as bool? ?? _getNotifiedPayOnline;
+        _includePaymentReceipt =
+            data['include_payment_receipt'] as bool? ?? _includePaymentReceipt;
+        _automateThankYouNote =
+            data['automate_thank_you_note'] as bool? ?? _automateThankYouNote;
+        _qrCodeEnabled = data['qr_code_enabled'] as bool? ?? _qrCodeEnabled;
+        _qrCodeType =
+            _qrCodeTypeItems
+                .where((v) => v.id == data['qr_code_type'])
+                .firstOrNull ??
+            _qrCodeType;
+        _hideZeroValueLineItems =
+            data['hide_zero_value_line_items'] as bool? ??
+            _hideZeroValueLineItems;
+        _qrCodeDescController.text =
+            data['qr_code_description']?.toString() ??
+            _qrCodeDescController.text;
+        _termsController.text = data['terms']?.toString() ?? '';
+        _customerNotesController.text =
+            data['customer_notes']?.toString() ?? '';
+      });
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to load invoice preferences');
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    try {
+      await _preferencesRepository.saveSection(
+        'pdf_preferences',
+        {
+          'allow_editing_sent_invoice': _allowEditingSentInvoice,
+          'associate_expense_receipts': _associateExpenseReceipts,
+          'order_number_option': _invoiceOrderNumberOption.name,
+          'notify_pay_online': _getNotifiedPayOnline,
+          'include_payment_receipt': _includePaymentReceipt,
+          'automate_thank_you_note': _automateThankYouNote,
+          'qr_code_enabled': _qrCodeEnabled,
+          'qr_code_type': _qrCodeType.id,
+          'qr_code_description': _qrCodeDescController.text,
+          'hide_zero_value_line_items': _hideZeroValueLineItems,
+          'terms': _termsController.text,
+          'customer_notes': _customerNotesController.text,
+        },
+        const ['documents', 'invoices'],
+      );
+      if (mounted) ZerpaiToast.success(context, 'Invoices preferences saved');
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to save invoice preferences');
+    }
   }
 
   @override
@@ -335,6 +406,7 @@ class _InvoicesSettingsPageState extends ConsumerState<InvoicesSettingsPage> {
                                                       _termsController,
                                                   customerNotesController:
                                                       _customerNotesController,
+                                                  onSave: _savePreferences,
                                                   onAllowEditingSentInvoiceChanged:
                                                       (value) {
                                                         setState(
@@ -456,6 +528,7 @@ class _InvoicesPreferencesContent extends StatelessWidget {
     required this.onQrCodeEnabledChanged,
     required this.onQrCodeTypeChanged,
     required this.onHideZeroValueLineItemsChanged,
+    required this.onSave,
   });
 
   final bool allowEditingSentInvoice;
@@ -481,6 +554,7 @@ class _InvoicesPreferencesContent extends StatelessWidget {
   final ValueChanged<bool> onQrCodeEnabledChanged;
   final ValueChanged<_QrCodeTypeItem?> onQrCodeTypeChanged;
   final ValueChanged<bool> onHideZeroValueLineItemsChanged;
+  final Future<void> Function() onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -633,7 +707,7 @@ class _InvoicesPreferencesContent extends StatelessWidget {
                               ? Colors.white
                               : AppTheme.textPrimary;
                           final descColor = isHovered
-                              ? Colors.white.withOpacity(0.9)
+                              ? Colors.white.withValues(alpha: 0.9)
                               : AppTheme.textSecondary;
                           final checkmarkColor = isHovered
                               ? Colors.white
@@ -837,9 +911,7 @@ class _InvoicesPreferencesContent extends StatelessWidget {
         SizedBox(
           height: 34,
           child: ElevatedButton(
-            onPressed: () {
-              ZerpaiToast.success(context, 'Invoices preferences saved');
-            },
+            onPressed: onSave,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,

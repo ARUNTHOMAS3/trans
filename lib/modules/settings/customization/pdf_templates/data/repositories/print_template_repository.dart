@@ -5,41 +5,61 @@ import 'package:zerpai_erp/core/services/api_client.dart';
 import '../models/print_template.dart';
 
 class PrintTemplateRepository {
-  PrintTemplateRepository({required ApiClient apiClient});
+  PrintTemplateRepository({required ApiClient apiClient})
+    : _apiClient = apiClient;
+
+  final ApiClient _apiClient;
 
   /// Get all print templates
   Future<List<PrintTemplate>> getTemplates({String? type}) async {
-    try {
-      return [];
-    } catch (e) {
-      debugPrint('Error fetching templates: $e');
-      return [];
-    }
+    final response = await _apiClient.get(
+      'settings-customization/print-templates',
+      queryParameters: type == null ? null : {'module': type},
+      useCache: false,
+    );
+    return (response.data as List? ?? const [])
+        .whereType<Map>()
+        .map((row) => _fromBackend(Map<String, dynamic>.from(row)))
+        .toList();
   }
 
   /// Get template by ID
   Future<PrintTemplate?> getTemplateById(String templateId) async {
-    return null;
+    return (await getTemplates())
+        .where((template) => template.id == templateId)
+        .firstOrNull;
   }
 
   /// Get default template for a type
   Future<PrintTemplate?> getDefaultTemplate(String type) async {
-    return null;
+    return (await getTemplates(
+      type: type,
+    )).where((template) => template.isDefault).firstOrNull;
   }
 
   /// Create new template
   Future<PrintTemplate> createTemplate(PrintTemplate template) async {
-    throw UnimplementedError('Print template backend is not implemented yet.');
+    final response = await _apiClient.post(
+      'settings-customization/print-templates',
+      data: _toBackend(template),
+    );
+    return _fromBackend(Map<String, dynamic>.from(response.data as Map));
   }
 
   /// Update existing template
   Future<PrintTemplate> updateTemplate(PrintTemplate template) async {
-    throw UnimplementedError('Print template backend is not implemented yet.');
+    final response = await _apiClient.patch(
+      'settings-customization/print-templates/${template.id}',
+      data: _toBackend(template),
+    );
+    return _fromBackend(Map<String, dynamic>.from(response.data as Map));
   }
 
   /// Delete template
   Future<void> deleteTemplate(String templateId) async {
-    throw UnimplementedError('Print template backend is not implemented yet.');
+    await _apiClient.delete(
+      'settings-customization/print-templates/$templateId',
+    );
   }
 
   /// Get template variables for a type
@@ -147,4 +167,43 @@ class PrintTemplateRepository {
 
     return content.replaceAll('{{item_list}}', itemRows);
   }
+
+  PrintTemplate _fromBackend(Map<String, dynamic> row) {
+    final content = row['content'] is Map
+        ? Map<String, dynamic>.from(row['content'] as Map)
+        : <String, dynamic>{};
+    final createdAt =
+        DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+        DateTime.now();
+    return PrintTemplate(
+      id: row['id']?.toString() ?? '',
+      name: row['template_name']?.toString() ?? '',
+      type: row['module']?.toString() ?? '',
+      content: content['html']?.toString() ?? '',
+      variables: content['variables'] is Map
+          ? Map<String, dynamic>.from(content['variables'] as Map)
+          : <String, dynamic>{},
+      description: content['description']?.toString(),
+      isDefault: row['is_default'] == true,
+      isActive: row['is_active'] != false,
+      createdBy: content['created_by']?.toString() ?? '',
+      createdAt: createdAt,
+      updatedAt:
+          DateTime.tryParse(row['updated_at']?.toString() ?? '') ?? createdAt,
+    );
+  }
+
+  Map<String, dynamic> _toBackend(PrintTemplate template) => {
+    'module': template.type,
+    'template_name': template.name,
+    'template_type': 'pdf',
+    'content': {
+      'html': template.content,
+      'variables': template.variables,
+      'description': template.description,
+      'created_by': template.createdBy,
+    },
+    'is_default': template.isDefault,
+    'is_active': template.isActive,
+  };
 }

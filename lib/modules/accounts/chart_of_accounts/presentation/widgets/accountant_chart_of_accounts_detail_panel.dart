@@ -1,5 +1,4 @@
 import 'package:dotted_border/dotted_border.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -15,6 +14,7 @@ import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/core/auth/capability_service.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 
 class AccountOverviewPanel extends ConsumerStatefulWidget {
   final AccountNode account;
@@ -28,37 +28,7 @@ class AccountOverviewPanel extends ConsumerStatefulWidget {
 }
 
 class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
-  List<PlatformFile> _attachments = [];
-  bool _showBcy = true;
-
-  Future<void> _pickFiles() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: FileType.any,
-      );
-
-      if (result != null) {
-        setState(() {
-          _attachments.addAll(result.files);
-        });
-
-        if (mounted) {
-          ZerpaiToast.success(context, 'Added ${result.files.length} file(s)');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ZerpaiToast.error(context, 'Error picking files: $e');
-      }
-    }
-  }
-
-  void _removeAttachment(PlatformFile file) {
-    setState(() {
-      _attachments.remove(file);
-    });
-  }
+  bool _showBcy = false;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +48,10 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
           'chart_of_accounts',
           action: 'delete',
         );
-    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
+    final currencyFormat = NumberFormat.currency(
+      symbol: '${widget.account.currency} ',
+      decimalDigits: 2,
+    );
     final orgDatePattern = ref.watch(orgDateFormatProvider);
     final dateFormat = DateFormat(orgDatePattern);
 
@@ -88,17 +61,16 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
     }
 
     return Container(
-      color: Colors.white,
+      color: AppTheme.bgLight,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppTheme.space16,
-              AppTheme.space8,
-              AppTheme.space8,
-              AppTheme.space8,
+          Container(
+            height: 92,
+            padding: const EdgeInsets.fromLTRB(18, 15, 18, 12),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
             ),
             child: Row(
               children: [
@@ -107,65 +79,60 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.account.accountGroup,
+                        'Chart of Accounts',
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: AppTheme.textSecondary,
                         ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
                         widget.account.name,
                         style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
                           color: AppTheme.textPrimary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Ink(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.borderColor),
-                    borderRadius: BorderRadius.circular(4),
-                    color: AppTheme.bgLight,
-                  ),
+                ZTooltip(
+                  message: 'Close account',
+                  direction: ZTooltipDirection.bottom,
                   child: InkWell(
-                    onTap: _pickFiles,
-                    borderRadius: BorderRadius.circular(4),
-                    child: const Icon(
-                      LucideIcons.paperclip,
-                      size: 16,
-                      color: AppTheme.textSecondary,
+                    onTap: handleClose,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.borderLight),
+                      ),
+                      child: const Icon(
+                        LucideIcons.x,
+                        color: AppTheme.errorRed,
+                        size: 16,
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: AppTheme.space8),
-                IconButton(
-                  onPressed: handleClose,
-                  icon: const Icon(
-                    LucideIcons.x,
-                    color: AppTheme.errorRed,
-                    size: 20,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 28,
-                    height: 28,
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: AppTheme.borderColor),
 
-          // Toolbar
-          Padding(
+          Container(
+            constraints: const BoxConstraints(minHeight: 48),
             padding: const EdgeInsets.symmetric(
               horizontal: AppTheme.space16,
-              vertical: AppTheme.space4,
+              vertical: AppTheme.space8,
+            ),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8F9FA),
+              border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
             ),
             child: Row(
               children: [
@@ -380,7 +347,6 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
               ],
             ),
           ),
-          const Divider(height: 1, color: AppTheme.borderColor),
 
           // Closing Balance Section
           Padding(
@@ -449,48 +415,6 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
             ),
           ),
 
-          // Attachments Section
-          if (_attachments.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppTheme.space24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Attachments',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: AppTheme.space8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _attachments.map((file) {
-                      return Chip(
-                        label: Text(
-                          file.name,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        deleteIcon: const Icon(LucideIcons.x, size: 14),
-                        onDeleted: () => _removeAttachment(file),
-                        backgroundColor: AppTheme.bgLight,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          side: const BorderSide(color: AppTheme.borderColor),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: AppTheme.space24),
-                ],
-              ),
-            ),
-          ],
-
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppTheme.space16),
             child: DottedBorder(
@@ -554,7 +478,6 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                   : _buildTransactionsTable(
                       state.recentTransactions,
                       dateFormat,
-                      currencyFormat,
                       showBcy: _showBcy,
                     ),
             ),
@@ -680,8 +603,7 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
 
   Widget _buildTransactionsTable(
     List<AccountTransaction> txs,
-    DateFormat df,
-    NumberFormat nf, {
+    DateFormat df, {
     required bool showBcy,
   }) {
     return Column(
@@ -717,15 +639,12 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
               final tx = txs[index];
               final debit = showBcy ? tx.bcyDebit : tx.debit;
               final credit = showBcy ? tx.bcyCredit : tx.credit;
-
-              // Determine which currency symbol to show
-              String symbol = '₹';
-              if (!showBcy && tx.currencyCode != null) {
-                // In a real app, we'd map currencyCode to symbols,
-                // for now we'll use the code itself if not BCY
-                symbol = tx.currencyCode! == 'INR'
-                    ? '₹'
-                    : '${tx.currencyCode} ';
+              final currencyCode = showBcy
+                  ? tx.bcyCurrencyCode
+                  : tx.currencyCode;
+              String formatAmount(double? value) {
+                if (value == null || currencyCode == null) return '--';
+                return '$currencyCode ${value.toStringAsFixed(2)}';
               }
 
               return Padding(
@@ -758,9 +677,7 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        showBcy
-                            ? nf.format(debit)
-                            : '$symbol${debit.toStringAsFixed(2)}',
+                        formatAmount(debit),
                         textAlign: TextAlign.right,
                         style: const TextStyle(fontSize: 12),
                       ),
@@ -768,9 +685,7 @@ class _AccountOverviewPanelState extends ConsumerState<AccountOverviewPanel> {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        showBcy
-                            ? nf.format(credit)
-                            : '$symbol${credit.toStringAsFixed(2)}',
+                        formatAmount(credit),
                         textAlign: TextAlign.right,
                         style: const TextStyle(fontSize: 12),
                       ),

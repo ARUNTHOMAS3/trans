@@ -80,6 +80,8 @@ class AccountNode {
     }
 
     final userAccName = foundName ?? 'Unnamed Account';
+    final currencyRaw = json['currency']?.toString().trim();
+    final currency = (currencyRaw != null && currencyRaw.isNotEmpty) ? currencyRaw : 'INR';
 
     // Robust code resolution
     String? rawCode =
@@ -109,7 +111,7 @@ class AccountNode {
       accountNumber: (json['accountNumber'] ?? json['account_number'])
           ?.toString(),
       ifsc: (json['ifsc'] ?? json['ifsc_code'])?.toString(),
-      currency: json['currency']?.toString() ?? 'INR',
+      currency: currency,
       showInZerpaiExpense:
           json['showInZerpaiExpense'] == true ||
           json['show_in_zerpai_expense'] == true,
@@ -239,29 +241,5 @@ class AccountNode {
       'balance_type': balanceType,
       'transaction_count': transactionCount,
     };
-  }
-
-  static AccountNode dummy() {
-    return AccountNode(
-      id: 'dummy-id',
-      systemAccountName: 'Loading Account Name',
-      userAccountName: 'Loading Account Name',
-      name: 'Loading Account Name',
-      code: 'ACC-000',
-      accountGroup: 'Assets',
-      accountType: 'Bank',
-      isSystem: false,
-      isDeletable: true,
-      isActive: true,
-      balance: 10000.0,
-      balanceType: 'Dr',
-    );
-  }
-
-  static List<AccountNode> dummyList([int count = 10]) {
-    return List.generate(
-      count,
-      (index) => dummy().copyWith(id: 'dummy-$index'),
-    );
   }
 }

@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
+import 'package:zerpai_erp/core/utils/error_handler.dart';
 import 'package:zerpai_erp/modules/accountant/transaction_locking/models/transaction_lock_model.dart';
 import 'package:zerpai_erp/modules/accountant/transaction_locking/providers/transaction_lock_provider.dart';
 
@@ -20,10 +23,40 @@ class AccountantTransactionLockingScreen extends ConsumerStatefulWidget {
 class _AccountantTransactionLockingScreenState
     extends ConsumerState<AccountantTransactionLockingScreen> {
   bool _showConfig = false;
-  String _negativeStockMode = 'restrict'; // 'allow' or 'restrict'
+  String _negativeStockMode = 'restrict';
+  bool _isSavingNegativeStockMode = false;
+
+  Future<void> _applyNegativeStockMode() async {
+    setState(() => _isSavingNegativeStockMode = true);
+    try {
+      await ref
+          .read(transactionLockProvider.notifier)
+          .saveNegativeStockMode(_negativeStockMode);
+      if (!mounted) return;
+      setState(() {
+        _showConfig = false;
+      });
+      ref.invalidate(negativeStockModeProvider);
+      ZerpaiToast.success(context, 'Negative stock locking policy updated.');
+    } catch (error) {
+      if (mounted) {
+        ZerpaiToast.error(context, ErrorHandler.getFriendlyMessage(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingNegativeStockMode = false);
+      }
+    }
+  }
+
+  void _cancelNegativeStockMode() {
+    setState(() => _showConfig = false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final savedNegativeStockMode =
+        ref.watch(negativeStockModeProvider).valueOrNull ?? 'restrict';
     return ZerpaiLayout(
       pageTitle: 'Transaction Locking',
       child: Stack(
@@ -58,15 +91,20 @@ class _AccountantTransactionLockingScreenState
                       ),
                       child: Row(
                         children: [
-                          const Text(
-                            'Restrict transaction locking with negative stock ',
-                            style: TextStyle(
+                          Text(
+                            savedNegativeStockMode == 'allow'
+                                ? 'Allow transaction locking with negative stock '
+                                : 'Restrict transaction locking with negative stock ',
+                            style: const TextStyle(
                               fontSize: 12,
                               color: Color(0xFF9A3412),
                             ),
                           ),
                           InkWell(
-                            onTap: () => setState(() => _showConfig = true),
+                            onTap: () => setState(() {
+                              _negativeStockMode = savedNegativeStockMode;
+                              _showConfig = true;
+                            }),
                             child: const Text(
                               'Configure',
                               style: TextStyle(
@@ -126,33 +164,18 @@ class _AccountantTransactionLockingScreenState
     );
   }
 
-  void _showLockDialog(String moduleName) {
+  Future<void> _showLockDialog(String moduleName) async {
     final lock = ref.read(transactionLockProvider)[moduleName];
     if (lock != null) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Unlock Module'),
-          content: Text(
-            'Are you sure you want to unlock $moduleName transactions?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await ref
-                    .read(transactionLockProvider.notifier)
-                    .unlockModule(moduleName);
-              },
-              child: const Text('Unlock'),
-            ),
-          ],
-        ),
+      final confirmed = await showZerpaiConfirmationDialog(
+        context,
+        title: 'Unlock Module',
+        message: 'Are you sure you want to unlock $moduleName transactions?',
+        confirmLabel: 'Unlock',
+        variant: ZerpaiConfirmationVariant.success,
       );
+      if (!confirmed || !mounted) return;
+      await ref.read(transactionLockProvider.notifier).unlockModule(moduleName);
       return;
     }
 
@@ -190,7 +213,7 @@ class _AccountantTransactionLockingScreenState
                     id: 'allow',
                     title: 'Allow transaction locking with negative stock',
                     description:
-                        'You can lock transactions even with negative stock. The system uses the Purchase Rate from recent transactions as a temporary COGS. This COGS is automatically updated once the related purchase is recorded, which may change the locked period\'s financial data.',
+                        'You can lock transactions even when accounting stock is negative. Later stock corrections may change COGS and reports for the locked period.',
                   ),
                   const SizedBox(height: AppTheme.space24),
                   _buildConfigOption(
@@ -215,12 +238,15 @@ class _AccountantTransactionLockingScreenState
               child: Row(
                 children: [
                   ZButton.primary(
-                    onPressed: () => setState(() => _showConfig = false),
+                    onPressed: _applyNegativeStockMode,
+                    loading: _isSavingNegativeStockMode,
                     label: 'Apply',
                   ),
                   const SizedBox(width: 8),
                   ZButton.secondary(
-                    onPressed: () => setState(() => _showConfig = false),
+                    onPressed: _isSavingNegativeStockMode
+                        ? null
+                        : _cancelNegativeStockMode,
                     label: 'Cancel',
                   ),
                 ],
@@ -603,13 +629,32 @@ class _LockAllDialogState extends ConsumerState<_LockAllDialog> {
                     onPressed: _isLoading
                         ? null
                         : () async {
-                            if (_reasonController.text.trim().isEmpty) return;
+                            if (_reasonController.text.trim().isEmpty) {
+                              ZerpaiToast.error(
+                                context,
+                                'A lock reason is required.',
+                              );
+                              return;
+                            }
                             setState(() => _isLoading = true);
-                            await widget.onConfirm(
-                              _selectedDate,
-                              _reasonController.text.trim(),
-                            );
-                            if (mounted) Navigator.pop(context);
+                            try {
+                              await widget.onConfirm(
+                                _selectedDate,
+                                _reasonController.text.trim(),
+                              );
+                              if (mounted) Navigator.pop(context);
+                            } catch (_) {
+                              if (mounted) {
+                                ZerpaiToast.error(
+                                  context,
+                                  'Unable to lock transactions. Please try again.',
+                                );
+                              }
+                            } finally {
+                              if (mounted) {
+                                setState(() => _isLoading = false);
+                              }
+                            }
                           },
                     label: _isLoading ? 'Locking...' : 'Lock All',
                   ),
@@ -651,6 +696,7 @@ class _LockModuleDialogState extends ConsumerState<_LockModuleDialog> {
   );
   DateTime _selectedDate = DateTime.now();
   final _reasonController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -809,17 +855,41 @@ class _LockModuleDialogState extends ConsumerState<_LockModuleDialog> {
               child: Row(
                 children: [
                   ZButton.primary(
-                    onPressed: () async {
-                      await ref
-                          .read(transactionLockProvider.notifier)
-                          .lockModule(
-                            moduleName: widget.moduleName,
-                            lockDate: _selectedDate,
-                            reason: _reasonController.text,
-                          );
-                      if (mounted) Navigator.pop(context);
-                    },
-                    label: 'Lock',
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            final reason = _reasonController.text.trim();
+                            if (reason.isEmpty) {
+                              ZerpaiToast.error(
+                                context,
+                                'A lock reason is required.',
+                              );
+                              return;
+                            }
+                            setState(() => _isLoading = true);
+                            try {
+                              await ref
+                                  .read(transactionLockProvider.notifier)
+                                  .lockModule(
+                                    moduleName: widget.moduleName,
+                                    lockDate: _selectedDate,
+                                    reason: reason,
+                                  );
+                              if (mounted) Navigator.pop(context);
+                            } catch (_) {
+                              if (mounted) {
+                                ZerpaiToast.error(
+                                  context,
+                                  'Unable to lock ${widget.moduleName} transactions. Please try again.',
+                                );
+                              }
+                            } finally {
+                              if (mounted) {
+                                setState(() => _isLoading = false);
+                              }
+                            }
+                          },
+                    label: _isLoading ? 'Locking...' : 'Lock',
                   ),
                   const SizedBox(width: 8),
                   ZButton.secondary(

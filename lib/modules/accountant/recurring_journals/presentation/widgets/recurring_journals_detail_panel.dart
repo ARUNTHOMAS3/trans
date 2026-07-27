@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:skeletonizer/skeletonizer.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
@@ -11,6 +10,8 @@ import '../../models/recurring_journal_model.dart';
 
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 
 class RecurringJournalDetailPanel extends ConsumerWidget {
   final RecurringJournal? journal;
@@ -63,27 +64,28 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
               ),
             ),
             Expanded(
-              child: TabBarView(
-                children: [
-                  // Overview Tab
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildInfoSection(j),
-                        const SizedBox(height: 24),
-                        _buildItemsTable(j),
-                        const SizedBox(height: 24),
-                        _buildTotals(j),
-                        const SizedBox(height: 32),
-                        _buildHistoryTimeline(context, ref, j),
-                      ],
+              child: ColoredBox(
+                color: AppTheme.bgLight,
+                child: TabBarView(
+                  children: [
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildInfoSection(j),
+                          const SizedBox(height: 24),
+                          _buildItemsTable(j),
+                          const SizedBox(height: 24),
+                          _buildTotals(j),
+                          const SizedBox(height: 32),
+                          _buildHistoryTimeline(context, ref, j),
+                        ],
+                      ),
                     ),
-                  ),
-                  // Child Journal Tab
-                  _buildChildJournalsTab(context, ref, j),
-                ],
+                    _buildChildJournalsTab(context, ref, j),
+                  ],
+                ),
               ),
             ),
           ],
@@ -98,208 +100,123 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
     WidgetRef ref,
     RecurringJournalState state,
   ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-      ),
-      child: Row(
-        children: [
-          Row(
+    return Column(
+      children: [
+        Container(
+          height: 92,
+          padding: const EdgeInsets.fromLTRB(18, 15, 18, 12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                j.profileName,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              _statusBadge(j.status),
-            ],
-          ),
-          const Spacer(),
-          // Edit Button
-          Container(
-            height: 36,
-            width: 36,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: AppTheme.borderColor),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: IconButton(
-              onPressed: onEdit,
-              icon: const Icon(LucideIcons.edit2, size: 16),
-              tooltip: 'Edit',
-              padding: EdgeInsets.zero,
-              color: AppTheme.textPrimary,
-              hoverColor: AppTheme.primaryBlue.withValues(alpha: 0.05),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          if (j.status == RecurringJournalStatus.active)
-            SizedBox(
-              height: 36,
-              child: OutlinedButton(
-                onPressed: () async {
-                  try {
-                    await ref
-                        .read(recurringJournalProvider.notifier)
-                        .generateChildJournal(j.id);
-                    if (!context.mounted) return;
-                    ZerpaiToast.success(
-                      context,
-                      'Journal generated successfully.',
-                    );
-                    // Refresh child journals
-                    ref.invalidate(recurringJournalChildJournalsProvider(j.id));
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ZerpaiToast.error(context, 'Error: $e');
-                  }
-                },
-                style:
-                    OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: AppTheme.borderColor),
-                      foregroundColor: AppTheme.textPrimary,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ).copyWith(
-                      side: WidgetStateProperty.resolveWith((states) {
-                        if (states.contains(WidgetState.hovered)) {
-                          return const BorderSide(color: AppTheme.primaryBlue);
-                        }
-                        return const BorderSide(color: AppTheme.borderColor);
-                      }),
-                      foregroundColor: WidgetStateProperty.resolveWith((
-                        states,
-                      ) {
-                        if (states.contains(WidgetState.hovered)) {
-                          return AppTheme.primaryBlue;
-                        }
-                        return AppTheme.textPrimary;
-                      }),
-                    ),
-                child: state.isMutating
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppTheme.primaryBlue,
-                        ),
-                      )
-                    : const Text('Create Manual Journal'),
-              ),
-            ),
-          const SizedBox(width: 8),
-
-          // More Dropdown
-          SizedBox(
-            height: 36,
-            child: Theme(
-              data: Theme.of(context).copyWith(
-                splashColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-              ),
-              child: PopupMenuButton<String>(
-                onSelected: (value) async {
-                  if (value == 'delete') {
-                    final confirm = await showZerpaiConfirmationDialog(
-                      context,
-                      title: 'Delete Recurring Journal',
-                      message:
-                          'Are you sure you want to delete "${j.profileName}"?',
-                      confirmLabel: 'Delete',
-                      cancelLabel: 'Cancel',
-                      variant: ZerpaiConfirmationVariant.danger,
-                    );
-
-                    if (confirm == true) {
-                      try {
-                        await ref
-                            .read(recurringJournalProvider.notifier)
-                            .deleteJournal(j.id);
-                        if (!context.mounted) return;
-                        onClose();
-                        ZerpaiToast.deleted(context, 'Recurring journal');
-                      } catch (e) {
-                        if (!context.mounted) return;
-                        ZerpaiToast.error(
-                          context,
-                          'Failed to delete journal: $e',
-                        );
-                      }
-                    }
-                  } else if (value == 'stop' || value == 'resume') {
-                    final newStatus = value == 'stop'
-                        ? RecurringJournalStatus.inactive
-                        : RecurringJournalStatus.active;
-                    try {
-                      await ref
-                          .read(recurringJournalProvider.notifier)
-                          .updateJournal(j.copyWith(status: newStatus));
-                      if (!context.mounted) return;
-                      ZerpaiToast.success(
-                        context,
-                        'Journal ${value == 'stop' ? 'stopped' : 'resumed'}.',
-                      );
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ZerpaiToast.error(context, 'Error: $e');
-                    }
-                  } else if (value == 'clone') {
-                    try {
-                      final cloned = await ref
-                          .read(recurringJournalProvider.notifier)
-                          .cloneJournal(j.id);
-                      if (!context.mounted) return;
-                      ZerpaiToast.success(
-                        context,
-                        'Journal cloned successfully.',
-                      );
-                      context.push(
-                        AppRoutes.accountantRecurringJournalsCreate,
-                        extra: cloned,
-                      );
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ZerpaiToast.error(context, 'Error: $e');
-                    }
-                  }
-                },
-                tooltip: 'More actions',
-                itemBuilder: (context) => [
-                  if (j.status == RecurringJournalStatus.active)
-                    const PopupMenuItem(
-                      value: 'stop',
-                      child: Text(
-                        'Stop',
-                        style: TextStyle(color: AppTheme.textPrimary),
-                      ),
-                    ),
-                  if (j.status == RecurringJournalStatus.inactive)
-                    const PopupMenuItem(
-                      value: 'resume',
-                      child: Text(
-                        'Resume',
-                        style: TextStyle(color: AppTheme.textPrimary),
-                      ),
-                    ),
-                  const PopupMenuItem(
-                    value: 'clone',
-                    child: Text(
-                      'Clone',
-                      style: TextStyle(color: AppTheme.textPrimary),
+              Row(
+                children: [
+                  const Text(
+                    'Recurring Journal',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
+                  const Spacer(),
+                  ZTooltip(
+                    message: 'Close recurring journal',
+                    direction: ZTooltipDirection.bottom,
+                    child: InkWell(
+                      onTap: onClose,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.borderLight),
+                        ),
+                        child: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: AppTheme.errorRed,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      j.profileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _statusBadge(j.status),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8F9FA),
+            border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+          ),
+          child: Row(
+            children: [
+              _toolbarAction(
+                icon: LucideIcons.edit2,
+                label: 'Edit',
+                onTap: onEdit,
+              ),
+              _toolbarDivider(),
+              if (j.status == RecurringJournalStatus.active) ...[
+                state.isMutating
+                    ? const SizedBox(
+                        width: 32,
+                        height: 16,
+                        child: Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      )
+                    : _toolbarAction(
+                        icon: LucideIcons.filePlus2,
+                        label: 'Create Manual Journal',
+                        onTap: () => _generateJournal(context, ref, j),
+                      ),
+                _toolbarDivider(),
+              ],
+              PopupMenuButton<String>(
+                tooltip: 'More actions',
+                color: Colors.white,
+                surfaceTintColor: Colors.white,
+                offset: const Offset(0, 32),
+                onSelected: (value) =>
+                    _handleMoreAction(value, context, ref, j),
+                itemBuilder: (context) => [
+                  if (j.status == RecurringJournalStatus.active)
+                    const PopupMenuItem(value: 'stop', child: Text('Stop')),
+                  if (j.status == RecurringJournalStatus.inactive)
+                    const PopupMenuItem(value: 'resume', child: Text('Resume')),
+                  const PopupMenuItem(value: 'clone', child: Text('Clone')),
                   const PopupMenuItem(
                     value: 'delete',
                     child: Text(
@@ -308,62 +225,134 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
                     ),
                   ),
                 ],
-                offset: const Offset(0, 42),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  side: const BorderSide(color: AppTheme.borderColor),
-                ),
-                child: OutlinedButton(
-                  onPressed: null,
-                  style:
-                      OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        side: const BorderSide(color: AppTheme.borderColor),
-                        foregroundColor: AppTheme.textPrimary,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ).copyWith(
-                        side: WidgetStateProperty.resolveWith((states) {
-                          if (states.contains(WidgetState.hovered)) {
-                            return const BorderSide(
-                              color: AppTheme.primaryBlue,
-                            );
-                          }
-                          return const BorderSide(color: AppTheme.borderColor);
-                        }),
-                      ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'More',
-                        style: TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(
-                        LucideIcons.chevronDown,
-                        size: 16,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ],
-                  ),
+                child: _toolbarAction(
+                  icon: LucideIcons.moreHorizontal,
+                  label: 'More',
                 ),
               ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _toolbarAction({
+    required IconData icon,
+    required String label,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: AppTheme.textSecondary),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
             ),
-          ),
-          IconButton(
-            onPressed: onClose,
-            icon: const Icon(LucideIcons.x, size: 18),
-            tooltip: 'Close',
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _toolbarDivider() => const VerticalDivider(
+    width: 24,
+    indent: 4,
+    endIndent: 4,
+    color: AppTheme.borderLight,
+  );
+
+  Future<void> _generateJournal(
+    BuildContext context,
+    WidgetRef ref,
+    RecurringJournal journal,
+  ) async {
+    try {
+      await ref
+          .read(recurringJournalProvider.notifier)
+          .generateChildJournal(journal.id);
+      if (!context.mounted) return;
+      ref.invalidate(recurringJournalChildJournalsProvider(journal.id));
+      ZerpaiToast.success(context, 'Journal generated successfully.');
+    } catch (error) {
+      if (!context.mounted) return;
+      ZerpaiToast.error(context, 'Error: $error');
+    }
+  }
+
+  Future<void> _handleMoreAction(
+    String value,
+    BuildContext context,
+    WidgetRef ref,
+    RecurringJournal journal,
+  ) async {
+    if (value == 'delete') {
+      final confirm = await showZerpaiConfirmationDialog(
+        context,
+        title: 'Delete Recurring Journal',
+        message: 'Are you sure you want to delete "${journal.profileName}"?',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        variant: ZerpaiConfirmationVariant.danger,
+      );
+      if (confirm != true) return;
+      try {
+        await ref
+            .read(recurringJournalProvider.notifier)
+            .deleteJournal(journal.id);
+        if (!context.mounted) return;
+        onClose();
+        ZerpaiToast.deleted(context, 'Recurring journal');
+      } catch (error) {
+        if (!context.mounted) return;
+        ZerpaiToast.error(context, 'Failed to delete journal: $error');
+      }
+      return;
+    }
+
+    if (value == 'stop' || value == 'resume') {
+      final status = value == 'stop'
+          ? RecurringJournalStatus.inactive
+          : RecurringJournalStatus.active;
+      try {
+        await ref
+            .read(recurringJournalProvider.notifier)
+            .updateJournal(journal.copyWith(status: status));
+        if (!context.mounted) return;
+        ZerpaiToast.success(
+          context,
+          'Journal ${value == 'stop' ? 'stopped' : 'resumed'}.',
+        );
+      } catch (error) {
+        if (!context.mounted) return;
+        ZerpaiToast.error(context, 'Error: $error');
+      }
+      return;
+    }
+
+    if (value == 'clone') {
+      try {
+        final cloned = await ref
+            .read(recurringJournalProvider.notifier)
+            .cloneJournal(journal.id);
+        if (!context.mounted) return;
+        ZerpaiToast.success(context, 'Journal cloned successfully.');
+        context.push(
+          AppRoutes.accountantRecurringJournalsCreate,
+          extra: cloned,
+        );
+      } catch (error) {
+        if (!context.mounted) return;
+        ZerpaiToast.error(context, 'Error: $error');
+      }
+    }
   }
 
   Widget _buildInfoSection(RecurringJournal j) {
@@ -429,7 +418,11 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
 
   Widget _buildTopDashboardStats(RecurringJournal j) {
     final totalAmount = j.totalDebit;
-    final amtFormatter = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
+    final amtFormatter = NumberFormat.currency(
+      name: j.currency,
+      symbol: '${j.currency} ',
+      decimalDigits: 2,
+    );
 
     final unit = j.repeatEvery.toLowerCase();
     final cleanUnit = unit.endsWith('s')
@@ -858,7 +851,7 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
                     number: mj.journalNumber,
                     status: mj.status.name,
                     amount:
-                        '${j.currency == 'INR' ? '₹' : ''}${mj.totalAmount.toStringAsFixed(2)}',
+                        '${mj.currency} ${mj.totalAmount.toStringAsFixed(2)}',
                     hasNotes: mj.notes != null && mj.notes!.isNotEmpty,
                     onTap: () {
                       context.go(
@@ -872,20 +865,15 @@ class RecurringJournalDetailPanel extends ConsumerWidget {
                 },
               );
             },
-            loading: () => Skeletonizer(
-              enabled: true,
-              ignoreContainers: true,
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: 6,
-                itemBuilder: (_, __) => const ListTile(
-                  title: Text('Journal entry placeholder'),
-                  subtitle: Text('Account name'),
-                  trailing: Text('₹0.00'),
-                ),
-              ),
+            loading: () => const Padding(
+              padding: EdgeInsets.all(16),
+              child: ZListSkeleton(itemCount: 6),
             ),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (error, _) => ZErrorPlaceholder(
+              error: error,
+              onRetry: () =>
+                  ref.invalidate(recurringJournalChildJournalsProvider(j.id)),
+            ),
           ),
         ),
       ],

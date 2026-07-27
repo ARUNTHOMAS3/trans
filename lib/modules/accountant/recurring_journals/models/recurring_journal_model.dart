@@ -30,7 +30,7 @@ class RecurringJournal {
     this.neverExpires = true,
     this.referenceNumber,
     this.notes,
-    this.currency = 'INR',
+    required this.currency,
     this.reportingMethod = 'accrual_and_cash',
     required this.items,
     this.status = RecurringJournalStatus.active,
@@ -64,6 +64,14 @@ class RecurringJournal {
   }
 
   factory RecurringJournal.fromJson(Map<String, dynamic> json) {
+    final currency =
+        (json['currency'] ?? json['currencyCode'] ?? json['currency_code'])
+            ?.toString()
+            .trim();
+    if (currency == null || currency.isEmpty) {
+      throw const FormatException('Recurring journal currency is missing.');
+    }
+
     return RecurringJournal(
       id: json['id'] as String? ?? '',
       profileName:
@@ -84,7 +92,7 @@ class RecurringJournal {
       referenceNumber:
           (json['referenceNumber'] ?? json['reference_number']) as String?,
       notes: json['notes'] as String?,
-      currency: (json['currency'] ?? json['currency_code']) as String? ?? 'INR',
+      currency: currency,
       reportingMethod:
           (json['reportingMethod'] ?? json['reporting_method']) as String? ??
           'accrual_and_cash',

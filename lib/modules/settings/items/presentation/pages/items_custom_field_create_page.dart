@@ -16,6 +16,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
 import 'package:zerpai_erp/shared/widgets/settings_page_header.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
+import 'package:zerpai_erp/core/services/api_client.dart';
 
 class SettingsItemsCustomFieldCreatePage extends ConsumerStatefulWidget {
   const SettingsItemsCustomFieldCreatePage({super.key});
@@ -27,6 +28,7 @@ class SettingsItemsCustomFieldCreatePage extends ConsumerStatefulWidget {
 
 class _SettingsItemsCustomFieldCreatePageState
     extends ConsumerState<SettingsItemsCustomFieldCreatePage> {
+  final ApiClient _apiClient = ApiClient();
   static const double _formLabelWidth = 210;
   static const double _formColumnGap = 16;
   static const double _formFieldMaxWidth = 322;
@@ -104,6 +106,49 @@ class _SettingsItemsCustomFieldCreatePageState
   DateTime? _selectedDefaultDate;
   String? _selectedRelativeDateDefaultOption = 'Today';
   String _selectedLookupDisplayAs = 'Pop-Up';
+
+  Future<void> _saveCustomField() async {
+    final label = _labelController.text.trim();
+    final dataType = _selectedDataType?.trim() ?? '';
+    if (label.isEmpty || dataType.isEmpty) {
+      ZerpaiToast.info(context, 'Label and data type are required');
+      return;
+    }
+    final fieldKey = label
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    try {
+      await _apiClient.post(
+        'settings-customization/custom-fields',
+        data: {
+          'module': _createCustomFieldFor.toLowerCase(),
+          'field_key': fieldKey,
+          'label': label,
+          'field_type': dataType,
+          'options': _dropdownOptionControllers
+              .map((controller) => controller.text.trim())
+              .where((value) => value.isNotEmpty)
+              .toList(),
+          'validation': {
+            'help_text': _helpTextController.text.trim(),
+            'contains_pii': _containsPii,
+            'contains_ephi': _containsEphi,
+            'prevent_duplicate_values': _preventDuplicateValues,
+            'show_when_creating_transactions': _showWhenCreatingTransactions,
+            'default_value': _defaultValueController.text,
+          },
+          'is_required': _isMandatory,
+          'is_active': true,
+        },
+      );
+      if (!mounted) return;
+      ZerpaiToast.success(context, 'Custom field saved');
+      _goBackToItemsSettings();
+    } catch (_) {
+      if (mounted) ZerpaiToast.error(context, 'Failed to save custom field');
+    }
+  }
 
   static const List<String> _imageUploadOptions = <String>[
     'Attach From Desktop',
@@ -1543,7 +1588,7 @@ class _SettingsItemsCustomFieldCreatePageState
                       SizedBox(
                         height: 32,
                         child: ElevatedButton(
-                          onPressed: _goBackToItemsSettings,
+                          onPressed: _saveCustomField,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Theme.of(
                               context,

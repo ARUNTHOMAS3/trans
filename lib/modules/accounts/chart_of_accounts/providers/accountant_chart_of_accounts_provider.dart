@@ -8,6 +8,8 @@ import 'package:zerpai_erp/modules/accountant/models/accountant_metadata_model.d
 import 'package:zerpai_erp/modules/accountant/repositories/accountant_repository.dart';
 
 class ChartOfAccountsState {
+  static const _unset = Object();
+
   final List<AccountNode> roots;
   final Set<String> expandedIds;
   final Set<String> savedExpandedIds;
@@ -32,6 +34,7 @@ class ChartOfAccountsState {
   final bool isBackendSearch;
   final List<AccountNode> backendSearchResults;
   final AccountMetadata accountMetadata;
+  final Object? error;
 
   const ChartOfAccountsState({
     this.roots = const [],
@@ -65,6 +68,7 @@ class ChartOfAccountsState {
     this.isBackendSearch = false,
     this.backendSearchResults = const [],
     this.accountMetadata = const AccountMetadata(),
+    this.error,
   });
 
   ChartOfAccountsState copyWith({
@@ -93,6 +97,7 @@ class ChartOfAccountsState {
     bool? isBackendSearch,
     List<AccountNode>? backendSearchResults,
     AccountMetadata? accountMetadata,
+    Object? error = _unset,
   }) {
     return ChartOfAccountsState(
       roots: roots ?? this.roots,
@@ -119,6 +124,7 @@ class ChartOfAccountsState {
       isBackendSearch: isBackendSearch ?? this.isBackendSearch,
       backendSearchResults: backendSearchResults ?? this.backendSearchResults,
       accountMetadata: accountMetadata ?? this.accountMetadata,
+      error: identical(error, _unset) ? this.error : error,
     );
   }
 
@@ -392,12 +398,11 @@ class ChartOfAccountsNotifier extends StateNotifier<ChartOfAccountsState> {
         currencies: results[1] as List<Currency>,
         countryCodes: results[2] as List<CountryCode>,
         accountMetadata: results[3] as AccountMetadata,
+        error: null,
       );
     } catch (e) {
       if (!mounted) return;
-      if (showLoading) {
-        state = state.copyWith(isLoading: false);
-      }
+      state = state.copyWith(isLoading: false, error: e);
     }
   }
 
@@ -483,7 +488,9 @@ class ChartOfAccountsNotifier extends StateNotifier<ChartOfAccountsState> {
       state = state.copyWith(
         recentTransactions: recentTransactions,
         closingBalance:
-            (results[1] as Map<String, dynamic>)['balance'] as double,
+            ((results[1] as Map<String, dynamic>)['balance'] as num?)
+                ?.toDouble() ??
+            0,
         closingBalanceType:
             (results[1] as Map<String, dynamic>)['type'] as String,
       );
@@ -657,6 +664,7 @@ class ChartOfAccountsNotifier extends StateNotifier<ChartOfAccountsState> {
 
 final chartOfAccountsProvider =
     StateNotifierProvider<ChartOfAccountsNotifier, ChartOfAccountsState>((ref) {
+      ref.watch(authUserProvider.select((user) => user?.activeEntityId));
       final repository = ref.watch(accountantRepositoryProvider);
       final isAuthenticated = ref.watch(isAuthenticatedProvider);
       return ChartOfAccountsNotifier(

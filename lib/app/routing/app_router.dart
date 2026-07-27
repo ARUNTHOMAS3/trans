@@ -346,7 +346,7 @@ const List<_RoutePermissionRule> _kRoutePermissionRules = [
   _RoutePermissionRule('/accountant/settings', 'accountant_settings'),
   _RoutePermissionRule(
     '/accountant/transactions-report',
-    'account_transactions',
+    'journal_entry_lines',
   ),
   _RoutePermissionRule('/accounts/chart-of-accounts', 'chart_of_accounts'),
   _RoutePermissionRule('/accounts/opening-balances', 'opening_balances'),
@@ -1695,6 +1695,17 @@ final GoRouter appRouter = GoRouter(
                   },
                 ),
                 GoRoute(
+                  path: ':id/edit',
+                  name: AppRoutes.accountantManualJournalsEdit,
+                  builder: (context, state) {
+                    final extra = state.extra;
+                    return ManualJournalCreateScreen(
+                      initialJournal: extra is ManualJournal ? extra : null,
+                      initialJournalId: state.pathParameters['id'],
+                    );
+                  },
+                ),
+                GoRoute(
                   path: 'templates',
                   name: AppRoutes.accountantJournalTemplates,
                   builder: (context, state) =>
@@ -1820,11 +1831,15 @@ final GoRouter appRouter = GoRouter(
                     if (extra is RecurringJournal) {
                       return RecurringJournalCreateScreen(
                         initialJournal: extra,
+                        initialReturnTo: state.uri.queryParameters['returnTo'],
                       );
                     }
                     if (extra is ManualJournal) {
                       return RecurringJournalCreateScreen(
                         initialManualJournal: extra,
+                        initialManualJournalId:
+                            state.uri.queryParameters['sourceManualJournalId'],
+                        initialReturnTo: state.uri.queryParameters['returnTo'],
                       );
                     }
                     if (extra is Map<String, dynamic>) {
@@ -1833,9 +1848,16 @@ final GoRouter appRouter = GoRouter(
                             extra['initialJournal'] as RecurringJournal?,
                         initialManualJournal:
                             extra['initialManualJournal'] as ManualJournal?,
+                        initialManualJournalId:
+                            state.uri.queryParameters['sourceManualJournalId'],
+                        initialReturnTo: state.uri.queryParameters['returnTo'],
                       );
                     }
-                    return const RecurringJournalCreateScreen();
+                    return RecurringJournalCreateScreen(
+                      initialManualJournalId:
+                          state.uri.queryParameters['sourceManualJournalId'],
+                      initialReturnTo: state.uri.queryParameters['returnTo'],
+                    );
                   },
                 ),
                 GoRoute(

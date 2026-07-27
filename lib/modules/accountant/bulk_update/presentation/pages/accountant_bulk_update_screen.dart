@@ -18,16 +18,40 @@ import 'package:zerpai_erp/shared/widgets/inputs/account_tree_dropdown.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart' as shared;
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/modules/accountant/manual_journals/providers/manual_journal_provider.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
+import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 
 typedef TransactionFilterCallback =
     void Function({
       String? accountId,
       String? contactId,
+      String? contactType,
       DateTime? startDate,
       DateTime? endDate,
       double? minAmount,
       double? maxAmount,
     });
+
+class _TransactionSearchFilters {
+  const _TransactionSearchFilters({
+    this.accountId,
+    this.contactId,
+    this.contactType,
+    this.startDate,
+    this.endDate,
+    this.minAmount,
+    this.maxAmount,
+  });
+
+  final String? accountId;
+  final String? contactId;
+  final String? contactType;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final double? minAmount;
+  final double? maxAmount;
+}
 
 class AccountantBulkUpdateScreen extends ConsumerStatefulWidget {
   const AccountantBulkUpdateScreen({super.key});
@@ -44,6 +68,11 @@ class _AccountantBulkUpdateScreenState
   List<AccountTransaction> _transactions = [];
   List<String> _selectedTransactions = [];
   String? _targetAccountId;
+  _TransactionSearchFilters? _activeFilters;
+  int _page = 1;
+  int _pageSize = 100;
+  int _total = 0;
+  int _totalPages = 0;
 
   void _showFilterDialog() {
     showDialog(
@@ -55,28 +84,53 @@ class _AccountantBulkUpdateScreenState
   Future<void> _performSearch({
     String? accountId,
     String? contactId,
+    String? contactType,
     DateTime? startDate,
     DateTime? endDate,
     double? minAmount,
     double? maxAmount,
   }) async {
+    _activeFilters = _TransactionSearchFilters(
+      accountId: accountId,
+      contactId: contactId,
+      contactType: contactType,
+      startDate: startDate,
+      endDate: endDate,
+      minAmount: minAmount,
+      maxAmount: maxAmount,
+    );
+    await _loadPage(1);
+  }
+
+  Future<void> _loadPage(int page) async {
+    final filters = _activeFilters;
+    if (filters == null) return;
     setState(() => _isLoading = true);
     try {
       final repository = ref.read(accountantRepositoryProvider);
-      final results = await repository.searchTransactions(
-        accountId: accountId,
-        startDate: startDate,
-        endDate: endDate,
-        minAmount: minAmount,
-        maxAmount: maxAmount,
+      final results = await repository.searchTransactionsPage(
+        accountId: filters.accountId,
+        contactId: filters.contactId,
+        contactType: filters.contactType,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        minAmount: filters.minAmount,
+        maxAmount: filters.maxAmount,
+        page: page,
+        pageSize: _pageSize,
       );
+      if (!mounted) return;
       setState(() {
-        _transactions = results;
+        _transactions = results.items;
         _hasSearched = true;
         _isLoading = false;
         _selectedTransactions = [];
+        _page = results.page;
+        _total = results.total;
+        _totalPages = results.totalPages;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       ZerpaiToast.error(context, 'Search failed: $e');
     }
@@ -100,12 +154,7 @@ class _AccountantBulkUpdateScreenState
         );
       }
 
-      setState(() {
-        _isLoading = false;
-        // Remove updated transactions from local view
-        _transactions.removeWhere((t) => _selectedTransactions.contains(t.id));
-        _selectedTransactions = [];
-      });
+      await _loadPage(_page);
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -118,6 +167,7 @@ class _AccountantBulkUpdateScreenState
   Widget build(BuildContext context) {
     return ZerpaiLayout(
       pageTitle: 'Bulk Update',
+      enableBodyScroll: false,
       isDirty: _selectedTransactions.isNotEmpty,
       child: Stack(
         children: [
@@ -125,8 +175,12 @@ class _AccountantBulkUpdateScreenState
           if (_isLoading)
             Container(
               color: Colors.white.withValues(alpha: 0.5),
+              padding: const EdgeInsets.all(24),
               child: const Center(
-                child: CircularProgressIndicator(color: AppTheme.primaryBlue),
+                child: SizedBox(
+                  width: 900,
+                  child: ZTableSkeleton(rows: 8, columns: 5),
+                ),
               ),
             ),
         ],
@@ -248,8 +302,9 @@ class _AccountantBulkUpdateScreenState
             const SizedBox(height: 32),
 
             // --- Action Button ---
-            Tooltip(
+            ZTooltip(
               message: 'Open search filters to locate transactions',
+              direction: ZTooltipDirection.top,
               child: ZButton.primary(
                 label: 'Filter and Bulk Update',
                 onPressed: _showFilterDialog,
@@ -276,24 +331,43 @@ class _AccountantBulkUpdateScreenState
           child: Row(
             children: [
               Text(
-                '${_transactions.length} Transactions Found',
+                '$_total Transactions Found',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
-              Tooltip(
+              SizedBox(
+                width: 90,
+                child: FormDropdown<int>(
+                  value: _pageSize,
+                  items: const [10, 25, 50, 100, 200],
+                  displayStringForValue: (value) => '$value rows',
+                  onChanged: (value) {
+                    if (value == null || value == _pageSize) return;
+                    setState(() => _pageSize = value);
+                    _loadPage(1);
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              ZTooltip(
                 message: 'Remove all current search results',
+                direction: ZTooltipDirection.bottom,
                 child: ZButton.secondary(
                   label: 'Clear Results',
                   onPressed: () => setState(() {
                     _hasSearched = false;
                     _transactions = [];
                     _selectedTransactions.clear();
+                    _activeFilters = null;
+                    _total = 0;
+                    _totalPages = 0;
                   }),
                 ),
               ),
               const SizedBox(width: 12),
-              Tooltip(
+              ZTooltip(
                 message: 'Refine transaction filter criteria',
+                direction: ZTooltipDirection.bottom,
                 child: ZButton.primary(
                   label: 'New Search',
                   onPressed: _showFilterDialog,
@@ -305,60 +379,107 @@ class _AccountantBulkUpdateScreenState
 
         // --- Results Table ---
         Expanded(
-          child: SingleChildScrollView(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('Date')),
-                  DataColumn(label: Text('Reference#')),
-                  DataColumn(label: Text('Type')),
-                  DataColumn(label: Text('Account')),
-                  DataColumn(label: Text('Amount')),
-                ],
-                rows: _transactions.map((t) {
-                  final isSelected = _selectedTransactions.contains(t.id);
-                  return DataRow(
-                    selected: isSelected,
-                    onSelectChanged: (val) {
-                      setState(() {
-                        if (val == true) {
-                          _selectedTransactions.add(t.id);
-                        } else {
-                          _selectedTransactions.remove(t.id);
-                        }
-                      });
-                    },
-                    cells: [
-                      DataCell(
-                        Text(
-                          DateFormat('dd/MM/yyyy').format(t.transactionDate),
-                        ),
-                      ),
-                      DataCell(
-                        Text(
-                          t.referenceNumber ?? '-',
-                          style: const TextStyle(
-                            color: AppTheme.primaryBlue,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      DataCell(Text(t.transactionType ?? '-')),
-                      DataCell(Text(t.accountName ?? '-')),
-                      DataCell(
-                        Text(
-                          NumberFormat.currency(symbol: '₹').format(t.amount),
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
+          child: _transactions.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No transactions match the selected filters.',
+                    style: TextStyle(color: AppTheme.textSecondary),
+                  ),
+                )
+              : SingleChildScrollView(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columns: const [
+                        DataColumn(label: Text('Date')),
+                        DataColumn(label: Text('Reference#')),
+                        DataColumn(label: Text('Type')),
+                        DataColumn(label: Text('Account')),
+                        DataColumn(label: Text('Amount')),
+                      ],
+                      rows: _transactions.map((t) {
+                        final isSelected = _selectedTransactions.contains(t.id);
+                        return DataRow(
+                          selected: isSelected,
+                          onSelectChanged: (val) {
+                            setState(() {
+                              if (val == true) {
+                                _selectedTransactions.add(t.id);
+                              } else {
+                                _selectedTransactions.remove(t.id);
+                              }
+                            });
+                          },
+                          cells: [
+                            DataCell(
+                              Text(
+                                DateFormat(
+                                  'dd/MM/yyyy',
+                                ).format(t.transactionDate),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                t.referenceNumber ?? '-',
+                                style: const TextStyle(
+                                  color: AppTheme.primaryBlue,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            DataCell(Text(t.transactionType ?? '-')),
+                            DataCell(Text(t.accountName ?? '-')),
+                            DataCell(
+                              Text(
+                                NumberFormat.currency(
+                                  name:
+                                      t.currencyCode ??
+                                      ref.watch(orgCurrencyCodeProvider),
+                                  symbol:
+                                      '${t.currencyCode ?? ref.watch(orgCurrencyCodeProvider) ?? ''} ',
+                                ).format(t.amount),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+        ),
+
+        if (_transactions.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: AppTheme.borderColor)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'Page $_page of ${_totalPages == 0 ? 1 : _totalPages}',
+                  style: const TextStyle(color: AppTheme.textSecondary),
+                ),
+                const SizedBox(width: 16),
+                ZButton.secondary(
+                  label: 'Previous',
+                  onPressed: _page > 1 ? () => _loadPage(_page - 1) : null,
+                ),
+                const SizedBox(width: 8),
+                ZButton.secondary(
+                  label: 'Next',
+                  onPressed: _page < _totalPages
+                      ? () => _loadPage(_page + 1)
+                      : null,
+                ),
+              ],
             ),
           ),
-        ),
 
         // --- Bulk Action Footer ---
         if (_selectedTransactions.isNotEmpty)
@@ -417,9 +538,10 @@ class _AccountantBulkUpdateScreenState
                   ),
                 ),
                 const SizedBox(width: 16),
-                Tooltip(
+                ZTooltip(
                   message:
                       'Permanently update all selected transactions to the target account',
+                  direction: ZTooltipDirection.top,
                   child: ZButton.primary(
                     label: 'Update Transactions',
                     onPressed: _targetAccountId == null
@@ -476,7 +598,7 @@ class _FilterTransactionsDialog extends ConsumerStatefulWidget {
 class _FilterTransactionsDialogState
     extends ConsumerState<_FilterTransactionsDialog> {
   String? _selectedAccountId;
-  String? _selectedContactId;
+  Map<String, dynamic>? _selectedContact;
   final _startDateKey = GlobalKey();
   final _endDateKey = GlobalKey();
   DateTime? _startDate;
@@ -486,13 +608,6 @@ class _FilterTransactionsDialogState
   final TextEditingController _endDateController = TextEditingController();
   final TextEditingController _minAmountController = TextEditingController();
   final TextEditingController _maxAmountController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _startDateController.text = 'dd/MM/yyyy';
-    _endDateController.text = 'dd/MM/yyyy';
-  }
 
   @override
   void dispose() {
@@ -505,11 +620,18 @@ class _FilterTransactionsDialogState
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     final DateTime now = DateTime.now();
+    final firstDate = isStart ? DateTime(2000) : (_startDate ?? DateTime(2000));
+    final lastDate = isStart ? (_endDate ?? DateTime(2100)) : DateTime(2100);
+    var initialDate = (isStart ? _startDate : _endDate) ?? now;
+    if (initialDate.isBefore(firstDate)) initialDate = firstDate;
+    if (initialDate.isAfter(lastDate)) initialDate = lastDate;
+    assert(!initialDate.isBefore(firstDate) && !initialDate.isAfter(lastDate));
+
     final DateTime? picked = await ZerpaiDatePicker.show(
       context,
-      initialDate: (isStart ? _startDate : _endDate) ?? now,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
       targetKey: isStart ? _startDateKey : _endDateKey,
     );
 
@@ -561,6 +683,9 @@ class _FilterTransactionsDialogState
   @override
   Widget build(BuildContext context) {
     final accountsState = ref.watch(chartOfAccountsProvider);
+    final contacts =
+        ref.watch(manualJournalContactsProvider).valueOrNull ??
+        const <Map<String, dynamic>>[];
 
     return Dialog(
       backgroundColor: Colors.white,
@@ -652,13 +777,8 @@ class _FilterTransactionsDialogState
                     tooltip:
                         'Optionally filter transactions assigned to a specific customer or vendor',
                     child: FormDropdown<Map<String, dynamic>>(
-                      value: _selectedContactId != null
-                          ? {
-                              'id': _selectedContactId,
-                              'displayName': _selectedContactId,
-                            }
-                          : null,
-                      items: const [],
+                      value: _selectedContact,
+                      items: contacts,
                       hint: 'Select Contact',
                       showSearch: true,
                       displayStringForValue: (c) =>
@@ -667,14 +787,15 @@ class _FilterTransactionsDialogState
                       onSearch: (q) async {
                         return await ref.read(searchContactsProvider(q).future);
                       },
-                      onChanged: (v) =>
-                          setState(() => _selectedContactId = v?['id']),
+                      onChanged: (value) =>
+                          setState(() => _selectedContact = value),
                     ),
                   ),
 
                   // --- Date Range ---
                   SharedFieldLayout(
                     label: 'Date Range',
+                    required: true,
                     tooltip:
                         'Restrict search to transactions that occurred within this date range',
                     child: Row(
@@ -770,9 +891,24 @@ class _FilterTransactionsDialogState
                         );
                         return;
                       }
+                      if (_startDate == null || _endDate == null) {
+                        ZerpaiToast.error(
+                          context,
+                          'Please select both start and end dates.',
+                        );
+                        return;
+                      }
+                      if (_startDate!.isAfter(_endDate!)) {
+                        ZerpaiToast.error(
+                          context,
+                          'End date must be on or after start date.',
+                        );
+                        return;
+                      }
                       widget.onSearch(
                         accountId: _selectedAccountId,
-                        contactId: _selectedContactId,
+                        contactId: _selectedContact?['id']?.toString(),
+                        contactType: _selectedContact?['type']?.toString(),
                         startDate: _startDate,
                         endDate: _endDate,
                         minAmount: double.tryParse(_minAmountController.text),

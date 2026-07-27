@@ -11,6 +11,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 enum DeliveryChallansSettingsTab {
   preferences,
@@ -62,14 +63,7 @@ class _StatusDialogResult {
 final ValueNotifier<List<_DeliveryChallanStatusRecord>>
 _deliveryChallanStatusesNotifier =
     ValueNotifier<List<_DeliveryChallanStatusRecord>>(
-      const <_DeliveryChallanStatusRecord>[
-        _DeliveryChallanStatusRecord(
-          customStatusFor: 'Confirmed',
-          statusName: 'ef',
-          description: 'wfwef',
-          labelColor: Color(0xFFFF2B6D),
-        ),
-      ],
+      const <_DeliveryChallanStatusRecord>[],
     );
 
 class DeliveryChallansSettingsPage extends ConsumerStatefulWidget {
@@ -87,6 +81,8 @@ class DeliveryChallansSettingsPage extends ConsumerStatefulWidget {
 
 class _DeliveryChallansSettingsPageState
     extends ConsumerState<DeliveryChallansSettingsPage> {
+  final SettingsPreferencesRepository _preferencesRepository =
+      SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _termsController = TextEditingController();
@@ -100,6 +96,49 @@ class _DeliveryChallansSettingsPageState
   void initState() {
     super.initState();
     _activeTab = widget.initialTab;
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final data = await _preferencesRepository.loadSection(
+        'pdf_preferences',
+        const ['documents', 'delivery_challans'],
+      );
+      if (!mounted || data.isEmpty) return;
+      setState(() {
+        _termsController.text = data['terms']?.toString() ?? '';
+        _customerNotesController.text =
+            data['customer_notes']?.toString() ?? '';
+      });
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(
+          context,
+          'Failed to load delivery challan preferences',
+        );
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    try {
+      await _preferencesRepository.saveSection(
+        'pdf_preferences',
+        {
+          'terms': _termsController.text,
+          'customer_notes': _customerNotesController.text,
+        },
+        const ['documents', 'delivery_challans'],
+      );
+      if (mounted)
+        ZerpaiToast.success(context, 'Delivery Challans preferences saved');
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(
+          context,
+          'Failed to save delivery challan preferences',
+        );
+    }
   }
 
   @override
@@ -266,6 +305,7 @@ class _DeliveryChallansSettingsPageState
                                                       _termsController,
                                                   customerNotesController:
                                                       _customerNotesController,
+                                                  onSave: _savePreferences,
                                                 ),
                                         ),
                                 ),
@@ -290,10 +330,12 @@ class _DeliveryChallansPreferencesContent extends StatelessWidget {
   const _DeliveryChallansPreferencesContent({
     required this.termsController,
     required this.customerNotesController,
+    required this.onSave,
   });
 
   final TextEditingController termsController;
   final TextEditingController customerNotesController;
+  final Future<void> Function() onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -345,12 +387,7 @@ class _DeliveryChallansPreferencesContent extends StatelessWidget {
         SizedBox(
           height: 34,
           child: ElevatedButton(
-            onPressed: () {
-              ZerpaiToast.success(
-                context,
-                'Delivery Challans preferences saved',
-              );
-            },
+            onPressed: onSave,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,

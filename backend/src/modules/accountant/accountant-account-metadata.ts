@@ -1,0 +1,115 @@
+export const ACCOUNT_GROUP_TO_TYPES: Record<string, readonly string[]> = {
+  Assets: [
+    "Bank",
+    "Cash",
+    "Accounts Receivable",
+    "Stock",
+    "Payment Clearing Account",
+    "Other Current Asset",
+    "Fixed Asset",
+    "Non Current Asset",
+    "Intangible Asset",
+    "Deferred Tax Asset",
+    "Other Asset",
+  ],
+  Liabilities: [
+    "Credit Card",
+    "Accounts Payable",
+    "Other Current Liability",
+    "Overseas Tax Payable",
+    "Non Current Liability",
+    "Deferred Tax Liability",
+    "Other Liability",
+    "Mortgages",
+    "Construction Loans",
+    "Home Equity Loans",
+  ],
+  Equity: ["Equity"],
+  Income: ["Income", "Other Income"],
+  Expenses: [
+    "Cost Of Goods Sold",
+    "Expense",
+    "Other Expense",
+    "Contract Assets",
+  ],
+};
+
+export const ACCOUNT_METADATA = {
+  groupToTypes: ACCOUNT_GROUP_TO_TYPES,
+  categoryDefinitions: {
+    Assets:
+      "Short-term and long-term resources controlled by the business.",
+    Liabilities:
+      "Current and long-term obligations owed by the business.",
+    Expenses:
+      "Direct costs and operating costs incurred by the business.",
+    Income:
+      "Revenue from primary and secondary business activities.",
+    Equity:
+      "Owner or stakeholder interest after deducting liabilities.",
+  },
+  typeDefinitions: {
+    "Credit Card":
+      "Tracks purchases, payments, and balances for a credit card.",
+  },
+  typeExamples: {
+    Stock: ["Inventory assets"],
+    "Accounts Receivable": ["Unpaid invoices"],
+    "Fixed Asset": [
+      "Land and buildings",
+      "Plant, machinery and equipment",
+      "Computers",
+      "Furniture",
+    ],
+    Bank: ["Savings", "Checking", "Money market accounts"],
+    Cash: ["Petty cash", "Undeposited funds"],
+    "Other Current Asset": ["Prepaid expenses", "Short-term investments"],
+    "Other Asset": ["Goodwill", "Other intangible assets"],
+    "Other Expense": ["Insurance", "Charitable contributions"],
+    "Cost Of Goods Sold": ["Materials", "Direct labour"],
+    Expense: ["Marketing", "Travel", "Licence fees", "Utilities"],
+    "Other Income": ["Interest earned", "Dividend earned"],
+    Income: ["Sale of goods", "Services to customers"],
+    Equity: ["Owner's capital", "Shareholder investment"],
+    "Deferred Tax Liability": [
+      "Accelerated depreciation",
+      "Revenue received in advance",
+    ],
+    "Overseas Tax Payable": ["Taxes payable in foreign jurisdictions"],
+    "Accounts Payable": ["Amounts owed to suppliers"],
+    "Other Liability": ["Taxes payable", "Loans payable"],
+    "Non Current Liability": ["Notes payable", "Long-term loans"],
+    "Credit Card": ["Credit card transactions"],
+    "Other Current Liability": ["Customer deposits", "Tax payable"],
+    "Deferred Tax Asset": [
+      "Warranty provisions",
+      "Bad debt provisions",
+      "Tax loss carry-forwards",
+    ],
+    "Payment Clearing Account": ["Payment gateway clearing"],
+    "Intangible Asset": [
+      "Goodwill",
+      "Patents",
+      "Copyrights",
+      "Trademarks",
+    ],
+    "Non Current Asset": ["Long-term investments"],
+    "Contract Assets": ["Unbilled contract consideration"],
+  },
+  zerpaiExpenseSupportedTypes: [
+    "Stock",
+    "Fixed Asset",
+    "Bank",
+    "Cash",
+    "Other Current Asset",
+    "Other Asset",
+    "Other Expense",
+    "Cost Of Goods Sold",
+    "Expense",
+    "Other Liability",
+    "Non Current Liability",
+    "Credit Card",
+    "Other Current Liability",
+    "Intangible Asset",
+  ],
+} as const;

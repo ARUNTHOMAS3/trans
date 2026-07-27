@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:skeletonizer/skeletonizer.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
@@ -14,6 +13,8 @@ import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
+import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 
 class OpeningBalancesUpdateScreen extends ConsumerStatefulWidget {
   const OpeningBalancesUpdateScreen({super.key});
@@ -108,9 +109,15 @@ class _OpeningBalancesUpdateScreenState
     final accountsState = ref.watch(chartOfAccountsProvider);
     final openingState = ref.watch(openingBalanceProvider);
     final leafAccounts = _getLeafAccounts(accountsState.roots);
+    final isLoading = accountsState.isLoading || openingState.isLoading;
+    final loadError = openingState.error ?? accountsState.error;
 
-    // Initialize controllers with existing balances safely
-    _initControllers(leafAccounts, openingState);
+    if (!isLoading && loadError == null) {
+      if (_debitControllers.isEmpty && !_isDirty) {
+        _openingDate = openingState.openingDate;
+      }
+      _initControllers(leafAccounts, openingState);
+    }
 
     // Refresh totals on first build after controller init
     if (_totalDebit == 0 && _totalCredit == 0 && leafAccounts.isNotEmpty) {
@@ -125,44 +132,46 @@ class _OpeningBalancesUpdateScreenState
         children: [
           _buildToolbar(),
           Expanded(
-            child: leafAccounts.isEmpty
-                ? accountsState.isLoading
-                      ? Skeletonizer(
-                          enabled: true,
-                          ignoreContainers: true,
-                          child: ListView.builder(
-                            itemCount: 10,
-                            itemBuilder: (_, __) => const ListTile(
-                              title: Text('Account name placeholder'),
-                              trailing: SizedBox(width: 120, height: 36),
-                            ),
+            child: isLoading
+                ? const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: ZTableSkeleton(rows: 8, columns: 3),
+                  )
+                : loadError != null
+                ? ZErrorPlaceholder(
+                    error: loadError,
+                    message: 'Unable to load opening balances',
+                    onRetry: () {
+                      ref.read(chartOfAccountsProvider.notifier).refresh();
+                      ref.read(openingBalanceProvider.notifier).loadBalances();
+                    },
+                  )
+                : leafAccounts.isEmpty
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          LucideIcons.list,
+                          size: 48,
+                          color: AppTheme.textMuted,
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'No leaf accounts found.',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
-                        )
-                      : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                LucideIcons.list,
-                                size: 48,
-                                color: AppTheme.textMuted,
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'No leaf accounts found.',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Ensure you have leaf accounts in your Chart of Accounts.',
-                                style: TextStyle(color: AppTheme.textMuted),
-                              ),
-                            ],
-                          ),
-                        )
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Ensure you have leaf accounts in your Chart of Accounts.',
+                          style: TextStyle(color: AppTheme.textMuted),
+                        ),
+                      ],
+                    ),
+                  )
                 : _buildEditTable(leafAccounts),
           ),
           _buildFooter(),
@@ -370,6 +379,8 @@ class _OpeningBalancesUpdateScreenState
   }
 
   Widget _buildFooter() {
+    final currencyCode = ref.watch(orgCurrencyCodeProvider);
+    final currencyPrefix = currencyCode == null ? '' : '$currencyCode ';
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
@@ -382,7 +393,7 @@ class _OpeningBalancesUpdateScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Difference: ₹ ${NumberFormat('#,##,##0.00').format(_difference)}',
+                'Difference: $currencyPrefix${NumberFormat('#,##,##0.00').format(_difference)}',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: _difference == 0
@@ -391,7 +402,7 @@ class _OpeningBalancesUpdateScreenState
                 ),
               ),
               Text(
-                'Total Debit: ₹ ${NumberFormat('#,##,##0.00').format(_totalDebit)} | Total Credit: ₹ ${NumberFormat('#,##,##0.00').format(_totalCredit)}',
+                'Total Debit: $currencyPrefix${NumberFormat('#,##,##0.00').format(_totalDebit)} | Total Credit: $currencyPrefix${NumberFormat('#,##,##0.00').format(_totalCredit)}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: AppTheme.textSecondary,
@@ -416,7 +427,7 @@ class _OpeningBalancesUpdateScreenState
   }
 
   Future<void> _handleSave() async {
-    if (_difference != 0) {
+    if (_difference >= 0.01) {
       ZerpaiToast.error(context, 'Total Debits and Credits must be equal.');
       return;
     }
@@ -432,6 +443,17 @@ class _OpeningBalancesUpdateScreenState
     _creditControllers.forEach(
       (id, ctrl) => credits[id] = double.tryParse(ctrl.text) ?? 0.0,
     );
+    final invalidAccount = debits.keys.any(
+      (id) => (debits[id] ?? 0) > 0 && (credits[id] ?? 0) > 0,
+    );
+    if (invalidAccount) {
+      setState(() => _isSaving = false);
+      ZerpaiToast.error(
+        context,
+        'An account cannot have both debit and credit opening balances.',
+      );
+      return;
+    }
 
     // Save to provider and sync to backend
     try {

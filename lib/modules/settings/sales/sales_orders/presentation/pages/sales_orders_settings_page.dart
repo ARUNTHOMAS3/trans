@@ -11,6 +11,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 enum SalesOrdersSettingsTab {
   preferences,
@@ -61,14 +62,7 @@ class _StatusDialogResult {
 
 final ValueNotifier<List<_SalesOrderStatusRecord>> _salesOrderStatusesNotifier =
     ValueNotifier<List<_SalesOrderStatusRecord>>(
-      const <_SalesOrderStatusRecord>[
-        _SalesOrderStatusRecord(
-          customStatusFor: 'Confirmed',
-          statusName: 'ef',
-          description: 'wfwef',
-          labelColor: Color(0xFFFF2B6D),
-        ),
-      ],
+      const <_SalesOrderStatusRecord>[],
     );
 
 class SalesOrdersSettingsPage extends ConsumerStatefulWidget {
@@ -86,6 +80,8 @@ class SalesOrdersSettingsPage extends ConsumerStatefulWidget {
 
 class _SalesOrdersSettingsPageState
     extends ConsumerState<SalesOrdersSettingsPage> {
+  final SettingsPreferencesRepository _preferencesRepository =
+      SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _termsController = TextEditingController();
@@ -105,6 +101,64 @@ class _SalesOrdersSettingsPageState
   void initState() {
     super.initState();
     _activeTab = widget.initialTab;
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final data = await _preferencesRepository.loadSection(
+        'pdf_preferences',
+        const ['documents', 'sales_orders'],
+      );
+      if (!mounted || data.isEmpty) return;
+      setState(() {
+        _updateAddress = data['update_address'] as bool? ?? _updateAddress;
+        _updateCustomerNotes =
+            data['update_customer_notes'] as bool? ?? _updateCustomerNotes;
+        _updateTerms = data['update_terms'] as bool? ?? _updateTerms;
+        _closeOption =
+            _SalesOrderCloseOption.values
+                .where((v) => v.name == data['close_option'])
+                .firstOrNull ??
+            _closeOption;
+        _restrictClosedEdits =
+            data['restrict_closed_edits'] as bool? ?? _restrictClosedEdits;
+        _restrictFulfillmentUntilPayment =
+            data['restrict_fulfillment_until_payment'] as bool? ??
+            _restrictFulfillmentUntilPayment;
+        _termsController.text = data['terms']?.toString() ?? '';
+        _customerNotesController.text =
+            data['customer_notes']?.toString() ?? '';
+      });
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to load sales order preferences');
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    try {
+      await _preferencesRepository.saveSection(
+        'pdf_preferences',
+        {
+          'update_address': _updateAddress,
+          'update_customer_notes': _updateCustomerNotes,
+          'update_terms': _updateTerms,
+          'close_option': _closeOption.name,
+          'restrict_closed_edits': _restrictClosedEdits,
+          'restrict_fulfillment_until_payment':
+              _restrictFulfillmentUntilPayment,
+          'terms': _termsController.text,
+          'customer_notes': _customerNotesController.text,
+        },
+        const ['documents', 'sales_orders'],
+      );
+      if (mounted)
+        ZerpaiToast.success(context, 'Sales Orders preferences saved');
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(context, 'Failed to save sales order preferences');
+    }
   }
 
   @override
@@ -274,6 +328,7 @@ class _SalesOrdersSettingsPageState
                                                       _termsController,
                                                   customerNotesController:
                                                       _customerNotesController,
+                                                  onSave: _savePreferences,
                                                   onUpdateAddressChanged:
                                                       (value) {
                                                         setState(
@@ -363,6 +418,7 @@ class _SalesOrdersPreferencesContent extends StatelessWidget {
     required this.onCloseOptionChanged,
     required this.onRestrictClosedEditsChanged,
     required this.onRestrictFulfillmentChanged,
+    required this.onSave,
   });
 
   final bool updateAddress;
@@ -379,6 +435,7 @@ class _SalesOrdersPreferencesContent extends StatelessWidget {
   final ValueChanged<_SalesOrderCloseOption?> onCloseOptionChanged;
   final ValueChanged<bool> onRestrictClosedEditsChanged;
   final ValueChanged<bool> onRestrictFulfillmentChanged;
+  final Future<void> Function() onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -503,9 +560,7 @@ class _SalesOrdersPreferencesContent extends StatelessWidget {
         SizedBox(
           height: 34,
           child: ElevatedButton(
-            onPressed: () {
-              ZerpaiToast.success(context, 'Sales Orders preferences saved');
-            },
+            onPressed: onSave,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,

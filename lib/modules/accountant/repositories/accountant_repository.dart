@@ -1,90 +1,49 @@
 // FILE: lib/modules/accountant/repositories/accountant_repository.dart
-// Enhanced repository for Chart of Accounts with offline support (PRD Section 12.2)
+// Accountant repository. Tenant-scoped business data remains server-owned.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
-import 'package:zerpai_erp/shared/services/hive_service.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart';
 import '../models/account_transaction_model.dart';
 import '../models/accountant_lookup_models.dart';
 import '../models/accountant_metadata_model.dart';
 
+class AccountTransactionSearchPage {
+  const AccountTransactionSearchPage({
+    required this.items,
+    required this.page,
+    required this.pageSize,
+    required this.total,
+    required this.totalPages,
+  });
+
+  final List<AccountTransaction> items;
+  final int page;
+  final int pageSize;
+  final int total;
+  final int totalPages;
+}
+
 class AccountantRepository {
   final ApiClient _apiClient;
-  final HiveService _hiveService;
 
-  AccountantRepository(this._apiClient, this._hiveService);
+  AccountantRepository(this._apiClient);
 
-  /// Fetch accounts tree - Online-first with offline fallback
+  /// Fetch the current entity's account tree from the server.
   Future<List<AccountNode>> getAccounts({bool forceRefresh = false}) async {
-    try {
-      // Online-first: Fetch from API
-      final response = await _apiClient.get(
-        'accountant',
-        useCache: !forceRefresh,
-      );
-      final List<AccountNode> rawAccounts = (response.data as List)
-          .map((e) => AccountNode.fromJson(e))
-          .toList();
-      final List<AccountNode> accounts = _systemStartupAccounts(
-        _ensureTree(rawAccounts),
-      );
-
-      // Cache to Hive for offline access
-      await _hiveService.saveAccounts(accounts);
-
-      // Update last sync timestamp
-      await _hiveService.updateLastSyncTime('accountant');
-
-      return accounts;
-    } catch (e) {
-      final errorText = e.toString().toLowerCase();
-      final isAuthOrScopeError =
-          errorText.contains('401') ||
-          errorText.contains('403') ||
-          errorText.contains('unauthorized') ||
-          errorText.contains('forbidden') ||
-          errorText.contains('invalid or expired token');
-      if (isAuthOrScopeError) {
-        // Never show stale cached accounts on auth/scope failures.
-        // Prevents cross-user/entity data bleed in tenant-switched sessions.
-        await _hiveService.accountsBox.clear();
-        rethrow;
-      }
-
-      // Offline fallback: Return cached data
-      AppLogger.warning(
-        'API fetch failed, using cached accounts',
-        error: e,
-        module: 'accountant',
-      );
-
-      final cachedAccounts = _hiveService.getAccounts();
-
-      if (cachedAccounts.isEmpty) {
-        rethrow;
-      }
-
-      return _systemStartupAccounts(_ensureTree(cachedAccounts));
-    }
+    final response = await _apiClient.get('accountant', useCache: false);
+    final rawAccounts = (response.data as List)
+        .map((e) => AccountNode.fromJson(e))
+        .toList();
+    return _ensureTree(rawAccounts);
   }
 
   /// Get single account by ID
   Future<AccountNode?> getAccount(String id) async {
-    // Check cache first (faster)
-    final cached = _hiveService.getAccount(id);
-    if (cached != null) {
-      return cached;
-    }
-
-    // Not in cache, fetch from API
     try {
       final response = await _apiClient.get('accountant/$id');
-      final account = AccountNode.fromJson(response.data);
-
-      await _hiveService.saveAccount(account);
-      return account;
+      return AccountNode.fromJson(response.data);
     } catch (e) {
       AppLogger.warning(
         'Failed to fetch account',
@@ -100,12 +59,7 @@ class AccountantRepository {
   Future<AccountNode> createAccount(Map<String, dynamic> data) async {
     try {
       final response = await _apiClient.post('accountant', data: data);
-      final createdAccount = AccountNode.fromJson(response.data);
-
-      // Cache locally
-      await _hiveService.saveAccount(createdAccount);
-
-      return createdAccount;
+      return AccountNode.fromJson(response.data);
     } catch (e) {
       AppLogger.error(
         'Failed to create account',
@@ -123,12 +77,7 @@ class AccountantRepository {
   ) async {
     try {
       final response = await _apiClient.put('accountant/$id', data: data);
-      final updatedAccount = AccountNode.fromJson(response.data);
-
-      // Update cache
-      await _hiveService.saveAccount(updatedAccount);
-
-      return updatedAccount;
+      return AccountNode.fromJson(response.data);
     } catch (e) {
       AppLogger.error(
         'Failed to update account',
@@ -144,9 +93,6 @@ class AccountantRepository {
   Future<void> deleteAccount(String id) async {
     try {
       await _apiClient.delete('accountant/$id');
-
-      // Remove from cache
-      await _hiveService.accountsBox.delete(id);
     } catch (e) {
       AppLogger.error(
         'Failed to delete account',
@@ -169,7 +115,7 @@ class AccountantRepository {
         error: e,
         module: 'accountant',
       );
-      return [];
+      rethrow;
     }
   }
 
@@ -194,140 +140,18 @@ class AccountantRepository {
   Future<AccountMetadata> getAccountMetadata() async {
     try {
       final response = await _apiClient.get('accountant/metadata');
-      return AccountMetadata.fromJson(response.data);
+      final metadata = AccountMetadata.fromJson(response.data);
+      if (metadata.groupToTypes.isEmpty) {
+        throw StateError('Account metadata response is empty');
+      }
+      return metadata;
     } catch (e) {
       AppLogger.warning(
         'Failed to fetch account metadata, using defaults',
         error: e,
         module: 'accountant',
       );
-      // Centralized fallback - moving this OUT of the UI
-      return const AccountMetadata(
-        groupToTypes: {
-          'Assets': [
-            'Bank',
-            'Cash',
-            'Accounts Receivable',
-            'Stock',
-            'Payment Clearing Account',
-            'Other Current Asset',
-            'Fixed Asset',
-            'Non Current Asset',
-            'Intangible Asset',
-            'Deferred Tax Asset',
-            'Other Asset',
-          ],
-          'Liabilities': [
-            'Credit Card',
-            'Accounts Payable',
-            'Other Current Liability',
-            'Overseas Tax Payable',
-            'Non Current Liability',
-            'Deferred Tax Liability',
-            'Other Liability',
-          ],
-          'Expenses': [
-            'Cost Of Goods Sold',
-            'Expense',
-            'Other Expense',
-            'Contract Assets',
-          ],
-          'Income': ['Income', 'Other Income'],
-          'Equity': ['Equity'],
-        },
-        categoryDefinitions: {
-          'Assets':
-              'Any short term/long term asset that can be converted into cash easily.',
-          'Liabilities':
-              'Obligations arising from past transactions or future tax payments.',
-          'Expenses':
-              'Direct costs attributable to production or costs for running normal business operations.',
-          'Income':
-              'Revenue earned from normal business activities or secondary activities like interest.',
-          'Equity':
-              "Owners or stakeholders interest on the assets of the business after deducting all the liabilities.",
-        },
-        typeDefinitions: {
-          'Credit Card':
-              'Create a trail of all your credit card transactions by creating a credit card account',
-        },
-        typeExamples: {
-          'Stock': ['Inventory assets'],
-          'Accounts Receivable': ['Unpaid Invoices'],
-          'Fixed Asset': [
-            'Land and Buildings',
-            'Plant, Machinery and Equipment',
-            'Computers',
-            'Furniture',
-          ],
-          'Bank': ['Savings', 'Checking', 'Money Market accounts'],
-          'Cash': ['Petty cash', 'Undeposited funds'],
-          'Other Current Asset': [
-            'Prepaid expenses',
-            'Stocks and Mutual Funds',
-          ],
-          'Other Asset': ['Goodwill', 'Other intangible assets'],
-          'Other Expense': ['Insurance', 'Contribution towards charity'],
-          'Cost Of Goods Sold': [
-            'Material and Labor costs',
-            'Cost of obtaining raw materials',
-          ],
-          'Expense': [
-            'Advertisements and Marketing',
-            'Business Travel Expenses',
-            'License Fees',
-            'Utility Expenses',
-          ],
-          'Other Income': ['Interest Earned', 'Dividend Earned'],
-          'Income': ['Sale of goods', 'Services to customers'],
-          'Equity': ['Owner\'s Capital', 'Shareholder investment'],
-          'Deferred Tax Liability': [
-            'Accelerated depreciation',
-            'Revenue received in advance',
-          ],
-          'Overseas Tax Payable': [
-            'Taxes for digital services to foreign customers',
-          ],
-          'Accounts Payable': ['Money owed to suppliers'],
-          'Other Liability': ['Tax to be paid', 'Loan to be Repaid'],
-          'Non Current Liability': [
-            'Notes Payable',
-            'Debentures',
-            'Long Term Loans',
-          ],
-          'Credit Card': ['Credit card transactions'],
-          'Other Current Liability': ['Customer Deposits', 'Tax Payable'],
-          'Deferred Tax Asset': [
-            'Warranty expenses',
-            'Bad debt provisions',
-            'Tax loss carry-forwards',
-          ],
-          'Payment Clearing Account': ['Stripe', 'PayPal'],
-          'Intangible Asset': [
-            'Goodwill',
-            'Patents',
-            'Copyrights',
-            'Trademarks',
-          ],
-          'Non Current Asset': ['Long term investments'],
-        },
-        zerpaiExpenseSupportedTypes: [
-          'Stock',
-          'Fixed Asset',
-          'Bank',
-          'Cash',
-          'Other Current Asset',
-          'Other Asset',
-          'Other Expense',
-          'Cost Of Goods Sold',
-          'Expense',
-          'Other Liability',
-          'Non Current Liability',
-          'Credit Card',
-          'Other Current Liability',
-          'Intangible Asset',
-        ],
-      );
+      rethrow;
     }
   }
 
@@ -345,9 +169,7 @@ class AccountantRepository {
         module: 'accountant',
         data: {'group': group},
       );
-      // Fallback: Filter cached accounts
-      final allAccounts = _flattenAccountTree(_hiveService.getAccounts());
-      return allAccounts.where((acc) => acc.accountGroup == group).toList();
+      rethrow;
     }
   }
 
@@ -365,16 +187,7 @@ class AccountantRepository {
         module: 'accountant',
         data: {'query': query},
       );
-      // Fallback: Filter cached accounts
-      final allAccounts = _flattenAccountTree(_hiveService.getAccounts());
-      final lowercaseQuery = query.toLowerCase();
-      return allAccounts
-          .where(
-            (acc) =>
-                acc.name.toLowerCase().contains(lowercaseQuery) ||
-                (acc.code?.toLowerCase().contains(lowercaseQuery) ?? false),
-          )
-          .toList();
+      rethrow;
     }
   }
 
@@ -399,7 +212,7 @@ class AccountantRepository {
         module: 'accountant',
         data: {'accountId': accountId},
       );
-      return [];
+      rethrow;
     }
   }
 
@@ -420,7 +233,7 @@ class AccountantRepository {
         module: 'accountant',
         data: {'accountId': accountId},
       );
-      return {'balance': 0.0, 'type': 'Dr'};
+      rethrow;
     }
   }
 
@@ -433,9 +246,33 @@ class AccountantRepository {
     double? maxAmount,
     int limit = 100,
   }) async {
+    final page = await searchTransactionsPage(
+      accountId: accountId,
+      startDate: startDate,
+      endDate: endDate,
+      minAmount: minAmount,
+      maxAmount: maxAmount,
+      pageSize: limit,
+    );
+    return page.items;
+  }
+
+  Future<AccountTransactionSearchPage> searchTransactionsPage({
+    String? accountId,
+    String? contactId,
+    String? contactType,
+    DateTime? startDate,
+    DateTime? endDate,
+    double? minAmount,
+    double? maxAmount,
+    int page = 1,
+    int pageSize = 100,
+  }) async {
     try {
-      final queryParams = <String, dynamic>{'limit': limit};
+      final queryParams = <String, dynamic>{'page': page, 'pageSize': pageSize};
       if (accountId != null) queryParams['accountId'] = accountId;
+      if (contactId != null) queryParams['contactId'] = contactId;
+      if (contactType != null) queryParams['contactType'] = contactType;
       if (startDate != null) {
         queryParams['startDate'] = startDate.toIso8601String();
       }
@@ -448,16 +285,46 @@ class AccountantRepository {
         queryParameters: queryParams,
       );
 
-      return (response.data as List)
-          .map((e) => AccountTransaction.fromJson(e))
-          .toList();
+      final payload = response.data;
+      if (payload is List) {
+        final items = payload
+            .whereType<Map>()
+            .map(
+              (e) => AccountTransaction.fromJson(Map<String, dynamic>.from(e)),
+            )
+            .toList();
+        return AccountTransactionSearchPage(
+          items: items,
+          page: page,
+          pageSize: pageSize,
+          total: items.length,
+          totalPages: items.isEmpty ? 0 : 1,
+        );
+      }
+      final map = Map<String, dynamic>.from(payload as Map);
+      final rawItems = (map['items'] as List? ?? const []);
+      final pagination = Map<String, dynamic>.from(
+        map['pagination'] as Map? ?? const {},
+      );
+      return AccountTransactionSearchPage(
+        items: rawItems
+            .whereType<Map>()
+            .map(
+              (e) => AccountTransaction.fromJson(Map<String, dynamic>.from(e)),
+            )
+            .toList(),
+        page: (pagination['page'] as num?)?.toInt() ?? page,
+        pageSize: (pagination['pageSize'] as num?)?.toInt() ?? pageSize,
+        total: (pagination['total'] as num?)?.toInt() ?? rawItems.length,
+        totalPages: (pagination['totalPages'] as num?)?.toInt() ?? 1,
+      );
     } catch (e) {
       AppLogger.error(
         'Failed to search transactions',
         error: e,
         module: 'accountant',
       );
-      return [];
+      rethrow;
     }
   }
 
@@ -499,11 +366,26 @@ class AccountantRepository {
           'openingDate': openingDate.toIso8601String(),
         },
       );
-      // Clear cache as balances will change
-      await _hiveService.accountsBox.clear();
     } catch (e) {
       AppLogger.error(
         'Failed to save opening balances',
+        error: e,
+        module: 'accountant',
+      );
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> getOpeningBalances() async {
+    try {
+      final response = await _apiClient.get(
+        'accountant/opening-balances',
+        useCache: false,
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } catch (e) {
+      AppLogger.error(
+        'Failed to load opening balances',
         error: e,
         module: 'accountant',
       );
@@ -523,30 +405,11 @@ class AccountantRepository {
     return _findAccountPath(allAccounts, accountId);
   }
 
-  /// Check if cache is stale
-  bool isCacheStale({Duration threshold = const Duration(hours: 24)}) {
-    final lastSync = _hiveService.getLastSyncTime('Accountant');
-    if (lastSync == null) return true;
-
-    return DateTime.now().difference(lastSync) > threshold;
-  }
-
-  /// Get cache info
-  Map<String, dynamic> getCacheInfo() {
-    final lastSync = _hiveService.getLastSyncTime('Accountant');
-    final stats = _hiveService.getCacheStats();
-
-    return {
-      'cached_accounts': stats['Accountant'] ?? 0,
-      'last_sync': lastSync?.toIso8601String(),
-      'is_stale': isCacheStale(),
-    };
-  }
+  // Offline cache intentionally omitted until keys include active entity.
 
   // ==================== PRIVATE HELPER METHODS ====================
 
-  /// Ensure cached data is returned as a hierarchy.
-  /// Hive currently stores accounts in flat form for offline fallback.
+  /// Ensure API data is returned as a hierarchy.
   List<AccountNode> _ensureTree(List<AccountNode> accounts) {
     if (accounts.any((account) => account.children.isNotEmpty)) {
       return accounts;
@@ -582,45 +445,6 @@ class AccountantRepository {
     }
 
     return roots;
-  }
-
-  List<AccountNode> _systemStartupAccounts(List<AccountNode> accounts) {
-    List<AccountNode> mapNodeList(List<AccountNode> nodes) {
-      final result = <AccountNode>[];
-      for (final node in nodes) {
-        final mappedChildren = mapNodeList(node.children);
-        if (!node.isSystem) {
-          continue;
-        }
-        result.add(
-          node.copyWith(
-            balance: 0.0,
-            balanceType: 'Dr',
-            children: mappedChildren,
-          ),
-        );
-      }
-      return result;
-    }
-
-    return mapNodeList(accounts);
-  }
-
-  /// Flatten account tree to list
-  List<AccountNode> _flattenAccountTree(List<AccountNode> accounts) {
-    final result = <AccountNode>[];
-
-    void traverse(List<AccountNode> nodes) {
-      for (final node in nodes) {
-        result.add(node);
-        if (node.children.isNotEmpty) {
-          traverse(node.children);
-        }
-      }
-    }
-
-    traverse(accounts);
-    return result;
   }
 
   /// Get leaf accounts (no children)
@@ -672,5 +496,5 @@ class AccountantRepository {
 }
 
 final accountantRepositoryProvider = Provider<AccountantRepository>((ref) {
-  return AccountantRepository(ref.watch(apiClientProvider), HiveService());
+  return AccountantRepository(ref.watch(apiClientProvider));
 });

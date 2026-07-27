@@ -8,6 +8,7 @@ import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/settings_search_field.dart';
 import 'package:zerpai_erp/shared/widgets/settings_navigation_sidebar.dart';
+import 'package:zerpai_erp/modules/settings/shared/data/repositories/settings_preferences_repository.dart';
 
 enum PurchaseReceivesSettingsTab {
   preferences,
@@ -33,6 +34,8 @@ class PurchaseReceivesSettingsPage extends ConsumerStatefulWidget {
 
 class _PurchaseReceivesSettingsPageState
     extends ConsumerState<PurchaseReceivesSettingsPage> {
+  final SettingsPreferencesRepository _preferencesRepository =
+      SettingsPreferencesRepository();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final ScrollController _contentScrollController = ScrollController();
@@ -44,6 +47,46 @@ class _PurchaseReceivesSettingsPageState
   void initState() {
     super.initState();
     _activeTab = widget.initialTab;
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final data = await _preferencesRepository.loadSection(
+        'stock_preferences',
+        const ['purchase', 'purchase_receives'],
+      );
+      if (!mounted || data.isEmpty) return;
+      setState(
+        () => _receiveQtyMoreThanOrdered =
+            data['receive_qty_more_than_ordered'] as bool? ??
+            _receiveQtyMoreThanOrdered,
+      );
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(
+          context,
+          'Failed to load purchase receive preferences',
+        );
+    }
+  }
+
+  Future<void> _savePreferences() async {
+    try {
+      await _preferencesRepository.saveSection(
+        'stock_preferences',
+        {'receive_qty_more_than_ordered': _receiveQtyMoreThanOrdered},
+        const ['purchase', 'purchase_receives'],
+      );
+      if (mounted)
+        ZerpaiToast.success(context, 'Purchase Receives preferences saved');
+    } catch (_) {
+      if (mounted)
+        ZerpaiToast.error(
+          context,
+          'Failed to save purchase receive preferences',
+        );
+    }
   }
 
   @override
@@ -163,6 +206,7 @@ class _PurchaseReceivesSettingsPageState
                                                             value,
                                                   );
                                                 },
+                                            onSave: _savePreferences,
                                           )
                                         : Center(
                                             child: Padding(
@@ -203,10 +247,12 @@ class _PurchaseReceivesPreferencesContent extends StatelessWidget {
   const _PurchaseReceivesPreferencesContent({
     required this.receiveQtyMoreThanOrdered,
     required this.onReceiveQtyMoreThanOrderedChanged,
+    required this.onSave,
   });
 
   final bool receiveQtyMoreThanOrdered;
   final ValueChanged<bool> onReceiveQtyMoreThanOrderedChanged;
+  final Future<void> Function() onSave;
 
   @override
   Widget build(BuildContext context) {
@@ -224,12 +270,7 @@ class _PurchaseReceivesPreferencesContent extends StatelessWidget {
         SizedBox(
           height: 34,
           child: ElevatedButton(
-            onPressed: () {
-              ZerpaiToast.success(
-                context,
-                'Purchase Receives preferences saved',
-              );
-            },
+            onPressed: onSave,
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
