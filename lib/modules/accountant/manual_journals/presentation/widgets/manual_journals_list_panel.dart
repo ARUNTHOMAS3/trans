@@ -14,6 +14,7 @@ import 'package:zerpai_erp/modules/accountant/manual_journals/providers/manual_j
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/core/utils/error_handler.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
 
 enum ManualJournalSortField { date, journalNumber, referenceNumber }
 
@@ -920,65 +921,91 @@ class _ManualJournalsListPanelState
   }
 
   Widget _buildMoreActionsMenu() {
-    return SizedBox(
+    return ZTableMoreMenu(
       height: 28,
       width: 30,
-      child: MenuAnchor(
-        alignmentOffset: const Offset(-200, 4),
-        style: MenuStyle(
-          backgroundColor: const WidgetStatePropertyAll(Colors.white),
-          surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(color: AppTheme.borderColor),
-            ),
-          ),
-          elevation: const WidgetStatePropertyAll(4),
+      iconSize: 14,
+      alignmentOffset: const Offset(-190, 4),
+      menuChildren: [
+        SubmenuButton(
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+          alignmentOffset: const Offset(4, 0),
+          leadingIcon: const Icon(LucideIcons.arrowUpDown, size: 16),
+          menuChildren: [
+            _buildSortMenuItem('Date', _SortColumn.date),
+            _buildSortMenuItem('Journal#', _SortColumn.journalNumber),
+            _buildSortMenuItem('Reference Number', _SortColumn.referenceNumber),
+            _buildSortMenuItem('Status', _SortColumn.status),
+            _buildSortMenuItem('Amount', _SortColumn.amount),
+            _buildSortMenuItem('Created By', _SortColumn.createdBy),
+            _buildSortMenuItem('Reporting Method', _SortColumn.reportingMethod),
+          ],
+          child: const Text('Sort by'),
         ),
-        menuChildren: [
-          MenuItemButton(
-            onPressed: () {},
-            child: const _ActionMenuRow(
-              icon: LucideIcons.arrowUpDown,
-              label: 'Sort',
-            ),
+        MenuItemButton(
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          leadingIcon: const Icon(LucideIcons.download, size: 16),
+          onPressed: () => ZerpaiToast.info(
+            context,
+            'Manual journal import is not available yet.',
           ),
-          const Divider(height: 1),
-          MenuItemButton(
-            onPressed: () {},
-            child: const _ActionMenuRow(
-              icon: LucideIcons.download,
-              label: 'Import',
-            ),
-          ),
-          MenuItemButton(
-            onPressed: () {},
-            child: const _ActionMenuRow(
-              icon: LucideIcons.upload,
-              label: 'Export',
-            ),
-          ),
-        ],
-        builder: (context, controller, child) {
-          return OutlinedButton(
-            onPressed: () =>
-                controller.isOpen ? controller.close() : controller.open(),
-            style: OutlinedButton.styleFrom(
-              padding: EdgeInsets.zero,
-              side: const BorderSide(color: AppTheme.borderColor),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
+          child: const Text('Import Manual Journals'),
+        ),
+        SubmenuButton(
+          style: ZTableMoreMenu.menuItemButtonStyle(),
+          menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+          alignmentOffset: const Offset(4, 0),
+          leadingIcon: const Icon(LucideIcons.upload, size: 16),
+          menuChildren: [
+            MenuItemButton(
+              style: ZTableMoreMenu.menuItemButtonStyle(),
+              leadingIcon: const Icon(LucideIcons.upload, size: 16),
+              onPressed: () => ZerpaiToast.info(
+                context,
+                'Manual journal export is not available yet.',
               ),
+              child: const Text('Export Manual Journals'),
             ),
-            child: const Icon(
-              LucideIcons.moreHorizontal,
-              size: 14,
-              color: AppTheme.textSecondary,
+            MenuItemButton(
+              style: ZTableMoreMenu.menuItemButtonStyle(),
+              leadingIcon: const Icon(LucideIcons.listFilter, size: 16),
+              onPressed: () => ZerpaiToast.info(
+                context,
+                'Current view export is not available yet.',
+              ),
+              child: const Text('Export Current View'),
             ),
-          );
-        },
+          ],
+          child: const Text('Export'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSortMenuItem(String label, _SortColumn column) {
+    final isActive = _sortColumn == column;
+
+    return MenuItemButton(
+      style: ZTableMoreMenu.menuItemButtonStyle(isActive: isActive),
+      leadingIcon: Icon(
+        isActive
+            ? (_sortAscending ? LucideIcons.chevronUp : LucideIcons.chevronDown)
+            : LucideIcons.arrowUpDown,
+        size: 16,
       ),
+      onPressed: () {
+        setState(() {
+          if (_sortColumn == column) {
+            _sortAscending = !_sortAscending;
+          } else {
+            _sortColumn = column;
+            _sortAscending = true;
+          }
+          _pageIndex = 0;
+        });
+      },
+      child: Text(label),
     );
   }
 
@@ -1770,34 +1797,6 @@ class _ManualJournalsListPanelState
   List<String> _selectedIdsFrom(List<ManualJournal> journals) {
     final validIds = journals.map((journal) => journal.id).toSet();
     return _checkedJournalIds.where(validIds.contains).toList(growable: false);
-  }
-}
-
-class _ActionMenuRow extends StatelessWidget {
-  final IconData? icon;
-  final String label;
-
-  const _ActionMenuRow({this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (icon != null) ...[
-          Icon(icon, size: 16, color: AppTheme.textSecondary),
-          const SizedBox(width: 8),
-        ],
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppTheme.textPrimary,
-          ),
-        ),
-      ],
-    );
   }
 }
 

@@ -3136,6 +3136,7 @@ class _ManualJournalCreateScreenState
         _validationErrors.clear();
         _validationErrors.addAll(errors);
       });
+      ZerpaiToast.error(context, errors.first);
       return;
     }
 
