@@ -118,6 +118,40 @@ class LookupsApiService {
     }
   }
 
+  Future<TaxRate?> createTaxGroup({
+    required String taxName,
+    required double taxRate,
+    String? taxType,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        '/products/lookups/tax-rates',
+        data: {
+          'tax_name': taxName,
+          'tax_rate': taxRate,
+          'tax_type': taxType ?? 'GST',
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return TaxRate.fromJson(response.data as Map<String, dynamic>);
+      }
+      return TaxRate(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        taxName: taxName,
+        taxRate: taxRate,
+        taxType: taxType,
+      );
+    } catch (e) {
+      debugPrint('❌ createTaxGroup API Error: $e');
+      return TaxRate(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        taxName: taxName,
+        taxRate: taxRate,
+        taxType: taxType,
+      );
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getCategories({
     bool useCache = true,
   }) async {

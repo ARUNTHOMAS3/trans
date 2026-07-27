@@ -39,7 +39,9 @@ import 'package:zerpai_erp/modules/sales/documents/presentation/pages/sales_docu
 import 'package:zerpai_erp/modules/sales/customers/presentation/pages/sales_customer_overview.dart';
 import 'package:zerpai_erp/modules/sales/payment_links/presentation/pages/sales_payment_link_create.dart';
 
-import 'package:zerpai_erp/modules/sales/recurring_invoices/presentation/pages/sales_recurring_invoice_create.dart';
+import 'package:zerpai_erp/modules/sales/recurring_invoices/presentation/pages/recurring_invoices_report_page.dart';
+import 'package:zerpai_erp/modules/sales/recurring_invoices/presentation/pages/recurring_invoices_create_page.dart';
+import 'package:zerpai_erp/modules/sales/recurring_invoices/presentation/pages/recurring_invoices_overview_page.dart';
 
 import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_overview_page.dart';
 import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_create_page.dart';
@@ -1080,21 +1082,26 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'sales/recurring-invoices',
               name: AppRoutes.salesRecurringInvoices,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Recurring Invoices'),
+              builder: (context, state) => const RecurringInvoicesReportPage(),
               routes: [
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesRecurringInvoicesCreate,
-                  builder: (context, state) =>
-                      const SalesRecurringInvoiceCreateScreen(),
+                  builder: (context, state) => const RecurringInvoicesCreatePage(),
+                ),
+                GoRoute(
+                  path: 'preferences',
+                  name: AppRoutes.salesRecurringInvoicesPreferences,
+                  builder: (context, state) => const RecurringInvoicesOverviewPage(
+                    showPreferencesOverlayOnLoad: true,
+                    closePreferencesToPreviousRoute: true,
+                  ),
                 ),
                 GoRoute(
                   path: ':id',
                   name: AppRoutes.salesRecurringInvoicesDetail,
-                  builder: (context, state) => PlaceholderScreen(
-                    title:
-                        'Recurring Invoice detail: ${state.pathParameters['id']}',
+                  builder: (context, state) => RecurringInvoicesOverviewPage(
+                    invoiceId: state.pathParameters['id'],
                   ),
                 ),
               ],

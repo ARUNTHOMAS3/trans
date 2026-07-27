@@ -9248,3 +9248,40 @@ Timestamp of Log Update: July 25, 2026 - 8:41 AM (IST)
     exercising Apply would mutate the active entity's configuration.
 
 Timestamp of Log Update: July 25, 2026 - 11:25 AM (IST)
+
+
+## 2. Recurring Invoices Handoff Scope Integration & Verification (July 27, 2026)
+
+### Summary
+Analyzed and merged the `recurring_invoices` handoff scope from `fix/` files into active `lib/` files. Added deep-linking preferences route constants, wired GoRoute handlers for recurring invoices reports, creation, preferences, and overview, integrated stricter auth/unauthorized payload error handling in `ApiClient`, and updated warehouse models, providers, and repositories to support `entityId` query resolution.
+
+### Backup & Audit Trail
+- Backup Path: `backups/refactor-batches/20260727-164400-recurring-invoices-handoff-merge/`
+  - `app_router.dart.bak`
+  - `app_routes.dart.bak`
+  - `api_client.dart.bak`
+  - `warehouse_model.dart.bak`
+  - `warehouse_provider.dart.bak`
+  - `warehouse_repository.dart.bak`
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/core/routing/app_routes.dart`:
+  - Added `salesRecurringInvoicesPreferences` (`/sales/recurring-invoices/preferences`) route constant.
+- `lib/app/routing/app_router.dart`:
+  - Updated imports to target `recurring_invoices_report_page.dart`, `recurring_invoices_create_page.dart`, and `recurring_invoices_overview_page.dart`.
+  - Configured GoRoute handlers for `sales/recurring-invoices`, `create`, `preferences` (with `showPreferencesOverlayOnLoad: true`), and `:id`.
+- `lib/core/services/api_client.dart`:
+  - Added `_isUnauthorizedResponse` wrapper check, single-retry `__auth_retry__` guard, and helper string reader for Hive config tokens.
+- `lib/modules/inventory/models/warehouse_model.dart`:
+  - Added `warehouse_id`, `warehouse_code`, and `entity_id` deserialization/serialization support to `Warehouse.fromJson`/`toJson`.
+- `lib/modules/inventory/providers/warehouse_provider.dart`:
+  - Resolved `entityId`, `orgId`, and `outletId` from `entityProvider`, `authUserProvider`, and Hive `config` box before querying warehouses.
+- `lib/modules/inventory/repositories/warehouse_repository.dart`:
+  - Updated `WarehouseRepositoryImpl` to query `/products/lookups/warehouses` and `/warehouses-settings` with `entityId` parameters using `ApiClient`.
+
+### Verification Gate
+- `dart analyze` on touched scope $\rightarrow$ **Exit Code: 0 (0 compilation errors!)**.
+
+Timestamp of Log Update: July 27, 2026 - 08:49 AM (IST)

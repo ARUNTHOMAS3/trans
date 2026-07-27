@@ -11,6 +11,7 @@ abstract class WarehouseRepository {
     bool forceRefresh = false,
     String? orgId,
     String? outletId,
+    String? entityId,
   });
 }
 
@@ -25,10 +26,13 @@ class WarehouseRepositoryImpl implements WarehouseRepository {
     bool forceRefresh = false,
     String? orgId,
     String? outletId,
+    String? entityId,
   }) async {
     final box = Hive.box('config');
     final activeBranchId = (box.get('selected_branch_id') as String?)?.trim();
-    final activeEntityId = (box.get('selected_entity_id') as String?)?.trim();
+    final activeEntityId = (entityId != null && entityId.trim().isNotEmpty)
+        ? entityId.trim()
+        : (box.get('selected_entity_id') as String?)?.trim();
 
     List<Warehouse> filterByActiveEntity(List<Warehouse> list) {
       if (activeBranchId != null && activeBranchId.isNotEmpty) {
@@ -57,6 +61,11 @@ class WarehouseRepositoryImpl implements WarehouseRepository {
       queryParams['outlet_id'] = trimmed;
       queryParams['branchId'] = trimmed;
       queryParams['branch_id'] = trimmed;
+    }
+    if (entityId != null && entityId.trim().isNotEmpty) {
+      final trimmed = entityId.trim();
+      queryParams['entityId'] = trimmed;
+      queryParams['entity_id'] = trimmed;
     }
 
     Future<List<Warehouse>> fetchFrom(

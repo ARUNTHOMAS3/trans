@@ -85,6 +85,31 @@ class SalesCustomer {
   final String? placeOfCustomer;
   final String? privilegeCardNumber;
 
+  List<Map<String, dynamic>> get customerAddresses => [
+        if (billingAddressStreet1 != null || billingAddressCity != null)
+          {
+            'type': 'Billing',
+            'street1': billingAddressStreet1,
+            'street2': billingAddressStreet2,
+            'city': billingAddressCity,
+            'state_id': billingAddressStateId,
+            'zip': billingAddressZip,
+            'country_id': billingAddressCountryId,
+            'phone': billingAddressPhone,
+          },
+        if (shippingAddressStreet1 != null || shippingAddressCity != null)
+          {
+            'type': 'Shipping',
+            'street1': shippingAddressStreet1,
+            'street2': shippingAddressStreet2,
+            'city': shippingAddressCity,
+            'state_id': shippingAddressStateId,
+            'zip': shippingAddressZip,
+            'country_id': shippingAddressCountryId,
+            'phone': shippingAddressPhone,
+          },
+      ];
+
   SalesCustomer({
     required this.id,
     this.customerNumber,

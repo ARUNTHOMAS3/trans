@@ -31,7 +31,7 @@ class Warehouse {
                   json['sourceBranchId'])
               ?.toString(),
       name: (json['name'] ?? 'Unnamed Warehouse').toString(),
-      code: json['code']?.toString(),
+      code: (json['code'] ?? json['warehouse_code'])?.toString(),
       isActive: json['is_active'] ?? json['isActive'] ?? true,
       address: json['address']?.toString(),
       isDefaultForBranch: json['is_default_for_branch'] as bool? ?? true,

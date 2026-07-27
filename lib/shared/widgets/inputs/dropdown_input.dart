@@ -110,6 +110,8 @@ class FormDropdown<T> extends StatefulWidget {
   final TextStyle? textStyle;
   final TextAlign textAlign;
 
+  final Color? searchIconColor;
+
   const FormDropdown({
     super.key,
     required this.value,
@@ -176,6 +178,7 @@ class FormDropdown<T> extends StatefulWidget {
     this.isHovered = false,
     this.textStyle,
     this.textAlign = TextAlign.start,
+    this.searchIconColor,
     this.forceDownward = false,
     this.openAbove = false,
     this.dropdownWidth,

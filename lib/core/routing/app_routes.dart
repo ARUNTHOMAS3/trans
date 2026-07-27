@@ -250,6 +250,8 @@ class AppRoutes {
   static const String salesRecurringInvoices = '/sales/recurring-invoices';
   static const String salesRecurringInvoicesCreate =
       '/sales/recurring-invoices/create';
+  static const String salesRecurringInvoicesPreferences =
+      '/sales/recurring-invoices/preferences';
   static const String salesRecurringInvoicesDetail =
       '/sales/recurring-invoices/:id';
 

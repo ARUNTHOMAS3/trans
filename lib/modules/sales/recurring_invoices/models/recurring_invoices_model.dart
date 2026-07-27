@@ -40,6 +40,10 @@ class RecurringInvoice {
   final double amount;
   final RecurringStatus status;
   final DateTime? nextInvoiceDate;
+  final String location;
+  final DateTime? lastInvoiceDate;
+  final DateTime? endDate;
+  final String salespersonName;
 
   const RecurringInvoice({
     required this.id,
@@ -49,7 +53,49 @@ class RecurringInvoice {
     required this.amount,
     required this.status,
     this.nextInvoiceDate,
+    this.location = '',
+    this.lastInvoiceDate,
+    this.endDate,
+    this.salespersonName = '',
   });
+
+  factory RecurringInvoice.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic value) {
+      if (value == null) return null;
+      return DateTime.tryParse(value.toString());
+    }
+
+    return RecurringInvoice(
+      id: (json['id'] ?? '').toString(),
+      profileName: (json['profileName'] ?? json['profile_name'] ?? '').toString(),
+      customerName:
+          (json['customerName'] ?? json['customer_name'] ?? '').toString(),
+      billingFrequency:
+          (json['billingFrequency'] ?? json['billing_frequency'] ?? '')
+              .toString(),
+      amount: (json['amount'] as num?)?.toDouble() ??
+          (json['total'] as num?)?.toDouble() ??
+          (json['sub_total'] as num?)?.toDouble() ??
+          0,
+      status: RecurringStatus.fromLabel(
+        (json['status'] ?? 'Draft').toString(),
+      ),
+      nextInvoiceDate: parseDate(
+        json['nextInvoiceDate'] ?? json['next_invoice_date'],
+      ),
+      location: (json['location'] ?? '').toString(),
+      lastInvoiceDate: parseDate(
+        json['lastInvoiceDate'] ??
+            json['last_invoice_date'] ??
+            json['last_generated_date'] ??
+            json['updated_at'],
+      ),
+      endDate: parseDate(json['endDate'] ?? json['end_date']),
+      salespersonName:
+          (json['salespersonName'] ?? json['salesperson_name'] ?? '')
+              .toString(),
+    );
+  }
 
   RecurringInvoice copyWith({
     String? id,
@@ -59,6 +105,10 @@ class RecurringInvoice {
     double? amount,
     RecurringStatus? status,
     DateTime? nextInvoiceDate,
+    String? location,
+    DateTime? lastInvoiceDate,
+    DateTime? endDate,
+    String? salespersonName,
   }) {
     return RecurringInvoice(
       id: id ?? this.id,
@@ -68,6 +118,10 @@ class RecurringInvoice {
       amount: amount ?? this.amount,
       status: status ?? this.status,
       nextInvoiceDate: nextInvoiceDate ?? this.nextInvoiceDate,
+      location: location ?? this.location,
+      lastInvoiceDate: lastInvoiceDate ?? this.lastInvoiceDate,
+      endDate: endDate ?? this.endDate,
+      salespersonName: salespersonName ?? this.salespersonName,
     );
   }
 }
