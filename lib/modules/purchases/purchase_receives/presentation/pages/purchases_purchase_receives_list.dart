@@ -41,6 +41,7 @@ import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
+import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 
 class _ClearReceiveSelectionIntent extends Intent {
   const _ClearReceiveSelectionIntent();
@@ -5827,8 +5828,12 @@ class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
 
   Future<List<_ExtraQuantityRecord>> _loadExtraQuantities() async {
     final prRepository = ref.read(purchaseReceiveRepositoryProvider);
-    final warehousesAsync = ref.read(allWarehousesProvider);
-    final warehouses = warehousesAsync.asData?.value ?? [];
+    final warehouses = await ref
+        .read(allWarehousesProvider.future)
+        .catchError((_) => <Map<String, dynamic>>[]);
+    final warehouseModels = await ref
+        .read(warehousesProvider.future)
+        .catchError((_) => <Warehouse>[]);
 
     final List<_ExtraQuantityRecord> records = [];
 
@@ -5837,14 +5842,36 @@ class _ExtraQuantityDialogState extends ConsumerState<_ExtraQuantityDialog> {
       final receive = await prRepository.getPurchaseReceive(receiveSummary.id!);
       if (receive == null) continue;
 
-      final whName =
-          warehouses
-              .firstWhere(
-                (w) => w['id']?.toString() == receive.warehouseId,
-                orElse: () => <String, dynamic>{},
-              )['name']
-              ?.toString() ??
-          '-';
+      final targetWhId = receive.warehouseId?.trim();
+      String whName = '-';
+
+      if (targetWhId != null && targetWhId.isNotEmpty) {
+        final matchMap = warehouses.firstWhere(
+          (w) => w['id']?.toString().trim() == targetWhId,
+          orElse: () => <String, dynamic>{},
+        );
+        if (matchMap['name'] != null && matchMap['name'].toString().trim().isNotEmpty) {
+          whName = matchMap['name'].toString().trim();
+        } else {
+          final matchModel = warehouseModels.firstWhere(
+            (w) => w.id.trim() == targetWhId,
+            orElse: () => Warehouse(id: '', name: ''),
+          );
+          if (matchModel.name.trim().isNotEmpty) {
+            whName = matchModel.name.trim();
+          }
+        }
+      }
+
+      if (whName == '-' && warehouses.isNotEmpty) {
+        if (warehouses.length == 1) {
+          whName = warehouses.first['name']?.toString().trim() ?? '-';
+        }
+      } else if (whName == '-' && warehouseModels.isNotEmpty) {
+        if (warehouseModels.length == 1) {
+          whName = warehouseModels.first.name.trim();
+        }
+      }
 
       for (final receiveItem in receive.items) {
         if (receiveItem.itemId == null) continue;

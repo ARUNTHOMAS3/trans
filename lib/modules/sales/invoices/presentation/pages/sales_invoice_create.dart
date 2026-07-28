@@ -1757,24 +1757,28 @@ class _SalesInvoiceCreateScreenState
   }
 
   String _resolveCurrencyLabel(
-    String? currencyId,
-    List<CurrencyOption> currencies,
-  ) {
+    String? currencyId, [
+    List<CurrencyOption>? currencies,
+  ]) {
     final raw = (currencyId ?? '').trim();
     if (raw.isEmpty) {
       return 'INR - Indian Rupee';
     }
 
-    for (final currency in currencies) {
-      if (currency.id == raw) {
+    final options = (currencies != null && currencies.isNotEmpty)
+        ? currencies
+        : defaultCurrencyOptions;
+
+    for (final currency in options) {
+      if (currency.id == raw || currency.code.toUpperCase() == raw.toUpperCase()) {
         return currency.label.isNotEmpty
             ? currency.label
             : '${currency.code} - ${currency.name}';
       }
     }
 
-    for (final currency in currencies) {
-      if (currency.code.toUpperCase() == raw.toUpperCase()) {
+    for (final currency in defaultCurrencyOptions) {
+      if (currency.id == raw || currency.code.toUpperCase() == raw.toUpperCase()) {
         return currency.label.isNotEmpty
             ? currency.label
             : '${currency.code} - ${currency.name}';
@@ -1930,11 +1934,7 @@ class _SalesInvoiceCreateScreenState
     try {
       final api = ref.read(salesOrderApiServiceProvider);
       final customer = await api.getCustomerById(customerId);
-      final currencies = await ref.read(currenciesProvider(null).future);
-      final currencyLabel = _resolveCurrencyLabel(
-        customer.currencyId,
-        currencies,
-      );
+      final currencyLabel = _resolveCurrencyLabel(customer.currencyId);
       if (!mounted) return;
 
       setState(() {
@@ -2220,7 +2220,6 @@ class _SalesInvoiceCreateScreenState
     final customersAsync = ref.watch(salesCustomersProvider);
     final itemsState = ref.watch(itemsControllerProvider);
     final priceListsAsync = ref.watch(activeSalesPriceListsAsyncProvider);
-    final currenciesAsync = ref.watch(currenciesProvider(null));
 
     final accountsState = ref.watch(chartOfAccountsProvider);
     final List<AccountNode> availableAccounts = [];
@@ -2259,7 +2258,6 @@ class _SalesInvoiceCreateScreenState
             _buildHeaderSection(
               customersAsync,
               priceListsAsync,
-              currenciesAsync,
             ),
             const SizedBox(height: 16),
             Padding(
@@ -2343,7 +2341,6 @@ class _SalesInvoiceCreateScreenState
   Widget _buildHeaderSection(
     AsyncValue<List<SalesCustomer>> customersAsync,
     AsyncValue<List<PriceList>> priceListsAsync,
-    AsyncValue<List<CurrencyOption>> currenciesAsync,
   ) {
     final warehouseList = ref.watch(warehousesProvider).value ?? <Warehouse>[];
     final packagesState = ref.watch(inventoryPackagesProvider);
@@ -2522,15 +2519,8 @@ class _SalesInvoiceCreateScreenState
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      currenciesAsync.when(
-                                        data: (currencies) =>
-                                            _resolveCurrencyLabel(
-                                              _selectedCustomer?.currencyId,
-                                              currencies,
-                                            ),
-                                        loading: () => 'Loading currency...',
-                                        error: (_, __) =>
-                                            'Currency unavailable',
+                                      _resolveCurrencyLabel(
+                                        _selectedCustomer?.currencyId,
                                       ),
                                       style: const TextStyle(
                                         fontSize: 12,
