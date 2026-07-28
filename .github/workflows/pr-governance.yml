@@ -16,7 +16,7 @@ jobs:
         run: |
           ACTOR="${{ github.actor }}"
           case "$ACTOR" in
-            frpboy|Zabnix-Private-Limited|PlatformCatalyst-Zabnix) echo "Authorized PR actor: $ACTOR" ;;
+            frpboy|Zabnix-Private-Limited|PlatformCatalyst-Zabnix|dependabot[bot]) echo "Authorized PR actor: $ACTOR" ;;
             *) echo "PR rejected. Actor not allowed: $ACTOR"; exit 1 ;;
           esac
       - uses: actions/checkout@v4
