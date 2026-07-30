@@ -19,9 +19,9 @@ import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_list.dart'
     hide PaymentMade;
 import 'package:zerpai_erp/shared/utils/org_scope_resolver.dart';
-import 'package:zerpai_erp/core/routing/app_routes.dart';
-import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/shared/services/lookup_service.dart';
+import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
+import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
@@ -181,7 +181,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   bool _isSaving = false;
   bool _isLoadingExistingPayment = false;
   String? _editingPaymentDbId;
-  String? _paymentStatus;
 
   Vendor? _selectedVendor;
   final Map<String, TextEditingController> _billPaymentControllers = {};
@@ -199,8 +198,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   bool _showVendorDetailsPanel = false;
   bool _isBillPayment = true;
   bool _payFullAmount = false;
-  String? _loadedPriorAllocationsVendorId;
-  Map<String, double> _priorBillAllocations = {};
 
   String _sourceOfSupply = '[KL] - Kerala';
   String _destinationOfSupply = '[KL] - Kerala';
@@ -213,6 +210,8 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
   String? _pendingPaidThroughAccountId;
   String? _pendingDepositToAccountId;
   String? _pendingTdsTaxId;
+
+  // Tax options loaded dynamically â€” see paymentsMadeTaxesProvider
 
   static const List<String> _statesOptions = [
     '[KL] - Kerala',
@@ -470,6 +469,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     final orgSettings = ref.read(orgSettingsProvider).asData?.value;
     if (orgSettings != null && orgSettings.name.isNotEmpty) {
       setState(() {
+        _paymentLocation = orgSettings.name;
         _location = orgSettings.name;
       });
     }
@@ -670,7 +670,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
 
     setState(() {
       _editingPaymentDbId = (master['id'] ?? '').toString();
-      _paymentStatus = (master['status'] ?? '').toString();
       _selectedVendor = matchedVendor;
       _isBillPayment = !_isVendorAdvancePaymentType(
         paymentType,
@@ -798,48 +797,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     _paymentAmountReflectionOverlayEntry = null;
   }
 
-  Future<void> _fetchPriorBillAllocations(List<String> billIds) async {
-    if (billIds.isEmpty) {
-      if (mounted) setState(() => _priorBillAllocations = {});
-      return;
-    }
-    try {
-      final supabase = Supabase.instance.client;
-      final rows = await supabase
-          .from('payment_made_bill_allocations')
-          .select('payment_made_id, bill_id, allocated_amount')
-          .filter('bill_id', 'in', billIds);
-
-      final map = <String, double>{};
-      for (final row in (rows as List)) {
-        final pId = (row['payment_made_id'] ?? '').toString();
-        if (_isEditMode && _editingPaymentDbId != null && pId == _editingPaymentDbId) {
-          continue;
-        }
-        final bId = (row['bill_id'] ?? '').toString();
-        final amt = double.tryParse((row['allocated_amount'] ?? '0').toString()) ?? 0.0;
-        map[bId] = (map[bId] ?? 0.0) + amt;
-      }
-      if (mounted) {
-        setState(() {
-          _priorBillAllocations = map;
-        });
-      }
-    } catch (_) {}
-  }
-
-  double _getBillBalance(PurchasesBill bill) {
-    final prior = _priorBillAllocations[bill.id] ?? 0.0;
-    return (bill.total - prior).clamp(0.0, double.infinity);
-  }
-
-  double _getDynamicAmountDue(PurchasesBill bill) {
-    final baseBalance = _getBillBalance(bill);
-    final controller = _billPaymentControllers[bill.id];
-    final entered = controller == null ? 0.0 : (double.tryParse(controller.text.trim()) ?? 0.0);
-    return (baseBalance - entered).clamp(0.0, double.infinity);
-  }
-
   void _applyEnteredAmountToBillPayments(List<PurchasesBill> vendorBills) {
     final enteredAmount =
         double.tryParse(_paymentAmountController.text.trim()) ?? 0.0;
@@ -847,14 +804,13 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
 
     for (final bill in vendorBills) {
       final controller = _getBillController(bill.id);
-      final balance = _getBillBalance(bill);
-      if (remainingAmount <= 0 || balance <= 0) {
+      if (remainingAmount <= 0) {
         controller.text = '';
         continue;
       }
 
       final allocatedAmount =
-          remainingAmount >= balance ? balance : remainingAmount;
+          remainingAmount >= bill.total ? bill.total : remainingAmount;
       controller.text = allocatedAmount.toStringAsFixed(2);
       remainingAmount -= allocatedAmount;
     }
@@ -1391,18 +1347,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     super.dispose();
   }
 
-  Color _getStatusColor(String status) {
-    switch (status.toUpperCase()) {
-      case 'PAID':
-        return const Color(0xFF1DCC6B);
-      case 'VOID':
-        return AppTheme.errorRed;
-      case 'DRAFT':
-      default:
-        return Colors.blueGrey.shade300;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1623,6 +1567,41 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     final accountsState = ref.watch(chartOfAccountsProvider);
     final paidThroughOptions = _buildPaidThroughOptions(accountsState.roots);
 
+    final statesAsync = ref.watch(statesProvider('IN'));
+    final List<Map<String, String>> dbStates = statesAsync.maybeWhen(
+      data: (list) => list,
+      orElse: () => const [],
+    );
+    final List<String> statesList = dbStates
+        .map((state) {
+          final code = (state['code'] ?? '').trim();
+          final name = (state['name'] ?? '').trim();
+          if (code.isEmpty) return name;
+          if (name.isEmpty) return '[$code]';
+          return '[$code] - $name';
+        })
+        .where((val) => val.trim().isNotEmpty)
+        .toList();
+
+    final List<String> supplyOptions = statesList.isNotEmpty ? statesList : _statesOptions;
+
+    if (statesList.isNotEmpty) {
+      if (!statesList.contains(_sourceOfSupply)) {
+        final match = statesList.firstWhere(
+          (s) => s.toLowerCase().contains('kerala') || s.toLowerCase().contains('[kl]'),
+          orElse: () => statesList.first,
+        );
+        _sourceOfSupply = match;
+      }
+      if (!statesList.contains(_destinationOfSupply)) {
+        final match = statesList.firstWhere(
+          (s) => s.toLowerCase().contains('kerala') || s.toLowerCase().contains('[kl]'),
+          orElse: () => statesList.first,
+        );
+        _destinationOfSupply = match;
+      }
+    }
+
     final tdsRatesAsync = ref.watch(paymentsMadeTdsRatesProvider);
     final taxesAsync = ref.watch(paymentsMadeTaxesProvider);
     final List<String> tdsOptions = tdsRatesAsync.maybeWhen(
@@ -1741,7 +1720,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
         Container(
           color: const Color(0xFFF9FAFB),
           padding: const EdgeInsets.fromLTRB(56, 16, 40, 16),
-          child: _buildVendorHeaderSection(vendorState),
+          child: _buildVendorHeaderSection(vendorState, supplyOptions),
         ),
         if (_isBillPayment)
           const Divider(height: 1, color: AppTheme.borderColor),
@@ -1776,7 +1755,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     );
   }
 
-  Widget _buildVendorHeaderSection(VendorState vendorState) {
+  Widget _buildVendorHeaderSection(VendorState vendorState, List<String> supplyOptions) {
     return Stack(
       children: [
         Padding(
@@ -2043,7 +2022,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           required: true,
                           child: FormDropdown<String>(
                             value: _sourceOfSupply,
-                            items: ref.watch(statesProvider('IN')).value?.map((s) => s['name'] ?? '').where((n) => n.isNotEmpty).toList() ?? _statesOptions,
+                            items: supplyOptions,
                             enabled: !_isEditMode,
                             onChanged: (val) {
                               if (val == null) return;
@@ -2059,7 +2038,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           required: true,
                           child: FormDropdown<String>(
                             value: _destinationOfSupply,
-                            items: ref.watch(statesProvider('IN')).value?.map((s) => s['name'] ?? '').where((n) => n.isNotEmpty).toList() ?? _statesOptions,
+                            items: supplyOptions,
                             enabled: !_isEditMode,
                             onChanged: (val) {
                               if (val == null) return;
@@ -2069,25 +2048,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                             showSearch: true,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        _buildFormRow(
-                          label: 'Location',
-                          required: false,
-                          child: FormDropdown<String>(
-                            value: _location,
-                            items: const [
-                              'ZABNIX PRIVATE LIMITED',
-                              'Primary Location',
-                              'Secondary Location',
-                            ],
-                            enabled: !_isEditMode,
-                            onChanged: (val) {
-                              setState(() => _location = val);
-                            },
-                            height: 36,
-                            showSearch: true,
-                          ),
-                        ),
+
                       ],
                     ),
                   ),
@@ -2099,299 +2060,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
 
       ],
     );
-  }
-
-  List<Widget> _buildVendorAdvanceEditFields(
-    BuildContext context,
-    List<PaidThroughItem> paidThroughOptions,
-    List<TaxItem> taxOptions,
-    List<String> tdsOptions,
-  ) {
-    return [
-      _buildFormRow(
-        label: 'Location',
-        required: false,
-        child: FormDropdown<String>(
-          value: _location,
-          items: const [
-            'ZABNIX PRIVATE LIMITED',
-            'Primary Location',
-            'Secondary Location',
-          ],
-          onChanged: (val) {
-            setState(() => _location = val);
-          },
-          height: 36,
-          showSearch: true,
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'Payment #',
-        required: true,
-        child: SizedBox(
-          width: 472,
-          child: CustomTextField(
-            controller: _paymentNumberController,
-            height: 36,
-            suffixSeparator: false,
-            suffixWidget: ZTooltip(
-              message:
-                  'Click here to configure auto-generation of payment numbers.',
-              direction: ZTooltipDirection.bottom,
-              child: InkWell(
-                onTap: _showPreferencesDialog,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6),
-                  child: Icon(
-                    LucideIcons.settings,
-                    size: 14,
-                    color: AppTheme.primaryBlue,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'Description of Supply',
-        required: false,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CustomTextField(
-              controller: _descriptionOfSupplyController,
-              maxLines: 3,
-              height: 58,
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Will be displayed on the Payment Voucher',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'Payment Made',
-        required: true,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  height: 36,
-                  width: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    border: Border.all(color: AppTheme.borderColor),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(4),
-                      bottomLeft: Radius.circular(4),
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    'INR',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: CustomTextField(
-                    controller: _paymentAmountController,
-                    height: 36,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                    ],
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(4),
-                      bottomRight: Radius.circular(4),
-                    ),
-                    showLeftBorder: false,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Unused Amount: ₹${_paymentAmountController.text.trim().isEmpty ? '0.00' : _paymentAmountController.text.trim()}*',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFFDC2626),
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 20),
-      _buildFormRow(
-        label: 'Reverse Charge',
-        required: false,
-        child: Row(
-          children: [
-            Checkbox(
-              value: _reverseCharge,
-              onChanged: (val) {
-                setState(() {
-                  _reverseCharge = val ?? false;
-                });
-              },
-              activeColor: AppTheme.primaryBlue,
-            ),
-            const Text(
-              'This transaction is applicable for reverse charge',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'TDS',
-        required: false,
-        child: FormDropdown<String>(
-          value: _selectedTdsTax,
-          items: tdsOptions,
-          onChanged: (val) {
-            setState(() => _selectedTdsTax = val);
-          },
-          hint: 'Select a Tax',
-          height: 36,
-          showSearch: false,
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'Payment Date',
-        required: true,
-        child: Container(
-          key: _paymentDateKey,
-          child: CustomTextField(
-            controller: _paymentDateController,
-            readOnly: true,
-            height: 36,
-            onTap: () async {
-              final picked = await ZerpaiDatePicker.show(
-                context,
-                initialDate: _paymentDateVal,
-                targetKey: _paymentDateKey,
-              );
-              if (picked == null) return;
-              setState(() {
-                _paymentDateVal = picked;
-                _paymentDateController.text = DateFormat(
-                  'dd-MM-yyyy',
-                ).format(picked);
-              });
-            },
-          ),
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'Payment Mode',
-        required: false,
-        child: FormDropdown<String>(
-          value: _paymentMode,
-          items: _paymentModeOptions,
-          onChanged: (val) {
-            if (val == null) return;
-            setState(() => _paymentMode = val);
-          },
-          height: 36,
-          showSearch: true,
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'Paid Through',
-        required: true,
-        child: FormDropdown<PaidThroughItem>(
-          value: _paymentPaidFrom,
-          items: paidThroughOptions,
-          onChanged: (val) {
-            if (val == null) return;
-            setState(() => _paymentPaidFrom = val);
-          },
-          displayStringForValue: (v) => v.label,
-          searchStringForValue: (v) => v.label,
-          height: 36,
-          showSearch: true,
-          isItemEnabled: (item) => !item.isHeader,
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'Transfer To',
-        required: false,
-        child: FormDropdown<PaidThroughItem>(
-          value: _findPaidThroughItemById(
-            paidThroughOptions,
-            _transferToAccountId,
-          ),
-          items: paidThroughOptions,
-          onChanged: (val) {
-            if (val == null) return;
-            setState(() => _transferToAccountId = val.id);
-          },
-          displayStringForValue: (v) => v.label,
-          searchStringForValue: (v) => v.label,
-          hint: 'Select a bank account',
-          height: 36,
-          showSearch: true,
-          isItemEnabled: (item) => !item.isHeader,
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'Deposit To',
-        required: false,
-        child: FormDropdown<PaidThroughItem>(
-          value: _depositTo,
-          items: paidThroughOptions,
-          onChanged: (val) {
-            if (val == null) return;
-            setState(() => _depositTo = val);
-          },
-          displayStringForValue: (v) => v.label,
-          searchStringForValue: (v) => v.label,
-          height: 36,
-          showSearch: true,
-          isItemEnabled: (item) => !item.isHeader,
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildFormRow(
-        label: 'Reference#',
-        required: false,
-        child: CustomTextField(
-          controller: _paymentReferenceController,
-          height: 36,
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildNotesSection(isEditMode: true),
-      const SizedBox(height: 24),
-      _buildAttachmentsSection(),
-    ];
   }
 
   List<Widget> _buildBillPaymentFields(
@@ -2531,10 +2199,10 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   if (_payFullAmount) {
                     final totalDue = vendorBills.fold(
                       0.0,
-                      (sum, bill) => sum + _getBillBalance(bill),
+                      (sum, bill) => sum + bill.total,
                     );
                     for (final bill in vendorBills) {
-                      _getBillController(bill.id).text = _getBillBalance(bill)
+                      _getBillController(bill.id).text = bill.total
                           .toStringAsFixed(2);
                     }
                     _paymentAmountController.text = totalDue.toStringAsFixed(2);
@@ -2559,10 +2227,10 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   if (_payFullAmount) {
                     final totalDue = vendorBills.fold(
                       0.0,
-                      (sum, bill) => sum + _getBillBalance(bill),
+                      (sum, bill) => sum + bill.total,
                     );
                     for (final bill in vendorBills) {
-                      _getBillController(bill.id).text = _getBillBalance(bill)
+                      _getBillController(bill.id).text = bill.total
                           .toStringAsFixed(2);
                     }
                     _paymentAmountController.text = totalDue.toStringAsFixed(2);
@@ -2579,7 +2247,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                 builder: (ctx) {
                   final totalDue = vendorBills.fold(
                     0.0,
-                    (sum, b) => sum + _getBillBalance(b),
+                    (sum, b) => sum + b.total,
                   );
                   final fmt = NumberFormat('#,##,##0.00', 'en_IN');
                   final amtStr = totalDue > 0
@@ -3625,7 +3293,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                   child: Align(
                     alignment: Alignment.topRight,
                     child: Text(
-                      _getDynamicAmountDue(bill).toStringAsFixed(2),
+                      bill.total.toStringAsFixed(2),
                       style: AppTheme.tableCell,
                     ),
                   ),
@@ -3744,7 +3412,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                         GestureDetector(
                           onTap: () {
                             setState(() {
-                              billAmtController.text = _getBillBalance(bill)
+                              billAmtController.text = bill.total
                                   .toStringAsFixed(2);
                               _recalculateTotalAllocated();
                             });
@@ -3760,6 +3428,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
                                 color: AppTheme.primaryBlue,
+                                
                               ),
                             ),
                           ),
@@ -3782,15 +3451,6 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
     final vendorBills = billsState.bills
         .where((b) => b.vendorId == _selectedVendor?.id)
         .toList();
-
-    if (_selectedVendor != null &&
-        _loadedPriorAllocationsVendorId != _selectedVendor!.id) {
-      _loadedPriorAllocationsVendorId = _selectedVendor!.id;
-      final ids = vendorBills.map((b) => b.id).toList();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _fetchPriorBillAllocations(ids);
-      });
-    }
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -4076,7 +3736,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
           const SizedBox(height: 10),
           _buildSummaryRow(
             'Amount in Excess:',
-            '₹ ${_formatAmount(amt)}',
+            '₹ ${_formatAmount(amountInExcess)}',
             isExcess: true,
           ),
         ],

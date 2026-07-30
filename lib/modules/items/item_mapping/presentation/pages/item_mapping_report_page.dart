@@ -343,7 +343,7 @@ class _ItemTradeSetupReportPageState
                   // Green "+ New" Button
                   ElevatedButton.icon(
                     onPressed: () => context.go(
-                      '/$_orgId${AppRoutes.itemTradeSetupCreate}',
+                      '/$_orgId${AppRoutes.itemMappingCreate}',
                     ),
                     icon: const Icon(
                       LucideIcons.plus,
@@ -432,7 +432,7 @@ class _ItemTradeSetupReportPageState
                           state.activeFilter != null ||
                           state.searchQuery.isNotEmpty,
                       onNewTap: () => context.go(
-                        '/$_orgId${AppRoutes.itemTradeSetupCreate}',
+                        '/$_orgId${AppRoutes.itemMappingCreate}',
                       ),
                     )
                   : SingleChildScrollView(
@@ -545,7 +545,7 @@ class _ItemTradeSetupReportPageState
                                             hoverColor: const Color(0xFFF3F4F6),
                                             onTap: () {
                                               final detailPath = AppRoutes
-                                                  .itemTradeSetupDetail
+                                                  .itemMappingDetail
                                                   .replaceAll(':id', inv.id);
                                               context.go('/$_orgId$detailPath');
                                             },
@@ -609,9 +609,10 @@ class _ItemTradeSetupReportPageState
                                                         'actions_${inv.id}',
                                                       ),
                                                       onEdit: () {
-                                                        context.go(
-                                                          '/$_orgId${AppRoutes.itemTradeSetupCreate}?id=${inv.id}',
-                                                        );
+                                                        final editPath = AppRoutes
+                                                            .itemMappingEdit
+                                                            .replaceAll(':id', inv.id);
+                                                        context.go('/$_orgId$editPath');
                                                       },
                                                       onDelete: () async {
                                                         final ok = await showZerpaiConfirmationDialog(
@@ -1462,14 +1463,12 @@ class _TableSettingsMenu extends StatelessWidget {
         children: [
           _TableSettingsMenuItem(
             label: 'Customize Columns',
-            icon: LucideIcons.settings,
+            icon: LucideIcons.columns,
             onTap: onCustomizeColumns,
           ),
           _TableSettingsMenuItem(
             label: clipText ? 'Wrap Text' : 'Clip Text',
-            icon: clipText
-                ? LucideIcons.wrapText
-                : LucideIcons.list,
+            icon: LucideIcons.alignLeft,
             onTap: onClipTextToggled,
           ),
         ],

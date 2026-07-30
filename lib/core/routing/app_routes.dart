@@ -308,6 +308,8 @@ class AppRoutes {
   static const String itemGroupsCreate = '/items/item-groups/create';
   static const String itemMapping = '/items/mapping';
   static const String itemMappingCreate = '/items/mapping/create';
+  static const String itemMappingEdit = '/items/mapping/edit/:id';
+  static const String itemMappingDetail = '/items/mapping/:id';
 
   // Item Trade Setup
   static const String itemTradeSetup = '/items/trade-setup';
@@ -359,6 +361,8 @@ class AppRoutes {
   static const String purchaseReturns = '/purchases/purchase-returns';
   static const String purchaseReturnsCreate =
       '/purchases/purchase-returns/create';
+  static const String purchaseReturnsEdit =
+      '/purchases/purchase-returns/edit/:id';
   static const String purchaseReturnsDetail = '/purchases/purchase-returns/:id';
   static const String purchasesPurchaseOrders =
       '/purchases/purchase-orders'; // Legacy

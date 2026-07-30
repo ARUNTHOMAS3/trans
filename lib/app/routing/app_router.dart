@@ -47,6 +47,9 @@ import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_r
 import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_create_page.dart';
 import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_overview_page.dart';
 import 'package:zerpai_erp/modules/inventory/assemblies/presentation/pages/inventory_assemblies_assembly_creation.dart';
+import 'package:zerpai_erp/modules/items/item_mapping/presentation/pages/item_mapping_create_page.dart';
+import 'package:zerpai_erp/modules/items/item_mapping/presentation/pages/item_mapping_overview_page.dart';
+import 'package:zerpai_erp/modules/items/item_mapping/presentation/pages/item_mapping_report_page.dart';
 import 'package:zerpai_erp/modules/inventory/assemblies/presentation/pages/inventory_assemblies_assembly_overview.dart';
 
 import 'package:zerpai_erp/modules/accountant/manual_journals/presentation/pages/manual_journals_overview_screen.dart';
@@ -87,6 +90,9 @@ import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/pages/
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_overview.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_report.dart';
 
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart';
 
@@ -322,6 +328,7 @@ const List<_RoutePermissionRule> _kRoutePermissionRules = [
   _RoutePermissionRule('/purchases/recurring-expenses', 'recurring_expenses'),
   _RoutePermissionRule('/purchases/purchase-orders', 'purchase_orders'),
   _RoutePermissionRule('/purchases/purchase-receives', 'purchase_receives'),
+  _RoutePermissionRule('/purchases/purchase-returns', 'purchase_returns'),
   _RoutePermissionRule('/purchases/bills', 'bills'),
   _RoutePermissionRule('/purchases/recurring-bills', 'recurring_bills'),
   _RoutePermissionRule('/purchases/payments-made', 'vendor_payments'),
@@ -1366,14 +1373,26 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'items/mapping',
               name: AppRoutes.itemMapping,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Item Mapping'),
+              builder: (context, state) => const ItemTradeSetupReportPage(),
             ),
             GoRoute(
               path: 'items/mapping/create',
               name: AppRoutes.itemMappingCreate,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'New Item Mapping'),
+              builder: (context, state) => const ItemTradeSetupCreatePage(),
+            ),
+            GoRoute(
+              path: 'items/mapping/edit/:id',
+              name: AppRoutes.itemMappingEdit,
+              builder: (context, state) => ItemTradeSetupCreatePage(
+                editProductId: state.pathParameters['id'],
+              ),
+            ),
+            GoRoute(
+              path: 'items/mapping/:id',
+              name: AppRoutes.itemMappingDetail,
+              builder: (context, state) => ItemTradeSetupOverviewPage(
+                id: state.pathParameters['id'],
+              ),
             ),
             GoRoute(
               path: 'items/trade-setup',
@@ -1514,6 +1533,37 @@ final GoRouter appRouter = GoRouter(
                   PurchasesPurchaseReceivesCreateScreen(
                     initialReceiveId: state.pathParameters['id'],
                   ),
+            ),
+            GoRoute(
+              path: 'purchases/purchase-returns',
+              name: AppRoutes.purchaseReturns,
+              builder: (context, state) {
+                final id = state.uri.queryParameters['id'];
+                if (id != null && id.isNotEmpty) {
+                  return PurchaseReturnDetailPage(purchaseReturnId: id);
+                }
+                return const PurchaseReturnsReportPage();
+              },
+            ),
+            GoRoute(
+              path: 'purchases/purchase-returns/create',
+              name: AppRoutes.purchaseReturnsCreate,
+              builder: (context, state) => const PurchaseReturnsCreatePage(),
+            ),
+            GoRoute(
+              path: 'purchases/purchase-returns/edit/:id',
+              name: AppRoutes.purchaseReturnsEdit,
+              builder: (context, state) => PurchaseReturnsCreatePage(
+                purchaseReturnId: state.pathParameters['id'],
+              ),
+            ),
+            GoRoute(
+              path: 'purchases/purchase-returns/:id',
+              name: AppRoutes.purchaseReturnsDetail,
+              builder: (context, state) {
+                final id = state.pathParameters['id'] ?? '';
+                return PurchaseReturnDetailPage(purchaseReturnId: id);
+              },
             ),
             GoRoute(
               path: 'purchases/expenses',

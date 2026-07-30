@@ -17,7 +17,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/sales/retainer_invoices/models/retainer_invoices_model.dart';
 import 'package:zerpai_erp/modules/sales/retainer_invoices/providers/retainer_invoices_provider.dart';
 import 'package:intl/intl.dart';
-import 'item_trade_setup_overview_page.dart';
+import 'package:zerpai_erp/modules/items/item_mapping/presentation/pages/item_mapping_overview_page.dart';
 
 // ---------------------------------------------------------------------------
 // Option models

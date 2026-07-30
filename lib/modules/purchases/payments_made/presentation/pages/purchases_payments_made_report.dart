@@ -530,8 +530,6 @@ class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage>
 
   @override
   Widget build(BuildContext context) {
-    final orgSettings = ref.watch(orgSettingsProvider).whenOrNull(data: (s) => s);
-    final String resolvedCompanyName = orgSettings?.name ?? 'ZABNIX PRIVATE LIMITED';
     final orgId = resolveOrgSystemId(context);
     final state = GoRouterState.of(context);
     final selectedPaymentId = state.uri.queryParameters['paymentId'];
@@ -551,7 +549,7 @@ class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage>
       (index) => MockPaymentMade(
         id: 'dummy-$index',
         date: '20-07-2026',
-        location: resolvedCompanyName,
+        location: 'ZABNIX PRIVATE LIMITED',
         paymentNumber: 'PM-000$index',
         referenceNumber: 'REF-$index',
         vendorName: 'Loading Vendor Name...',

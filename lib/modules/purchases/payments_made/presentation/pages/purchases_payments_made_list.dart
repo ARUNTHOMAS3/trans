@@ -307,20 +307,14 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
   final MenuController _pdfPrintMenuController = MenuController();
   // Right action bar more dropdown (MenuAnchor)
   final MenuController _rightMoreMenuController = MenuController();
+  // Customize dropdown (MenuAnchor)
+  final MenuController _customizeMenuController = MenuController();
   // Bulk actions dropdown (MenuAnchor)
   final MenuController _bulkMenuController = MenuController();
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool _viewIsStarred = false;
-  final Set<String> _starredValues = {'All', 'Paid'};
-  bool _favoritesExpanded = true;
-  bool _defaultFiltersExpanded = true;
 
-  // More-menu overlay (three-dot in left header)
-  final LayerLink _moreLink = LayerLink();
-  OverlayEntry? _moreMenuOverlayEntry;
-  bool _isMoreMenuOpen = false;
-  String? _activeSubMenu;
 
   final LayerLink _attachmentLink = LayerLink();
   OverlayEntry? _attachmentOverlayEntry;
@@ -334,16 +328,6 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
   // Template chooser panel
   String _selectedTemplate = 'Standard Template';
   bool _isDocumentHovered = false;
-  PaymentNumberPreferences _paymentNumberPreferences =
-      const PaymentNumberPreferences(
-        autoGenerate: true,
-        autoPrefix: 'PAY-',
-        nextNumber: '98',
-        manualPrefix: '',
-        manualPaymentNumber: '',
-        restartFiscalYear: false,
-      );
-
   List<PlatformFile> _uploadedFiles = [];
   String _sortByField = 'date';
   bool _isRefundView = false;
@@ -374,11 +358,6 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
     _defaultRefundPaymentModeOptions,
   );
   String? _refundPaymentModesEntityId;
-
-  final List<FilterItem> _allFilters = [
-    const FilterItem('All'),
-    const FilterItem('Paid'),
-  ];
 
   @override
   void initState() {
@@ -467,7 +446,7 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
             ? Map<String, dynamic>.from(taxRows.first as Map)
             : <String, dynamic>{};
         final paymentDate = DateTime.tryParse(
-          (row['payment_date'] ?? '').toString(),
+            (row['payment_date'] ?? '').toString(),
         );
         final paymentAmount =
             double.tryParse((row['payment_amount'] ?? '0').toString()) ?? 0.0;
@@ -1481,347 +1460,7 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
     );
   }
 
-  Widget _filterSectionHeader({
-    required String title,
-    required int count,
-    required bool isExpanded,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        color: const Color(0xFFF9FAFB),
-        child: Row(
-          children: [
-            Icon(
-              isExpanded ? LucideIcons.chevronDown : LucideIcons.chevronRight,
-              size: 13,
-              color: AppTheme.textSecondary,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppTheme.successGreen,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '$count',
-                style: const TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _filterOptionRow({required String label, required bool isStarred}) {
-    final isSelected = _selectedFilter == label;
-    return _FilterOptionRow(
-      label: label,
-      isStarred: isStarred,
-      isSelected: isSelected,
-      onTap: () {
-        setState(() => _selectedFilter = label);
-        _filterMenuController.close();
-      },
-      onStarTap: () {
-        setState(() {
-          if (_starredValues.contains(label)) {
-            _starredValues.remove(label);
-          } else {
-            _starredValues.add(label);
-          }
-        });
-      },
-    );
-  }
-
   // ─── More Menu (left header three-dot) ──────────────────────────────────────
-
-  void _toggleMoreMenu() {
-    if (_isMoreMenuOpen) {
-      _closeMoreMenu();
-    } else {
-      _openMoreMenu();
-    }
-  }
-
-  void _openMoreMenu() {
-    _moreMenuOverlayEntry = _createMoreMenuOverlayEntry();
-    Overlay.of(context).insert(_moreMenuOverlayEntry!);
-    setState(() {
-      _isMoreMenuOpen = true;
-      _activeSubMenu = null;
-    });
-  }
-
-  void _closeMoreMenu() {
-    _moreMenuOverlayEntry?.remove();
-    _moreMenuOverlayEntry = null;
-    if (mounted) {
-      setState(() {
-        _isMoreMenuOpen = false;
-        _activeSubMenu = null;
-      });
-    }
-  }
-
-  OverlayEntry _createMoreMenuOverlayEntry() {
-    String? hoveredSubMenuItem;
-    return OverlayEntry(
-      builder: (context) => StatefulBuilder(
-        builder: (context, setStateOverlay) {
-          Widget? subMenuWidget;
-          if (_activeSubMenu == 'Sort by') {
-            subMenuWidget = _buildSortBySubMenu(
-              setStateOverlay,
-              hoveredSubMenuItem,
-              (val) => setStateOverlay(() => hoveredSubMenuItem = val),
-            );
-          } else if (_activeSubMenu == 'Export') {
-            subMenuWidget = _buildExportSubMenu(
-              setStateOverlay,
-              hoveredSubMenuItem,
-              (val) => setStateOverlay(() => hoveredSubMenuItem = val),
-            );
-          }
-
-          return GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: _closeMoreMenu,
-            child: Stack(
-              children: [
-                Positioned.fill(child: Container(color: Colors.transparent)),
-                CompositedTransformFollower(
-                  link: _moreLink,
-                  showWhenUnlinked: false,
-                  offset: const Offset(0, 28),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Material(
-                        elevation: 8,
-                        borderRadius: BorderRadius.circular(4),
-                        color: Colors.white,
-                        child: Container(
-                          width: 220,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(color: AppTheme.borderColor),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _MainMenuItemWidget(
-                                icon: LucideIcons.arrowUpDown,
-                                label: 'Sort by',
-                                hasSubMenu: true,
-                                isActive: _activeSubMenu == 'Sort by',
-                                onHover: () => setStateOverlay(() {
-                                  _activeSubMenu = 'Sort by';
-                                  hoveredSubMenuItem = null;
-                                }),
-                                onTap: () {},
-                              ),
-                              _MainMenuItemWidget(
-                                icon: LucideIcons.download,
-                                label: 'Import Payments Made',
-                                onHover: () => setStateOverlay(() {
-                                  _activeSubMenu = null;
-                                  hoveredSubMenuItem = null;
-                                }),
-                                onTap: _closeMoreMenu,
-                              ),
-                              _MainMenuItemWidget(
-                                icon: LucideIcons.upload,
-                                label: 'Export',
-                                hasSubMenu: true,
-                                isActive: _activeSubMenu == 'Export',
-                                onHover: () => setStateOverlay(() {
-                                  _activeSubMenu = 'Export';
-                                  hoveredSubMenuItem = null;
-                                }),
-                                onTap: () {},
-                              ),
-                              const Divider(
-                                height: 8,
-                                color: Color(0xFFD0D0D0),
-                              ),
-                              _MainMenuItemWidget(
-                                icon: LucideIcons.settings,
-                                label: 'Preferences',
-                                onHover: () => setStateOverlay(() {
-                                  _activeSubMenu = null;
-                                  hoveredSubMenuItem = null;
-                                }),
-                                onTap: () {
-                                  _closeMoreMenu();
-                                  _showPreferencesDialog();
-                                },
-                              ),
-                              const Divider(
-                                height: 8,
-                                color: Color(0xFFD0D0D0),
-                              ),
-                              _MainMenuItemWidget(
-                                icon: LucideIcons.refreshCw,
-                                label: 'Refresh List',
-                                onHover: () => setStateOverlay(() {
-                                  _activeSubMenu = null;
-                                  hoveredSubMenuItem = null;
-                                }),
-                                onTap: _closeMoreMenu,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (subMenuWidget != null) ...[
-                        const SizedBox(width: 4),
-                        Padding(
-                          padding: EdgeInsets.only(
-                            top: _activeSubMenu == 'Export' ? 76 : 4,
-                          ),
-                          child: Material(
-                            elevation: 8,
-                            borderRadius: BorderRadius.circular(4),
-                            color: Colors.white,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(color: AppTheme.borderColor),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: subMenuWidget,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSortBySubMenu(
-    void Function(void Function()) setStateOverlay,
-    String? hoveredSubMenuItem,
-    void Function(String?) setHovered,
-  ) {
-    return Container(
-      width: 150,
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildSubMenuItem('Payment Date', hoveredSubMenuItem, setHovered),
-          _buildSubMenuItem('Payment #', hoveredSubMenuItem, setHovered),
-          _buildSubMenuItem('Vendor Name', hoveredSubMenuItem, setHovered),
-          _buildSubMenuItem('Amount', hoveredSubMenuItem, setHovered),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExportSubMenu(
-    void Function(void Function()) setStateOverlay,
-    String? hoveredSubMenuItem,
-    void Function(String?) setHovered,
-  ) {
-    return Container(
-      width: 150,
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildSubMenuItem('Export as PDF', hoveredSubMenuItem, setHovered),
-          _buildSubMenuItem('Export as XLS', hoveredSubMenuItem, setHovered),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSubMenuItem(
-    String label,
-    String? hoveredItem,
-    void Function(String?) setHovered,
-  ) {
-    final isHovered = hoveredItem == label;
-    return MouseRegion(
-      onEnter: (_) => setHovered(label),
-      onExit: (_) => setHovered(null),
-      child: InkWell(
-        onTap: _closeMoreMenu,
-        child: Container(
-          height: 32,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          alignment: Alignment.centerLeft,
-          color: isHovered ? AppTheme.primaryBlue : Colors.transparent,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isHovered ? Colors.white : AppTheme.textPrimary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showPreferencesDialog() async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) {
-        return ConfigurePaymentNumberPreferencesDialog(
-          currentLocation: 'ZABNIX PRIVATE LIMITED',
-          currentSeries: 'Default Transaction Series',
-          initialPreferences: _paymentNumberPreferences,
-        );
-      },
-    );
-
-    if (result == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _paymentNumberPreferences = PaymentNumberPreferences(
-        autoGenerate: result['autoGenerate'] as bool? ?? true,
-        autoPrefix: result['autoPrefix'] as String? ?? '',
-        nextNumber: result['nextNumber'] as String? ?? '',
-        manualPrefix: result['manualPrefix'] as String? ?? '',
-        manualPaymentNumber: result['manualPaymentNumber'] as String? ?? '',
-        restartFiscalYear: result['restartFiscalYear'] as bool? ?? false,
-      );
-    });
-  }
 
   // ─── Attachments Popover ────────────────────────────────────────────────────
 
@@ -2322,7 +1961,7 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
       case 'PAID':
         return const Color(0xFF1DCC6B);
       case 'VOID':
-        return Colors.grey.shade600;
+        return AppTheme.errorRed;
       case 'DRAFT':
       default:
         return Colors.blueGrey.shade300;
@@ -3534,10 +3173,7 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
   Widget _buildRefundLabel(String label, {bool required = false}) {
     return RichText(
       text: TextSpan(
-        style: TextStyle(
-          fontSize: 13,
-          color: required ? const Color(0xFFE53935) : AppTheme.textPrimary,
-        ),
+        style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
         children: [
           TextSpan(text: label),
           if (required)
@@ -3930,24 +3566,21 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               SizedBox(
-                                width: 170,
+                                width: 158,
                                 child: Padding(
                                   padding: const EdgeInsets.only(top: 8),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    mainAxisSize: MainAxisSize.min,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
                                     children: const [
-                                      Flexible(
-                                        child: Text(
-                                          'Description of Supply',
-                                          textAlign: TextAlign.right,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: AppTheme.textPrimary,
-                                          ),
+                                      Text(
+                                        'Description of Supply',
+                                        textAlign: TextAlign.right,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimary,
                                         ),
                                       ),
-                                      SizedBox(width: 4),
+                                      SizedBox(height: 6),
                                       ZTooltip(
                                         message:
                                             'Description of goods or service for which the refund is being made.',
@@ -5292,6 +4925,139 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
                                         : _selectedPayment.status,
                                   ),
                                 ),
+                                Positioned(
+                                  top: 12,
+                                  right: 12,
+                                  child: AnimatedOpacity(
+                                    opacity:
+                                        (_isDocumentHovered ||
+                                            _customizeMenuController.isOpen)
+                                        ? 1.0
+                                        : 0.0,
+                                    duration: const Duration(milliseconds: 150),
+                                    child: IgnorePointer(
+                                      ignoring:
+                                          !(_isDocumentHovered ||
+                                              _customizeMenuController.isOpen),
+                                      child: MenuAnchor(
+                                        controller: _customizeMenuController,
+                                        onClose: () => setState(() {}),
+                                        style: const MenuStyle(
+                                          alignment:
+                                              AlignmentDirectional.bottomEnd,
+                                          minimumSize: WidgetStatePropertyAll(
+                                            Size(200, 0),
+                                          ),
+                                          backgroundColor:
+                                              WidgetStatePropertyAll(
+                                                Colors.white,
+                                              ),
+                                          surfaceTintColor:
+                                              WidgetStatePropertyAll(
+                                                Colors.white,
+                                              ),
+                                          padding: WidgetStatePropertyAll(
+                                            EdgeInsets.zero,
+                                          ),
+                                          elevation: WidgetStatePropertyAll(8),
+                                          shape: WidgetStatePropertyAll(
+                                            RoundedRectangleBorder(
+                                              side: BorderSide(
+                                                color: AppTheme.borderColor,
+                                              ),
+                                              borderRadius: BorderRadius.all(
+                                                Radius.circular(4),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        builder: (context, controller, child) {
+                                          return InkWell(
+                                            onTap: () {
+                                              if (controller.isOpen) {
+                                                controller.close();
+                                              } else {
+                                                controller.open();
+                                              }
+                                              setState(() {});
+                                            },
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 6,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.successGreen,
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(
+                                                    LucideIcons.settings,
+                                                    size: 13,
+                                                    color: Colors.white,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  const Text(
+                                                    'Customize',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: Colors.white,
+                                                      
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Icon(
+                                                    controller.isOpen
+                                                        ? LucideIcons.chevronUp
+                                                        : LucideIcons
+                                                              .chevronDown,
+                                                    size: 11,
+                                                    color: Colors.white,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        menuChildren: [
+                                          _BulkActionMenuItem(
+                                            label: 'Standard Template',
+                                            onTap: () {
+                                              _customizeMenuController.close();
+                                            },
+                                          ),
+                                          _BulkActionMenuItem(
+                                            label: 'Change Template',
+                                            onTap: () {
+                                              _customizeMenuController.close();
+                                            },
+                                          ),
+                                          _BulkActionMenuItem(
+                                            label: 'Edit Template',
+                                            onTap: () {
+                                              _customizeMenuController.close();
+                                            },
+                                          ),
+                                          _BulkActionMenuItem(
+                                            label: 'Update Logo & Address',
+                                            onTap: () {
+                                              _customizeMenuController.close();
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -5855,73 +5621,6 @@ class _BulkActionMenuItemState extends State<_BulkActionMenuItem> {
   }
 }
 
-class _MainMenuItemWidget extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final bool hasSubMenu;
-  final bool isActive;
-  final VoidCallback onHover;
-  final VoidCallback onTap;
-
-  const _MainMenuItemWidget({
-    required this.icon,
-    required this.label,
-    this.hasSubMenu = false,
-    this.isActive = false,
-    required this.onHover,
-    required this.onTap,
-  });
-
-  @override
-  State<_MainMenuItemWidget> createState() => _MainMenuItemWidgetState();
-}
-
-class _MainMenuItemWidgetState extends State<_MainMenuItemWidget> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isBlue = widget.isActive || _isHovered;
-    final bg = isBlue ? AppTheme.primaryBlue : Colors.transparent;
-    final textColor = isBlue ? Colors.white : AppTheme.textPrimary;
-    final iconColor = isBlue ? Colors.white : AppTheme.textSecondary;
-
-    return MouseRegion(
-      onEnter: (_) {
-        widget.onHover();
-        setState(() => _isHovered = true);
-      },
-      onExit: (_) => setState(() => _isHovered = false),
-      child: InkWell(
-        onTap: widget.onTap,
-        child: Container(
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: AppTheme.space12),
-          color: bg,
-          child: Row(
-            children: [
-              Icon(widget.icon, size: 14, color: iconColor),
-              const SizedBox(width: AppTheme.space10),
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: textColor,
-                  ),
-                ),
-              ),
-              if (widget.hasSubMenu)
-                Icon(LucideIcons.chevronRight, size: 14, color: iconColor),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class ConfigurePaymentNumberPreferencesDialog extends StatefulWidget {
   final String currentLocation;
   final String currentSeries;
@@ -6109,12 +5808,27 @@ class _ConfigurePaymentNumberPreferencesDialogState
                       onTap: () => setState(() => _autoGenerate = true),
                       child: Row(
                         children: [
-                          Radio<bool>(
-                            value: true,
-                            groupValue: _autoGenerate,
-                            activeColor: AppTheme.primaryBlue,
-                            onChanged: (val) => setState(() => _autoGenerate = val!),
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          Container(
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _autoGenerate
+                                    ? AppTheme.primaryBlue
+                                    : const Color(0xFFD1D5DB),
+                                width: 2,
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(3),
+                            child: _autoGenerate
+                                ? const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppTheme.primaryBlue,
+                                    ),
+                                  )
+                                : null,
                           ),
                           const SizedBox(width: 8),
                           const Text(
@@ -6232,12 +5946,27 @@ class _ConfigurePaymentNumberPreferencesDialogState
                       onTap: () => setState(() => _autoGenerate = false),
                       child: Row(
                         children: [
-                          Radio<bool>(
-                            value: false,
-                            groupValue: _autoGenerate,
-                            activeColor: AppTheme.primaryBlue,
-                            onChanged: (val) => setState(() => _autoGenerate = val!),
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          Container(
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: !_autoGenerate
+                                    ? AppTheme.primaryBlue
+                                    : const Color(0xFFD1D5DB),
+                                width: 2,
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(3),
+                            child: !_autoGenerate
+                                ? const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppTheme.primaryBlue,
+                                    ),
+                                  )
+                                : null,
                           ),
                           const SizedBox(width: 8),
                           const Text(
