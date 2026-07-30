@@ -9285,3 +9285,36 @@ Analyzed and merged the `recurring_invoices` handoff scope from `fix/` files int
 - `dart analyze` on touched scope $\rightarrow$ **Exit Code: 0 (0 compilation errors!)**.
 
 Timestamp of Log Update: July 27, 2026 - 08:49 AM (IST)
+
+
+## Handoff Selective Merge: Recurring Invoices & Payments Made (July 28, 2026)
+
+### Summary
+Analyzed and merged handoff updates from ix/handoff and ix/handoff_payment_made1 strictly targeting lib/modules/sales/recurring_invoices and lib/modules/purchases/payments_made.
+- 
+ecurring_invoices: Verified all 6 module files (
+ecurring_invoices_api_service.dart, 
+ecurring_invoices_model.dart, 
+ecurring_invoices_create_page.dart, 
+ecurring_invoices_overview_page.dart, 
+ecurring_invoices_report_page.dart, 
+ecurring_invoices_provider.dart) against handoff snapshot and confirmed 100% parity.
+- payments_made: Surgically merged dynamic organization profile details (orgSettingsProvider) and dynamic state list (statesProvider('IN')) into purchases_payments_made_report.dart, purchases_payments_made_list.dart, and purchases_payments_made_create.dart.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/payments_made/presentation/pages/purchases_payments_made_report.dart:
+  - Dynamically resolved company location name from orgSettingsProvider.
+- lib/modules/purchases/payments_made/presentation/pages/purchases_payments_made_list.dart:
+  - Integrated orgSettingsProvider to populate dynamic company name, email, phone, GSTIN, and address list into PaymentMade model instances.
+- lib/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create.dart:
+  - Integrated statesProvider('IN') for dynamic source/destination of supply options.
+  - Dynamically resolved default location from active company settings.
+
+#### Backup Location
+- ackups/refactor-batches/20260728-155327-handoff-merge/
+
+Timestamp of Log Update: July 28, 2026 - 04:07 PM (IST)
+
+- Verified zero errors with flutter analyze on lib/modules/purchases/payments_made.

@@ -108,7 +108,12 @@ class SalesOrder {
       customerId: (json['customer_id'] ?? json['customerId'])?.toString() ?? '',
       isDelete: json['is_delete'] ?? false,
       saleNumber: (json['sale_number'] ?? json['saleNumber'])?.toString() ?? '',
-      reference: json['reference']?.toString(),
+      reference: (json['reference'] ??
+              json['order_number'] ??
+              json['orderNumber'] ??
+              json['sales_order_number'] ??
+              json['salesOrderNumber'])
+          ?.toString(),
       saleDate: DateTime.parse(
         json['sale_date'] ??
             json['saleDate'] ??

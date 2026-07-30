@@ -6876,6 +6876,100 @@ class _PurchaseReceivePreferencesDialogState
 }
 
 class _SelectBatchDialogState extends State<SelectBatchDialog> {
+  final Map<String, Set<String>> _batchIdsByBinId = {};
+  final Map<String, Set<String>> _batchIdsByBin = {};
+
+  Future<void> _fetchStockLayerBins() async {
+    if (widget.productId == null || widget.productId!.isEmpty) return;
+    try {
+      _batchIdsByBinId.clear();
+      _batchIdsByBin.clear();
+      final supabase = Supabase.instance.client;
+      final binCodeMap = <String, String>{};
+      final batchNoById = <String, String>{};
+
+      for (final binObj in widget.bins) {
+        final bId = (binObj['id'] ?? binObj['binId'])?.toString().trim();
+        final bCode = (binObj['bin_code'] ?? binObj['binCode'])?.toString().trim();
+        if (bId != null && bId.isNotEmpty && bCode != null && bCode.isNotEmpty) {
+          binCodeMap[bId] = bCode;
+        }
+      }
+
+      for (final b in widget.batchDetails) {
+        final id = (b['id'] ?? b['batchId'] ?? b['batch_id'])?.toString().trim();
+        final no = (b['batch_no'] ?? b['batchNo'])?.toString().trim();
+        if (id != null && id.isNotEmpty && no != null && no.isNotEmpty) {
+          batchNoById[id] = no;
+        }
+      }
+
+      try {
+        final binRes = await supabase.from('bin_master').select('id, bin_code');
+        for (final b in binRes as List) {
+          final id = b['id']?.toString().trim();
+          final code = b['bin_code']?.toString().trim();
+          if (id != null && id.isNotEmpty && code != null && code.isNotEmpty) {
+            binCodeMap[id] = code;
+          }
+        }
+      } catch (_) {}
+
+      void addBinBatchMapping(String? binId, String? batchId) {
+        if (binId == null || binId.isEmpty || batchId == null || batchId.isEmpty) return;
+        final bNo = batchNoById[batchId];
+        final binCode = binCodeMap[binId];
+
+        final setById = _batchIdsByBinId.putIfAbsent(binId, () => <String>{});
+        setById.add(batchId);
+        if (bNo != null && bNo.isNotEmpty) setById.add(bNo.toLowerCase());
+
+        if (binCode != null && binCode.isNotEmpty) {
+          final setByCode = _batchIdsByBin.putIfAbsent(binCode.toLowerCase(), () => <String>{});
+          setByCode.add(batchId);
+          if (bNo != null && bNo.isNotEmpty) setByCode.add(bNo.toLowerCase());
+        }
+      }
+
+      try {
+        final batchRes = await supabase
+            .from('batch_master')
+            .select('id, batch_no, bin_id')
+            .eq('product_id', widget.productId!);
+        if (mounted) {
+          for (final item in batchRes as List) {
+            final bId = item['id']?.toString().trim();
+            final bNo = item['batch_no']?.toString().trim();
+            final binId = item['bin_id']?.toString().trim();
+
+            if (bId != null && bId.isNotEmpty) {
+              if (bNo != null && bNo.isNotEmpty) batchNoById[bId] = bNo;
+              addBinBatchMapping(binId, bId);
+            }
+          }
+        }
+      } catch (_) {}
+
+      try {
+        final stockRes = await supabase
+            .from('batch_stock_layers')
+            .select('batch_id, bin_id')
+            .eq('product_id', widget.productId!)
+            .not('bin_id', 'is', null);
+        if (mounted) {
+          for (final item in stockRes as List) {
+            final bId = item['batch_id']?.toString().trim();
+            final binId = item['bin_id']?.toString().trim();
+            addBinBatchMapping(binId, bId);
+          }
+        }
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (_) {}
+  }
   final List<_BatchItemRowController> _rows = [];
   final Map<_BatchItemRowController, TextEditingController>
   _batchInputControllers = {};
@@ -6935,6 +7029,7 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
     super.initState();
     _showDamage = widget.initialDamageEnabled;
     _fetchProductUnitPack();
+    _fetchStockLayerBins();
     if (widget.initialBatches.isEmpty) {
       final firstRow = _BatchItemRowController();
       firstRow.qtyCtrl.text = widget.ordered.toString();
@@ -7164,6 +7259,10 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
 
   Widget _buildBatchNoDropdown(_BatchItemRowController row) {
     final current = row.batchNoCtrl.text.trim();
+    final hasBinSelected = row.binLabel != null && row.binLabel!.trim().isNotEmpty;
+    final selectedBinCode = row.binLabel?.trim() ?? '';
+    final selectedBinId = (row.binId ?? '').trim();
+
     final batchItems = <String>{...widget.batchOptions};
     if (current.isNotEmpty) {
       batchItems.add(current);
@@ -7191,6 +7290,47 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
         'prate': '0.00',
         'ptr': '0.00',
       };
+    }).where((item) {
+      if (!hasBinSelected) return false;
+
+      final bId = (item['id'] ?? item['batchId'] ?? item['batch_id'])
+          ?.toString()
+          .trim() ??
+          '';
+      final bName = (item['batch_no'] ?? item['batchNo'])
+          ?.toString()
+          .trim()
+          .toLowerCase() ??
+          '';
+      final bBinId = (item['bin_id'] ?? item['binId'] ?? item['bin_master_id'])
+          ?.toString()
+          .trim();
+      final bBinCode = (item['bin_code'] ?? item['binCode'] ?? item['bin_location'])
+          ?.toString()
+          .trim();
+
+      if (selectedBinId.isNotEmpty && bBinId != null && bBinId.isNotEmpty) {
+        if (bBinId == selectedBinId) return true;
+      }
+      if (selectedBinCode.isNotEmpty && bBinCode != null && bBinCode.isNotEmpty) {
+        if (bBinCode.toLowerCase() == selectedBinCode.toLowerCase()) return true;
+      }
+
+      Set<String>? allowedBatchKeys;
+      if (selectedBinId.isNotEmpty && _batchIdsByBinId.containsKey(selectedBinId)) {
+        allowedBatchKeys = _batchIdsByBinId[selectedBinId];
+      } else if (selectedBinCode.isNotEmpty && _batchIdsByBin.containsKey(selectedBinCode.toLowerCase())) {
+        allowedBatchKeys = _batchIdsByBin[selectedBinCode.toLowerCase()];
+      }
+
+      if (allowedBatchKeys != null && allowedBatchKeys.isNotEmpty) {
+        if ((bId.isNotEmpty && allowedBatchKeys.contains(bId)) ||
+            (bName.isNotEmpty && allowedBatchKeys.contains(bName))) {
+          return true;
+        }
+      }
+
+      return false;
     }).toList();
 
     final inputController = _ensureBatchInputController(row);
@@ -7544,7 +7684,10 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
   }
 
   Widget _buildBinDropdown(_BatchItemRowController row) {
-    final binItems = widget.bins.map((b) => b['bin_code']!.toString()).toList();
+    final binItems = widget.bins
+        .map((b) => (b['bin_code'] ?? b['binCode'])?.toString() ?? '')
+        .where((s) => s.isNotEmpty)
+        .toList();
 
     return Expanded(
       flex: 3,
@@ -7567,14 +7710,20 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
               setState(() {
                 row.binLabel = bin;
                 final selectedBinObj = widget.bins.firstWhere(
-                  (b) => b['bin_code'] == bin,
+                  (b) =>
+                      (b['bin_code'] ?? b['binCode'])?.toString().trim() ==
+                      bin?.trim(),
                   orElse: () => <String, dynamic>{},
                 );
                 if (selectedBinObj.isNotEmpty) {
-                  row.binId = selectedBinObj['id']?.toString();
+                  row.binId =
+                      (selectedBinObj['id'] ?? selectedBinObj['binId'])
+                          ?.toString();
                 } else {
                   row.binId = null;
                 }
+                row.batchNoCtrl.clear();
+                _disposeBatchInputResources(row);
               });
             },
           ),

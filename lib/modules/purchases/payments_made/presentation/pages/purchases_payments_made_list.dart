@@ -286,17 +286,17 @@ const List<PaymentMade> _mockPayments = [
 
 // ─── Screen Widget ───────────────────────────────────────────────────────────
 
-class PaymentsMadeOverviewPage extends StatefulWidget {
+class PaymentsMadeOverviewPage extends ConsumerStatefulWidget {
   const PaymentsMadeOverviewPage({super.key});
 
   @override
-  State<PaymentsMadeOverviewPage> createState() =>
+  ConsumerState<PaymentsMadeOverviewPage> createState() =>
       _PaymentsMadeOverviewPageState();
 }
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
-class _PaymentsMadeOverviewPageState extends State<PaymentsMadeOverviewPage> {
+class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewPage> {
   late List<PaymentMade> _payments;
   late PaymentMade _selectedPayment;
   String _selectedFilter = 'All';
@@ -426,6 +426,37 @@ class _PaymentsMadeOverviewPageState extends State<PaymentsMadeOverviewPage> {
         }
       }
 
+      final orgSettings = ref.read(orgSettingsProvider).whenOrNull(data: (s) => s);
+      final String resolvedCompanyName = orgSettings?.name ?? 'ZABNIX PRIVATE LIMITED';
+      final String resolvedCompanyEmail = orgSettings?.email ?? 'zabnixprivatelimited@gmail.com';
+      final String resolvedCompanyPhone = orgSettings?.phone ?? '8086355500';
+      final String resolvedCompanyGstin = orgSettings?.companyIdValue ?? '32AACCZ4912F1ZL';
+      final List<String> resolvedCompanyAddress = [];
+      if (orgSettings != null) {
+        if (orgSettings.street != null && orgSettings.street!.trim().isNotEmpty) {
+          resolvedCompanyAddress.add(orgSettings.street!.trim());
+        }
+        if (orgSettings.place != null && orgSettings.place!.trim().isNotEmpty) {
+          resolvedCompanyAddress.add(orgSettings.place!.trim());
+        }
+        if (orgSettings.city != null && orgSettings.city!.trim().isNotEmpty) {
+          resolvedCompanyAddress.add(orgSettings.city!.trim());
+        }
+        final country = orgSettings.country ?? 'India';
+        final pincode = orgSettings.pincode ?? '';
+        final line = '$country $pincode'.trim();
+        if (line.isNotEmpty) {
+          resolvedCompanyAddress.add(line);
+        }
+      }
+      if (resolvedCompanyAddress.isEmpty) {
+        resolvedCompanyAddress.addAll([
+          'PERINTHALMANNA',
+          'MALAPPURAM Kerala 679322',
+          'India',
+        ]);
+      }
+
       final loaded = rows.map<PaymentMade>((raw) {
         final row = Map<String, dynamic>.from(raw as Map);
         final vendor = row['vendors'] is Map
@@ -455,7 +486,12 @@ class _PaymentsMadeOverviewPageState extends State<PaymentsMadeOverviewPage> {
           date: paymentDate != null
               ? DateFormat('dd-MM-yyyy').format(paymentDate)
               : '',
-          location: 'ZABNIX PRIVATE LIMITED',
+          location: resolvedCompanyName,
+          companyName: resolvedCompanyName,
+          companyEmail: resolvedCompanyEmail,
+          companyPhone: resolvedCompanyPhone,
+          companyGstin: resolvedCompanyGstin,
+          companyAddress: resolvedCompanyAddress,
           referenceNumber: (row['reference_number'] ?? '').toString(),
           vendorName:
               _firstNonEmpty([

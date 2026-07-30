@@ -2706,8 +2706,6 @@ class _RecurringInvoicesOverviewPageState
           final isChecked = _checkedIds.contains(inv.id);
           final isHovered = _hoveredId == inv.id;
 
-          final isSelected = _selectedInvoice.id == inv.id;
-
           Color rowBg = Colors.transparent;
           if (isHovered) {
             rowBg = const Color(0xFFF3F4F6);

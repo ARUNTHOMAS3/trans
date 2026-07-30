@@ -324,20 +324,44 @@ export class SalesService {
     };
   }
 
-  async getSalesByType(type: string, orgId?: string) {
+  async getSalesByType(type: string, orgId?: string, page = 1, pageSize = 50) {
     const client = this.supabaseService.getClient();
+
+    // Count query for total
+    let countQuery = client
+      .from("sales_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("document_type", type)
+      .or("is_delete.is.null,is_delete.eq.false");
+    if (orgId) countQuery = countQuery.eq("entity_id", orgId);
+    const { count } = await countQuery;
+
+    // Data query with pagination
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
     let query = client
       .from("sales_orders")
       .select(
         "*, customer:customers(id, display_name, first_name, last_name, company_name)",
       )
       .eq("document_type", type)
-      .order("created_at", { ascending: false });
+      .or("is_delete.is.null,is_delete.eq.false")
+      .order("created_at", { ascending: false })
+      .range(from, to);
     if (orgId) query = query.eq("entity_id", orgId);
     const { data, error } = await query;
 
     if (error) throw error;
-    return data;
+    return {
+      data: data ?? [],
+      meta: {
+        page,
+        pageSize,
+        total: count ?? 0,
+        totalPages: Math.ceil((count ?? 0) / pageSize),
+      },
+    };
   }
 
   async getSalesOrdersByCustomer(customerId: string, orgId?: string) {

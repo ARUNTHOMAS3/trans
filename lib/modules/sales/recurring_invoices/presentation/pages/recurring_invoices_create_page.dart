@@ -41,6 +41,8 @@ import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accounta
 import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 
+const double _kRecurringTextSize = 13;
+
 // ── Models & Constants ───────────────────────────────────────────────────────
 
 class _CustomerItem {
@@ -298,6 +300,7 @@ class _RecurringNumericHoverField extends StatefulWidget {
   final TextInputType? keyboardType;
   final ValueChanged<String>? onSubmitted;
   final ValueChanged<String>? onChanged;
+  final double? width;
 
   const _RecurringNumericHoverField({
     required this.controller,
@@ -305,6 +308,7 @@ class _RecurringNumericHoverField extends StatefulWidget {
     this.keyboardType,
     this.onSubmitted,
     this.onChanged,
+    this.width,
   });
 
   @override
@@ -343,40 +347,203 @@ class _RecurringNumericHoverFieldState
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: showBorder ? const Color(0xFF4A88E8) : Colors.transparent,
-            width: 1.5,
+      child: Align(
+        alignment: widget.textAlign == TextAlign.right
+            ? Alignment.centerRight
+            : Alignment.centerLeft,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          width: widget.width,
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: showBorder ? const Color(0xFF4A88E8) : Colors.transparent,
+              width: 1,
+            ),
+          ),
+          child: TextField(
+            controller: widget.controller,
+            focusNode: _focusNode,
+            textAlign: widget.textAlign,
+            keyboardType: widget.keyboardType,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+              height: 1.15,
+            ),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              filled: false,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+            onChanged: widget.onChanged,
+            onSubmitted: widget.onSubmitted,
           ),
         ),
-        child: TextField(
-          controller: widget.controller,
-          focusNode: _focusNode,
-          textAlign: widget.textAlign,
-          keyboardType: widget.keyboardType,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-            height: 1.15,
+      ),
+    );
+  }
+}
+
+class _RecurringDiscountHoverField extends StatefulWidget {
+  final TextEditingController controller;
+  final String unit;
+  final ValueChanged<String> onUnitSelected;
+  final ValueChanged<String>? onChanged;
+
+  const _RecurringDiscountHoverField({
+    required this.controller,
+    required this.unit,
+    required this.onUnitSelected,
+    this.onChanged,
+  });
+
+  @override
+  State<_RecurringDiscountHoverField> createState() =>
+      _RecurringDiscountHoverFieldState();
+}
+
+class _RecurringDiscountHoverFieldState
+    extends State<_RecurringDiscountHoverField> {
+  late final FocusNode _focusNode;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode()..addListener(_handleFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode
+      ..removeListener(_handleFocusChange)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChange() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showBorder = _isHovered || _focusNode.hasFocus;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          width: 132,
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: showBorder ? const Color(0xFF4A88E8) : Colors.transparent,
+              width: 1,
+            ),
           ),
-          decoration: const InputDecoration(
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            disabledBorder: InputBorder.none,
-            filled: false,
-            isDense: true,
-            contentPadding: EdgeInsets.zero,
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: widget.controller,
+                  focusNode: _focusNode,
+                  textAlign: TextAlign.right,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                    height: 1.15,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    filled: false,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: widget.onChanged,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Theme(
+                data: Theme.of(context).copyWith(
+                  hoverColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  popupMenuTheme: PopupMenuThemeData(
+                    color: Colors.white,
+                    elevation: 10,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                  ),
+                ),
+                child: PopupMenuButton<String>(
+                  padding: EdgeInsets.zero,
+                  tooltip: '',
+                  offset: const Offset(-8, 30),
+                  constraints: const BoxConstraints(minWidth: 60, maxWidth: 60),
+                  onSelected: widget.onUnitSelected,
+                  itemBuilder: (context) => ['%', '₹']
+                      .map(
+                        (unit) => PopupMenuItem<String>(
+                          value: unit,
+                          height: 40,
+                          padding: const EdgeInsets.all(4),
+                          child: _DiscountUnitPopupOption(
+                            label: unit,
+                            isSelected: widget.unit == unit,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.unit,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 12,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          onChanged: widget.onChanged,
-          onSubmitted: widget.onSubmitted,
         ),
       ),
     );
@@ -621,8 +788,7 @@ class _ItemRow {
        hsnLink = LayerLink(),
        priceListId = priceListIdVal,
        priceListName = priceListNameVal,
-       blocksGlobalPriceListInheritance =
-           blocksGlobalPriceListInheritanceVal,
+       blocksGlobalPriceListInheritance = blocksGlobalPriceListInheritanceVal,
        warehouseName = warehouseNameVal,
        discountUnit = discountUnitVal,
        tax = taxVal,
@@ -1594,7 +1760,7 @@ class _RecurringInvoicesCreatePageState
     if (customerData == null) return [];
 
     final isBilling = type == 'Billing';
-    final realAddresses = customerData.customerAddresses ?? const [];
+    final realAddresses = customerData.customerAddresses;
     if (realAddresses.isNotEmpty) {
       final typeKey = isBilling ? 'billing' : 'shipping';
       final filtered = realAddresses.where((address) {
@@ -2673,6 +2839,36 @@ class _RecurringInvoicesCreatePageState
     final screenWidth = MediaQuery.of(context).size.width;
     final liveWarehouses =
         ref.watch(warehousesProvider).valueOrNull ?? const <Warehouse>[];
+    final theme = Theme.of(context);
+    final recurringTextTheme = theme.textTheme.copyWith(
+      bodySmall: theme.textTheme.bodySmall?.copyWith(
+        fontSize: _kRecurringTextSize,
+      ),
+      bodyMedium: theme.textTheme.bodyMedium?.copyWith(
+        fontSize: _kRecurringTextSize,
+      ),
+      bodyLarge: theme.textTheme.bodyLarge?.copyWith(
+        fontSize: _kRecurringTextSize,
+      ),
+      titleSmall: theme.textTheme.titleSmall?.copyWith(
+        fontSize: _kRecurringTextSize,
+      ),
+      titleMedium: theme.textTheme.titleMedium?.copyWith(
+        fontSize: _kRecurringTextSize,
+      ),
+      titleLarge: theme.textTheme.titleLarge?.copyWith(
+        fontSize: _kRecurringTextSize,
+      ),
+      labelSmall: theme.textTheme.labelSmall?.copyWith(
+        fontSize: _kRecurringTextSize,
+      ),
+      labelMedium: theme.textTheme.labelMedium?.copyWith(
+        fontSize: _kRecurringTextSize,
+      ),
+      labelLarge: theme.textTheme.labelLarge?.copyWith(
+        fontSize: _kRecurringTextSize,
+      ),
+    );
     _syncSelectedWarehouse(liveWarehouses);
 
     // Kick off / keep the real products loaded so the item picker is populated.
@@ -2721,76 +2917,105 @@ class _RecurringInvoicesCreatePageState
       }
     }
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          Column(
+    return Theme(
+      data: theme.copyWith(
+        textTheme: recurringTextTheme,
+        inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+          hintStyle: theme.inputDecorationTheme.hintStyle?.copyWith(
+            fontSize: _kRecurringTextSize,
+          ),
+          labelStyle: theme.inputDecorationTheme.labelStyle?.copyWith(
+            fontSize: _kRecurringTextSize,
+          ),
+          helperStyle: theme.inputDecorationTheme.helperStyle?.copyWith(
+            fontSize: _kRecurringTextSize,
+          ),
+          errorStyle: theme.inputDecorationTheme.errorStyle?.copyWith(
+            fontSize: _kRecurringTextSize,
+          ),
+        ),
+      ),
+      child: DefaultTextStyle.merge(
+        style: const TextStyle(fontSize: _kRecurringTextSize),
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          body: Stack(
             children: [
-              // Header
-              _buildHeader(),
-              // Form Body
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 100),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Customer Block
-                        _buildCustomerSection(),
-                        const Divider(height: 1, color: AppTheme.borderColor),
-                        // Core Form fields
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: _buildCoreFormFields(),
+              Column(
+                children: [
+                  // Header
+                  _buildHeader(),
+                  // Form Body
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.only(bottom: 100),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Customer Block
+                            _buildCustomerSection(),
+                            const Divider(
+                              height: 1,
+                              color: AppTheme.borderColor,
+                            ),
+                            // Core Form fields
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: _buildCoreFormFields(),
+                            ),
+                            // Item Table section
+                            _buildItemTableSection(screenWidth),
+                            const SizedBox(height: 24),
+                            // Totals & Terms
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 48,
+                              ),
+                              child: _buildFooterDetailsSection(),
+                            ),
+                            const SizedBox(height: 36),
+                            _buildTermsAndConditions(),
+                            const SizedBox(height: 24),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 48,
+                              ),
+                              child: _buildAdditionalSettings(),
+                            ),
+                          ],
                         ),
-                        // Item Table section
-                        _buildItemTableSection(screenWidth),
-                        const SizedBox(height: 24),
-                        // Totals & Terms
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 48),
-                          child: _buildFooterDetailsSection(),
-                        ),
-                        const SizedBox(height: 36),
-                        _buildTermsAndConditions(),
-                        const SizedBox(height: 24),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 48),
-                          child: _buildAdditionalSettings(),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                  // Footer Action Bar
+                  _buildBottomActionBar(),
+                ],
               ),
-              // Footer Action Bar
-              _buildBottomActionBar(),
+              if (_showCustomerDetails && _customer != null)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _buildCustomerDetailsDrawer(),
+                ),
+              if (_showItemDetails)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _ItemDetailsSidebar(
+                    item: _selectedSidebarItem,
+                    itemName: _selectedSidebarItemName,
+                    customerName: _customer?.name ?? 'customer',
+                    initialTabIndex: _itemDetailsSidebarTabIndex,
+                    onClose: () => setState(() => _showItemDetails = false),
+                  ),
+                ),
             ],
           ),
-          if (_showCustomerDetails && _customer != null)
-            Positioned(
-              top: 0,
-              right: 0,
-              bottom: 0,
-              child: _buildCustomerDetailsDrawer(),
-            ),
-          if (_showItemDetails)
-            Positioned(
-              top: 0,
-              right: 0,
-              bottom: 0,
-              child: _ItemDetailsSidebar(
-                item: _selectedSidebarItem,
-                itemName: _selectedSidebarItemName,
-                customerName: _customer?.name ?? 'customer',
-                initialTabIndex: _itemDetailsSidebarTabIndex,
-                onClose: () => setState(() => _showItemDetails = false),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -2810,7 +3035,7 @@ class _RecurringInvoicesCreatePageState
           Text(
             'New Recurring Invoice',
             style: AppTheme.pageTitle.copyWith(
-              fontSize: 18,
+              fontSize: _kRecurringTextSize,
               fontWeight: FontWeight.w600,
               color: AppTheme.textPrimary,
             ),
@@ -5520,6 +5745,7 @@ class _RecurringInvoicesCreatePageState
     TextAlign textAlign = TextAlign.left,
     TextInputType? keyboardType,
     void Function(String)? onSubmitted,
+    double? width,
   }) {
     return _RecurringNumericHoverField(
       controller: controller,
@@ -5527,6 +5753,7 @@ class _RecurringInvoicesCreatePageState
       keyboardType: keyboardType,
       onChanged: (_) => setState(() {}),
       onSubmitted: onSubmitted,
+      width: width,
     );
   }
 
@@ -5550,18 +5777,15 @@ class _RecurringInvoicesCreatePageState
         taxTypes: taxTypes,
         onSave: (taxName, taxRate, taxType) async {
           final service = LookupsApiService();
-          final created = await service.createTaxGroup(
+          final result = await service.createTaxGroup(
             taxName: taxName,
             taxRate: taxRate,
-            taxType: taxType ?? 'GST',
+            taxType: taxType,
           );
-          return created ??
-              TaxRate(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
-                taxName: taxName,
-                taxRate: taxRate,
-                taxType: taxType,
-              );
+          if (result == null) {
+            throw Exception('Failed to create tax group');
+          }
+          return result;
         },
       ),
     );
@@ -5876,8 +6100,7 @@ class _RecurringInvoicesCreatePageState
   Widget _buildSelectedRateInfo(_ItemRow row, Item? item) {
     final applicablePriceLists = _applicablePriceListsForRow(row);
     final notIncluded = _isRowItemMissingFromSelectedPriceList(row);
-    final displayedPriceListLabel =
-        row.priceListName?.trim().isNotEmpty == true
+    final displayedPriceListLabel = row.priceListName?.trim().isNotEmpty == true
         ? row.priceListName!.trim()
         : row.blocksGlobalPriceListInheritance
         ? null
@@ -5968,8 +6191,7 @@ class _RecurringInvoicesCreatePageState
                                     'Apply Price List',
                                 direction: ZTooltipDirection.bottom,
                                 child: Text(
-                                  displayedPriceListLabel ??
-                                      'Apply Price List',
+                                  displayedPriceListLabel ?? 'Apply Price List',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: !hasDisplayedPriceList
@@ -6318,6 +6540,7 @@ class _RecurringInvoicesCreatePageState
                                           height: 36,
                                           child: _buildBorderlessItemField(
                                             row.quantityCtrl,
+                                            width: 132,
                                             textAlign: TextAlign.right,
                                             keyboardType:
                                                 const TextInputType.numberWithOptions(
@@ -6358,6 +6581,7 @@ class _RecurringInvoicesCreatePageState
                                           height: 36,
                                           child: _buildBorderlessItemField(
                                             row.rateCtrl,
+                                            width: 132,
                                             textAlign: TextAlign.right,
                                             keyboardType: TextInputType.text,
                                             onSubmitted: (val) {
@@ -6393,110 +6617,13 @@ class _RecurringInvoicesCreatePageState
                                 ),
                                 child: SizedBox(
                                   height: 36,
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Expanded(
-                                        child: _RecurringNumericHoverField(
-                                          controller: row.discountCtrl,
-                                          textAlign: TextAlign.right,
-                                          keyboardType:
-                                              const TextInputType.numberWithOptions(
-                                                decimal: true,
-                                              ),
-                                          onChanged: (_) => setState(() {}),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 3),
-                                      SizedBox(
-                                        width: 38,
-                                        child: Theme(
-                                          data: Theme.of(context).copyWith(
-                                            hoverColor: Colors.transparent,
-                                            splashColor: Colors.transparent,
-                                            popupMenuTheme: PopupMenuThemeData(
-                                              color: Colors.white,
-                                              elevation: 10,
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
-                                                side: const BorderSide(
-                                                  color: Color(0xFFE5E7EB),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          child: PopupMenuButton<String>(
-                                            padding: EdgeInsets.zero,
-                                            tooltip: '',
-                                            offset: const Offset(-8, 30),
-                                            constraints: const BoxConstraints(
-                                              minWidth: 60,
-                                              maxWidth: 60,
-                                            ),
-                                            onSelected: (value) {
-                                              setState(
-                                                () => row.discountUnit = value,
-                                              );
-                                            },
-                                            itemBuilder: (context) => ['%', '₹']
-                                                .map(
-                                                  (
-                                                    unit,
-                                                  ) => PopupMenuItem<String>(
-                                                    value: unit,
-                                                    height: 40,
-                                                    padding:
-                                                        const EdgeInsets.all(4),
-                                                    child:
-                                                        _DiscountUnitPopupOption(
-                                                          label: unit,
-                                                          isSelected:
-                                                              row.discountUnit ==
-                                                              unit,
-                                                        ),
-                                                  ),
-                                                )
-                                                .toList(),
-                                            child: Container(
-                                              height: 24,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 4,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Text(
-                                                    row.discountUnit,
-                                                    style: const TextStyle(
-                                                      fontSize: 11,
-                                                      color:
-                                                          AppTheme.textPrimary,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 2),
-                                                  const Icon(
-                                                    Icons.keyboard_arrow_down,
-                                                    size: 12,
-                                                    color: Color(0xFF6B7280),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                  child: _RecurringDiscountHoverField(
+                                    controller: row.discountCtrl,
+                                    unit: row.discountUnit,
+                                    onChanged: (_) => setState(() {}),
+                                    onUnitSelected: (value) {
+                                      setState(() => row.discountUnit = value);
+                                    },
                                   ),
                                 ),
                               ),
@@ -7048,10 +7175,9 @@ class _RecurringInvoicesCreatePageState
                             builder: (context) => ManageTdsTcsRatesDialog(
                               title: 'Manage TDS Rates',
                               isTcs: false,
-                              items: _tdsList,
+                              items: const [],
                               sections: const [],
-                              selectedId: _selectedTdsId,
-                              onSelect: (item) => setState(() => _selectedTdsId = item['id']?.toString()),
+                              onSelect: (_) {},
                             ),
                           );
                         },
@@ -7625,7 +7751,7 @@ class _FormRow extends StatelessWidget {
                   child: RichText(
                     text: TextSpan(
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: _kRecurringTextSize,
                         fontWeight: FontWeight.w500,
                         color: hasAsterisk
                             ? const Color(0xFFEF4444)

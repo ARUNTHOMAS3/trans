@@ -12411,6 +12411,92 @@ class _InvoiceSelectBatchesDialog extends ConsumerStatefulWidget {
 
 class _InvoiceSelectBatchesDialogState
     extends ConsumerState<_InvoiceSelectBatchesDialog> {
+  final Map<String, Set<String>> _batchIdsByBinId = {};
+  final Map<String, Set<String>> _batchIdsByBin = {};
+
+  Future<void> _fetchStockLayerBins() async {
+    if (widget.productId.isEmpty) return;
+    try {
+      _batchIdsByBinId.clear();
+      _batchIdsByBin.clear();
+      final supabase = Supabase.instance.client;
+      final binCodeMap = <String, String>{};
+      final batchNoById = <String, String>{};
+
+      for (final binObj in _binsData) {
+        final bId = (binObj['id'] ?? binObj['binId'])?.toString().trim();
+        final bCode = (binObj['binCode'] ?? binObj['bin_code'])?.toString().trim();
+        if (bId != null && bId.isNotEmpty && bCode != null && bCode.isNotEmpty) {
+          binCodeMap[bId] = bCode;
+        }
+      }
+
+      try {
+        final binRes = await supabase.from('bin_master').select('id, bin_code');
+        for (final b in binRes as List) {
+          final id = b['id']?.toString().trim();
+          final code = b['bin_code']?.toString().trim();
+          if (id != null && id.isNotEmpty && code != null && code.isNotEmpty) {
+            binCodeMap[id] = code;
+          }
+        }
+      } catch (_) {}
+
+      void addBinBatchMapping(String? binId, String? batchId) {
+        if (binId == null || binId.isEmpty || batchId == null || batchId.isEmpty) return;
+        final bNo = batchNoById[batchId];
+        final binCode = binCodeMap[binId];
+
+        final setById = _batchIdsByBinId.putIfAbsent(binId, () => <String>{});
+        setById.add(batchId);
+        if (bNo != null && bNo.isNotEmpty) setById.add(bNo.toLowerCase());
+
+        if (binCode != null && binCode.isNotEmpty) {
+          final setByCode = _batchIdsByBin.putIfAbsent(binCode.toLowerCase(), () => <String>{});
+          setByCode.add(batchId);
+          if (bNo != null && bNo.isNotEmpty) setByCode.add(bNo.toLowerCase());
+        }
+      }
+
+      try {
+        final batchRes = await supabase
+            .from('batch_master')
+            .select('id, batch_no, bin_id')
+            .eq('product_id', widget.productId);
+        if (mounted) {
+          for (final item in batchRes as List) {
+            final bId = item['id']?.toString().trim();
+            final bNo = item['batch_no']?.toString().trim();
+            final binId = item['bin_id']?.toString().trim();
+
+            if (bId != null && bId.isNotEmpty) {
+              if (bNo != null && bNo.isNotEmpty) batchNoById[bId] = bNo;
+              addBinBatchMapping(binId, bId);
+            }
+          }
+        }
+      } catch (_) {}
+
+      try {
+        final layerRes = await supabase
+            .from('batch_stock_layers')
+            .select('batch_id, bin_id')
+            .eq('product_id', widget.productId)
+            .not('bin_id', 'is', null);
+        if (mounted) {
+          for (final item in layerRes as List) {
+            final bId = item['batch_id']?.toString().trim();
+            final binId = item['bin_id']?.toString().trim();
+            addBinBatchMapping(binId, bId);
+          }
+        }
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (_) {}
+  }
   static const double _batchDropdownHeight = 38;
   static const double _batchTextFieldHeight = 38;
   final List<_InvoiceBatchRowController> _rows = [];
@@ -12546,6 +12632,7 @@ class _InvoiceSelectBatchesDialogState
               .where((c) => c.isNotEmpty)
               .toList();
         });
+        _fetchStockLayerBins();
         debugPrint('✅ Set _binLocations (Invoice): $_binLocations');
       }
     } catch (e) {
@@ -12555,6 +12642,7 @@ class _InvoiceSelectBatchesDialogState
 
   Future<void> _loadInitialData() async {
     await _loadBins();
+    await _fetchStockLayerBins();
     if (!widget.isFromPackage) {
       if (mounted) {
         setState(() {
@@ -13364,6 +13452,53 @@ class _InvoiceSelectBatchesDialogState
                                         final batches =
                                             batchesAsync.value ?? [];
 
+                                        final selectedBinCode = row.binLocationCtrl.text.trim();
+                                        final selectedBinId = (row.binId ?? '').trim();
+                                        final hasBinSelected = selectedBinCode.isNotEmpty || selectedBinId.isNotEmpty;
+
+                                        final filteredBatches = batches.where((item) {
+                                          if (!hasBinSelected) return false;
+
+                                          final bId = (item['id'] ?? item['batchId'] ?? item['batch_id'])
+                                              ?.toString()
+                                              .trim() ??
+                                              '';
+                                          final bName = (item['batch_no'] ?? item['batchNo'])
+                                              ?.toString()
+                                              .trim()
+                                              .toLowerCase() ??
+                                              '';
+                                          final bBinId = (item['bin_id'] ?? item['binId'] ?? item['bin_master_id'])
+                                              ?.toString()
+                                              .trim();
+                                          final bBinCode = (item['bin_code'] ?? item['binCode'] ?? item['bin_location'])
+                                              ?.toString()
+                                              .trim();
+
+                                          if (selectedBinId.isNotEmpty && bBinId != null && bBinId.isNotEmpty) {
+                                            if (bBinId == selectedBinId) return true;
+                                          }
+                                          if (selectedBinCode.isNotEmpty && bBinCode != null && bBinCode.isNotEmpty) {
+                                            if (bBinCode.toLowerCase() == selectedBinCode.toLowerCase()) return true;
+                                          }
+
+                                          Set<String>? allowedBatchKeys;
+                                          if (selectedBinId.isNotEmpty && _batchIdsByBinId.containsKey(selectedBinId)) {
+                                            allowedBatchKeys = _batchIdsByBinId[selectedBinId];
+                                          } else if (selectedBinCode.isNotEmpty && _batchIdsByBin.containsKey(selectedBinCode.toLowerCase())) {
+                                            allowedBatchKeys = _batchIdsByBin[selectedBinCode.toLowerCase()];
+                                          }
+
+                                          if (allowedBatchKeys != null && allowedBatchKeys.isNotEmpty) {
+                                            if ((bId.isNotEmpty && allowedBatchKeys.contains(bId)) ||
+                                                (bName.isNotEmpty && allowedBatchKeys.contains(bName))) {
+                                              return true;
+                                            }
+                                          }
+
+                                          return false;
+                                        }).toList();
+
                                         return FormDropdown<
                                           Map<String, dynamic>
                                         >(
@@ -13379,7 +13514,7 @@ class _InvoiceSelectBatchesDialogState
                                             vertical: 8,
                                           ),
                                           value:
-                                              batches
+                                              filteredBatches
                                                   .firstWhere(
                                                     (b) =>
                                                         b['batch_no']
@@ -13392,7 +13527,7 @@ class _InvoiceSelectBatchesDialogState
                                                   )
                                                   .isEmpty
                                               ? null
-                                              : batches.firstWhere(
+                                              : filteredBatches.firstWhere(
                                                   (b) =>
                                                       b['batch_no']
                                                           ?.toString()
@@ -13400,7 +13535,7 @@ class _InvoiceSelectBatchesDialogState
                                                       row.batchRefCtrl.text
                                                           .trim(),
                                                 ),
-                                          items: batches,
+                                          items: filteredBatches,
                                           hint: 'Select Batch',
                                           showSearch: true,
                                           menuMaxHeight: 400,

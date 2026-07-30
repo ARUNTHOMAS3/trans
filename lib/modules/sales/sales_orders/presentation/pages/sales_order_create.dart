@@ -884,31 +884,47 @@ class _SalesOrderCreateScreenState
     List<CurrencyOption>? currencies,
   ]) {
     final raw = (currencyId ?? '').trim();
-    if (raw.isEmpty) {
-      return 'INR - Indian Rupee';
-    }
-
     final options = (currencies != null && currencies.isNotEmpty)
         ? currencies
         : defaultCurrencyOptions;
 
-    for (final currency in options) {
-      if (currency.id == raw || currency.code.toUpperCase() == raw.toUpperCase()) {
-        return currency.label.isNotEmpty
-            ? currency.label
-            : '${currency.code} - ${currency.name}';
+    if (options.isNotEmpty) {
+      if (raw.isNotEmpty) {
+        for (final currency in options) {
+          if (currency.id == raw || currency.code.toUpperCase() == raw.toUpperCase()) {
+            return currency.label.isNotEmpty
+                ? currency.label
+                : '${currency.code} - ${currency.name}';
+          }
+        }
       }
+      return options.first.label.isNotEmpty
+          ? options.first.label
+          : '${options.first.code} - ${options.first.name}';
     }
+    return '';
+  }
 
-    for (final currency in defaultCurrencyOptions) {
-      if (currency.id == raw || currency.code.toUpperCase() == raw.toUpperCase()) {
-        return currency.label.isNotEmpty
-            ? currency.label
-            : '${currency.code} - ${currency.name}';
+  String _resolveCurrencySymbol(
+    String? currencyId, [
+    List<CurrencyOption>? currencies,
+  ]) {
+    final raw = (currencyId ?? '').trim();
+    final options = (currencies != null && currencies.isNotEmpty)
+        ? currencies
+        : defaultCurrencyOptions;
+
+    if (options.isNotEmpty) {
+      if (raw.isNotEmpty) {
+        for (final currency in options) {
+          if (currency.id == raw || currency.code.toUpperCase() == raw.toUpperCase()) {
+            return currency.symbol;
+          }
+        }
       }
+      return options.first.symbol;
     }
-
-    return raw;
+    return '';
   }
 
   void _showNewCustomerDialog() {
@@ -1682,39 +1698,54 @@ class _SalesOrderCreateScreenState
                             const SizedBox(width: 12),
                             // Currency Pill
                             if (_selectedCustomer != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF3F4F6),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      LucideIcons.circleDollarSign,
-                                      size: 14,
-                                      color: Color(0xFF374151),
+                              Builder(
+                                builder: (ctx) {
+                                  final dbCurrencies = ref.watch(currenciesProvider(null)).valueOrNull;
+                                  final currencySymbol = _resolveCurrencySymbol(
+                                    _selectedCustomer?.currencyId,
+                                    dbCurrencies,
+                                  );
+                                  final currencyLabel = _resolveCurrencyLabel(
+                                    _selectedCustomer?.currencyId,
+                                    dbCurrencies,
+                                  );
+
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      _resolveCurrencyLabel(
-                                        _selectedCustomer?.currencyId,
-                                      ),
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF374151),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF3F4F6),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: const Color(0xFFE5E7EB),
                                       ),
                                     ),
-                                  ],
-                                ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          currencySymbol,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF374151),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          currencyLabel,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF374151),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
                               ),
                             const Spacer(),
                             // Customer Details Button

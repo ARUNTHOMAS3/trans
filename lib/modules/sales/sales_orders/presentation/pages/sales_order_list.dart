@@ -321,7 +321,6 @@ class _SalesOrderOverviewScreenState
   Set<String> _selectedSaleIds = <String>{};
   late List<_SalesOrderColumnConfig> _columnConfigs;
   Map<String, double>? _customColumnWidths;
-  int _currentPage = 1;
   int _pageSize = 30;
 
   List<_SalesOrderColumnConfig> get _visibleColumns =>
@@ -337,8 +336,6 @@ class _SalesOrderOverviewScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.invalidate(salesOrderControllerProvider);
-      ref.invalidate(warehousesProvider);
       ref.read(inventoryPackagesProvider.notifier).fetchPackages();
     });
     _columnConfigs = _defaultColumnConfigs();
@@ -353,7 +350,6 @@ class _SalesOrderOverviewScreenState
       if (next != _searchQuery) {
         setState(() {
           _searchQuery = next;
-          _currentPage = 1;
         });
       }
     });
@@ -599,22 +595,60 @@ class _SalesOrderOverviewScreenState
     try {
       final supabase = Supabase.instance.client;
 
-      // 1. Invoices
-      final invLinks = await supabase
-          .from('invoice_sales_orders')
-          .select('sales_order_id, invoice_id')
-          .inFilter('sales_order_id', orderIds);
+      // 1. First batch: Independent first-level lookups
+      final firstBatch = await Future.wait([
+        supabase
+            .from('invoice_sales_orders')
+            .select('sales_order_id, invoice_id')
+            .inFilter('sales_order_id', orderIds),
+        supabase
+            .from('inventory_package_items')
+            .select('sales_order_id, product_id, quantity')
+            .inFilter('sales_order_id', orderIds),
+        supabase
+            .from('inventory_shipment_sales_orders')
+            .select('sales_order_id, shipment_id')
+            .inFilter('sales_order_id', orderIds),
+        supabase
+            .from('picklist_items')
+            .select('sales_order_id, product_id, qty_ordered, qty_picked')
+            .inFilter('sales_order_id', orderIds),
+        supabase
+            .from('sales_order_items')
+            .select('sales_order_id, product_id, quantity')
+            .inFilter('sales_order_id', orderIds),
+      ]);
+
+      final invLinks = firstBatch[0];
+      final packItems = firstBatch[1];
+      final shipLinks = firstBatch[2];
+      final pickItems = firstBatch[3];
+      final orderItemsList = firstBatch[4];
+
       final invLinkList = List<Map<String, dynamic>>.from(invLinks as List);
       final invoiceIds = invLinkList.map((l) => l['invoice_id'] as String).toList();
 
-      List<Map<String, dynamic>> invoiceItemsList = [];
-      if (invoiceIds.isNotEmpty) {
-        final invItems = await supabase
-            .from('invoice_items')
-            .select('invoice_id, product_id, quantity')
-            .inFilter('invoice_id', invoiceIds);
-        invoiceItemsList = List<Map<String, dynamic>>.from(invItems as List);
-      }
+      final shipLinkList = List<Map<String, dynamic>>.from(shipLinks as List);
+      final shipmentIds = shipLinkList.map((l) => l['shipment_id'] as String).toList();
+
+      // 2. Second batch: Dependent sub-queries run in parallel
+      final secondBatch = await Future.wait([
+        invoiceIds.isNotEmpty
+            ? supabase
+                .from('invoice_items')
+                .select('invoice_id, product_id, quantity')
+                .inFilter('invoice_id', invoiceIds)
+            : Future.value(<dynamic>[]),
+        shipmentIds.isNotEmpty
+            ? supabase
+                .from('inventory_shipment_packages')
+                .select('shipment_id, package_id')
+                .inFilter('shipment_id', shipmentIds)
+            : Future.value(<dynamic>[]),
+      ]);
+
+      final invoiceItemsList = List<Map<String, dynamic>>.from(secondBatch[0]);
+      final shipPackList = List<Map<String, dynamic>>.from(secondBatch[1]);
 
       final Map<String, Map<String, double>> orderInvoicedQtys = {};
       for (final link in invLinkList) {
@@ -630,11 +664,6 @@ class _SalesOrderOverviewScreenState
         }
       }
 
-      // 2. Packages
-      final packItems = await supabase
-          .from('inventory_package_items')
-          .select('sales_order_id, product_id, quantity')
-          .inFilter('sales_order_id', orderIds);
       final packItemsList = List<Map<String, dynamic>>.from(packItems as List);
 
       final Map<String, Map<String, double>> orderPackQtys = {};
@@ -648,31 +677,15 @@ class _SalesOrderOverviewScreenState
         orderPackQtys[soId]![prodId] = (orderPackQtys[soId]![prodId] ?? 0.0) + qty;
       }
 
-      // 3. Shipments
-      final shipLinks = await supabase
-          .from('inventory_shipment_sales_orders')
-          .select('sales_order_id, shipment_id')
-          .inFilter('sales_order_id', orderIds);
-      final shipLinkList = List<Map<String, dynamic>>.from(shipLinks as List);
-      final shipmentIds = shipLinkList.map((l) => l['shipment_id'] as String).toList();
-
-      List<Map<String, dynamic>> shipPackList = [];
-      if (shipmentIds.isNotEmpty) {
-        final shipPacks = await supabase
-            .from('inventory_shipment_packages')
-            .select('shipment_id, package_id')
-            .inFilter('shipment_id', shipmentIds);
-        shipPackList = List<Map<String, dynamic>>.from(shipPacks as List);
-      }
       final shipPackageIds = shipPackList.map((l) => l['package_id'] as String).toList();
 
       List<Map<String, dynamic>> shipPackItemsList = [];
       if (shipPackageIds.isNotEmpty) {
-        final packItems = await supabase
+        final packItemsResult = await supabase
             .from('inventory_package_items')
             .select('package_id, product_id, quantity')
             .inFilter('package_id', shipPackageIds);
-        shipPackItemsList = List<Map<String, dynamic>>.from(packItems as List);
+        shipPackItemsList = List<Map<String, dynamic>>.from(packItemsResult as List);
       }
 
       final Map<String, Map<String, double>> orderShippedQtys = {};
@@ -690,11 +703,6 @@ class _SalesOrderOverviewScreenState
         }
       }
 
-      // 4. Picklists
-      final pickItems = await supabase
-          .from('picklist_items')
-          .select('sales_order_id, product_id, qty_ordered, qty_picked')
-          .inFilter('sales_order_id', orderIds);
       final pickItemsList = List<Map<String, dynamic>>.from(pickItems as List);
 
       final Map<String, Map<String, double>> orderPickedQtys = {};
@@ -708,11 +716,6 @@ class _SalesOrderOverviewScreenState
         orderPickedQtys[soId]![prodId] = (orderPickedQtys[soId]![prodId] ?? 0.0) + qty;
       }
 
-      // 4.5. Sales Order Items
-      final orderItemsList = await supabase
-          .from('sales_order_items')
-          .select('sales_order_id, product_id, quantity')
-          .inFilter('sales_order_id', orderIds);
       final List<Map<String, dynamic>> orderItems = List<Map<String, dynamic>>.from(orderItemsList as List);
 
       // 5. Enforce Status Calculation
@@ -920,8 +923,7 @@ class _SalesOrderOverviewScreenState
                 onChanged: (opt) {
                   setState(() {
                     _activeOption = opt;
-                    _currentPage = 1;
-                    _activeView = _salesOrderViews.firstWhere(
+                              _activeView = _salesOrderViews.firstWhere(
                       (v) => v.label == (opt.label == 'All' ? 'All Sales Orders' : opt.label),
                       orElse: () => _salesOrderViews.first,
                     );
@@ -1602,8 +1604,7 @@ class _SalesOrderOverviewScreenState
                       onChanged: (opt) {
                         setState(() {
                           _activeOption = opt;
-                          _currentPage = 1;
-                          _activeView = _salesOrderViews.firstWhere(
+                                          _activeView = _salesOrderViews.firstWhere(
                             (v) => v.label == (opt.label == 'All' ? 'All Sales Orders' : opt.label),
                             orElse: () => _salesOrderViews.first,
                           );
@@ -2314,7 +2315,6 @@ class _SalesOrderOverviewScreenState
 
   Widget _buildMoreButton(SalesOrder order) {
     bool isHovered = false;
-    final hasShortage = ref.watch(_hasStockShortageProvider(order.id)).value ?? false;
     final hasCancelledItems = (order.items ?? []).any((item) => item.cancelledQuantity > 0);
     return StatefulBuilder(
       builder: (context, setState) {
@@ -2378,7 +2378,7 @@ class _SalesOrderOverviewScreenState
                         _detailActionMenuItem('Cancel Items', order),
                         if (hasCancelledItems) _detailActionMenuItem('Reopen cancelled items', order),
                         _detailActionMenuItem('Void', order),
-                        if (hasShortage) _detailActionMenuItem('Backorder', order),
+                        _BackorderMenuItem(order: order, onSelected: _handleDetailAction),
                         _detailActionMenuItem('Clone', order),
                         _detailActionMenuItem('Delete', order),
                         const Divider(height: 1, color: AppTheme.borderLight),
@@ -2861,11 +2861,12 @@ class _SalesOrderOverviewScreenState
   }
 
   Widget _table(List<SalesOrder> sales) {
-    final totalItems = sales.length;
-    final totalPages = totalItems == 0 ? 1 : (totalItems / _pageSize).ceil();
-    final clampedPage = _currentPage.clamp(1, totalPages);
-    final startIndex = (clampedPage - 1) * _pageSize;
-    final paginatedSales = sales.skip(startIndex).take(_pageSize).toList();
+    final controller = ref.read(salesOrderControllerProvider.notifier);
+    final totalItems = controller.totalCount;
+    final totalPages = controller.totalPages;
+    final clampedPage = controller.currentPage.clamp(1, totalPages);
+    // Server already returns only the current page's data
+    final paginatedSales = sales;
     final allSelected = _allVisibleSelected(paginatedSales);
 
     return Column(
@@ -2927,14 +2928,14 @@ class _SalesOrderOverviewScreenState
           pageSize: _pageSize,
           onPageChanged: (page) {
             setState(() {
-              _currentPage = page;
             });
+            controller.loadPage(page);
           },
           onPageSizeChanged: (size) {
             setState(() {
               _pageSize = size;
-              _currentPage = 1;
-            });
+                });
+            controller.setPageSize(size);
           },
         ),
       ],
@@ -4556,7 +4557,6 @@ class _SalesOrderOverviewScreenState
       _activeSortField = field;
       _isAscending = true;
     }
-    _currentPage = 1;
   }
 
   Widget _message({
@@ -8639,6 +8639,31 @@ class _BackorderDialogState extends ConsumerState<_BackorderDialog> {
     context.push(
       '/${widget.orgId}/purchases/purchase-orders/create',
       extra: po,
+    );
+  }
+}
+
+class _BackorderMenuItem extends ConsumerWidget {
+  final SalesOrder order;
+  final void Function(String, SalesOrder) onSelected;
+
+  const _BackorderMenuItem({
+    required this.order,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasShortage = ref.watch(_hasStockShortageProvider(order.id)).value ?? false;
+    if (!hasShortage) return const SizedBox.shrink();
+
+    return MenuItemButton(
+      style: _menuItemStyle(),
+      onPressed: () => onSelected('Backorder', order),
+      child: const SizedBox(
+        width: 180,
+        child: Text('Backorder'),
+      ),
     );
   }
 }

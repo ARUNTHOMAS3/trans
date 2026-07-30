@@ -22,9 +22,16 @@ export class SalesController {
   ) {}
 
   @Get()
-  async getList(@Query("type") type: string, @Tenant() tenant: TenantContext) {
+  async getList(
+    @Query("type") type: string,
+    @Query("page") page: string,
+    @Query("pageSize") pageSize: string,
+    @Tenant() tenant: TenantContext,
+  ) {
     if (!type) throw new BadRequestException("Type is required");
-    return this.salesService.getSalesByType(type, tenant.entityId);
+    const p = page ? parseInt(page, 10) : 1;
+    const ps = pageSize ? parseInt(pageSize, 10) : 50;
+    return this.salesService.getSalesByType(type, tenant.entityId, p, ps);
   }
 
   @Get("awaiting-po-approvals")

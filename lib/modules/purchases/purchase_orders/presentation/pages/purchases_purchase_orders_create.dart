@@ -243,12 +243,36 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
   AccountNode? _selectedPopupAccount;
 
-  String _getCurrencyLabel(String code) {
-    final option = defaultCurrencyOptions.firstWhere(
-      (c) => c.code == code,
-      orElse: () => defaultCurrencyOptions.first,
-    );
-    return option.label;
+  String _getCurrencyLabel(String currencyIdOrCode, [List<CurrencyOption>? currencies]) {
+    final raw = currencyIdOrCode.trim();
+    final options = (currencies != null && currencies.isNotEmpty) ? currencies : defaultCurrencyOptions;
+    if (options.isNotEmpty) {
+      if (raw.isNotEmpty) {
+        for (final c in options) {
+          if (c.id == raw || c.code.toUpperCase() == raw.toUpperCase()) {
+            return c.label.isNotEmpty ? c.label : '${c.code} - ${c.name}';
+          }
+        }
+      }
+      return options.first.label.isNotEmpty ? options.first.label : '${options.first.code} - ${options.first.name}';
+    }
+    return '';
+  }
+
+  String _getCurrencySymbol(String currencyIdOrCode, [List<CurrencyOption>? currencies]) {
+    final raw = currencyIdOrCode.trim();
+    final options = (currencies != null && currencies.isNotEmpty) ? currencies : defaultCurrencyOptions;
+    if (options.isNotEmpty) {
+      if (raw.isNotEmpty) {
+        for (final c in options) {
+          if (c.id == raw || c.code.toUpperCase() == raw.toUpperCase()) {
+            return c.symbol;
+          }
+        }
+      }
+      return options.first.symbol;
+    }
+    return '';
   }
 
   Widget _buildBulkButton(String label, {required VoidCallback onTap}) {
@@ -3590,37 +3614,46 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                 ),
                 if (hasVendor) ...[
                   const SizedBox(width: 8),
-                  // INR badge
-                  Container(
-                    height: 28,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F4F6),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          LucideIcons.circleDollarSign,
-                          size: 14,
-                          color: Color(0xFF374151),
+                  Builder(
+                    builder: (ctx) {
+                      final dbCurrencies = ref.watch(currenciesProvider(null)).valueOrNull;
+                      final symbol = _getCurrencySymbol(selectedVendor.currency ?? 'INR', dbCurrencies);
+                      final label = _getCurrencyLabel(selectedVendor.currency ?? 'INR', dbCurrencies);
+                      return Container(
+                        height: 28,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _getCurrencyLabel(selectedVendor.currency ?? 'INR'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF111827),
-                          ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '($symbol)',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF374151),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ],
               ],

@@ -16,6 +16,7 @@ import 'package:zerpai_erp/shared/models/column_config.dart';
 import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/providers/purchases_payments_made_provider.dart';
+import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MockPaymentMade {
@@ -223,13 +224,15 @@ class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage>
     try {
       final repo = ref.read(paymentsMadeRepositoryProvider);
       final apiPayments = await repo.getPaymentsMade();
+      final orgSettings = ref.read(orgSettingsProvider).whenOrNull(data: (s) => s);
+      final String resolvedCompanyName = orgSettings?.name ?? 'ZABNIX PRIVATE LIMITED';
       
       final List<MockPaymentMade> loaded = [];
       for (final p in apiPayments) {
         loaded.add(MockPaymentMade(
           id: p.id,
           date: DateFormat('dd-MM-yyyy').format(p.paymentDate),
-          location: 'ZABNIX PRIVATE LIMITED',
+          location: resolvedCompanyName,
           paymentNumber: p.paymentNumber,
           referenceNumber: p.referenceNumber ?? '',
           vendorName: p.vendorName ?? 'Generic Vendor',
@@ -527,6 +530,8 @@ class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage>
 
   @override
   Widget build(BuildContext context) {
+    final orgSettings = ref.watch(orgSettingsProvider).whenOrNull(data: (s) => s);
+    final String resolvedCompanyName = orgSettings?.name ?? 'ZABNIX PRIVATE LIMITED';
     final orgId = resolveOrgSystemId(context);
     final state = GoRouterState.of(context);
     final selectedPaymentId = state.uri.queryParameters['paymentId'];
@@ -546,7 +551,7 @@ class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage>
       (index) => MockPaymentMade(
         id: 'dummy-$index',
         date: '20-07-2026',
-        location: 'ZABNIX PRIVATE LIMITED',
+        location: resolvedCompanyName,
         paymentNumber: 'PM-000$index',
         referenceNumber: 'REF-$index',
         vendorName: 'Loading Vendor Name...',

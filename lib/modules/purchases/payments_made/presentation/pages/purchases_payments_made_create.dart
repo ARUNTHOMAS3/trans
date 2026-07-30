@@ -20,6 +20,8 @@ import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/pu
     hide PaymentMade;
 import 'package:zerpai_erp/shared/utils/org_scope_resolver.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
+import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
+import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/presentation/widgets/vendor_sidebar.dart';
@@ -465,6 +467,12 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
       (widget.paymentNumber != null && widget.paymentNumber!.trim().isNotEmpty);
 
   Future<void> _initializePage() async {
+    final orgSettings = ref.read(orgSettingsProvider).asData?.value;
+    if (orgSettings != null && orgSettings.name.isNotEmpty) {
+      setState(() {
+        _location = orgSettings.name;
+      });
+    }
     await Future.wait([
       ref.read(vendorProvider.notifier).loadVendors(),
       ref.read(billsProvider.notifier).loadBills(),
@@ -2035,7 +2043,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           required: true,
                           child: FormDropdown<String>(
                             value: _sourceOfSupply,
-                            items: _statesOptions,
+                            items: ref.watch(statesProvider('IN')).value?.map((s) => s['name'] ?? '').where((n) => n.isNotEmpty).toList() ?? _statesOptions,
                             enabled: !_isEditMode,
                             onChanged: (val) {
                               if (val == null) return;
@@ -2051,7 +2059,7 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                           required: true,
                           child: FormDropdown<String>(
                             value: _destinationOfSupply,
-                            items: _statesOptions,
+                            items: ref.watch(statesProvider('IN')).value?.map((s) => s['name'] ?? '').where((n) => n.isNotEmpty).toList() ?? _statesOptions,
                             enabled: !_isEditMode,
                             onChanged: (val) {
                               if (val == null) return;

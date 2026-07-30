@@ -1958,7 +1958,18 @@ class _SalesInvoiceOverviewScreenState
   // ─── ASSOCIATED SALES ORDERS BANNER ────────────────
 
   Widget _associatedSalesOrdersBanner(SalesOrder invoice) {
-    final ref = invoice.reference;
+    String? ref = (invoice.reference ?? '').trim();
+    if (ref.isEmpty) {
+      ref = (invoice.salesOrderId ?? '').trim();
+    }
+    if (ref.isEmpty && invoice.items != null) {
+      for (final item in invoice.items!) {
+        if (item.salesOrderId != null && item.salesOrderId!.trim().isNotEmpty) {
+          ref = item.salesOrderId!.trim();
+          break;
+        }
+      }
+    }
     final hasSalesOrders = ref != null && ref.trim().isNotEmpty;
     final count = hasSalesOrders ? 1 : 0;
 
@@ -2035,7 +2046,18 @@ class _SalesInvoiceOverviewScreenState
 
   Widget _buildAssociatedSalesOrdersTable(SalesOrder invoice) {
     final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
-    final ref = invoice.reference ?? '';
+    String ref = (invoice.reference ?? '').trim();
+    if (ref.isEmpty) {
+      ref = (invoice.salesOrderId ?? '').trim();
+    }
+    if (ref.isEmpty && invoice.items != null) {
+      for (final item in invoice.items!) {
+        if (item.salesOrderId != null && item.salesOrderId!.trim().isNotEmpty) {
+          ref = item.salesOrderId!.trim();
+          break;
+        }
+      }
+    }
     return Column(
       children: [
         Container(

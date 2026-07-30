@@ -128,6 +128,16 @@ class SalesOrderController extends StateNotifier<AsyncValue<List<SalesOrder>>> {
   final SalesOrderApiService _apiService;
   final Ref ref;
 
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalCount = 0;
+  int _pageSize = 50;
+
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  int get totalCount => _totalCount;
+  int get pageSize => _pageSize;
+
   SalesOrderController(this._apiService, this.ref)
     : super(const AsyncValue.loading()) {
     loadSalesOrders();
@@ -136,13 +146,30 @@ class SalesOrderController extends StateNotifier<AsyncValue<List<SalesOrder>>> {
   Future<void> loadSalesOrders() async {
     state = const AsyncValue.loading();
     try {
-      final sales = await _apiService.getSalesOrders();
+      final result = await _apiService.getSalesOrdersPaginated(
+        page: _currentPage,
+        pageSize: _pageSize,
+      );
       if (!mounted) return;
-      state = AsyncValue.data(sales);
+      _totalPages = result.totalPages;
+      _totalCount = result.total;
+      state = AsyncValue.data(result.orders);
     } catch (e, stack) {
       if (!mounted) return;
       state = AsyncValue.error(e, stack);
     }
+  }
+
+  Future<void> loadPage(int page) async {
+    if (page < 1 || page > _totalPages) return;
+    _currentPage = page;
+    await loadSalesOrders();
+  }
+
+  void setPageSize(int size) {
+    _pageSize = size;
+    _currentPage = 1;
+    loadSalesOrders();
   }
 
   void deleteOrdersLocally(List<String> ids) {

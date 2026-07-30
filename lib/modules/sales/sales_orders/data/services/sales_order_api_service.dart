@@ -201,6 +201,22 @@ import '../../../eway_bills/data/models/sales_eway_bill_model.dart';
 import '../../../payment_links/data/models/sales_payment_link_model.dart';
 import '../../../../purchases/purchase_orders/models/purchases_purchase_orders_order_model.dart';
 
+class PaginatedSalesOrders {
+  final List<SalesOrder> orders;
+  final int total;
+  final int totalPages;
+  final int currentPage;
+  final int pageSize;
+
+  const PaginatedSalesOrders({
+    required this.orders,
+    required this.total,
+    required this.totalPages,
+    required this.currentPage,
+    required this.pageSize,
+  });
+}
+
 class SalesOrderApiService {
   final ApiClient _apiClient = ApiClient();
 
@@ -428,12 +444,64 @@ class SalesOrderApiService {
         },
       );
       if (response.statusCode == 200) {
-        final List<dynamic> data = response.data is List ? response.data : (response.data['data'] ?? []);
+        final responseData = response.data;
+        List<dynamic> data;
+        if (responseData is List) {
+          data = responseData;
+        } else if (responseData is Map && responseData['data'] is List) {
+          data = responseData['data'];
+        } else {
+          data = [];
+        }
         return data.map((json) => SalesOrder.fromJson(json)).toList();
       }
       throw Exception('Failed to load $type');
     } catch (e) {
       throw Exception('Error fetching $type: $e');
+    }
+  }
+
+  Future<PaginatedSalesOrders> getSalesOrdersPaginated({int page = 1, int pageSize = 50}) async {
+    try {
+      final response = await _apiClient.get(
+        '/sales',
+        queryParameters: {
+          'type': 'order',
+          'page': page,
+          'pageSize': pageSize,
+        },
+      );
+      if (response.statusCode == 200) {
+        final responseData = response.data;
+        List<dynamic> data;
+        int total = 0;
+        int totalPages = 1;
+
+        if (responseData is Map) {
+          data = (responseData['data'] as List?) ?? [];
+          final meta = responseData['meta'];
+          if (meta is Map) {
+            total = (meta['total'] as num?)?.toInt() ?? 0;
+            totalPages = (meta['totalPages'] as num?)?.toInt() ?? 1;
+          }
+        } else if (responseData is List) {
+          data = responseData;
+          total = data.length;
+        } else {
+          data = [];
+        }
+
+        return PaginatedSalesOrders(
+          orders: data.map((json) => SalesOrder.fromJson(json)).toList(),
+          total: total,
+          totalPages: totalPages,
+          currentPage: page,
+          pageSize: pageSize,
+        );
+      }
+      throw Exception('Failed to load sales orders');
+    } catch (e) {
+      throw Exception('Error fetching sales orders: $e');
     }
   }
 

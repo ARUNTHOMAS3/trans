@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use, todo
+// ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -70,32 +70,12 @@ const List<_VendorOption> _dummyVendorOptions = [
 
 const List<_CustomerOption> _dummyCustomerOptions = [
   _CustomerOption(id: 'coco-category', name: 'COCO', category: null),
-  _CustomerOption(
-    id: 'demo-customer-1',
-    name: 'City Care Pharmacy',
-    category: 'COCO',
-  ),
-  _CustomerOption(
-    id: 'demo-customer-2',
-    name: 'Wellness Medicals',
-    category: 'COCO',
-  ),
+  _CustomerOption(id: 'demo-customer-1', name: 'City Care Pharmacy', category: 'COCO'),
+  _CustomerOption(id: 'demo-customer-2', name: 'Wellness Medicals', category: 'COCO'),
   _CustomerOption(id: 'foco-category', name: 'FOCO', category: null),
-  _CustomerOption(
-    id: 'demo-customer-3',
-    name: 'Apollo Drug House',
-    category: 'FOCO',
-  ),
-  _CustomerOption(
-    id: 'demo-customer-4',
-    name: 'Green Cross Medicals',
-    category: 'FOCO',
-  ),
-  _CustomerOption(
-    id: 'demo-customer-5',
-    name: 'Prime Wellness Store',
-    category: 'FOCO',
-  ),
+  _CustomerOption(id: 'demo-customer-3', name: 'Apollo Drug House', category: 'FOCO'),
+  _CustomerOption(id: 'demo-customer-4', name: 'Green Cross Medicals', category: 'FOCO'),
+  _CustomerOption(id: 'demo-customer-5', name: 'Prime Wellness Store', category: 'FOCO'),
 ];
 
 // ---------------------------------------------------------------------------
@@ -106,8 +86,8 @@ class _VendorMapping {
     String vendorProductName = '',
     String vendorProductCode = '',
     this.selectedVendor,
-  }) : vendorProductNameCtrl = TextEditingController(text: vendorProductName),
-       vendorProductCodeCtrl = TextEditingController(text: vendorProductCode);
+  })  : vendorProductNameCtrl = TextEditingController(text: vendorProductName),
+        vendorProductCodeCtrl = TextEditingController(text: vendorProductCode);
 
   final String? existingId;
   final TextEditingController vendorProductNameCtrl;
@@ -125,8 +105,8 @@ class _VendorMapping {
 
 class _PurchaseOffer {
   _PurchaseOffer({String minQty = '', String offerQty = ''})
-    : minQtyCtrl = TextEditingController(text: minQty),
-      offerQtyCtrl = TextEditingController(text: offerQty);
+      : minQtyCtrl = TextEditingController(text: minQty),
+        offerQtyCtrl = TextEditingController(text: offerQty);
 
   String? existingId;
   List<_VendorOption> selectedVendors = const [];
@@ -153,8 +133,8 @@ class _PurchaseOffer {
 
 class _SalesOffer {
   _SalesOffer({String minQty = '', String offerQty = ''})
-    : minQtyCtrl = TextEditingController(text: minQty),
-      offerQtyCtrl = TextEditingController(text: offerQty);
+      : minQtyCtrl = TextEditingController(text: minQty),
+        offerQtyCtrl = TextEditingController(text: offerQty);
 
   String? existingId;
   List<_CustomerOption> selectedCustomers = const [];
@@ -341,11 +321,7 @@ class _ItemTradeSetupCreatePageState
         });
       }
     } catch (e) {
-      AppLogger.error(
-        'Failed to load initial options',
-        error: e,
-        module: 'ItemTradeSetup',
-      );
+      AppLogger.error('Failed to load initial options', error: e, module: 'ItemTradeSetup');
     }
   }
 
@@ -381,11 +357,7 @@ class _ItemTradeSetupCreatePageState
         await _loadDataForProduct(product.id);
       }
     } catch (e) {
-      AppLogger.error(
-        'Failed to load product',
-        error: e,
-        module: 'ItemTradeSetup',
-      );
+      AppLogger.error('Failed to load product', error: e, module: 'ItemTradeSetup');
       final dummy = _dummyProductOptions.firstWhere(
         (p) => p.id == productId || p.id == 'demo-product-$productId',
         orElse: () => _ProductOption(id: productId, name: 'Item $productId'),
@@ -406,26 +378,17 @@ class _ItemTradeSetupCreatePageState
         m.dispose();
       }
       _vendorMappings.clear();
-      _vendorMappings.add(
-        _VendorMapping(
-          vendorProductName:
-              'Vendor Brand of ${_selectedProduct?.name ?? "Item"}',
-          vendorProductCode: 'VND-${productId.toUpperCase()}',
-          selectedVendor: _dummyVendorOptions[0],
-        ),
-      );
+      _vendorMappings.add(_VendorMapping(
+        vendorProductName: 'Vendor Brand of ${_selectedProduct?.name ?? "Item"}',
+        vendorProductCode: 'VND-${productId.toUpperCase()}',
+        selectedVendor: _dummyVendorOptions[0],
+      ));
 
       _purchaseOffers.clear();
-      _purchaseOffers.add(
-        _PurchaseOffer(minQty: '10', offerQty: '1')
-          ..selectedVendors = [_dummyVendorOptions[0]],
-      );
+      _purchaseOffers.add(_PurchaseOffer(minQty: '10', offerQty: '1')..selectedVendors = [_dummyVendorOptions[0]]);
 
       _salesOffers.clear();
-      _salesOffers.add(
-        _SalesOffer(minQty: '20', offerQty: '2')
-          ..selectedCustomers = [_dummyCustomerOptions[0]],
-      );
+      _salesOffers.add(_SalesOffer(minQty: '20', offerQty: '2')..selectedCustomers = [_dummyCustomerOptions[0]]);
 
       if (mounted) setState(() => _isLoadingData = false);
       return;
@@ -434,9 +397,7 @@ class _ItemTradeSetupCreatePageState
       // Load vendor mappings from product_vendor_mappings
       final mappingRes = await Supabase.instance.client
           .from('product_vendor_mappings')
-          .select(
-            'id, mapping_name, vendor_product_code, vendor_id, vendors(id, display_name)',
-          )
+          .select('id, mapping_name, vendor_product_code, vendor_id, vendors(id, display_name)')
           .eq('item_id', productId);
 
       for (final m in _vendorMappings) {
@@ -447,19 +408,17 @@ class _ItemTradeSetupCreatePageState
       for (final row in (mappingRes as List<dynamic>)) {
         final r = row as Map<String, dynamic>;
         final vendorMap = r['vendors'] as Map<String, dynamic>?;
-        _vendorMappings.add(
-          _VendorMapping(
-            existingId: r['id'] as String?,
-            vendorProductName: r['mapping_name'] as String? ?? '',
-            vendorProductCode: r['vendor_product_code'] as String? ?? '',
-            selectedVendor: vendorMap != null
-                ? _VendorOption(
-                    id: vendorMap['id'] as String,
-                    name: vendorMap['display_name'] as String? ?? '',
-                  )
-                : null,
-          ),
-        );
+        _vendorMappings.add(_VendorMapping(
+          existingId: r['id'] as String?,
+          vendorProductName: r['mapping_name'] as String? ?? '',
+          vendorProductCode: r['vendor_product_code'] as String? ?? '',
+          selectedVendor: vendorMap != null
+              ? _VendorOption(
+                  id: vendorMap['id'] as String,
+                  name: vendorMap['display_name'] as String? ?? '',
+                )
+              : null,
+        ));
       }
 
       // Purchase & Sales offers: TODO — wire up when item_purchase_offers and
@@ -467,23 +426,16 @@ class _ItemTradeSetupCreatePageState
 
       if (mounted) setState(() => _isLoadingData = false);
     } catch (e) {
-      AppLogger.error(
-        'Failed to load trade setup data',
-        error: e,
-        module: 'ItemTradeSetup',
-      );
+      AppLogger.error('Failed to load trade setup data', error: e, module: 'ItemTradeSetup');
       for (final m in _vendorMappings) {
         m.dispose();
       }
       _vendorMappings.clear();
-      _vendorMappings.add(
-        _VendorMapping(
-          vendorProductName:
-              'Vendor Brand of ${_selectedProduct?.name ?? "Item"}',
-          vendorProductCode: 'VND-${productId.toUpperCase()}',
-          selectedVendor: _dummyVendorOptions[0],
-        ),
-      );
+      _vendorMappings.add(_VendorMapping(
+        vendorProductName: 'Vendor Brand of ${_selectedProduct?.name ?? "Item"}',
+        vendorProductCode: 'VND-${productId.toUpperCase()}',
+        selectedVendor: _dummyVendorOptions[0],
+      ));
       if (mounted) setState(() => _isLoadingData = false);
     }
   }
@@ -581,83 +533,56 @@ class _ItemTradeSetupCreatePageState
 
       // Check if any dummy option is used, or if Supabase is not initialized. If so, mock save success.
       final isDemoProduct = productId.startsWith('demo-');
-      final hasDemoVendor = _vendorMappings.any(
-        (m) =>
-            m.selectedVendor != null &&
-            m.selectedVendor!.id.startsWith('demo-'),
-      );
+      final hasDemoVendor = _vendorMappings.any((m) =>
+          m.selectedVendor != null && m.selectedVendor!.id.startsWith('demo-'));
 
       if (!_isSupabaseInitialized || isDemoProduct || hasDemoVendor) {
         // Save vendor mapping rows
         final mappingsList = _vendorMappings
-            .where(
-              (m) =>
-                  m.vendorProductNameCtrl.text.trim().isNotEmpty &&
-                  m.selectedVendor != null,
-            )
-            .map(
-              (m) => {
-                'vendorName': m.selectedVendor!.name,
-                'vendorProductName': m.vendorProductNameCtrl.text.trim(),
-                'vendorProductCode': m.vendorProductCodeCtrl.text.trim(),
-                'status': m.isActive ? 'Active' : 'Inactive',
-              },
-            )
+            .where((m) =>
+                m.vendorProductNameCtrl.text.trim().isNotEmpty &&
+                m.selectedVendor != null)
+            .map((m) => {
+                  'vendorName': m.selectedVendor!.name,
+                  'vendorProductName': m.vendorProductNameCtrl.text.trim(),
+                  'vendorProductCode': m.vendorProductCodeCtrl.text.trim(),
+                  'status': m.isActive ? 'Active' : 'Inactive',
+                })
             .toList();
-
+        
         ItemTradeSetupOverviewPage.customMappings[productId] = mappingsList;
 
         // Save purchase offers
         final purchaseOffersList = _purchaseOffers
-            .where(
-              (o) =>
-                  o.selectedVendors.isNotEmpty &&
-                  o.minQtyCtrl.text.trim().isNotEmpty &&
-                  o.offerQtyCtrl.text.trim().isNotEmpty,
-            )
-            .map(
-              (o) => {
-                'vendorName': o.selectedVendors.map((v) => v.name).join(', '),
-                'offerScheme': o.schemePreview,
-                'validityFrom': o.validFrom != null
-                    ? DateFormat('yyyy-MM-dd').format(o.validFrom!)
-                    : '',
-                'validityTill': o.validTo != null
-                    ? DateFormat('yyyy-MM-dd').format(o.validTo!)
-                    : '',
-                'status': o.isActive ? 'Active' : 'Inactive',
-              },
-            )
+            .where((o) =>
+                o.selectedVendors.isNotEmpty &&
+                o.minQtyCtrl.text.trim().isNotEmpty &&
+                o.offerQtyCtrl.text.trim().isNotEmpty)
+            .map((o) => {
+                  'vendorName': o.selectedVendors.map((v) => v.name).join(', '),
+                  'offerScheme': o.schemePreview,
+                  'validityFrom': o.validFrom != null ? DateFormat('yyyy-MM-dd').format(o.validFrom!) : '',
+                  'validityTill': o.validTo != null ? DateFormat('yyyy-MM-dd').format(o.validTo!) : '',
+                  'status': o.isActive ? 'Active' : 'Inactive',
+                })
             .toList();
-        ItemTradeSetupOverviewPage.customPurchaseOffers[productId] =
-            purchaseOffersList;
+        ItemTradeSetupOverviewPage.customPurchaseOffers[productId] = purchaseOffersList;
 
         // Save sales offers
         final salesOffersList = _salesOffers
-            .where(
-              (o) =>
-                  o.selectedCustomers.isNotEmpty &&
-                  o.minQtyCtrl.text.trim().isNotEmpty &&
-                  o.offerQtyCtrl.text.trim().isNotEmpty,
-            )
-            .map(
-              (o) => {
-                'customerName': o.selectedCustomers
-                    .map((c) => c.name)
-                    .join(', '),
-                'offerScheme': o.schemePreview,
-                'validityFrom': o.validFrom != null
-                    ? DateFormat('yyyy-MM-dd').format(o.validFrom!)
-                    : '',
-                'validityTill': o.validTo != null
-                    ? DateFormat('yyyy-MM-dd').format(o.validTo!)
-                    : '',
-                'status': o.isActive ? 'Active' : 'Inactive',
-              },
-            )
+            .where((o) =>
+                o.selectedCustomers.isNotEmpty &&
+                o.minQtyCtrl.text.trim().isNotEmpty &&
+                o.offerQtyCtrl.text.trim().isNotEmpty)
+            .map((o) => {
+                  'customerName': o.selectedCustomers.map((c) => c.name).join(', '),
+                  'offerScheme': o.schemePreview,
+                  'validityFrom': o.validFrom != null ? DateFormat('yyyy-MM-dd').format(o.validFrom!) : '',
+                  'validityTill': o.validTo != null ? DateFormat('yyyy-MM-dd').format(o.validTo!) : '',
+                  'status': o.isActive ? 'Active' : 'Inactive',
+                })
             .toList();
-        ItemTradeSetupOverviewPage.customSalesOffers[productId] =
-            salesOffersList;
+        ItemTradeSetupOverviewPage.customSalesOffers[productId] = salesOffersList;
 
         final newInvoiceUI = RecurringInvoiceUI(
           id: productId,
@@ -686,9 +611,7 @@ class _ItemTradeSetupCreatePageState
           paymentTerms: '',
           salesperson: '',
         );
-        if (!ItemTradeSetupOverviewPage.customInvoices.any(
-          (inv) => inv.id == productId,
-        )) {
+        if (!ItemTradeSetupOverviewPage.customInvoices.any((inv) => inv.id == productId)) {
           ItemTradeSetupOverviewPage.customInvoices.add(newInvoiceUI);
         }
 
@@ -715,22 +638,17 @@ class _ItemTradeSetupCreatePageState
 
         // Mark valid rows as saved so they become read-only
         for (final m in _vendorMappings) {
-          if (m.vendorProductNameCtrl.text.trim().isNotEmpty &&
-              m.selectedVendor != null) {
+          if (m.vendorProductNameCtrl.text.trim().isNotEmpty && m.selectedVendor != null) {
             m.isSaved = true;
           }
         }
         for (final o in _purchaseOffers) {
-          if (o.selectedVendors.isNotEmpty &&
-              o.minQtyCtrl.text.trim().isNotEmpty &&
-              o.offerQtyCtrl.text.trim().isNotEmpty) {
+          if (o.selectedVendors.isNotEmpty && o.minQtyCtrl.text.trim().isNotEmpty && o.offerQtyCtrl.text.trim().isNotEmpty) {
             o.isSaved = true;
           }
         }
         for (final o in _salesOffers) {
-          if (o.selectedCustomers.isNotEmpty &&
-              o.minQtyCtrl.text.trim().isNotEmpty &&
-              o.offerQtyCtrl.text.trim().isNotEmpty) {
+          if (o.selectedCustomers.isNotEmpty && o.minQtyCtrl.text.trim().isNotEmpty && o.offerQtyCtrl.text.trim().isNotEmpty) {
             o.isSaved = true;
           }
         }
@@ -758,21 +676,18 @@ class _ItemTradeSetupCreatePageState
       // Only save rows that have both a vendor product name AND a vendor
       // selected — vendor_id is NOT NULL in the schema.
       final toInsert = _vendorMappings
-          .where(
-            (m) =>
-                m.vendorProductNameCtrl.text.trim().isNotEmpty &&
-                m.selectedVendor != null,
-          )
-          .map(
-            (m) => {
-              'item_id': productId,
-              'vendor_id': m.selectedVendor!.id,
-              'mapping_name': m.vendorProductNameCtrl.text.trim(),
-              'vendor_product_code': m.vendorProductCodeCtrl.text.trim().isEmpty
-                  ? null
-                  : m.vendorProductCodeCtrl.text.trim(),
-            },
-          )
+          .where((m) =>
+              m.vendorProductNameCtrl.text.trim().isNotEmpty &&
+              m.selectedVendor != null)
+          .map((m) => {
+                'item_id': productId,
+                'vendor_id': m.selectedVendor!.id,
+                'mapping_name': m.vendorProductNameCtrl.text.trim(),
+                'vendor_product_code':
+                    m.vendorProductCodeCtrl.text.trim().isEmpty
+                        ? null
+                        : m.vendorProductCodeCtrl.text.trim(),
+              })
           .toList();
 
       if (toInsert.isNotEmpty) {
@@ -783,22 +698,17 @@ class _ItemTradeSetupCreatePageState
 
       // Mark all valid rows as saved so they become read-only
       for (final m in _vendorMappings) {
-        if (m.vendorProductNameCtrl.text.trim().isNotEmpty &&
-            m.selectedVendor != null) {
+        if (m.vendorProductNameCtrl.text.trim().isNotEmpty && m.selectedVendor != null) {
           m.isSaved = true;
         }
       }
       for (final o in _purchaseOffers) {
-        if (o.selectedVendors.isNotEmpty &&
-            o.minQtyCtrl.text.trim().isNotEmpty &&
-            o.offerQtyCtrl.text.trim().isNotEmpty) {
+        if (o.selectedVendors.isNotEmpty && o.minQtyCtrl.text.trim().isNotEmpty && o.offerQtyCtrl.text.trim().isNotEmpty) {
           o.isSaved = true;
         }
       }
       for (final o in _salesOffers) {
-        if (o.selectedCustomers.isNotEmpty &&
-            o.minQtyCtrl.text.trim().isNotEmpty &&
-            o.offerQtyCtrl.text.trim().isNotEmpty) {
+        if (o.selectedCustomers.isNotEmpty && o.minQtyCtrl.text.trim().isNotEmpty && o.offerQtyCtrl.text.trim().isNotEmpty) {
           o.isSaved = true;
         }
       }
@@ -816,11 +726,7 @@ class _ItemTradeSetupCreatePageState
 
       // Tab 2 & 3: persist purchase/sales offers when tables are ready.
     } catch (e) {
-      AppLogger.error(
-        'Failed to save trade setup',
-        error: e,
-        module: 'ItemTradeSetup',
-      );
+      AppLogger.error('Failed to save trade setup', error: e, module: 'ItemTradeSetup');
       if (mounted) _showError('Failed to save. Please try again.');
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -884,11 +790,7 @@ class _ItemTradeSetupCreatePageState
             constraints: const BoxConstraints.tightFor(width: 24, height: 24),
             padding: EdgeInsets.zero,
             splashRadius: 14,
-            icon: const Icon(
-              LucideIcons.history,
-              size: 14,
-              color: AppTheme.textMuted,
-            ),
+            icon: const Icon(LucideIcons.history, size: 14, color: AppTheme.textMuted),
             onPressed: onHistory,
           ),
           const SizedBox(width: 4),
@@ -908,11 +810,7 @@ class _ItemTradeSetupCreatePageState
           constraints: const BoxConstraints.tightFor(width: 24, height: 24),
           padding: EdgeInsets.zero,
           splashRadius: 14,
-          icon: const Icon(
-            LucideIcons.trash2,
-            size: 14,
-            color: AppTheme.textMuted,
-          ),
+          icon: const Icon(LucideIcons.trash2, size: 14, color: AppTheme.textMuted),
           onPressed: onDelete,
         ),
       ],
@@ -996,95 +894,88 @@ class _ItemTradeSetupCreatePageState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              isEdit ? 'Edit Trade Setup' : 'New Trade Setup',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
-              ),
+          Text(
+            isEdit ? 'Edit Trade Setup' : 'New Trade Setup',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Item Name',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textSecondary,
-              ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Item Name',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textSecondary,
             ),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 560,
-                  child: FormDropdown<_ProductOption>(
-                    value: _selectedProduct,
-                    items: _selectedProduct != null
-                        ? [
-                            _selectedProduct!,
-                            ..._allProducts.where(
-                              (p) => p.id != _selectedProduct!.id,
-                            ),
-                          ]
-                        : _allProducts,
-                    hint: 'Search or select an item...',
-                    displayStringForValue: (p) => p.name,
-                    searchStringForValue: (p) => p.name,
-                    onSearch: _searchProducts,
-                    showSearch: true,
-                    enabled: widget.editProductId == null,
-                    onChanged: (v) async {
-                      setState(() => _selectedProduct = v);
-                      if (v != null) await _loadDataForProduct(v.id);
-                    },
-                  ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 560,
+                child: FormDropdown<_ProductOption>(
+                  value: _selectedProduct,
+                  items: _selectedProduct != null
+                      ? [_selectedProduct!, ..._allProducts.where((p) => p.id != _selectedProduct!.id)]
+                      : _allProducts,
+                  hint: 'Search or select an item...',
+                  displayStringForValue: (p) => p.name,
+                  searchStringForValue: (p) => p.name,
+                  onSearch: _searchProducts,
+                  showSearch: true,
+                  enabled: widget.editProductId == null,
+                  onChanged: (v) async {
+                    setState(() => _selectedProduct = v);
+                    if (v != null) await _loadDataForProduct(v.id);
+                  },
                 ),
-                if (_selectedProduct != null) ...[
-                  const Spacer(),
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedSidebarItemName = _selectedProduct!.name;
-                        _itemDetailsSidebarTabIndex = 0;
-                        _showItemDetails = !_showItemDetails;
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF374151),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '${_selectedProduct!.name}\'s Details',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(
-                            LucideIcons.chevronRight,
-                            size: 14,
+              ),
+              if (_selectedProduct != null) ...[
+                const Spacer(),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedSidebarItemName = _selectedProduct!.name;
+                      _itemDetailsSidebarTabIndex = 0;
+                      _showItemDetails = !_showItemDetails;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF374151),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${_selectedProduct!.name}\'s Details',
+                          style: const TextStyle(
                             color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          LucideIcons.chevronRight,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ],
-            ),
-          ],
+            ],
+          ),
+        ],
         ),
       ),
     );
@@ -1123,8 +1014,11 @@ class _ItemTradeSetupCreatePageState
                 tabs[i],
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: selected ? FontWeight.bold : FontWeight.w400,
-                  color: selected ? Colors.black : AppTheme.textSecondary,
+                  fontWeight:
+                      selected ? FontWeight.bold : FontWeight.w400,
+                  color: selected
+                      ? Colors.black
+                      : AppTheme.textSecondary,
                 ),
               ),
             ),
@@ -1160,11 +1054,7 @@ class _ItemTradeSetupCreatePageState
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFFF9FAFB),
-              border: Border(
-                bottom: BorderSide(
-                  color: AppTheme.borderColor.withOpacity(0.5),
-                ),
-              ),
+              border: Border(bottom: BorderSide(color: AppTheme.borderColor.withOpacity(0.5))),
             ),
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: const Row(
@@ -1221,11 +1111,7 @@ class _ItemTradeSetupCreatePageState
                   child: Container(
                     height: 38,
                     decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: AppTheme.borderColor.withOpacity(0.5),
-                        ),
-                      ),
+                      border: Border(bottom: BorderSide(color: AppTheme.borderColor.withOpacity(0.5))),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1234,13 +1120,7 @@ class _ItemTradeSetupCreatePageState
                           flex: 3,
                           child: Padding(
                             padding: const EdgeInsets.only(left: 12),
-                            child: Text(
-                              m.vendorProductNameCtrl.text,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
+                            child: Text(m.vendorProductNameCtrl.text, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1248,15 +1128,7 @@ class _ItemTradeSetupCreatePageState
                           flex: 3,
                           child: Padding(
                             padding: const EdgeInsets.only(left: 28),
-                            child: Text(
-                              m.vendorProductCodeCtrl.text.isEmpty
-                                  ? '—'
-                                  : m.vendorProductCodeCtrl.text,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
+                            child: Text(m.vendorProductCodeCtrl.text.isEmpty ? '—' : m.vendorProductCodeCtrl.text, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1264,13 +1136,7 @@ class _ItemTradeSetupCreatePageState
                           flex: 3,
                           child: Padding(
                             padding: const EdgeInsets.only(left: 28),
-                            child: Text(
-                              m.selectedVendor?.name ?? '—',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
+                            child: Text(m.selectedVendor?.name ?? '—', style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                           ),
                         ),
                         SizedBox(
@@ -1281,8 +1147,7 @@ class _ItemTradeSetupCreatePageState
                               padding: const EdgeInsets.only(right: 12),
                               child: _buildRowActions(
                                 isActive: m.isActive,
-                                onToggleActive: () =>
-                                    setState(() => m.isActive = !m.isActive),
+                                onToggleActive: () => setState(() => m.isActive = !m.isActive),
                                 onDelete: () => _removeVendorMapping(i),
                                 onEdit: () => setState(() => m.isSaved = false),
                               ),
@@ -1302,17 +1167,13 @@ class _ItemTradeSetupCreatePageState
                     Expanded(
                       flex: 3,
                       child: _rowTextField(
-                        m.vendorProductNameCtrl,
-                        'Enter vendor product name',
-                      ),
+                          m.vendorProductNameCtrl, 'Enter vendor product name'),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 3,
                       child: _rowTextField(
-                        m.vendorProductCodeCtrl,
-                        'Enter product code',
-                      ),
+                          m.vendorProductCodeCtrl, 'Enter product code'),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1320,12 +1181,7 @@ class _ItemTradeSetupCreatePageState
                       child: FormDropdown<_VendorOption>(
                         value: m.selectedVendor,
                         items: m.selectedVendor != null
-                            ? [
-                                m.selectedVendor!,
-                                ..._allVendors.where(
-                                  (v) => v.id != m.selectedVendor!.id,
-                                ),
-                              ]
+                            ? [m.selectedVendor!, ..._allVendors.where((v) => v.id != m.selectedVendor!.id)]
                             : _allVendors,
                         hint: 'Select a vendor',
                         displayStringForValue: (v) => v.name,
@@ -1333,8 +1189,7 @@ class _ItemTradeSetupCreatePageState
                         onSearch: _searchVendors,
                         showSearch: true,
                         onChanged: (v) => setState(
-                          () => _vendorMappings[i].selectedVendor = v,
-                        ),
+                            () => _vendorMappings[i].selectedVendor = v),
                       ),
                     ),
                     SizedBox(
@@ -1346,28 +1201,21 @@ class _ItemTradeSetupCreatePageState
                             isActive: m.isActive,
                             autoApply: m.autoApply,
                             onToggleActive: () => setState(
-                              () => _vendorMappings[i].isActive =
-                                  !_vendorMappings[i].isActive,
-                            ),
+                                () => _vendorMappings[i].isActive =
+                                    !_vendorMappings[i].isActive),
                             onToggleAutoApply: () => setState(
-                              () => _vendorMappings[i].autoApply =
-                                  !_vendorMappings[i].autoApply,
-                            ),
+                                () => _vendorMappings[i].autoApply =
+                                    !_vendorMappings[i].autoApply),
                             onDelete: () => _removeVendorMapping(i),
                           ),
                           const SizedBox(width: 28),
                           IconButton(
-                            constraints: const BoxConstraints.tightFor(
-                              width: 28,
-                              height: 28,
-                            ),
+                            constraints:
+                                const BoxConstraints.tightFor(width: 28, height: 28),
                             padding: EdgeInsets.zero,
                             splashRadius: 16,
-                            icon: const Icon(
-                              LucideIcons.x,
-                              size: 15,
-                              color: AppTheme.textMuted,
-                            ),
+                            icon: const Icon(LucideIcons.x,
+                                size: 15, color: AppTheme.textMuted),
                             tooltip: 'Remove',
                             onPressed: () => _removeVendorMapping(i),
                           ),
@@ -1382,10 +1230,7 @@ class _ItemTradeSetupCreatePageState
           const SizedBox(height: 14),
           Padding(
             padding: const EdgeInsets.only(left: 16),
-            child: _AddRowButton(
-              label: 'Add New Vendor',
-              onTap: _addVendorMapping,
-            ),
+            child: _AddRowButton(label: 'Add New Vendor', onTap: _addVendorMapping),
           ),
         ],
       ),
@@ -1405,8 +1250,10 @@ class _ItemTradeSetupCreatePageState
           foregroundColor: AppTheme.textSecondary,
           side: const BorderSide(color: AppTheme.borderColor),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          textStyle:
+              const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6)),
         ),
       ),
       child: Column(
@@ -1419,31 +1266,21 @@ class _ItemTradeSetupCreatePageState
           if (_purchaseOffers.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-              child: Text(
-                'No purchase offers yet. Click "Add New Offer" to add one.',
-                style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
-              ),
+              child: Text('No purchase offers yet. Click "Add New Offer" to add one.',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textMuted)),
             )
           else
             ...List.generate(_purchaseOffers.length, (i) {
               final o = _purchaseOffers[i];
               if (o.isSaved) {
-                final fromDateStr = o.validFrom != null
-                    ? DateFormat('yyyy-MM-dd').format(o.validFrom!)
-                    : '—';
-                final toDateStr = o.validTo != null
-                    ? DateFormat('yyyy-MM-dd').format(o.validTo!)
-                    : '—';
+                final fromDateStr = o.validFrom != null ? DateFormat('yyyy-MM-dd').format(o.validFrom!) : '—';
+                final toDateStr = o.validTo != null ? DateFormat('yyyy-MM-dd').format(o.validTo!) : '—';
                 return Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Container(
                     height: 38,
                     decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: AppTheme.borderColor.withOpacity(0.5),
-                        ),
-                      ),
+                      border: Border(bottom: BorderSide(color: AppTheme.borderColor.withOpacity(0.5))),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1455,13 +1292,8 @@ class _ItemTradeSetupCreatePageState
                             child: Text(
                               o.selectedVendors.isEmpty
                                   ? '—'
-                                  : o.selectedVendors
-                                        .map((v) => v.name)
-                                        .join(', '),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textPrimary,
-                              ),
+                                  : o.selectedVendors.map((v) => v.name).join(', '),
+                              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -1469,26 +1301,12 @@ class _ItemTradeSetupCreatePageState
                         const SizedBox(width: 10),
                         SizedBox(
                           width: 80,
-                          child: Text(
-                            o.minQtyCtrl.text.isEmpty ? '—' : o.minQtyCtrl.text,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
+                          child: Text(o.minQtyCtrl.text.isEmpty ? '—' : o.minQtyCtrl.text, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                         ),
                         const SizedBox(width: 10),
                         SizedBox(
                           width: 80,
-                          child: Text(
-                            o.offerQtyCtrl.text.isEmpty
-                                ? '—'
-                                : o.offerQtyCtrl.text,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
+                          child: Text(o.offerQtyCtrl.text.isEmpty ? '—' : o.offerQtyCtrl.text, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -1496,21 +1314,14 @@ class _ItemTradeSetupCreatePageState
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE8F5E9), // Light green
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 o.schemePreview,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF2E7D32),
-                                ), // Dark green
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32)), // Dark green
                               ),
                             ),
                           ),
@@ -1518,24 +1329,12 @@ class _ItemTradeSetupCreatePageState
                         const SizedBox(width: 10),
                         SizedBox(
                           width: 110,
-                          child: Text(
-                            fromDateStr,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
+                          child: Text(fromDateStr, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                         ),
                         const SizedBox(width: 10),
                         SizedBox(
                           width: 110,
-                          child: Text(
-                            toDateStr,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
+                          child: Text(toDateStr, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                         ),
                         const SizedBox(width: 4),
                         SizedBox(
@@ -1546,8 +1345,7 @@ class _ItemTradeSetupCreatePageState
                               padding: const EdgeInsets.only(right: 12),
                               child: _buildRowActions(
                                 isActive: o.isActive,
-                                onToggleActive: () =>
-                                    setState(() => o.isActive = !o.isActive),
+                                onToggleActive: () => setState(() => o.isActive = !o.isActive),
                                 onDelete: () => _removePurchaseOffer(i),
                                 onEdit: () => setState(() => o.isSaved = false),
                                 onHistory: _showPurchaseHistoryDialog,
@@ -1577,35 +1375,25 @@ class _ItemTradeSetupCreatePageState
                         showSearch: true,
                         multiSelect: true,
                         selectedValues: o.selectedVendors,
-                        onSelectedValuesChanged: (list) => setState(
-                          () => _purchaseOffers[i].selectedVendors = list,
-                        ),
+                        onSelectedValuesChanged: (list) =>
+                            setState(() => _purchaseOffers[i].selectedVendors = list),
                         onChanged: (_) {},
                       ),
                     ),
                     const SizedBox(width: 10),
                     SizedBox(
                       width: 80,
-                      child: _numField(
-                        o.minQtyCtrl,
-                        '0',
-                        onChanged: () => setState(() {}),
-                      ),
+                      child: _numField(o.minQtyCtrl, '0',
+                          onChanged: () => setState(() {})),
                     ),
                     const SizedBox(width: 10),
                     SizedBox(
                       width: 80,
-                      child: _numField(
-                        o.offerQtyCtrl,
-                        '0',
-                        onChanged: () => setState(() {}),
-                      ),
+                      child: _numField(o.offerQtyCtrl, '0',
+                          onChanged: () => setState(() {})),
                     ),
                     const SizedBox(width: 10),
-                    Expanded(
-                      flex: 3,
-                      child: _SchemePreviewField(o.schemePreview),
-                    ),
+                    Expanded(flex: 3, child: _SchemePreviewField(o.schemePreview)),
                     const SizedBox(width: 10),
                     SizedBox(
                       width: 110,
@@ -1638,28 +1426,21 @@ class _ItemTradeSetupCreatePageState
                             isActive: o.isActive,
                             autoApply: o.autoApply,
                             onToggleActive: () => setState(
-                              () => _purchaseOffers[i].isActive =
-                                  !_purchaseOffers[i].isActive,
-                            ),
+                                () => _purchaseOffers[i].isActive =
+                                    !_purchaseOffers[i].isActive),
                             onToggleAutoApply: () => setState(
-                              () => _purchaseOffers[i].autoApply =
-                                  !_purchaseOffers[i].autoApply,
-                            ),
+                                () => _purchaseOffers[i].autoApply =
+                                    !_purchaseOffers[i].autoApply),
                             onDelete: () => _removePurchaseOffer(i),
                           ),
                           const SizedBox(width: 28),
                           IconButton(
-                            constraints: const BoxConstraints.tightFor(
-                              width: 28,
-                              height: 28,
-                            ),
+                            constraints:
+                                const BoxConstraints.tightFor(width: 28, height: 28),
                             padding: EdgeInsets.zero,
                             splashRadius: 16,
-                            icon: const Icon(
-                              LucideIcons.x,
-                              size: 15,
-                              color: AppTheme.textMuted,
-                            ),
+                            icon: const Icon(LucideIcons.x,
+                                size: 15, color: AppTheme.textMuted),
                             tooltip: 'Remove',
                             onPressed: () => _removePurchaseOffer(i),
                           ),
@@ -1674,22 +1455,16 @@ class _ItemTradeSetupCreatePageState
           const SizedBox(height: 14),
           Padding(
             padding: const EdgeInsets.only(left: 16),
-            child: _AddRowButton(
-              label: 'Add New Offer',
-              onTap: _addPurchaseOffer,
-            ),
+            child: _AddRowButton(label: 'Add New Offer', onTap: _addPurchaseOffer),
           ),
         ],
       ),
     );
   }
 
-  void _onCustomerSelectionChanged(
-    int index,
-    List<_CustomerOption> newSelection,
-  ) {
+  void _onCustomerSelectionChanged(int index, List<_CustomerOption> newSelection) {
     final oldSelection = _salesOffers[index].selectedCustomers;
-
+    
     // Find exact item toggled
     _CustomerOption? toggledItem;
     bool isAdded = false;
@@ -1709,11 +1484,9 @@ class _ItemTradeSetupCreatePageState
         }
       }
     }
-
-    List<_CustomerOption> result = newSelection
-        .where((c) => c.id != 'coco-category' && c.id != 'foco-category')
-        .toList();
-
+    
+    List<_CustomerOption> result = newSelection.where((c) => c.id != 'coco-category' && c.id != 'foco-category').toList();
+    
     if (toggledItem != null) {
       if (toggledItem.id == 'coco-category') {
         final cocoCompanies = _allCustomers.where((c) => c.category == 'COCO');
@@ -1739,7 +1512,7 @@ class _ItemTradeSetupCreatePageState
         }
       }
     }
-
+    
     setState(() => _salesOffers[index].selectedCustomers = result);
   }
 
@@ -1758,31 +1531,21 @@ class _ItemTradeSetupCreatePageState
           if (_salesOffers.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-              child: Text(
-                'No sales offers yet. Click "Add New Offer" to add one.',
-                style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
-              ),
+              child: Text('No sales offers yet. Click "Add New Offer" to add one.',
+                  style: TextStyle(fontSize: 13, color: AppTheme.textMuted)),
             )
           else
             ...List.generate(_salesOffers.length, (i) {
               final o = _salesOffers[i];
               if (o.isSaved) {
-                final fromDateStr = o.validFrom != null
-                    ? DateFormat('yyyy-MM-dd').format(o.validFrom!)
-                    : '—';
-                final toDateStr = o.validTo != null
-                    ? DateFormat('yyyy-MM-dd').format(o.validTo!)
-                    : '—';
+                final fromDateStr = o.validFrom != null ? DateFormat('yyyy-MM-dd').format(o.validFrom!) : '—';
+                final toDateStr = o.validTo != null ? DateFormat('yyyy-MM-dd').format(o.validTo!) : '—';
                 return Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Container(
                     height: 38,
                     decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: AppTheme.borderColor.withOpacity(0.5),
-                        ),
-                      ),
+                      border: Border(bottom: BorderSide(color: AppTheme.borderColor.withOpacity(0.5))),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1794,13 +1557,8 @@ class _ItemTradeSetupCreatePageState
                             child: Text(
                               o.selectedCustomers.isEmpty
                                   ? '—'
-                                  : o.selectedCustomers
-                                        .map((c) => c.name)
-                                        .join(', '),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textPrimary,
-                              ),
+                                  : o.selectedCustomers.map((c) => c.name).join(', '),
+                              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -1808,26 +1566,12 @@ class _ItemTradeSetupCreatePageState
                         const SizedBox(width: 10),
                         SizedBox(
                           width: 80,
-                          child: Text(
-                            o.minQtyCtrl.text.isEmpty ? '—' : o.minQtyCtrl.text,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
+                          child: Text(o.minQtyCtrl.text.isEmpty ? '—' : o.minQtyCtrl.text, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                         ),
                         const SizedBox(width: 10),
                         SizedBox(
                           width: 80,
-                          child: Text(
-                            o.offerQtyCtrl.text.isEmpty
-                                ? '—'
-                                : o.offerQtyCtrl.text,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
+                          child: Text(o.offerQtyCtrl.text.isEmpty ? '—' : o.offerQtyCtrl.text, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -1835,21 +1579,14 @@ class _ItemTradeSetupCreatePageState
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE8F5E9), // Light green
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 o.schemePreview,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF2E7D32),
-                                ), // Dark green
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32)), // Dark green
                               ),
                             ),
                           ),
@@ -1857,24 +1594,12 @@ class _ItemTradeSetupCreatePageState
                         const SizedBox(width: 10),
                         SizedBox(
                           width: 110,
-                          child: Text(
-                            fromDateStr,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
+                          child: Text(fromDateStr, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                         ),
                         const SizedBox(width: 10),
                         SizedBox(
                           width: 110,
-                          child: Text(
-                            toDateStr,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
+                          child: Text(toDateStr, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                         ),
                         const SizedBox(width: 4),
                         SizedBox(
@@ -1885,8 +1610,7 @@ class _ItemTradeSetupCreatePageState
                               padding: const EdgeInsets.only(right: 12),
                               child: _buildRowActions(
                                 isActive: o.isActive,
-                                onToggleActive: () =>
-                                    setState(() => o.isActive = !o.isActive),
+                                onToggleActive: () => setState(() => o.isActive = !o.isActive),
                                 onDelete: () => _removeSalesOffer(i),
                                 onEdit: () => setState(() => o.isSaved = false),
                               ),
@@ -1919,52 +1643,30 @@ class _ItemTradeSetupCreatePageState
                             _onCustomerSelectionChanged(i, list),
                         onChanged: (_) {},
                         itemBuilder: (item, isSelected, isHovered) {
-                          final isHeader =
-                              item.id == 'coco-category' ||
-                              item.id == 'foco-category';
+                          final isHeader = item.id == 'coco-category' || item.id == 'foco-category';
                           bool headerSelected = false;
                           if (item.id == 'coco-category') {
-                            final cocoCompanies = _allCustomers.where(
-                              (c) => c.category == 'COCO',
-                            );
-                            headerSelected =
-                                cocoCompanies.isNotEmpty &&
-                                cocoCompanies.every(
-                                  (c) => o.selectedCustomers.contains(c),
-                                );
+                            final cocoCompanies = _allCustomers.where((c) => c.category == 'COCO');
+                            headerSelected = cocoCompanies.isNotEmpty && cocoCompanies.every((c) => o.selectedCustomers.contains(c));
                           } else if (item.id == 'foco-category') {
-                            final focoCompanies = _allCustomers.where(
-                              (c) => c.category == 'FOCO',
-                            );
-                            headerSelected =
-                                focoCompanies.isNotEmpty &&
-                                focoCompanies.every(
-                                  (c) => o.selectedCustomers.contains(c),
-                                );
+                            final focoCompanies = _allCustomers.where((c) => c.category == 'FOCO');
+                            headerSelected = focoCompanies.isNotEmpty && focoCompanies.every((c) => o.selectedCustomers.contains(c));
                           }
-                          final effectiveSelected = isHeader
-                              ? headerSelected
-                              : isSelected;
+                          final effectiveSelected = isHeader ? headerSelected : isSelected;
                           return Container(
                             height: 38,
                             color: isHovered
                                 ? const Color(0xFF3B82F6)
-                                : (effectiveSelected
-                                      ? const Color(0xFFF3F4F6)
-                                      : Colors.transparent),
+                                : (effectiveSelected ? const Color(0xFFF3F4F6) : Colors.transparent),
                             alignment: Alignment.centerLeft,
-                            padding: EdgeInsets.only(
-                              left: isHeader ? 12.0 : 28.0,
-                            ),
+                            padding: EdgeInsets.only(left: isHeader ? 12.0 : 28.0),
                             child: Row(
                               children: [
                                 if (effectiveSelected) ...[
                                   Icon(
                                     LucideIcons.check,
                                     size: 14,
-                                    color: isHovered
-                                        ? Colors.white
-                                        : AppTheme.textSecondary,
+                                    color: isHovered ? Colors.white : AppTheme.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
                                 ],
@@ -1972,16 +1674,10 @@ class _ItemTradeSetupCreatePageState
                                   item.name,
                                   style: TextStyle(
                                     fontSize: 13,
-                                    fontWeight: isHeader
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
+                                    fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
                                     color: isHovered
                                         ? Colors.white
-                                        : (effectiveSelected
-                                              ? AppTheme.textPrimary
-                                              : (isHeader
-                                                    ? AppTheme.textPrimary
-                                                    : AppTheme.textSecondary)),
+                                        : (effectiveSelected ? AppTheme.textPrimary : (isHeader ? AppTheme.textPrimary : AppTheme.textSecondary)),
                                   ),
                                 ),
                               ],
@@ -1993,26 +1689,17 @@ class _ItemTradeSetupCreatePageState
                     const SizedBox(width: 10),
                     SizedBox(
                       width: 80,
-                      child: _numField(
-                        o.minQtyCtrl,
-                        '0',
-                        onChanged: () => setState(() {}),
-                      ),
+                      child: _numField(o.minQtyCtrl, '0',
+                          onChanged: () => setState(() {})),
                     ),
                     const SizedBox(width: 10),
                     SizedBox(
                       width: 80,
-                      child: _numField(
-                        o.offerQtyCtrl,
-                        '0',
-                        onChanged: () => setState(() {}),
-                      ),
+                      child: _numField(o.offerQtyCtrl, '0',
+                          onChanged: () => setState(() {})),
                     ),
                     const SizedBox(width: 10),
-                    Expanded(
-                      flex: 3,
-                      child: _SchemePreviewField(o.schemePreview),
-                    ),
+                    Expanded(flex: 3, child: _SchemePreviewField(o.schemePreview)),
                     const SizedBox(width: 10),
                     SizedBox(
                       width: 110,
@@ -2045,28 +1732,21 @@ class _ItemTradeSetupCreatePageState
                             isActive: o.isActive,
                             autoApply: o.autoApply,
                             onToggleActive: () => setState(
-                              () => _salesOffers[i].isActive =
-                                  !_salesOffers[i].isActive,
-                            ),
+                                () => _salesOffers[i].isActive =
+                                    !_salesOffers[i].isActive),
                             onToggleAutoApply: () => setState(
-                              () => _salesOffers[i].autoApply =
-                                  !_salesOffers[i].autoApply,
-                            ),
+                                () => _salesOffers[i].autoApply =
+                                    !_salesOffers[i].autoApply),
                             onDelete: () => _removeSalesOffer(i),
                           ),
                           const SizedBox(width: 28),
                           IconButton(
-                            constraints: const BoxConstraints.tightFor(
-                              width: 28,
-                              height: 28,
-                            ),
+                            constraints:
+                                const BoxConstraints.tightFor(width: 28, height: 28),
                             padding: EdgeInsets.zero,
                             splashRadius: 16,
-                            icon: const Icon(
-                              LucideIcons.x,
-                              size: 15,
-                              color: AppTheme.textMuted,
-                            ),
+                            icon: const Icon(LucideIcons.x,
+                                size: 15, color: AppTheme.textMuted),
                             tooltip: 'Remove',
                             onPressed: () => _removeSalesOffer(i),
                           ),
@@ -2094,9 +1774,7 @@ class _ItemTradeSetupCreatePageState
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
-        border: Border(
-          bottom: BorderSide(color: AppTheme.borderColor.withOpacity(0.5)),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.borderColor.withOpacity(0.5))),
       ),
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -2168,19 +1846,17 @@ class _ItemTradeSetupCreatePageState
             onPressed: _isSaving
                 ? null
                 : () => context.canPop()
-                      ? context.pop()
-                      : context.go(AppRoutes.itemTradeSetup),
+                    ? context.pop()
+                    : context.go(AppRoutes.itemTradeSetup),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.textBody,
               side: const BorderSide(color: AppTheme.borderColor),
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
               textStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
+                  fontSize: 12, fontWeight: FontWeight.w500),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
+                  borderRadius: BorderRadius.circular(6)),
             ),
             child: const Text('Cancel'),
           ),
@@ -2190,25 +1866,22 @@ class _ItemTradeSetupCreatePageState
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.successGreen,
               foregroundColor: Colors.white,
-              disabledBackgroundColor: AppTheme.successGreen.withOpacity(0.6),
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+              disabledBackgroundColor:
+                  AppTheme.successGreen.withOpacity(0.6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
               elevation: 0,
               textStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+                  fontSize: 12, fontWeight: FontWeight.w600),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
+                  borderRadius: BorderRadius.circular(6)),
             ),
             child: _isSaving
                 ? const SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
+                        strokeWidth: 2, color: Colors.white),
                   )
                 : const Text('Save Changes'),
           ),
@@ -2228,7 +1901,9 @@ class _ItemTradeSetupCreatePageState
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
           clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: SizedBox(
             width: 640,
             child: Column(
@@ -2237,10 +1912,7 @@ class _ItemTradeSetupCreatePageState
               children: [
                 // Header
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   decoration: const BoxDecoration(
                     color: Color(0xFFF3F3F4),
                     border: Border(
@@ -2259,17 +1931,10 @@ class _ItemTradeSetupCreatePageState
                         ),
                       ),
                       IconButton(
-                        constraints: const BoxConstraints.tightFor(
-                          width: 28,
-                          height: 28,
-                        ),
+                        constraints: const BoxConstraints.tightFor(width: 28, height: 28),
                         padding: EdgeInsets.zero,
                         splashRadius: 16,
-                        icon: const Icon(
-                          LucideIcons.x,
-                          size: 18,
-                          color: AppTheme.textMuted,
-                        ),
+                        icon: const Icon(LucideIcons.x, size: 18, color: AppTheme.textMuted),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
@@ -2289,32 +1954,20 @@ class _ItemTradeSetupCreatePageState
                         // Table Header
                         Container(
                           color: const Color(0xFFF9FAFB),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           child: const Row(
                             children: [
                               Expanded(
                                 flex: 4,
-                                child: Text(
-                                  'Vendor Name',
-                                  style: _colHeaderStyle,
-                                ),
+                                child: Text('Vendor Name', style: _colHeaderStyle),
                               ),
                               Expanded(
                                 flex: 2,
-                                child: Text(
-                                  'Latest Rate',
-                                  style: _colHeaderStyle,
-                                ),
+                                child: Text('Latest Rate', style: _colHeaderStyle),
                               ),
                               Expanded(
                                 flex: 3,
-                                child: Text(
-                                  'Last Purchased Date',
-                                  style: _colHeaderStyle,
-                                ),
+                                child: Text('Last Purchased Date', style: _colHeaderStyle),
                               ),
                               Expanded(
                                 flex: 3,
@@ -2363,10 +2016,7 @@ class _ItemTradeSetupCreatePageState
 
                 // Footer
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 10,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                   decoration: const BoxDecoration(
                     color: Color(0xFFF3F3F4),
                     border: Border(
@@ -2381,10 +2031,7 @@ class _ItemTradeSetupCreatePageState
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF007A3E),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(4),
@@ -2449,9 +2096,7 @@ class _ItemTradeSetupCreatePageState
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: isOfferGreen ? FontWeight.w600 : FontWeight.normal,
-                color: isOfferGreen
-                    ? const Color(0xFF22A95E)
-                    : AppTheme.textSecondary,
+                color: isOfferGreen ? const Color(0xFF22A95E) : AppTheme.textSecondary,
               ),
             ),
           ),
@@ -2471,63 +2116,66 @@ const _colHeaderStyle = TextStyle(
   letterSpacing: 0.4,
 );
 
-Widget _rowTextField(TextEditingController ctrl, String hint) => TextFormField(
-  controller: ctrl,
-  style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-  decoration: InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-    isDense: true,
-    filled: true,
-    fillColor: Colors.white,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(4),
-      borderSide: const BorderSide(color: AppTheme.borderColor),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(4),
-      borderSide: const BorderSide(color: AppTheme.borderColor),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(4),
-      borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 1.5),
-    ),
-  ),
-);
+Widget _rowTextField(TextEditingController ctrl, String hint) =>
+    TextFormField(
+      controller: ctrl,
+      style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+        isDense: true,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide:
+              const BorderSide(color: AppTheme.primaryBlue, width: 1.5),
+        ),
+      ),
+    );
 
-Widget _numField(
-  TextEditingController ctrl,
-  String hint, {
-  VoidCallback? onChanged,
-}) => TextFormField(
-  controller: ctrl,
-  onChanged: onChanged != null ? (_) => onChanged() : null,
-  keyboardType: const TextInputType.numberWithOptions(decimal: false),
-  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-  style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-  textAlign: TextAlign.right,
-  decoration: InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
-    isDense: true,
-    filled: true,
-    fillColor: Colors.white,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(4),
-      borderSide: const BorderSide(color: AppTheme.borderColor),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(4),
-      borderSide: const BorderSide(color: AppTheme.borderColor),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(4),
-      borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 1.5),
-    ),
-  ),
-);
+Widget _numField(TextEditingController ctrl, String hint,
+        {VoidCallback? onChanged}) =>
+    TextFormField(
+      controller: ctrl,
+      onChanged: onChanged != null ? (_) => onChanged() : null,
+      keyboardType: const TextInputType.numberWithOptions(decimal: false),
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+      textAlign: TextAlign.right,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
+        isDense: true,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: const BorderSide(color: AppTheme.borderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide:
+              const BorderSide(color: AppTheme.primaryBlue, width: 1.5),
+        ),
+      ),
+    );
 
 // ---------------------------------------------------------------------------
 // Vendor row ⋮ menu
@@ -2566,8 +2214,7 @@ class _RowMenuState extends State<_RowMenu> {
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         padding: WidgetStateProperty.all(
-          const EdgeInsets.symmetric(vertical: 4),
-        ),
+            const EdgeInsets.symmetric(vertical: 4)),
       ),
       menuChildren: [
         // Active / Inactive
@@ -2577,13 +2224,18 @@ class _RowMenuState extends State<_RowMenu> {
             widget.onToggleActive();
           },
           leadingIcon: Icon(
-            widget.isActive ? LucideIcons.toggleRight : LucideIcons.toggleLeft,
+            widget.isActive
+                ? LucideIcons.toggleRight
+                : LucideIcons.toggleLeft,
             size: 16,
-            color: widget.isActive ? AppTheme.successGreen : AppTheme.textMuted,
+            color: widget.isActive
+                ? AppTheme.successGreen
+                : AppTheme.textMuted,
           ),
           child: Text(
             widget.isActive ? 'Active' : 'Inactive',
-            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+            style: const TextStyle(
+                fontSize: 13, color: AppTheme.textPrimary),
           ),
         ),
         // Enable Auto-Apply
@@ -2595,11 +2247,14 @@ class _RowMenuState extends State<_RowMenu> {
           leadingIcon: Icon(
             LucideIcons.zap,
             size: 16,
-            color: widget.autoApply ? AppTheme.primaryBlue : AppTheme.textMuted,
+            color: widget.autoApply
+                ? AppTheme.primaryBlue
+                : AppTheme.textMuted,
           ),
           child: Text(
             widget.autoApply ? 'Auto-Apply On' : 'Enable Auto-Apply',
-            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+            style: const TextStyle(
+                fontSize: 13, color: AppTheme.textPrimary),
           ),
         ),
         const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
@@ -2609,11 +2264,8 @@ class _RowMenuState extends State<_RowMenu> {
             _controller.close();
             widget.onDelete();
           },
-          leadingIcon: const Icon(
-            LucideIcons.trash2,
-            size: 16,
-            color: AppTheme.errorRed,
-          ),
+          leadingIcon: const Icon(LucideIcons.trash2,
+              size: 16, color: AppTheme.errorRed),
           child: const Text(
             'Delete',
             style: TextStyle(fontSize: 13, color: AppTheme.errorRed),
@@ -2624,11 +2276,8 @@ class _RowMenuState extends State<_RowMenu> {
         constraints: const BoxConstraints.tightFor(width: 28, height: 28),
         padding: EdgeInsets.zero,
         splashRadius: 16,
-        icon: const Icon(
-          LucideIcons.moreVertical,
-          size: 15,
-          color: AppTheme.textMuted,
-        ),
+        icon: const Icon(LucideIcons.moreVertical,
+            size: 15, color: AppTheme.textMuted),
         tooltip: 'Options',
         onPressed: () => _controller.open(),
       ),
@@ -2671,8 +2320,7 @@ class _SavedRowMenuState extends State<_SavedRowMenu> {
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         padding: WidgetStateProperty.all(
-          const EdgeInsets.symmetric(vertical: 4),
-        ),
+            const EdgeInsets.symmetric(vertical: 4)),
       ),
       menuChildren: [
         // Edit Record
@@ -2698,9 +2346,13 @@ class _SavedRowMenuState extends State<_SavedRowMenu> {
             widget.onToggleActive();
           },
           leadingIcon: Icon(
-            widget.isActive ? LucideIcons.toggleRight : LucideIcons.toggleLeft,
+            widget.isActive
+                ? LucideIcons.toggleRight
+                : LucideIcons.toggleLeft,
             size: 16,
-            color: widget.isActive ? AppTheme.successGreen : AppTheme.textMuted,
+            color: widget.isActive
+                ? AppTheme.successGreen
+                : AppTheme.textMuted,
           ),
           child: const Text(
             'Active/Inactive',
@@ -2714,11 +2366,8 @@ class _SavedRowMenuState extends State<_SavedRowMenu> {
             _controller.close();
             widget.onDelete();
           },
-          leadingIcon: const Icon(
-            LucideIcons.trash2,
-            size: 16,
-            color: AppTheme.errorRed,
-          ),
+          leadingIcon: const Icon(LucideIcons.trash2,
+              size: 16, color: AppTheme.errorRed),
           child: const Text(
             'Delete',
             style: TextStyle(fontSize: 13, color: AppTheme.errorRed),
@@ -2729,11 +2378,8 @@ class _SavedRowMenuState extends State<_SavedRowMenu> {
         constraints: const BoxConstraints.tightFor(width: 24, height: 24),
         padding: EdgeInsets.zero,
         splashRadius: 14,
-        icon: const Icon(
-          LucideIcons.moreVertical,
-          size: 14,
-          color: AppTheme.textMuted,
-        ),
+        icon: const Icon(LucideIcons.moreVertical,
+            size: 14, color: AppTheme.textMuted),
         onPressed: () => _controller.open(),
       ),
     );
@@ -2827,11 +2473,8 @@ class _DateCell extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(
-              LucideIcons.calendar,
-              size: 13,
-              color: AppTheme.textMuted,
-            ),
+            const Icon(LucideIcons.calendar,
+                size: 13, color: AppTheme.textMuted),
           ],
         ),
       ),
@@ -2844,7 +2487,11 @@ class _DateCell extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child, this.trailing});
+  const _SectionCard({
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
 
   final String title;
   final Widget child;
@@ -2873,7 +2520,10 @@ class _SectionCard extends StatelessWidget {
                     color: AppTheme.textPrimary,
                   ),
                 ),
-                if (trailing != null) ...[const Spacer(), trailing!],
+                if (trailing != null) ...[
+                  const Spacer(),
+                  trailing!,
+                ],
               ],
             ),
           ),
@@ -2905,11 +2555,8 @@ class _AddRowButton extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            LucideIcons.plusCircle,
-            size: 15,
-            color: AppTheme.successGreen,
-          ),
+          const Icon(LucideIcons.plusCircle,
+              size: 15, color: AppTheme.successGreen),
           const SizedBox(width: 6),
           Text(
             label,
