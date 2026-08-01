@@ -215,6 +215,7 @@ extension _PrimaryInfoSection on _SalesCustomerCreateScreenState {
           showInfo: true,
           tooltip: 'Primary work and mobile contact numbers for the customer.',
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: PhoneInputField(

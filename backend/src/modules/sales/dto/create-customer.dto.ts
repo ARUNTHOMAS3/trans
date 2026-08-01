@@ -18,10 +18,17 @@ export enum CustomerType {
 }
 
 export enum GstTreatment {
-  REGISTERED_BUSINESS = "registered business",
+  REGISTERED_BUSINESS = "registered_business",
+  REGISTERED_BUSINESS_SPACE = "registered business",
+  REGISTERED_BUSINESS_REGULAR = "registered_business_regular",
+  REGISTERED_BUSINESS_COMPOSITION = "registered_business_composition",
   UNREGISTERED_BUSINESS = "unregistered_business",
   OVERSEAS = "overseas",
   CONSUMER = "consumer",
+  SPECIAL_ECONOMIC_ZONE = "special_economic_zone",
+  DEEMED_EXPORT = "deemed_export",
+  DEEMED_EXPORTS = "deemed_exports",
+  DEEMED_EXPORTS_HYPHEN = "de_emed_exports",
 }
 
 export class ContactPersonDto {

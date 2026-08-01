@@ -699,36 +699,47 @@ class _SalesCustomerCreateScreenState
       return mapped;
     }
 
+    void processDetail(dynamic detail) {
+      if (detail is! Map) return;
+      final rawField = (detail['field'] ?? '').toString();
+      if (rawField.isEmpty) return;
+      final constraints = detail['constraints'];
+      String? message;
+      if (constraints is Map && constraints.isNotEmpty) {
+        message = constraints.values.first.toString();
+      } else if (detail['message'] != null) {
+        message = detail['message'].toString();
+      }
+      if (message == null || message.isEmpty) return;
+
+      final field = switch (rawField) {
+        'whatsappNumber' => 'whatsappNumber',
+        'phone' => 'phone',
+        'mobilePhone' => 'mobilePhone',
+        'displayName' => 'displayName',
+        'email' => 'email',
+        'gstTreatment' => 'gstTreatment',
+        'contactPersons' => 'contactPersons',
+        _ => rawField,
+      };
+      mapped[field] = message;
+    }
+
     final details = data['details'];
     if (details is List) {
       for (final detail in details) {
-        if (detail is! Map) continue;
-        final rawField = (detail['field'] ?? '').toString();
-        if (rawField.isEmpty) continue;
-        final constraints = detail['constraints'];
-        String? message;
-        if (constraints is Map && constraints.isNotEmpty) {
-          message = constraints.values.first.toString();
-        } else if (detail['message'] != null) {
-          message = detail['message'].toString();
-        }
-        if (message == null || message.isEmpty) continue;
-
-        final field = switch (rawField) {
-          'whatsappNumber' => 'whatsappNumber',
-          'phone' => 'phone',
-          'mobilePhone' => 'mobilePhone',
-          'displayName' => 'displayName',
-          'email' => 'email',
-          'contactPersons' => 'contactPersons',
-          _ => rawField,
-        };
-        mapped[field] = message;
+        processDetail(detail);
       }
     }
 
     final message = data['message'];
-    if (mapped.isEmpty && message is String && message.isNotEmpty) {
+    if (message is Map) {
+      processDetail(message);
+    } else if (message is List) {
+      for (final detail in message) {
+        processDetail(detail);
+      }
+    } else if (mapped.isEmpty && message is String && message.isNotEmpty) {
       final lowerMessage = message.toLowerCase();
       if (lowerMessage.contains('customer number already exists') ||
           lowerMessage.contains('customers_customer_number_key')) {

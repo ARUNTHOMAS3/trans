@@ -70,7 +70,7 @@ class PhoneInputField extends StatelessWidget {
     final int maxDigits = phonePrefixMaxDigits[effectivePrefix] ?? 15;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Country code dropdown ──────────────────────────────────────────
         SizedBox(

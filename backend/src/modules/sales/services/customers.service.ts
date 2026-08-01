@@ -21,6 +21,27 @@ export class CustomersService {
     private readonly sequencesService: SequencesService,
   ) {}
 
+  private normalizeGstTreatment(val: string | null | undefined): string | null {
+    if (!val) return null;
+    const clean = val.trim().toLowerCase().replace(/\s+/g, '_');
+    if (clean === 'registered_business' || clean === 'registered_business_regular' || clean.includes('regular')) {
+      return 'registered_business_regular';
+    }
+    if (clean === 'registered_business_composition' || clean.includes('composition')) {
+      return 'registered_business_composition';
+    }
+    if (clean.includes('unregistered_business') || clean === 'unregistered_business') {
+      return 'unregistered_business';
+    }
+    if (clean === 'overseas' || clean === 'special_economic_zone' || clean === 'deemed_export' || clean === 'deemed_exports' || clean === 'de_emed_exports') {
+      return clean === 'deemed_exports' || clean === 'de_emed_exports' ? 'deemed_export' : clean;
+    }
+    if (clean === 'consumer') {
+      return 'consumer';
+    }
+    return val;
+  }
+
   async findAll(
     tenant: TenantContext,
     page: number = 1,
@@ -219,6 +240,48 @@ export class CustomersService {
           `Failed to save contact persons: ${contactsError.message}`,
         );
       }
+    }
+
+    // Create or update customer account in accounts table
+    try {
+      const customerName = customer.display_name || customer.company_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.customer_number;
+      const customerRemarks = (customer.remarks || createCustomerDto.remarks || '').toString().trim() || null;
+      const customerCurrency = createCustomerDto.currency || createCustomerDto.currencyCode || customer.currency || 'INR';
+
+      const client = this.supabaseService.getClient();
+      const { data: existingAccount } = await client
+        .from("accounts")
+        .select("id")
+        .eq("entity_id", tenant.entityId)
+        .eq("account_type", "Accounts Receivable")
+        .or(`system_account_name.eq.${customerName},user_account_name.eq.${customerName}`)
+        .maybeSingle();
+
+      if (!existingAccount) {
+        await client.from("accounts").insert({
+          system_account_name: customerName,
+          user_account_name: customerName,
+          account_type: "Accounts Receivable",
+          account_group: "Assets",
+          account_code: customer.customer_number || null,
+          description: customerRemarks,
+          currency: customerCurrency,
+          is_active: true,
+          is_system: false,
+          is_deletable: true,
+          show_in_zerpai_expense: false,
+          is_deleted: false,
+          entity_id: tenant.entityId,
+          org_id: tenant.orgId || "00000000-0000-0000-0000-000000000000",
+        });
+      } else {
+        await client.from("accounts").update({
+          description: customerRemarks,
+          currency: customerCurrency,
+        }).eq("id", existingAccount.id);
+      }
+    } catch (accErr) {
+      console.error("⚠️ Failed to sync customer account in accounts table:", accErr);
     }
 
     return this.mapCustomer(customer);
@@ -489,7 +552,7 @@ export class CustomersService {
       parent_customer_id: dto.parentCustomerId,
 
       // Tax & Regulatory
-      gst_treatment: dto.gstTreatment,
+      gst_treatment: this.normalizeGstTreatment(dto.gstTreatment),
       gstin: dto.gstin,
       pan: dto.pan,
       place_of_supply: dto.placeOfSupply,

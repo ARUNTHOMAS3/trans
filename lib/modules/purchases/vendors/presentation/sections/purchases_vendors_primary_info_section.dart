@@ -115,6 +115,7 @@ extension _PrimaryInfoSection on _PurchasesVendorsVendorCreateScreenState {
           showInfo: true,
           tooltip: 'Primary contact numbers.',
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: PhoneInputField(

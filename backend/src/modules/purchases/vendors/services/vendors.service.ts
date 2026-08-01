@@ -360,6 +360,47 @@ export class VendorsService {
       await client.from("vendor_bank_accounts").insert(banks);
     }
 
+    // 5. Create or update vendor account in accounts table
+    try {
+      const vendorAccountName = displayName || companyName || `${firstName} ${lastName}`.trim() || vendorNumber;
+      const vendorRemarks = vendorFields.remarks?.toString().trim() || null;
+      const vendorCurrency = vendorFields.currency?.toString().trim() || 'INR';
+
+      const { data: existingAccount } = await client
+        .from("accounts")
+        .select("id")
+        .eq("entity_id", tenant.entityId)
+        .eq("account_type", "Accounts Payable")
+        .or(`system_account_name.eq.${vendorAccountName},user_account_name.eq.${vendorAccountName}`)
+        .maybeSingle();
+
+      if (!existingAccount) {
+        await client.from("accounts").insert({
+          system_account_name: vendorAccountName,
+          user_account_name: vendorAccountName,
+          account_type: "Accounts Payable",
+          account_group: "Liabilities",
+          account_code: vendorNumber || null,
+          description: vendorRemarks,
+          currency: vendorCurrency,
+          is_active: true,
+          is_system: false,
+          is_deletable: true,
+          show_in_zerpai_expense: false,
+          is_deleted: false,
+          entity_id: tenant.entityId,
+          org_id: tenant.orgId || "00000000-0000-0000-0000-000000000000",
+        });
+      } else {
+        await client.from("accounts").update({
+          description: vendorRemarks,
+          currency: vendorCurrency,
+        }).eq("id", existingAccount.id);
+      }
+    } catch (accErr) {
+      console.error("⚠️ Failed to sync vendor account in accounts table:", accErr);
+    }
+
     return this.findOne(vendorId, tenant);
   }
 

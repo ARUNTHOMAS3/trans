@@ -621,17 +621,17 @@ class SalesCustomer {
 
   String _mapGstTreatmentToBackend(String uiValue) {
     const map = {
-      'Registered Business - Regular': 'registered_business',
-      'Registered Business - Composition': 'registered_business',
+      'Registered Business - Regular': 'registered_business_regular',
+      'Registered Business - Composition': 'registered_business_composition',
+      'Registered Business': 'registered_business_regular',
       'Unregistered Business': 'unregistered_business',
       'Consumer': 'consumer',
       'Overseas': 'overseas',
-      'Special Economic Zone': 'overseas',
-      'SEZ Developer': 'overseas',
-      'Deemed Export': 'overseas',
+      'Special Economic Zone': 'special_economic_zone',
+      'SEZ Developer': 'special_economic_zone',
+      'Deemed Export': 'deemed_export',
     };
-    // Default fallback if not found (or return as-is snake_cased if risky)
-    return map[uiValue] ?? 'consumer';
+    return map[uiValue] ?? uiValue.toLowerCase().replaceAll(' ', '_');
   }
 
   // Helper function to safely parse doubles from various types
