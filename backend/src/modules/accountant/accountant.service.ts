@@ -111,17 +111,20 @@ export class AccountantService {
 
   async create(data: any, tenant: TenantContext) {
     data.userAccountName =
-      data.userAccountName || data.name || data.user_account_name;
-    data.systemAccountName = data.systemAccountName || data.system_account_name;
+      data.userAccountName || data.name || data.user_account_name || data.accountName || data.account_name;
+    data.systemAccountName = data.systemAccountName || data.system_account_name || data.userAccountName;
     data.accountCode = data.accountCode || data.code || data.account_code;
     data.parentId = data.parentId || data.parent_id;
-    data.accountGroup = data.accountGroup || data.account_group;
     data.accountType = data.accountType || data.account_type;
+    data.accountGroup = data.accountGroup || data.account_group || (data.accountType ? this.inferAccountGroup(data.accountType) : "");
 
     if (data.userAccountName)
       data.userAccountName = data.userAccountName.trim();
     if (!data.userAccountName && !data.systemAccountName) {
-      throw new ConflictException("At least one account name is required");
+      throw new BadRequestException("At least one account name is required");
+    }
+    if (!data.accountType) {
+      throw new BadRequestException("Account Type is required");
     }
 
     this.validateAccountGroupType(data.accountGroup, data.accountType);
@@ -132,6 +135,7 @@ export class AccountantService {
     const dbData = {
       ...this.mapToDb(data),
       entity_id: tenant.entityId,
+      org_id: tenant.orgId || "00000000-0000-0000-0000-000000000000",
     };
 
     const { data: created, error } = await supabase
@@ -139,7 +143,10 @@ export class AccountantService {
       .insert(dbData)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      console.error("Error creating account in accounts table:", error);
+      throw new BadRequestException(`Failed to create account: ${error.message || error.details || error}`);
+    }
 
     const openingBalance = Number(
       (data.openingBalance || data.opening_balance) ?? 0,
@@ -211,6 +218,48 @@ export class AccountantService {
     return true;
   }
 
+  private inferAccountGroup(type: string): string {
+    const map: Record<string, string[]> = {
+      Assets: [
+        "Bank",
+        "Cash",
+        "Accounts Receivable",
+        "Stock",
+        "Payment Clearing Account",
+        "Other Current Asset",
+        "Fixed Asset",
+        "Non Current Asset",
+        "Intangible Asset",
+        "Deferred Tax Asset",
+        "Other Asset",
+      ],
+      Liabilities: [
+        "Credit Card",
+        "Accounts Payable",
+        "Other Current Liability",
+        "Overseas Tax Payable",
+        "Non Current Liability",
+        "Deferred Tax Liability",
+        "Other Liability",
+        "Mortgages",
+        "Construction Loans",
+        "Home Equity Loans",
+      ],
+      Equity: ["Equity"],
+      Income: ["Income", "Other Income"],
+      Expenses: ["Cost Of Goods Sold", "Expense", "Other Expense"],
+    };
+
+    if (!type) return "Assets";
+    const typeLower = type.trim().toLowerCase();
+    for (const [grp, types] of Object.entries(map)) {
+      if (types.some((t) => t.toLowerCase() === typeLower)) {
+        return grp;
+      }
+    }
+    return "Assets";
+  }
+
   private validateAccountGroupType(group: string, type: string) {
     const map: Record<string, string[]> = {
       Assets: [
@@ -242,10 +291,12 @@ export class AccountantService {
       Income: ["Income", "Other Income"],
       Expenses: ["Cost Of Goods Sold", "Expense", "Other Expense"],
     };
-    if (!map[group]?.includes(type))
+    const resolvedGroup = group || this.inferAccountGroup(type);
+    if (!map[resolvedGroup]?.includes(type)) {
       throw new ConflictException(
-        `Invalid type "${type}" for group "${group}"`,
+        `Invalid type "${type}" for group "${resolvedGroup}"`,
       );
+    }
   }
 
   private async validateParent(
@@ -1153,10 +1204,98 @@ export class AccountantService {
   }
 
   private mapToDb(dto: any) {
-    return dto;
+    const userAccountName = (
+      dto.userAccountName ||
+      dto.user_account_name ||
+      dto.accountName ||
+      dto.account_name ||
+      dto.name ||
+      ""
+    ).toString().trim();
+
+    const systemAccountName = (
+      dto.systemAccountName ||
+      dto.system_account_name ||
+      userAccountName
+    ).toString().trim();
+
+    const accountType = (
+      dto.accountType ||
+      dto.account_type ||
+      ""
+    ).toString().trim();
+
+    let accountGroup = (
+      dto.accountGroup ||
+      dto.account_group ||
+      ""
+    ).toString().trim();
+
+    if (!accountGroup && accountType) {
+      accountGroup = this.inferAccountGroup(accountType);
+    }
+
+    const accountCode = (
+      dto.accountCode ||
+      dto.account_code ||
+      dto.code ||
+      ""
+    ).toString().trim();
+
+    const parentId = dto.parentId || dto.parent_id || null;
+    const description = dto.description ?? null;
+
+    const dbRecord: any = {
+      user_account_name: userAccountName,
+      system_account_name: systemAccountName,
+      account_type: accountType,
+      account_group: accountGroup,
+      account_code: accountCode,
+      description: description,
+      parent_id: parentId,
+      is_active: dto.is_active ?? dto.isActive ?? true,
+      is_system: dto.is_system ?? dto.isSystem ?? false,
+      is_deletable: dto.is_deletable ?? dto.isDeletable ?? true,
+      is_deleted: false,
+    };
+
+    if (dto.currency) dbRecord.currency = dto.currency;
+    if (dto.account_number || dto.accountNumber) dbRecord.account_number = dto.account_number || dto.accountNumber;
+    if (dto.ifsc) dbRecord.ifsc = dto.ifsc;
+
+    return dbRecord;
   }
 
   private mapToDto(acc: any) {
-    return acc;
+    if (!acc) return acc;
+    return {
+      ...acc,
+      id: acc.id,
+      userAccountName: acc.user_account_name || acc.account_name || acc.system_account_name,
+      user_account_name: acc.user_account_name,
+      systemAccountName: acc.system_account_name,
+      system_account_name: acc.system_account_name,
+      accountCode: acc.account_code,
+      account_code: acc.account_code,
+      accountGroup: acc.account_group,
+      account_group: acc.account_group,
+      accountType: acc.account_type,
+      account_type: acc.account_type,
+      description: acc.description,
+      parentId: acc.parent_id,
+      parent_id: acc.parent_id,
+      isActive: acc.is_active ?? true,
+      is_active: acc.is_active ?? true,
+      isSystem: acc.is_system ?? false,
+      is_system: acc.is_system ?? false,
+      isDeletable: acc.is_deletable ?? true,
+      is_deletable: acc.is_deletable ?? true,
+      entityId: acc.entity_id,
+      entity_id: acc.entity_id,
+      orgId: acc.org_id,
+      org_id: acc.org_id,
+      createdAt: acc.created_at,
+      created_at: acc.created_at,
+    };
   }
 }

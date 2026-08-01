@@ -142,7 +142,7 @@ export class SalesController {
 
   @Post("invoices")
   async createInvoice(@Body() body: any, @Tenant() tenant: TenantContext) {
-    return this.salesService.createInvoice(body, tenant.entityId);
+    return this.salesService.createInvoice(body, tenant.entityId, tenant);
   }
 
   @Put("invoices/:id")
@@ -154,7 +154,7 @@ export class SalesController {
     if (!id) {
       throw new BadRequestException("Invoice ID is required");
     }
-    return this.salesService.updateInvoice(id, body, tenant.entityId);
+    return this.salesService.updateInvoice(id, body, tenant.entityId, tenant);
   }
 
   @Put(":id([0-9a-fA-F-]{36})")

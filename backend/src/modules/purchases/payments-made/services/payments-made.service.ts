@@ -173,6 +173,9 @@ export class PaymentsMadeService {
       }
     }
 
+    // Process Journal Entries and Journal Entry Lines according to Payment_made connection docs
+    await this.postJournalEntries(tenant, data, dto);
+
     return { data };
   }
 
@@ -397,11 +400,30 @@ export class PaymentsMadeService {
       }
     }
 
+    // Process Journal Entries and Journal Entry Lines according to Payment_made connection docs
+    await this.postJournalEntries(tenant, data, dto);
+
     return { data };
   }
 
   async remove(id: string, tenant: TenantContext) {
     const supabase = this.supabaseService.getClient();
+
+    // 1. Delete corresponding journal_entry_lines and journal_entries
+    const { data: existingJes } = await supabase
+      .from("journal_entries")
+      .select("id")
+      .eq("entity_id", tenant.entityId)
+      .eq("source_document_type", "PAYMENT_MADE")
+      .eq("source_document_id", id);
+
+    if (existingJes && existingJes.length > 0) {
+      const jeIds = existingJes.map((j: any) => j.id);
+      await supabase.from("journal_entry_lines").delete().in("journal_entry_id", jeIds);
+      await supabase.from("journal_entries").delete().in("id", jeIds);
+    }
+
+    // 2. Delete payment_made_master record
     const { error } = await supabase
       .from("payment_made_master")
       .delete()
@@ -433,5 +455,262 @@ export class PaymentsMadeService {
         formatted: "PM-00098",
       },
     };
+  }
+
+  private async postJournalEntries(tenant: TenantContext, paymentData: any, dto: any) {
+    if (!paymentData || !paymentData.id) return;
+    const supabase = this.supabaseService.getClient();
+
+    const paymentId = paymentData.id;
+    const status = (paymentData.status || dto.status || "draft").toString().toLowerCase();
+
+    // Draft stage: Do not create journal entry or lines
+    if (status === "draft") {
+      const { data: existingJE } = await supabase
+        .from("journal_entries")
+        .select("id")
+        .eq("entity_id", tenant.entityId)
+        .eq("source_document_type", "PAYMENT_MADE")
+        .eq("source_document_id", paymentId)
+        .maybeSingle();
+
+      if (existingJE?.id) {
+        await supabase.from("journal_entry_lines").delete().eq("journal_entry_id", existingJE.id);
+        await supabase.from("journal_entries").delete().eq("id", existingJE.id);
+        try {
+          await supabase.from("payment_made_master").update({ journal_entry_id: null }).eq("id", paymentId);
+        } catch (_) {}
+      }
+      return;
+    }
+
+    // Post/Confirm stage: Generate journal_entries and journal_entry_lines
+
+    // 1. Resolve Accounts Payable Account ID
+    let accountsPayableAccountId: string | null = null;
+    const { data: apAccountRow } = await supabase
+      .from("accounts")
+      .select("id")
+      .or("system_account_name.eq.Accounts Payable,user_account_name.eq.Accounts Payable,account_name.eq.Accounts Payable,account_type.eq.Accounts Payable")
+      .limit(1)
+      .maybeSingle();
+
+    if (apAccountRow) {
+      accountsPayableAccountId = apAccountRow.id;
+    } else {
+      const { data: apFallback } = await supabase
+        .from("accounts")
+        .select("id")
+        .eq("account_type", "Accounts Payable")
+        .limit(1)
+        .maybeSingle();
+      if (apFallback) {
+        accountsPayableAccountId = apFallback.id;
+      }
+    }
+
+    if (!accountsPayableAccountId) {
+      const { data: anyLiability } = await supabase
+        .from("accounts")
+        .select("id")
+        .eq("account_group", "Liabilities")
+        .limit(1)
+        .maybeSingle();
+      accountsPayableAccountId = anyLiability?.id || null;
+    }
+
+    if (!accountsPayableAccountId) {
+      const { data: anyAccount } = await supabase
+        .from("accounts")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      accountsPayableAccountId = anyAccount?.id || null;
+    }
+
+    if (!accountsPayableAccountId) {
+      console.warn("No valid account ID found in accounts table for Accounts Payable");
+      return;
+    }
+
+    // 2. Resolve Paid Through Account ID
+    let paidThroughAccountId: string | null = paymentData.paid_through_account_id || null;
+    if (!paidThroughAccountId) {
+      const incomingPaidThrough = dto.paidThroughAccountId || dto.paid_through_account_id || "Petty Cash";
+      if (this.isUuid(incomingPaidThrough)) {
+        paidThroughAccountId = incomingPaidThrough;
+      } else {
+        const { data: accountRow } = await supabase
+          .from("accounts")
+          .select("id")
+          .or(`system_account_name.eq.${incomingPaidThrough},user_account_name.eq.${incomingPaidThrough},account_name.eq.${incomingPaidThrough}`)
+          .limit(1)
+          .maybeSingle();
+        if (accountRow) {
+          paidThroughAccountId = accountRow.id;
+        }
+      }
+    }
+
+    // Verify paidThroughAccountId actually exists in accounts table
+    if (paidThroughAccountId) {
+      const { data: verifyRow } = await supabase
+        .from("accounts")
+        .select("id")
+        .eq("id", paidThroughAccountId)
+        .maybeSingle();
+      if (!verifyRow) {
+        paidThroughAccountId = null;
+      }
+    }
+
+    if (!paidThroughAccountId) {
+      const { data: cashFallback } = await supabase
+        .from("accounts")
+        .select("id")
+        .or("system_account_name.eq.Petty Cash,user_account_name.eq.Petty Cash,account_name.eq.Petty Cash,system_account_name.eq.Cash,user_account_name.eq.Cash,account_type.eq.Cash")
+        .limit(1)
+        .maybeSingle();
+      paidThroughAccountId = cashFallback?.id || accountsPayableAccountId;
+    }
+
+    const paymentAmount = parseFloat(paymentData.payment_amount?.toString() || dto.paymentAmount?.toString() || dto.amount?.toString() || "0");
+    const paymentDate = paymentData.payment_date || dto.paymentDate || dto.payment_date || new Date().toISOString().split("T")[0];
+    const paymentNumber = paymentData.payment_number || dto.paymentNumber || dto.payment_number || `PM-${Date.now()}`;
+    const vendorId = paymentData.vendor_id || dto.vendorId || dto.vendor_id || null;
+
+    // 3. Find or Create Header in journal_entries
+    const { data: existingJE } = await supabase
+      .from("journal_entries")
+      .select("id, created_by")
+      .eq("entity_id", tenant.entityId)
+      .eq("source_document_type", "PAYMENT_MADE")
+      .eq("source_document_id", paymentId)
+      .maybeSingle();
+
+    const journalEntryId = existingJE?.id || uuidv4();
+
+    if (existingJE?.id) {
+      await supabase
+        .from("journal_entry_lines")
+        .delete()
+        .eq("journal_entry_id", existingJE.id);
+    }
+
+    // Resolve user UUID from tenant context or fallback to valid user ID from users table
+    let currentUserId: string | null = null;
+    if (tenant.userId && this.isUuid(tenant.userId)) {
+      currentUserId = tenant.userId;
+    } else {
+      const incomingUser = dto.created_by || dto.createdBy || dto.updated_by || dto.updatedBy;
+      if (incomingUser && this.isUuid(String(incomingUser))) {
+        currentUserId = String(incomingUser);
+      } else {
+        const { data: firstUser } = await supabase
+          .from("users")
+          .select("id")
+          .limit(1)
+          .maybeSingle();
+        if (firstUser) {
+          currentUserId = firstUser.id;
+        }
+      }
+    }
+
+    const defaultOrgId = "00000000-0000-0000-0000-000000000000";
+    const jeHeader = {
+      id: journalEntryId,
+      org_id: tenant.orgId || defaultOrgId,
+      entity_id: tenant.entityId,
+      fiscal_year_id: null,
+      journal_number: `JE-${paymentNumber}`,
+      journal_type: "PAYMENT_MADE",
+      journal_date: paymentDate,
+      posting_date: paymentDate,
+      reference_number: paymentNumber,
+      narration: paymentData.notes || dto.notes || `Payment Made ${paymentNumber}`,
+      source_module: "PURCHASES",
+      source_document_type: "PAYMENT_MADE",
+      source_document_id: paymentId,
+      currency_code: paymentData.currency_code || dto.currencyCode || "INR",
+      exchange_rate: parseFloat(paymentData.exchange_rate?.toString() || dto.exchangeRate?.toString() || "1.0"),
+      status: "POSTED",
+      created_by: existingJE?.created_by || currentUserId,
+      updated_by: currentUserId,
+    };
+
+    if (existingJE?.id) {
+      const { error: updateJeErr } = await supabase
+        .from("journal_entries")
+        .update(jeHeader)
+        .eq("id", journalEntryId);
+      if (updateJeErr) {
+        console.error("Error updating journal_entries:", updateJeErr.message);
+      }
+    } else {
+      const { error: insertJeErr } = await supabase
+        .from("journal_entries")
+        .insert(jeHeader);
+      if (insertJeErr) {
+        console.error("Error inserting journal_entries:", insertJeErr.message);
+      }
+    }
+
+    // 4. Insert double-entry lines into journal_entry_lines
+    if (paymentAmount > 0) {
+      const lines = [
+        // Line 1: Debit Accounts Payable
+        {
+          id: uuidv4(),
+          journal_entry_id: journalEntryId,
+          account_id: accountsPayableAccountId,
+          transaction_date: paymentDate,
+          reference_number: paymentNumber,
+          description: "Payment Made to Vendor - Accounts Payable",
+          debit: paymentAmount,
+          credit: 0,
+          source_id: paymentId,
+          source_type: "PAYMENT_MADE",
+          contact_id: vendorId,
+          contact_type: "VENDOR",
+          entity_id: tenant.entityId,
+          org_id: tenant.orgId || defaultOrgId,
+          line_number: null,
+        },
+        // Line 2: Credit Paid Through (Petty Cash / Bank)
+        {
+          id: uuidv4(),
+          journal_entry_id: journalEntryId,
+          account_id: paidThroughAccountId,
+          transaction_date: paymentDate,
+          reference_number: paymentNumber,
+          description: "Payment Made - Paid Through",
+          debit: 0,
+          credit: paymentAmount,
+          source_id: paymentId,
+          source_type: "PAYMENT_MADE",
+          contact_id: vendorId,
+          contact_type: "VENDOR",
+          entity_id: tenant.entityId,
+          org_id: tenant.orgId || defaultOrgId,
+          line_number: null,
+        },
+      ];
+
+      const { error: linesErr } = await supabase
+        .from("journal_entry_lines")
+        .insert(lines);
+      if (linesErr) {
+        console.error("Error inserting journal_entry_lines:", linesErr.message);
+      }
+    }
+
+    // 5. Link journal_entry_id back to payment_made_master if column exists
+    try {
+      await supabase
+        .from("payment_made_master")
+        .update({ journal_entry_id: journalEntryId })
+        .eq("id", paymentId);
+    } catch (_) {}
   }
 }

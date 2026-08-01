@@ -944,7 +944,11 @@ class _SalesInvoiceOverviewScreenState
                           const SizedBox(height: 24),
                           _buildMoreInformationCard(invoice, emailVal, salespersonName),
                           const SizedBox(height: 24),
-                          _InvoiceBatchesSection(items: items),
+                          _InvoiceBatchesSection(
+                            invoiceId: invoice.id,
+                            items: items,
+                            warehouseName: warehouses?.where((w) => w.id == invoice.warehouseId).firstOrNull?.name ?? 'Central Logistics Hub',
+                          ),
                         ],
                       ),
                     ),
@@ -5337,16 +5341,305 @@ class _Cell extends StatelessWidget {
 // ─────────────────────────────────────────────────
 
 class _InvoiceBatchesSection extends StatefulWidget {
+  final String invoiceId;
   final List<SalesOrderItem> items;
+  final String warehouseName;
 
-  const _InvoiceBatchesSection({required this.items});
+  const _InvoiceBatchesSection({
+    required this.invoiceId,
+    required this.items,
+    required this.warehouseName,
+  });
 
   @override
   State<_InvoiceBatchesSection> createState() => _InvoiceBatchesSectionState();
 }
 
 class _InvoiceBatchesSectionState extends State<_InvoiceBatchesSection> {
-  bool _isExpanded = false;
+  String _activeTab = 'batches';
+  bool _isExpanded = true;
+
+  Future<List<Map<String, dynamic>>> _fetchInvoiceJournals(String invoiceId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final res = await supabase
+          .from('journal_entry_lines')
+          .select('*, account:accounts(user_account_name, system_account_name)')
+          .eq('source_id', invoiceId)
+          .eq('source_type', 'INVOICE');
+      return List<Map<String, dynamic>>.from(res);
+    } catch (e) {
+      debugPrint('Error fetching invoice journals: $e');
+      return [];
+    }
+  }
+
+  Widget _buildJournalsTab() {
+    final resolvedWarehouseName = widget.warehouseName.isNotEmpty ? widget.warehouseName : 'Central Logistics Hub';
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchInvoiceJournals(widget.invoiceId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Failed to load journals: ${snapshot.error}',
+              style: const TextStyle(color: Colors.red, fontSize: 13),
+            ),
+          );
+        }
+        final txs = snapshot.data ?? [];
+        if (txs.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: Text(
+                'No journal entries found for this invoice.',
+                style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+              ),
+            ),
+          );
+        }
+
+        double totalDebit = 0;
+        double totalCredit = 0;
+        for (var tx in txs) {
+          totalDebit += double.tryParse(tx['debit']?.toString() ?? '0') ?? 0;
+          totalCredit += double.tryParse(tx['credit']?.toString() ?? '0') ?? 0;
+        }
+        final bool isBalanced = (totalDebit - totalCredit).abs() < 0.01;
+
+        return Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isBalanced) ...[
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD1FAE5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            LucideIcons.checkCircle2,
+                            size: 13,
+                            color: Color(0xFF065F46),
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Debits/Credits match',
+                            style: TextStyle(
+                              color: Color(0xFF065F46),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+              Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(4),
+                  1: FlexColumnWidth(4),
+                  2: FlexColumnWidth(2),
+                  3: FlexColumnWidth(2),
+                },
+                children: [
+                  const TableRow(
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF9FAFB),
+                      border: Border(
+                        top: BorderSide(color: Color(0xFFE5E7EB)),
+                        bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                    ),
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        child: Text(
+                          'ACCOUNT',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF4B5563),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        child: Text(
+                          'WAREHOUSE',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF4B5563),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        child: Text(
+                          'DEBIT',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF4B5563),
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                        child: Text(
+                          'CREDIT',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF4B5563),
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                  ...txs.map((tx) {
+                    final accountName = tx['account']?['user_account_name'] ??
+                        tx['account']?['system_account_name'] ??
+                        tx['description'] ??
+                        '-';
+                    final debit = double.tryParse(tx['debit']?.toString() ?? '0') ?? 0;
+                    final credit = double.tryParse(tx['credit']?.toString() ?? '0') ?? 0;
+
+                    return TableRow(
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Color(0xFFF3F4F6)),
+                        ),
+                      ),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                          child: Text(
+                            accountName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.primaryBlue,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                          child: Text(
+                            resolvedWarehouseName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF4B5563),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                          child: Text(
+                            debit > 0 ? debit.toStringAsFixed(2) : '0.00',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF1F2937),
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                          child: Text(
+                            credit > 0 ? credit.toStringAsFixed(2) : '0.00',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF1F2937),
+                            ),
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                  TableRow(
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                        bottom: BorderSide(color: Color(0xFFE5E7EB)),
+                      ),
+                    ),
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        child: Text(
+                          'Total',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                      ),
+                      const SizedBox.shrink(),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        child: Text(
+                          totalDebit.toStringAsFixed(2),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF111827),
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        child: Text(
+                          totalCredit.toStringAsFixed(2),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF111827),
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -5369,87 +5662,133 @@ class _InvoiceBatchesSectionState extends State<_InvoiceBatchesSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          InkWell(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              child: Row(
-                children: [
-                  const Icon(LucideIcons.package2, size: 16, color: AppTheme.primaryBlue),
-                  const SizedBox(width: 10),
-                  Text(
-                    'BATCHES',
-                    style: AppTheme.sectionHeader.copyWith(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+            ),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: () => setState(() {
+                    _activeTab = 'batches';
+                    _isExpanded = true;
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: _activeTab == 'batches' ? AppTheme.primaryBlue : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'Batches',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: _activeTab == 'batches' ? AppTheme.primaryBlue : const Color(0xFF6B7280),
+                      ),
                     ),
                   ),
-                  const Spacer(),
-                  Icon(
+                ),
+                const SizedBox(width: 24),
+                InkWell(
+                  onTap: () => setState(() {
+                    _activeTab = 'journals';
+                    _isExpanded = true;
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: _activeTab == 'journals' ? AppTheme.primaryBlue : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'Journals',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: _activeTab == 'journals' ? AppTheme.primaryBlue : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: () => setState(() => _isExpanded = !_isExpanded),
+                  child: Icon(
                     _isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                     size: 16,
                     color: AppTheme.textSecondary,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           if (_isExpanded) ...[
-            const Divider(height: 1, color: AppTheme.borderLight),
-            Container(
-              color: const Color(0xFFF7F9FC),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-              child: const Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      'ITEM NAME',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+            if (_activeTab == 'batches') ...[
+              Container(
+                color: const Color(0xFFF7F9FC),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                child: const Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        'ITEM NAME',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'TRACKED QTY',
-                      textAlign: TextAlign.right,
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                    Expanded(
+                      child: Text(
+                        'TRACKED QTY',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: mockBatches.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.borderLight),
-              itemBuilder: (context, idx) {
-                final batch = mockBatches[idx];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: Text(
-                          batch['itemName'],
-                          style: AppTheme.bodyText.copyWith(fontWeight: FontWeight.w600),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: mockBatches.length,
+                separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.borderLight),
+                itemBuilder: (context, idx) {
+                  final batch = mockBatches[idx];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            batch['itemName'],
+                            style: AppTheme.bodyText.copyWith(fontWeight: FontWeight.w600),
+                          ),
                         ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          '${batch['qty']}',
-                          textAlign: TextAlign.right,
-                          style: AppTheme.bodyText.copyWith(fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: Text(
+                            '${batch['qty']}',
+                            textAlign: TextAlign.right,
+                            style: AppTheme.bodyText.copyWith(fontWeight: FontWeight.bold),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ] else if (_activeTab == 'journals') ...[
+              _buildJournalsTab(),
+            ],
           ],
         ],
       ),

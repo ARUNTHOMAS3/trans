@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from "uuid";
 import {
   Injectable,
   BadRequestException,
@@ -1208,7 +1209,7 @@ export class SalesService {
     };
   }
 
-  async createInvoice(body: any, orgId: string) {
+  async createInvoice(body: any, orgId: string, tenant?: TenantContext) {
     const client = this.supabaseService.getClient();
 
     const {
@@ -1535,6 +1536,8 @@ export class SalesService {
         }
       }
 
+      await this.postInvoiceTransactions(tenant || ({ entityId: orgId, userId: body.user_id || body.userId } as any), invoice, body);
+
       return invoice;
     } catch (error) {
       try {
@@ -1581,7 +1584,7 @@ export class SalesService {
     }
   }
 
-  async updateInvoice(id: string, body: any, orgId: string) {
+  async updateInvoice(id: string, body: any, orgId: string, tenant?: TenantContext) {
     const client = this.supabaseService.getClient();
 
     const {
@@ -1807,6 +1810,8 @@ export class SalesService {
           }
         }
       }
+
+      await this.postInvoiceTransactions(tenant || ({ entityId: orgId, userId: body.user_id || body.userId } as any), invoice, body);
 
       return invoice;
     } catch (error) {
@@ -2327,4 +2332,303 @@ export class SalesService {
 
     return updatedOrder;
   }
+
+  private async postInvoiceTransactions(tenant: TenantContext, invoice: any, dto: any) {
+    if (!invoice || !invoice.id) return;
+    const client = this.supabaseService.getClient();
+
+    const invoiceId = invoice.id;
+    const orgId = invoice.entity_id || tenant?.entityId;
+    const status = (invoice.status || dto.status || "draft").toString().toLowerCase();
+
+    // 1. If status is draft, remove any existing journal entries and lines for this invoice
+    if (status === "draft") {
+      const { data: existingJE } = await client
+        .from("journal_entries")
+        .select("id")
+        .eq("entity_id", orgId)
+        .eq("source_document_type", "INVOICE")
+        .eq("source_document_id", invoiceId)
+        .maybeSingle();
+
+      if (existingJE?.id) {
+        await client.from("journal_entry_lines").delete().eq("journal_entry_id", existingJE.id);
+        await client.from("journal_entries").delete().eq("id", existingJE.id);
+      }
+      return;
+    }
+
+    // 2. Fetch active accounts from accounts table
+    const { data: dbAccounts } = await client
+      .from("accounts")
+      .select("id, system_account_name, user_account_name, account_type, account_group");
+
+    if (!dbAccounts || dbAccounts.length === 0) {
+      console.warn("No active accounts found in database for posting invoice transactions");
+      return;
+    }
+
+    // Resolver helper
+    const findAccount = (names: string[], types?: string[]): string | null => {
+      const match = dbAccounts.find((acc: any) => {
+        const uName = acc.user_account_name?.toLowerCase() || '';
+        const sName = acc.system_account_name?.toLowerCase() || '';
+        const aName = acc.account_name?.toLowerCase() || '';
+        const aType = acc.account_type?.toLowerCase() || '';
+
+        const nameMatch = names.some(n => {
+          const ln = n.toLowerCase();
+          return uName.includes(ln) || sName.includes(ln) || aName.includes(ln);
+        });
+
+        const typeMatch = types ? types.some(t => aType === t.toLowerCase()) : true;
+        return nameMatch && typeMatch;
+      });
+
+      if (match) return match.id;
+
+      if (types && types.length > 0) {
+        const typeMatch = dbAccounts.find((acc: any) =>
+          types.some(t => acc.account_type?.toLowerCase() === t.toLowerCase())
+        );
+        if (typeMatch) return typeMatch.id;
+      }
+
+      return dbAccounts[0]?.id || null;
+    };
+
+    // 3. Resolve account IDs according to specs in fix/invoice.txt
+    const accountsReceivableId = findAccount(['Accounts Receivable'], ['Accounts Receivable']);
+    const accountsReceivableDiscountId = findAccount(['Accounts Receivable (discount)', 'Accounts Receivable discount'], ['Accounts Receivable']) || accountsReceivableId;
+    const salesDiscountId = findAccount(['Sales Discounts', 'Sales Discount', 'Discount'], ['Income', 'Other Income', 'Expense', 'Other Expense']);
+    const salesAccountId = findAccount(['Sales', 'Sales Account', 'General Income'], ['Income', 'Other Income']);
+    const otherExpensesId = findAccount(['Other Expenses', 'Other Expense', 'Adjustment', 'Other Income'], ['Expense', 'Other Expense', 'Income', 'Other Income']);
+    const outputSgstId = findAccount(['Output SGST', 'SGST'], ['Other Current Liability', 'Other Liability', 'Other Current Asset', 'Other Asset']);
+    const outputCgstId = findAccount(['Output CGST', 'CGST'], ['Other Current Liability', 'Other Liability', 'Other Current Asset', 'Other Asset']);
+    const outputIgstId = findAccount(['Output IGST', 'IGST'], ['Other Current Liability', 'Other Liability', 'Other Current Asset', 'Other Asset']);
+    const tcsPayableId = findAccount(['TCS Payable', 'TCS'], ['Other Current Liability', 'Other Liability']);
+    const tdsReceivableId = findAccount(['TDS Receivable', 'TDS'], ['Other Current Asset', 'Other Asset']);
+    const cogsId = findAccount(['Cost of Goods Sold', 'COGS'], ['Cost Of Goods Sold', 'Expense', 'Other Expense']);
+    const inventoryAssetId = findAccount(['Inventory Asset', 'Stock', 'Finished Goods'], ['Stock', 'Assets', 'Other Current Asset']);
+
+    // 4. Parse amounts
+    const discountAmount = parseFloat(invoice.discount_total?.toString() || dto.discountTotal?.toString() || dto.discountAmount?.toString() || '0');
+    const taxAmount = parseFloat(invoice.tax_total?.toString() || dto.taxTotal?.toString() || dto.taxAmount?.toString() || '0');
+    const tdsAmount = parseFloat(invoice.tds_total?.toString() || dto.tdsTotal?.toString() || '0');
+    const tcsAmount = parseFloat(invoice.tcs_total?.toString() || dto.tcsTotal?.toString() || '0');
+    const adjustmentAmount = parseFloat(invoice.adjustment_amount?.toString() || dto.adjustmentAmount?.toString() || dto.adjustment?.toString() || '0');
+    const subtotalAmount = parseFloat(invoice.subtotal?.toString() || dto.subtotal?.toString() || '0');
+    const grandTotalAmount = parseFloat(invoice.grand_total?.toString() || dto.grandTotal?.toString() || '0');
+    const invoiceDate = invoice.invoice_date || dto.invoiceDate || new Date().toISOString().split('T')[0];
+    const invoiceNumber = invoice.invoice_number || dto.invoiceNumber || `INV-${Date.now()}`;
+    const customerId = invoice.customer_id || dto.customerId || null;
+
+    // 5. Determine if IGST is applied
+    const isGstInvoice = taxAmount > 0.0001;
+    let isIGST = false;
+
+    if (isGstInvoice && dto.items?.length > 0) {
+      const taxIds = dto.items.map((item: any) => item.tax_id || item.taxId).filter(Boolean);
+      if (taxIds.length > 0) {
+        const { data: rates } = await client
+          .from('tax_rates')
+          .select('tax_type')
+          .in('id', taxIds);
+        if (rates && rates.some((r: any) => r.tax_type === 'IGST')) {
+          isIGST = true;
+        }
+      }
+    }
+
+    // 6. Calculate Inventory / COGS cost from invoice item batches if tracking inventory
+    let totalCostOfGoods = 0;
+    if (dto.items && Array.isArray(dto.items)) {
+      for (const item of dto.items) {
+        if (item.batches && Array.isArray(item.batches)) {
+          for (const b of item.batches) {
+            const bQty = parseFloat(b.quantity?.toString() || '0');
+            const bRate = parseFloat(b.purchaseRate?.toString() || b.purchase_rate?.toString() || b.salesRate?.toString() || '0');
+            totalCostOfGoods += (bQty * bRate);
+          }
+        }
+      }
+    }
+
+    // 7. Resolve user UUID for audit fields
+    let currentUserId: string | null = null;
+    const userIdVal = tenant?.userId || dto?.user_id || dto?.userId;
+    if (userIdVal && this.isUuid(String(userIdVal))) {
+      currentUserId = String(userIdVal);
+    } else {
+      const { data: firstUser } = await client.from("users").select("id").limit(1).maybeSingle();
+      if (firstUser) currentUserId = firstUser.id;
+    }
+
+    // 8. Find or create journal_entries header
+    const { data: existingJE } = await client
+      .from("journal_entries")
+      .select("id, created_by")
+      .eq("entity_id", orgId)
+      .eq("source_document_type", "INVOICE")
+      .eq("source_document_id", invoiceId)
+      .maybeSingle();
+
+    const journalEntryId = existingJE?.id || uuidv4();
+
+    if (existingJE?.id) {
+      await client.from("journal_entry_lines").delete().eq("journal_entry_id", existingJE.id);
+    }
+
+    const defaultOrgId = "00000000-0000-0000-0000-000000000000";
+    const jeHeader = {
+      id: journalEntryId,
+      org_id: tenant?.orgId || defaultOrgId,
+      entity_id: orgId,
+      fiscal_year_id: null,
+      journal_number: `JE-${invoiceNumber}`,
+      journal_type: "INVOICE",
+      journal_date: invoiceDate,
+      posting_date: invoiceDate,
+      reference_number: invoiceNumber,
+      narration: invoice.customer_notes || dto.customerNotes || `Sales Invoice ${invoiceNumber}`,
+      source_module: "SALES",
+      source_document_type: "INVOICE",
+      source_document_id: invoiceId,
+      currency_code: "INR",
+      exchange_rate: 1.0,
+      status: "POSTED",
+      created_by: existingJE?.created_by || currentUserId,
+      updated_by: currentUserId,
+    };
+
+    if (existingJE?.id) {
+      const { error: updateJeErr } = await client.from("journal_entries").update(jeHeader).eq("id", journalEntryId);
+      if (updateJeErr) console.error("Error updating journal_entries for invoice:", updateJeErr.message);
+    } else {
+      const { error: insertJeErr } = await client.from("journal_entries").insert(jeHeader);
+      if (insertJeErr) console.error("Error inserting journal_entries for invoice:", insertJeErr.message);
+    }
+
+    // 9. Build double-entry lines for journal_entry_lines
+    const entries: any[] = [];
+    const addEntry = (accountId: string | null, description: string, debit: number, credit: number) => {
+      if (!accountId) return;
+      const dVal = Math.round(debit * 100) / 100;
+      const cVal = Math.round(credit * 100) / 100;
+      if (dVal > 0.0001 || cVal > 0.0001) {
+        entries.push({
+          id: uuidv4(),
+          journal_entry_id: journalEntryId,
+          entity_id: orgId,
+          org_id: tenant?.orgId || defaultOrgId,
+          account_id: accountId,
+          transaction_date: invoiceDate,
+          reference_number: invoiceNumber,
+          description: description,
+          debit: dVal,
+          credit: cVal,
+          source_id: invoiceId,
+          source_type: "INVOICE",
+          contact_id: customerId,
+          contact_type: "customer",
+          line_number: null,
+        });
+      }
+    };
+
+    if (!isGstInvoice) {
+      // Non GST Invoice Rules:
+      // DEBITS:
+      addEntry(accountsReceivableId, "Sales Invoice - Accounts Receivable", grandTotalAmount, 0);
+
+      if (discountAmount > 0.0001) {
+        addEntry(salesDiscountId, "Invoice - Sales Discount", discountAmount, 0);
+      }
+
+      if (adjustmentAmount > 0.0001) {
+        addEntry(otherExpensesId, "Invoice - Adjustment", adjustmentAmount, 0);
+      }
+
+      if (tdsAmount > 0.0001) {
+        addEntry(tdsReceivableId, "Invoice - TDS Receivable", tdsAmount, 0);
+      }
+
+      if (totalCostOfGoods > 0.0001) {
+        addEntry(cogsId, "Invoice - Cost of Goods Sold", totalCostOfGoods, 0);
+      }
+
+      // CREDITS:
+      addEntry(salesAccountId, "Invoice - Sales", 0, subtotalAmount > 0 ? subtotalAmount : grandTotalAmount);
+
+      if (discountAmount > 0.0001) {
+        addEntry(accountsReceivableDiscountId, "Invoice - Accounts Receivable (discount)", 0, discountAmount);
+      }
+
+      if (adjustmentAmount < -0.0001) {
+        addEntry(otherExpensesId, "Invoice - Adjustment", 0, Math.abs(adjustmentAmount));
+      }
+
+      if (tcsAmount > 0.0001) {
+        addEntry(tcsPayableId, "Invoice - TCS Payable", 0, tcsAmount);
+      }
+
+      if (totalCostOfGoods > 0.0001) {
+        addEntry(inventoryAssetId, "Invoice - Inventory Asset", 0, totalCostOfGoods);
+      }
+    } else {
+      // GST Invoice Rules:
+      // DEBITS:
+      addEntry(accountsReceivableId, "Sales Invoice - Accounts Receivable", grandTotalAmount, 0);
+
+      if (discountAmount > 0.0001) {
+        addEntry(salesDiscountId, "Invoice - Sales Discount", discountAmount, 0);
+      }
+
+      if (adjustmentAmount > 0.0001) {
+        addEntry(otherExpensesId, "Invoice - Adjustment", adjustmentAmount, 0);
+      }
+
+      if (tdsAmount > 0.0001) {
+        addEntry(tdsReceivableId, "Invoice - TDS Receivable", tdsAmount, 0);
+      }
+
+      if (totalCostOfGoods > 0.0001) {
+        addEntry(cogsId, "Invoice - Cost of Goods Sold", totalCostOfGoods, 0);
+      }
+
+      // CREDITS:
+      addEntry(salesAccountId, "Invoice - Sales", 0, subtotalAmount);
+
+      if (isIGST) {
+        addEntry(outputIgstId, "Invoice - Output IGST", 0, taxAmount);
+      } else {
+        addEntry(outputCgstId, "Invoice - Output CGST", 0, taxAmount / 2);
+        addEntry(outputSgstId, "Invoice - Output SGST", 0, taxAmount / 2);
+      }
+
+      if (discountAmount > 0.0001) {
+        addEntry(accountsReceivableDiscountId, "Invoice - Accounts Receivable (discount)", 0, discountAmount);
+      }
+
+      if (adjustmentAmount < -0.0001) {
+        addEntry(otherExpensesId, "Invoice - Adjustment", 0, Math.abs(adjustmentAmount));
+      }
+
+      if (tcsAmount > 0.0001) {
+        addEntry(tcsPayableId, "Invoice - TCS Payable", 0, tcsAmount);
+      }
+
+      if (totalCostOfGoods > 0.0001) {
+        addEntry(inventoryAssetId, "Invoice - Inventory Asset", 0, totalCostOfGoods);
+      }
+    }
+
+    if (entries.length > 0) {
+      const { error: linesErr } = await client.from("journal_entry_lines").insert(entries);
+      if (linesErr) {
+        console.error("Error inserting journal_entry_lines for invoice:", linesErr.message);
+      }
+    }
+  }
+
 }

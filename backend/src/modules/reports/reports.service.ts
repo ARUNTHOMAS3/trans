@@ -269,7 +269,7 @@ export class ReportsService {
 
     const { data: salesTrend, error: salesError } = await salesTrendQuery
       .gte("transaction_date", thirtyDaysAgo.toISOString())
-      .filter("transaction_type", "in", '("invoice", "sales_receipt")');
+      .filter("source_type", "in", '("invoice", "sales_receipt", "INVOICE", "SALES_RECEIPT")');
 
     if (salesError) console.warn("Error fetching sales trend:", salesError);
 
@@ -293,7 +293,7 @@ export class ReportsService {
     const { data: topCustomersData, error: customerError } =
       await topCustomersQuery
         .eq("contact_type", "customer")
-        .filter("transaction_type", "in", '("invoice", "sales_receipt")');
+        .filter("source_type", "in", '("invoice", "sales_receipt", "INVOICE", "SALES_RECEIPT")');
 
     if (customerError)
       console.warn("Error fetching top customers:", customerError);
