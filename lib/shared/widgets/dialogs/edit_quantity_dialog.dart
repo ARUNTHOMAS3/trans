@@ -852,16 +852,13 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
           .neq('bills.status', 'void');
 
       double totalBilledOther = 0.0;
-      double totalBilledCurrent = 0.0;
       for (final item in response) {
         final qty =
             double.tryParse(item['quantity']?.toString() ?? '0') ?? 0.0;
         final itemBillId = item['bill_id']?.toString();
-        if (widget.billId != null &&
-            itemBillId != null &&
-            itemBillId.toLowerCase() == widget.billId!.toLowerCase()) {
-          totalBilledCurrent += qty;
-        } else {
+        if (widget.billId == null ||
+            itemBillId == null ||
+            itemBillId.toLowerCase() != widget.billId!.toLowerCase()) {
           totalBilledOther += qty;
         }
       }
@@ -1195,7 +1192,7 @@ class _EditQuantityDialogState extends ConsumerState<EditQuantityDialog> {
                                                       color: isFilled
                                                           ? const Color(
                                                               0xFF0088FF,
-                                                            ).withOpacity(0.4)
+                                                            ).withValues(alpha: 0.4)
                                                           : const Color(
                                                               0xFF0088FF,
                                                             ),

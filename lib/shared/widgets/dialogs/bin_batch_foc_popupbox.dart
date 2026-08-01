@@ -811,8 +811,82 @@ class _PicklistSelectBatchesDialogState
                                         final batchesAsync = ref.watch(
                                           batchLookupProvider(widget.productId),
                                         );
-                                        final batches =
-                                            batchesAsync.value ?? [];
+                                         final hasBinSelected =
+                                             row.binLocationCtrl.text.trim().isNotEmpty;
+                                         final selectedBinCode =
+                                             row.binLocationCtrl.text.trim().toLowerCase();
+                                         final matchingBinObj = _allBinObjects.firstWhere(
+                                           (b) =>
+                                               (b['binCode'] ?? b['bin_code'] ?? '')
+                                                   .toString()
+                                                   .trim()
+                                                   .toLowerCase() ==
+                                               selectedBinCode,
+                                           orElse: () => <String, dynamic>{},
+                                         );
+                                         final selectedBinId =
+                                             (matchingBinObj['id'] ?? '')
+                                                 .toString()
+                                                 .trim();
+
+                                         final rawBatches =
+                                             batchesAsync.value ?? [];
+                                         final batches = !hasBinSelected
+                                             ? <Map<String, dynamic>>[]
+                                             : rawBatches.where((b) {
+                                                 final bBinCode =
+                                                     (b['bin_code'] ??
+                                                             b['binCode'] ??
+                                                             b['bin_location'] ??
+                                                             b['bin'] ??
+                                                             b['binName'])
+                                                         ?.toString()
+                                                         .trim()
+                                                         .toLowerCase() ??
+                                                     '';
+                                                 final bBinId =
+                                                     (b['bin_id'] ??
+                                                             b['binId'] ??
+                                                             b['bin_master_id'])
+                                                         ?.toString()
+                                                         .trim() ??
+                                                     '';
+                                                 final bBinIds = b['bin_ids'] is Set
+                                                     ? b['bin_ids'] as Set
+                                                     : (b['bin_ids'] is Iterable
+                                                         ? (b['bin_ids'] as Iterable).toSet()
+                                                         : <String>{});
+                                                 final bBinCodes = b['bin_codes'] is Set
+                                                     ? b['bin_codes'] as Set
+                                                     : (b['bin_codes'] is Iterable
+                                                         ? (b['bin_codes'] as Iterable).toSet()
+                                                         : <String>{});
+
+                                                 // Match by bin code
+                                                 if (selectedBinCode.isNotEmpty) {
+                                                   if (bBinCode == selectedBinCode ||
+                                                       bBinCodes.contains(selectedBinCode)) {
+                                                     return true;
+                                                   }
+                                                 }
+                                                 // Match by bin ID
+                                                 if (selectedBinId.isNotEmpty) {
+                                                   if (bBinId == selectedBinId ||
+                                                       bBinIds.contains(selectedBinId)) {
+                                                     return true;
+                                                   }
+                                                 }
+
+                                                 // If batch has no bin restriction recorded at all, allow it so unassigned batches are visible
+                                                 if (bBinCode.isEmpty &&
+                                                     bBinId.isEmpty &&
+                                                     bBinIds.isEmpty &&
+                                                     bBinCodes.isEmpty) {
+                                                   return true;
+                                                 }
+
+                                                 return false;
+                                               }).toList();
 
                                         return FormDropdown<
                                           Map<String, dynamic>
@@ -852,8 +926,8 @@ class _PicklistSelectBatchesDialogState
                                           hint: 'Select Batch',
                                           showSearch: true,
                                           menuMaxHeight: 400,
-                                          menuWidth: 138,
-                                          itemEstimatedHeight: 100,
+                                          menuWidth: 260,
+                                          itemEstimatedHeight: 52,
                                           itemBuilder:
                                               (item, isSelected, isHovered) {
                                                 final batchNo =

@@ -1,3 +1,4 @@
+import 'package:zerpai_erp/shared/widgets/dialogs/bin_batch_foc_popupbox.dart';
 // ignore_for_file: unused_element, duplicate_ignore
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -1544,10 +1545,10 @@ class _SalesInvoiceCreateScreenState
     );
     final warehouseId = selectedWhObj.id;
 
-    final result = await showDialog<_InvoiceBatchDialogResult>(
+    final result = await showDialog<PicklistBatchDialogResult>(
       context: context,
       barrierDismissible: true,
-      builder: (_) => _InvoiceSelectBatchesDialog(
+      builder: (_) => PicklistSelectBatchesDialog(
         itemName: row.item?.productName ?? '',
         productId: row.itemId,
         warehouseName: selectedWhObj.name,
@@ -1555,7 +1556,6 @@ class _SalesInvoiceCreateScreenState
         branchId: selectedWhObj.branchId,
         totalQuantity: double.tryParse(row.quantityCtrl.text) ?? 1.0,
         savedBatchData: row.batchDataList,
-        isFromPackage: _selectedPackages.isNotEmpty,
       ),
     );
     if (!mounted || result == null) return;
@@ -1563,15 +1563,7 @@ class _SalesInvoiceCreateScreenState
       row.hasBatchData = true;
       row.batchCount = result.batchCount;
       row.batchDataList = result.batchDataList ?? [];
-      final totalFoc = row.batchDataList.fold<double>(
-        0.0,
-        (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
-      );
-      if (totalFoc > 0) {
-        row.quantityCtrl.text = result.totalIncludingFoc.toInt().toString();
-      } else {
-        row.quantityCtrl.text = result.appliedQuantity.toInt().toString();
-      }
+      row.quantityCtrl.text = result.appliedQuantity.toInt().toString();
       _calculateTotals();
     });
   }
@@ -1761,31 +1753,47 @@ class _SalesInvoiceCreateScreenState
     List<CurrencyOption>? currencies,
   ]) {
     final raw = (currencyId ?? '').trim();
-    if (raw.isEmpty) {
-      return 'INR - Indian Rupee';
-    }
-
     final options = (currencies != null && currencies.isNotEmpty)
         ? currencies
         : defaultCurrencyOptions;
 
-    for (final currency in options) {
-      if (currency.id == raw || currency.code.toUpperCase() == raw.toUpperCase()) {
-        return currency.label.isNotEmpty
-            ? currency.label
-            : '${currency.code} - ${currency.name}';
+    if (options.isNotEmpty) {
+      if (raw.isNotEmpty) {
+        for (final currency in options) {
+          if (currency.id == raw || currency.code.toUpperCase() == raw.toUpperCase()) {
+            return currency.label.isNotEmpty
+                ? currency.label
+                : '${currency.code} - ${currency.name}';
+          }
+        }
       }
+      return options.first.label.isNotEmpty
+          ? options.first.label
+          : '${options.first.code} - ${options.first.name}';
     }
+    return '';
+  }
 
-    for (final currency in defaultCurrencyOptions) {
-      if (currency.id == raw || currency.code.toUpperCase() == raw.toUpperCase()) {
-        return currency.label.isNotEmpty
-            ? currency.label
-            : '${currency.code} - ${currency.name}';
+  String _resolveCurrencySymbol(
+    String? currencyId, [
+    List<CurrencyOption>? currencies,
+  ]) {
+    final raw = (currencyId ?? '').trim();
+    final options = (currencies != null && currencies.isNotEmpty)
+        ? currencies
+        : defaultCurrencyOptions;
+
+    if (options.isNotEmpty) {
+      if (raw.isNotEmpty) {
+        for (final currency in options) {
+          if (currency.id == raw || currency.code.toUpperCase() == raw.toUpperCase()) {
+            return currency.symbol;
+          }
+        }
       }
+      return options.first.symbol;
     }
-
-    return raw;
+    return '';
   }
 
   void _showNewCustomerDialog() {
@@ -2497,39 +2505,54 @@ class _SalesInvoiceCreateScreenState
                             const SizedBox(width: 12),
                             // Currency Pill
                             if (_selectedCustomer != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF3F4F6),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      LucideIcons.circleDollarSign,
-                                      size: 14,
-                                      color: Color(0xFF374151),
+                              Builder(
+                                builder: (ctx) {
+                                  final dbCurrencies = ref.watch(currenciesProvider(null)).valueOrNull;
+                                  final currencySymbol = _resolveCurrencySymbol(
+                                    _selectedCustomer?.currencyId,
+                                    dbCurrencies,
+                                  );
+                                  final currencyLabel = _resolveCurrencyLabel(
+                                    _selectedCustomer?.currencyId,
+                                    dbCurrencies,
+                                  );
+
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      _resolveCurrencyLabel(
-                                        _selectedCustomer?.currencyId,
-                                      ),
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF374151),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF3F4F6),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: const Color(0xFFE5E7EB),
                                       ),
                                     ),
-                                  ],
-                                ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          currencySymbol,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF374151),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          currencyLabel,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF374151),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
                               ),
                             const Spacer(),
                             // Customer Details Button
@@ -4099,13 +4122,13 @@ class _SalesInvoiceCreateScreenState
                                 if (row.itemId.isNotEmpty && row.hasBatchData && hasFocValue) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${totalQtyOut.toInt()} pcs + ${totalFoc.toInt()} foc',
+                                    '${totalFoc.toInt()} foc',
                                     style: const TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 13,
                                       color: Color(0xFF4B5563),
                                       fontWeight: FontWeight.bold,
                                     ),
-                                    textAlign: TextAlign.right,
+                                    textAlign: TextAlign.center,
                                   ),
                                 ],
                                 if (_showAvailableStock &&
@@ -4249,14 +4272,14 @@ class _SalesInvoiceCreateScreenState
                                       (double.tryParse(row.quantityCtrl.text) ?? 0.0) > 0) ...[
                                     const SizedBox(height: 4),
                                     Align(
-                                      alignment: Alignment.centerRight,
+                                      alignment: Alignment.center,
                                       child: InkWell(
                                         onTap: () =>
                                             _showSelectBatchesDialog(row),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           mainAxisAlignment:
-                                              MainAxisAlignment.end,
+                                              MainAxisAlignment.center,
                                           children: [
                                             if (!row.hasBatchData) ...[
                                               const Icon(
@@ -4270,7 +4293,7 @@ class _SalesInvoiceCreateScreenState
                                               row.hasBatchData
                                                   ? '${(totalQtyOut + totalFoc).toInt()} pcs taken from\n${row.batchCount} ${row.batchCount <= 1 ? "batch" : "batches"}.'
                                                   : 'Select Batch',
-                                              textAlign: TextAlign.right,
+                                              textAlign: TextAlign.center,
                                               style: const TextStyle(
                                                 fontSize: 10,
                                                 color: Color(0xFF2563EB),
@@ -7094,24 +7117,22 @@ class _SalesInvoiceCreateScreenState
           Container(
             height: 32,
             decoration: BoxDecoration(
-              color: _isSaveAndSendEnabled ? const Color(0xFF10B981) : const Color(0xFFE5E7EB), // Emerald-500 or Disabled Grey
+              color: const Color(0xFF10B981), // Emerald-500
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 InkWell(
-                  onTap: _isSaveAndSendEnabled
-                      ? () => _saveSalesInvoice(
-                            status: widget.initialOrder?.status ?? 'sent',
-                          )
-                      : null,
+                  onTap: () => _saveSalesInvoice(
+                    status: widget.initialOrder?.status ?? 'sent',
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       _isEditMode ? 'Update' : 'Save and Send',
-                      style: TextStyle(
-                        color: _isSaveAndSendEnabled ? Colors.white : const Color(0xFF9CA3AF),
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),
@@ -7121,15 +7142,17 @@ class _SalesInvoiceCreateScreenState
                 Container(
                   width: 1,
                   height: 24,
-                  color: _isSaveAndSendEnabled ? Colors.white.withValues(alpha: 0.3) : const Color(0xFFD1D5DB),
+                  color: Colors.white.withValues(alpha: 0.3),
                 ),
                 InkWell(
-                  onTap: _isSaveAndSendEnabled ? () {} : null,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  onTap: () => _saveSalesInvoice(
+                    status: widget.initialOrder?.status ?? 'sent',
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
                     child: Icon(
                       Icons.arrow_drop_down,
-                      color: _isSaveAndSendEnabled ? Colors.white : const Color(0xFF9CA3AF),
+                      color: Colors.white,
                       size: 20,
                     ),
                   ),
@@ -7209,13 +7232,39 @@ class _SalesInvoiceCreateScreenState
       ZerpaiToast.error(context, 'Please select a customer');
       return;
     }
+    if (placeOfSupply == null || placeOfSupply!.trim().isEmpty) {
+      ZerpaiToast.error(context, 'Please select Place of Supply');
+      return;
+    }
     if (salesperson == null || salesperson!.isEmpty) {
       ZerpaiToast.error(context, 'Please select a salesperson');
       return;
     }
 
+    final activeRows = rows.where((r) => r.itemId.isNotEmpty).toList();
+    if (activeRows.isEmpty) {
+      ZerpaiToast.error(context, 'Please select at least one item');
+      return;
+    }
+
     // Validate that every row has batch data, HSN code, and Account selected
-    for (final row in rows.where((r) => r.itemId.isNotEmpty)) {
+    for (final row in activeRows) {
+      final quantity = double.tryParse(row.quantityCtrl.text) ?? 0.0;
+      if (quantity <= 0) {
+        ZerpaiToast.error(
+          context,
+          'Please enter a valid quantity for item: ${row.item?.productName ?? "selected item"}',
+        );
+        return;
+      }
+      final rate = double.tryParse(row.rateCtrl.text) ?? 0.0;
+      if (rate <= 0) {
+        ZerpaiToast.error(
+          context,
+          'Please enter a valid rate for item: ${row.item?.productName ?? "selected item"}',
+        );
+        return;
+      }
       final hsn = row.hsnCode ?? row.item?.hsnCode;
       if (hsn == null || hsn.trim().isEmpty) {
         ZerpaiToast.error(
@@ -7244,6 +7293,23 @@ class _SalesInvoiceCreateScreenState
         ZerpaiToast.error(
           context,
           'Please select batch for item: ${row.item?.productName ?? "selected item"}',
+        );
+        return;
+      }
+
+      final totalQtyOut = row.batchDataList.fold<double>(
+        0.0,
+        (sum, b) => sum + (double.tryParse(b['qtyOut'] ?? '') ?? 0.0),
+      );
+      final totalFoc = row.batchDataList.fold<double>(
+        0.0,
+        (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
+      );
+      final expectedQty = totalQtyOut + totalFoc;
+      if ((expectedQty - quantity).abs() > 0.0001) {
+        ZerpaiToast.error(
+          context,
+          'Mismatch between line item quantity (${quantity.toInt()}) and total batch quantity (${expectedQty.toInt()}) for item "${row.item?.productName ?? "selected item"}". Please click the quantity box to adjust batches.',
         );
         return;
       }
@@ -12321,1798 +12387,6 @@ class __SalesInvoicePreferencesDialogState
         ),
       ),
     );
-  }
-}
-
-// ─── Dialog Colour constants ───────────────────────────────────────────────
-const _dlgTextPrimary = Color(0xFF1F2937);
-const _dlgTextSecondary = Color(0xFF4B5563);
-const _dlgBorderCol = Color(0xFFE5E7EB);
-const _dlgFocusBorder = Colors.blue;
-const _dlgDangerRed = Color(0xFFEF4444);
-const _dlgGreenBtn = Color(0xFF16A34A);
-
-class _InvoiceBatchRowController {
-  final TextEditingController binLocationCtrl = TextEditingController();
-  final TextEditingController batchRefCtrl = TextEditingController();
-  final TextEditingController batchNoCtrl = TextEditingController();
-  final TextEditingController unitPackCtrl = TextEditingController();
-  final TextEditingController mrpCtrl = TextEditingController();
-  final TextEditingController ptrCtrl = TextEditingController();
-  final TextEditingController qtyOutCtrl = TextEditingController();
-  final TextEditingController focCtrl = TextEditingController();
-  final TextEditingController expDateCtrl = TextEditingController();
-  final TextEditingController mfgDateCtrl = TextEditingController();
-  final TextEditingController mfgBatchCtrl = TextEditingController();
-  final GlobalKey expKey = GlobalKey();
-  final GlobalKey mfgKey = GlobalKey();
-  DateTime? expDate;
-  DateTime? mfgDate;
-  String? batchId;
-  String? layerId;
-  String? binId;
-
-  void dispose() {
-    binLocationCtrl.dispose();
-    batchRefCtrl.dispose();
-    batchNoCtrl.dispose();
-    unitPackCtrl.dispose();
-    mrpCtrl.dispose();
-    ptrCtrl.dispose();
-    qtyOutCtrl.dispose();
-    focCtrl.dispose();
-    expDateCtrl.dispose();
-    mfgDateCtrl.dispose();
-    mfgBatchCtrl.dispose();
-  }
-}
-
-class _InvoiceBatchDialogResult {
-  final bool overwriteLineItem;
-  final int batchCount;
-  final double appliedQuantity;
-  final double totalIncludingFoc;
-  final List<Map<String, String>>? batchDataList;
-
-  const _InvoiceBatchDialogResult({
-    required this.overwriteLineItem,
-    required this.batchCount,
-    required this.appliedQuantity,
-    required this.totalIncludingFoc,
-    this.batchDataList,
-  });
-}
-
-class _InvoiceSelectBatchesDialog extends ConsumerStatefulWidget {
-  final String itemName;
-  final String productId;
-  final String warehouseName;
-  final String warehouseId;
-  final String? branchId;
-  final double totalQuantity;
-  final List<Map<String, String>>? savedBatchData;
-  final bool isFromPackage;
-
-  _InvoiceSelectBatchesDialog({
-    required this.itemName,
-    required this.productId,
-    required this.warehouseName,
-    required this.warehouseId,
-    this.branchId,
-    required this.totalQuantity,
-    this.savedBatchData,
-    required this.isFromPackage,
-  });
-
-  @override
-  ConsumerState<_InvoiceSelectBatchesDialog> createState() =>
-      _InvoiceSelectBatchesDialogState();
-}
-
-class _InvoiceSelectBatchesDialogState
-    extends ConsumerState<_InvoiceSelectBatchesDialog> {
-  final Map<String, Set<String>> _batchIdsByBinId = {};
-  final Map<String, Set<String>> _batchIdsByBin = {};
-
-  Future<void> _fetchStockLayerBins() async {
-    if (widget.productId.isEmpty) return;
-    try {
-      _batchIdsByBinId.clear();
-      _batchIdsByBin.clear();
-      final supabase = Supabase.instance.client;
-      final binCodeMap = <String, String>{};
-      final batchNoById = <String, String>{};
-
-      for (final binObj in _binsData) {
-        final bId = (binObj['id'] ?? binObj['binId'])?.toString().trim();
-        final bCode = (binObj['binCode'] ?? binObj['bin_code'])?.toString().trim();
-        if (bId != null && bId.isNotEmpty && bCode != null && bCode.isNotEmpty) {
-          binCodeMap[bId] = bCode;
-        }
-      }
-
-      try {
-        final binRes = await supabase.from('bin_master').select('id, bin_code');
-        for (final b in binRes as List) {
-          final id = b['id']?.toString().trim();
-          final code = b['bin_code']?.toString().trim();
-          if (id != null && id.isNotEmpty && code != null && code.isNotEmpty) {
-            binCodeMap[id] = code;
-          }
-        }
-      } catch (_) {}
-
-      void addBinBatchMapping(String? binId, String? batchId) {
-        if (binId == null || binId.isEmpty || batchId == null || batchId.isEmpty) return;
-        final bNo = batchNoById[batchId];
-        final binCode = binCodeMap[binId];
-
-        final setById = _batchIdsByBinId.putIfAbsent(binId, () => <String>{});
-        setById.add(batchId);
-        if (bNo != null && bNo.isNotEmpty) setById.add(bNo.toLowerCase());
-
-        if (binCode != null && binCode.isNotEmpty) {
-          final setByCode = _batchIdsByBin.putIfAbsent(binCode.toLowerCase(), () => <String>{});
-          setByCode.add(batchId);
-          if (bNo != null && bNo.isNotEmpty) setByCode.add(bNo.toLowerCase());
-        }
-      }
-
-      try {
-        final batchRes = await supabase
-            .from('batch_master')
-            .select('id, batch_no, bin_id')
-            .eq('product_id', widget.productId);
-        if (mounted) {
-          for (final item in batchRes as List) {
-            final bId = item['id']?.toString().trim();
-            final bNo = item['batch_no']?.toString().trim();
-            final binId = item['bin_id']?.toString().trim();
-
-            if (bId != null && bId.isNotEmpty) {
-              if (bNo != null && bNo.isNotEmpty) batchNoById[bId] = bNo;
-              addBinBatchMapping(binId, bId);
-            }
-          }
-        }
-      } catch (_) {}
-
-      try {
-        final layerRes = await supabase
-            .from('batch_stock_layers')
-            .select('batch_id, bin_id')
-            .eq('product_id', widget.productId)
-            .not('bin_id', 'is', null);
-        if (mounted) {
-          for (final item in layerRes as List) {
-            final bId = item['batch_id']?.toString().trim();
-            final binId = item['bin_id']?.toString().trim();
-            addBinBatchMapping(binId, bId);
-          }
-        }
-      } catch (_) {}
-
-      if (mounted) {
-        setState(() {});
-      }
-    } catch (_) {}
-  }
-  static const double _batchDropdownHeight = 38;
-  static const double _batchTextFieldHeight = 38;
-  final List<_InvoiceBatchRowController> _rows = [];
-  final Set<int> _hoveredFocRows = <int>{};
-  final Set<int> _hoveredBatchRows = <int>{};
-  List<String> _binLocations = [];
-  List<Map<String, String>> _binsData = [];
-  bool _overwriteLineItem = false;
-  bool _showMfgDetails = false;
-  bool _showFocColumn = false;
-  static const String _quantityMismatchMessage =
-      'There\'s a mismatch between the quantity entered in the line item and the total quantity across all batches. Click the checkbox to overwrite the quantity in the line item.';
-
-  double _calculateBatchItemEstimatedHeight(
-    List<Map<String, dynamic>> batches,
-  ) {
-    if (batches.isEmpty) return 38;
-    double maxLen = 0;
-    for (final b in batches) {
-      final batchNo = b['batch_no']?.toString() ?? '-';
-      final balance = b['balance']?.toString() ?? '0';
-      final expDate = b['expiry_date']?.toString() ?? '-';
-      final mrp = b['mrp']?.toString() ?? '0.00';
-      final ptr = b['prate']?.toString() ?? '0.00';
-      final len =
-          '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr'
-              .length
-              .toDouble();
-      if (len > maxLen) {
-        maxLen = len;
-      }
-    }
-    if (maxLen > 40) {
-      return 52;
-    }
-    return 38;
-  }
-
-  double _calculateBinItemEstimatedHeight(List<String> bins) {
-    if (bins.isEmpty) return 38;
-    double maxLen = 0;
-    for (final b in bins) {
-      final len = b.length.toDouble();
-      if (len > maxLen) {
-        maxLen = len;
-      }
-    }
-    if (maxLen > 22) {
-      return 52;
-    }
-    return 38;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadInitialData();
-    if (widget.savedBatchData != null && widget.savedBatchData!.isNotEmpty) {
-      for (var batchData in widget.savedBatchData!) {
-        final row = _InvoiceBatchRowController();
-        row.binLocationCtrl.text = batchData['binLocation'] ?? '';
-        row.batchRefCtrl.text = batchData['batchRef'] ?? '';
-        row.batchNoCtrl.text = batchData['batchNo'] ?? '';
-        row.batchId = batchData['batchId'];
-        row.layerId = batchData['layerId'];
-        row.binId = batchData['binId'];
-        row.unitPackCtrl.text = batchData['unitPack'] ?? '';
-        row.mrpCtrl.text = batchData['mrp'] ?? '';
-        row.ptrCtrl.text = batchData['prate'] ?? '';
-        row.expDateCtrl.text = batchData['expDate'] ?? '';
-        if (row.expDateCtrl.text.isNotEmpty) {
-          try {
-            row.expDate = intl.DateFormat(
-              'dd-MM-yyyy',
-            ).parse(row.expDateCtrl.text);
-          } catch (_) {}
-        }
-        row.mfgDateCtrl.text = batchData['mfgDate'] ?? '';
-        if (row.mfgDateCtrl.text.isNotEmpty) {
-          try {
-            row.mfgDate = intl.DateFormat(
-              'dd-MM-yyyy',
-            ).parse(row.mfgDateCtrl.text);
-          } catch (_) {}
-        }
-        row.mfgBatchCtrl.text = batchData['mfgBatch'] ?? '';
-        row.qtyOutCtrl.text =
-            batchData['qtyOut'] ?? widget.totalQuantity.toInt().toString();
-        row.focCtrl.text = batchData['foc'] ?? '';
-
-        if (row.focCtrl.text.isNotEmpty &&
-            (double.tryParse(row.focCtrl.text) ?? 0) > 0) {
-          _showFocColumn = true;
-        }
-        if (row.mfgDateCtrl.text.isNotEmpty ||
-            row.mfgBatchCtrl.text.isNotEmpty) {
-          _showMfgDetails = true;
-        }
-
-        _rows.add(row);
-      }
-    } else {
-      final firstRow = _InvoiceBatchRowController();
-      firstRow.qtyOutCtrl.text = widget.totalQuantity.toInt().toString();
-      _rows.add(firstRow);
-    }
-  }
-
-
-
-  Future<void> _loadBins() async {
-    if (widget.warehouseId.isEmpty) {
-      debugPrint('⚠️ Warehouse ID is empty in _loadBins (Invoice)');
-      return;
-    }
-    try {
-      debugPrint(
-        '🔄 Loading bins for Invoice - Warehouse: ${widget.warehouseId}, Product: ${widget.productId}',
-      );
-      final repository = ref.read(inventoryPicklistRepositoryProvider);
-      final bins = await repository.getWarehouseBins(
-        warehouseId: widget.warehouseId,
-        productId: widget.productId,
-      );
-
-      debugPrint('📦 Found ${bins.length} bins from repository for Invoice');
-
-      if (mounted) {
-        setState(() {
-          _binsData = bins;
-          _binLocations = bins
-              .map((b) => (b['binCode'] ?? b['bin_code'] ?? '').toString())
-              .where((c) => c.isNotEmpty)
-              .toList();
-        });
-        _fetchStockLayerBins();
-        debugPrint('✅ Set _binLocations (Invoice): $_binLocations');
-      }
-    } catch (e) {
-      debugPrint('❌ Error loading bins in Invoice: $e');
-    }
-  }
-
-  Future<void> _loadInitialData() async {
-    await _loadBins();
-    await _fetchStockLayerBins();
-    if (!widget.isFromPackage) {
-      if (mounted) {
-        setState(() {
-          for (final row in _rows) {
-            if (row.binLocationCtrl.text.isNotEmpty) {
-              final foundBin = _binsData.firstWhere(
-                (b) => b['binCode'] == row.binLocationCtrl.text.trim(),
-                orElse: () => <String, String>{},
-              );
-              row.binId = foundBin['id'];
-            }
-          }
-        });
-      }
-      return;
-    }
-    try {
-      final batches = await ref.read(
-        batchLookupProvider(widget.productId).future,
-      );
-      if (mounted) {
-        setState(() {
-          if ((widget.savedBatchData == null ||
-                  widget.savedBatchData!.isEmpty) &&
-              _rows.isNotEmpty) {
-            final row = _rows.first;
-
-            if (_binLocations.isNotEmpty && row.binLocationCtrl.text.isEmpty) {
-              row.binLocationCtrl.text = _binLocations.first;
-            }
-            if (row.binLocationCtrl.text.isNotEmpty) {
-              final foundBin = _binsData.firstWhere(
-                (b) => b['binCode'] == row.binLocationCtrl.text.trim(),
-                orElse: () => <String, String>{},
-              );
-              row.binId = foundBin['id'];
-            }
-
-            // Do not auto-populate batches.first on load, start empty
-          } else if (widget.savedBatchData != null &&
-              widget.savedBatchData!.isNotEmpty &&
-              _rows.isNotEmpty) {
-            for (final row in _rows) {
-              if (_binLocations.isNotEmpty &&
-                  row.binLocationCtrl.text.isEmpty) {
-                row.binLocationCtrl.text = _binLocations.first;
-              }
-              if (row.binLocationCtrl.text.isNotEmpty) {
-                final foundBin = _binsData.firstWhere(
-                  (b) => b['binCode'] == row.binLocationCtrl.text.trim(),
-                  orElse: () => <String, String>{},
-                );
-                row.binId = foundBin['id'];
-              }
-              if (batches.isNotEmpty) {
-                final batchRef = row.batchRefCtrl.text.trim();
-                if (batchRef.isNotEmpty) {
-                  final match = batches.firstWhere(
-                    (b) => b['batch_no']?.toString().trim() == batchRef,
-                    orElse: () => <String, String>{},
-                  );
-                  if (match.isNotEmpty) {
-                    row.batchId =
-                        match['id']?.toString() ?? match['batchId']?.toString();
-                    row.layerId =
-                        match['layer_id']?.toString() ??
-                        match['layerId']?.toString();
-                    if (row.unitPackCtrl.text.isEmpty) {
-                      row.unitPackCtrl.text =
-                          match['unit_pack']?.toString() ?? '';
-                    }
-                    if (row.expDateCtrl.text.isEmpty) {
-                      row.expDateCtrl.text = _normalizeDateForUi(
-                        match['expiry_date']?.toString() ?? '',
-                      );
-                      try {
-                        row.expDate = intl.DateFormat(
-                          'dd-MM-yyyy',
-                        ).parse(row.expDateCtrl.text);
-                      } catch (_) {}
-                    }
-                    if (row.mfgDateCtrl.text.isEmpty) {
-                      row.mfgDateCtrl.text = _normalizeDateForUi(
-                        match['mfg_date']?.toString() ??
-                            match['manufactured_date']?.toString() ??
-                            '',
-                      );
-                      try {
-                        row.mfgDate = intl.DateFormat(
-                          'dd-MM-yyyy',
-                        ).parse(row.mfgDateCtrl.text);
-                      } catch (_) {}
-                    }
-                    if (row.mfgBatchCtrl.text.isEmpty) {
-                      row.mfgBatchCtrl.text =
-                          match['mfg_batch']?.toString() ??
-                          match['manufacturer_batch']?.toString() ??
-                          '';
-                    }
-                    if (row.mrpCtrl.text.isEmpty ||
-                        row.mrpCtrl.text == '0.00' ||
-                        row.mrpCtrl.text == '0') {
-                      final prices = match['prices'] as List?;
-                      if (prices != null && prices.isNotEmpty) {
-                        row.mrpCtrl.text =
-                            (prices[0]['mrp'] as num?)
-                                ?.toDouble()
-                                .toStringAsFixed(2) ??
-                            '0.00';
-                      } else {
-                        row.mrpCtrl.text =
-                            (match['mrp'] as num?)?.toDouble().toStringAsFixed(
-                              2,
-                            ) ??
-                            '0.00';
-                      }
-                    }
-                    if (row.ptrCtrl.text.isEmpty ||
-                        row.ptrCtrl.text == '0.00' ||
-                        row.ptrCtrl.text == '0') {
-                      final prices = match['prices'] as List?;
-                      if (prices != null && prices.isNotEmpty) {
-                        row.ptrCtrl.text =
-                            ((prices[0]['ptr'] ??
-                                        prices[0]['prate'] ??
-                                        prices[0]['purchase_rate'])
-                                    as num?)
-                                ?.toDouble()
-                                .toStringAsFixed(2) ??
-                            '0.00';
-                      } else {
-                        row.ptrCtrl.text =
-                            ((match['ptr'] ??
-                                        match['prate'] ??
-                                        match['purchase_rate'])
-                                    as num?)
-                                ?.toDouble()
-                                .toStringAsFixed(2) ??
-                            '0.00';
-                      }
-                    }
-                    if (row.mfgDateCtrl.text.isNotEmpty ||
-                        row.mfgBatchCtrl.text.isNotEmpty) {
-                      _showMfgDetails = true;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading initial batch data for pre-fill: $e');
-    }
-  }
-
-  @override
-  void dispose() {
-    for (final row in _rows) {
-      row.dispose();
-    }
-    super.dispose();
-  }
-
-  double get _totalQuantityOnlyOut => _rows.fold<double>(
-    0,
-    (sum, r) => sum + (double.tryParse(r.qtyOutCtrl.text.trim()) ?? 0),
-  );
-
-  double get _totalAppliedIncludingFoc => _rows.fold<double>(
-    0,
-    (sum, r) =>
-        sum +
-        (double.tryParse(r.qtyOutCtrl.text.trim()) ?? 0) +
-        (double.tryParse(r.focCtrl.text.trim()) ?? 0),
-  );
-
-  double get _quantityToBeAdded =>
-      (widget.totalQuantity - _totalQuantityOnlyOut).clamp(
-        0,
-        widget.totalQuantity,
-      );
-
-  bool get _hasQuantityMismatch =>
-      (_totalQuantityOnlyOut - widget.totalQuantity).abs() > 0.0001;
-
-  int get _batchCount {
-    final refs = _rows
-        .where((r) => (double.tryParse(r.qtyOutCtrl.text.trim()) ?? 0) > 0)
-        .map((r) => r.batchRefCtrl.text.trim())
-        .where((ref) => ref.isNotEmpty)
-        .toSet();
-    return refs.length;
-  }
-
-  void _addRow() {
-    setState(() {
-      _rows.add(_InvoiceBatchRowController());
-    });
-  }
-
-  void _removeRow(int index) {
-    setState(() {
-      if (_rows.length == 1) {
-        _rows[index].batchRefCtrl.clear();
-        _rows[index].qtyOutCtrl.clear();
-      } else {
-        _rows[index].dispose();
-        _rows.removeAt(index);
-      }
-    });
-  }
-
-  Widget _headerCell(
-    String text,
-    int flex, {
-    TextAlign alignment = TextAlign.center,
-  }) {
-    final isRequired = text.contains('*');
-    return Expanded(
-      flex: flex,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Text(
-          text,
-          textAlign: alignment,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: isRequired ? const Color(0xFFD32F2F) : _dlgTextPrimary,
-            fontFamily: 'Inter',
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInput({
-    required TextEditingController controller,
-    required int flex,
-    required String hint,
-    bool isNumber = false,
-    bool readOnly = false,
-  }) {
-    return Expanded(
-      flex: flex,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Container(
-          child: TextField(
-            controller: controller,
-            readOnly: readOnly,
-            keyboardType: isNumber
-                ? const TextInputType.numberWithOptions(decimal: true)
-                : null,
-            inputFormatters: isNumber
-                ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
-                : [],
-            textAlign: isNumber ? TextAlign.right : TextAlign.left,
-            textAlignVertical: TextAlignVertical.center,
-            strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
-            style: TextStyle(
-              fontSize: 13,
-              color: readOnly ? _dlgTextSecondary : _dlgTextPrimary,
-              fontFamily: 'Inter',
-            ),
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              isDense: false,
-              hintText: hint,
-              hintStyle: const TextStyle(
-                color: _dlgTextSecondary,
-                fontSize: 13,
-              ),
-              filled: true,
-              fillColor: readOnly ? const Color(0xFFF9FAFB) : Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 12,
-              ),
-              constraints: const BoxConstraints(
-                minHeight: _batchTextFieldHeight,
-                maxHeight: _batchTextFieldHeight,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(
-                  color: readOnly ? const Color(0xFFE5E7EB) : _dlgBorderCol,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(
-                  color: readOnly ? const Color(0xFFE5E7EB) : _dlgFocusBorder,
-                  width: 1.4,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDatePicker({
-    required TextEditingController controller,
-    required GlobalKey anchorKey,
-    required int flex,
-    required DateTime? currentDate,
-    required ValueChanged<DateTime?> onDateChanged,
-    bool readOnly = false,
-  }) {
-    return Expanded(
-      flex: flex,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: SizedBox(
-          height: _batchTextFieldHeight,
-          child: TextField(
-            key: anchorKey,
-            controller: controller,
-            readOnly: true,
-            textAlignVertical: TextAlignVertical.center,
-            strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
-            style: TextStyle(
-              fontSize: 13,
-              color: readOnly ? _dlgTextSecondary : _dlgTextPrimary,
-              fontFamily: 'Inter',
-            ),
-            decoration: InputDecoration(
-              isDense: false,
-              hintText: '',
-              hintStyle: const TextStyle(
-                color: _dlgTextSecondary,
-                fontSize: 13,
-              ),
-              filled: true,
-              fillColor: readOnly ? const Color(0xFFF9FAFB) : Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 12,
-              ),
-              constraints: const BoxConstraints(
-                minHeight: _batchTextFieldHeight,
-                maxHeight: _batchTextFieldHeight,
-              ),
-              suffixIcon: Icon(
-                LucideIcons.calendar,
-                size: 14,
-                color: readOnly ? const Color(0xFFD1D5DB) : _dlgTextSecondary,
-              ),
-              suffixIconConstraints: const BoxConstraints(
-                minWidth: 32,
-                maxWidth: 32,
-                minHeight: _batchTextFieldHeight,
-                maxHeight: _batchTextFieldHeight,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(
-                  color: readOnly ? const Color(0xFFE5E7EB) : _dlgBorderCol,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(
-                  color: readOnly ? const Color(0xFFE5E7EB) : _dlgFocusBorder,
-                  width: 1.4,
-                ),
-              ),
-            ),
-            onTap: () async {
-              if (readOnly) return;
-              final picked = await ZerpaiDatePicker.show(
-                context,
-                initialDate: currentDate ?? DateTime.now(),
-                targetKey: anchorKey,
-              );
-              if (picked != null) {
-                onDateChanged(picked);
-                controller.text = intl.DateFormat('dd-MM-yyyy').format(picked);
-              }
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFocInput(_InvoiceBatchRowController row, int index) {
-    final isHovered = _hoveredFocRows.contains(index);
-    return Expanded(
-      flex: 15,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _hoveredFocRows.add(index)),
-          onExit: (_) => setState(() => _hoveredFocRows.remove(index)),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            height: _batchTextFieldHeight,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: isHovered ? _dlgFocusBorder : _dlgBorderCol,
-                width: isHovered ? 1.4 : 1,
-              ),
-            ),
-            child: TextField(
-              controller: row.focCtrl,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-              ],
-              textAlign: TextAlign.right,
-              textAlignVertical: TextAlignVertical.center,
-              strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.2),
-              style: const TextStyle(
-                fontSize: 13,
-                color: _dlgTextPrimary,
-                fontFamily: 'Inter',
-              ),
-              decoration: InputDecoration(
-                isDense: false,
-                hintText: '0',
-                hintStyle: const TextStyle(
-                  color: _dlgTextSecondary,
-                  fontSize: 13,
-                ),
-                filled: false,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 12,
-                ),
-                constraints: const BoxConstraints(
-                  minHeight: _batchTextFieldHeight,
-                  maxHeight: _batchTextFieldHeight,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.white,
-      alignment: Alignment.topCenter,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 24),
-      child: SizedBox(
-        width: _showMfgDetails
-            ? (_showFocColumn ? 1480 : 1320)
-            : (_showFocColumn ? 1320 : 1160),
-        height: MediaQuery.of(context).size.height * 0.86,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
-              child: Row(
-                children: [
-                  const Text(
-                    'Select Batches',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: _dlgTextPrimary,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.blue),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Icon(
-                        LucideIcons.x,
-                        size: 16,
-                        color: _dlgDangerRed,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: _dlgBorderCol),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-              child: Row(
-                children: [
-                  const Icon(
-                    LucideIcons.home,
-                    size: 16,
-                    color: _dlgTextSecondary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Location : ${widget.warehouseName.toUpperCase()}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: _dlgTextPrimary,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text(
-                    'BATCH DETAILS',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: _dlgTextPrimary,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: Text(
-                      'Item: ${widget.itemName}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: _dlgTextSecondary,
-                        fontFamily: 'Inter',
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Text(
-                    'Total Quantity : ${widget.totalQuantity.toInt()}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: _dlgTextPrimary,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('|', style: TextStyle(color: _dlgTextSecondary)),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Quantity to be added : ${_quantityToBeAdded.toInt()}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: _dlgTextPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: Checkbox(
-                      value: _showMfgDetails,
-                      onChanged: (val) =>
-                          setState(() => _showMfgDetails = val ?? false),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      activeColor: _dlgGreenBtn,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Manufacture Details',
-                    style: TextStyle(fontSize: 13, color: _dlgTextPrimary),
-                  ),
-                  const SizedBox(width: 24),
-                  SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: Checkbox(
-                      value: _showFocColumn,
-                      onChanged: (val) =>
-                          setState(() => _showFocColumn = val ?? false),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      activeColor: _dlgGreenBtn,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'FOC',
-                    style: TextStyle(fontSize: 13, color: _dlgTextPrimary),
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: Checkbox(
-                      value: _overwriteLineItem,
-                      onChanged: (val) => setState(() {
-                        _overwriteLineItem = val ?? false;
-                      }),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      activeColor: _dlgGreenBtn,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Overwrite the line item with ${_totalQuantityOnlyOut.toInt()} quantities',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: _dlgTextPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Divider(height: 1, color: _dlgBorderCol),
-            const SizedBox(height: 8),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF9FAFB),
-                border: Border(bottom: BorderSide(color: _dlgBorderCol)),
-              ),
-              child: Row(
-                children: [
-                  _headerCell('BIN LOCATION*', 15),
-                  _headerCell('BATCH NO*', 15),
-                  _headerCell('PACK SIZE*', 15),
-                  _headerCell('MRP*', 15),
-                  _headerCell('PURCHASE RATE*', 15),
-                  _headerCell('EXPIRY DATE*', 15),
-                  if (_showMfgDetails) ...[
-                    _headerCell('MANUFACTURED DATE', 15),
-                    _headerCell('MANUFACTURER BATCH', 15),
-                  ],
-                  _headerCell('QUANTITY OUT*', 15),
-                  if (_showFocColumn) _headerCell('FOC', 15),
-                  const SizedBox(width: 24),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 8,
-                ),
-                itemCount: _rows.length,
-                itemBuilder: (context, index) {
-                  final row = _rows[index];
-                  final isRowHovered = _hoveredBatchRows.contains(index);
-                  return Column(
-                    children: [
-                      MouseRegion(
-                        onEnter: (_) =>
-                            setState(() => _hoveredBatchRows.add(index)),
-                        onExit: (_) =>
-                            setState(() => _hoveredBatchRows.remove(index)),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 4,
-                            horizontal: 8,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 15,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                  child: _InvoiceBinHoverBox(
-                                    isEnabled:
-                                        row.binLocationCtrl.text.isNotEmpty,
-                                    message: row.binLocationCtrl.text,
-                                    child: SizedBox(
-                                      height: _batchDropdownHeight,
-                                      child: FormDropdown<String>(
-                                        height: _batchDropdownHeight,
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: _dlgBorderCol,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 8,
-                                        ),
-                                        value:
-                                            _binLocations.contains(
-                                              row.binLocationCtrl.text.trim(),
-                                            )
-                                            ? row.binLocationCtrl.text.trim()
-                                            : null,
-                                        items: _binLocations,
-                                        hint: 'Select Bin',
-                                        showSearch: true,
-                                        maxVisibleItems: 8,
-                                        menuMaxHeight: 400,
-                                        menuWidth: 160,
-                                        itemEstimatedHeight:
-                                            _calculateBinItemEstimatedHeight(
-                                              _binLocations,
-                                            ),
-                                        displayStringForValue: (v) => v,
-                                        searchStringForValue: (v) => v,
-                                        itemBuilder:
-                                            (
-                                              item,
-                                              isSelected,
-                                              isHovered,
-                                            ) => Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 8,
-                                                  ),
-                                              color: isHovered
-                                                  ? const Color(0xFF3B82F6)
-                                                  : (isSelected
-                                                        ? const Color(
-                                                            0xFFF3F4F6,
-                                                          )
-                                                        : Colors.transparent),
-                                              child: Text(
-                                                item,
-                                                softWrap: true,
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: isHovered
-                                                      ? Colors.white
-                                                      : const Color(0xFF1F2937),
-                                                ),
-                                              ),
-                                            ),
-                                        onChanged: (val) {
-                                          setState(() {
-                                            row.binLocationCtrl.text =
-                                                val ?? '';
-                                            if (val != null) {
-                                              final foundBin = _binsData
-                                                  .firstWhere(
-                                                    (b) =>
-                                                        (b['binCode'] ??
-                                                            b['bin_code']) ==
-                                                        val.trim(),
-                                                    orElse: () =>
-                                                        <String, String>{},
-                                                  );
-                                              row.binId =
-                                                  foundBin['id'] ??
-                                                  foundBin['binId'];
-                                            } else {
-                                              row.binId = null;
-                                            }
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 15,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                  child: SizedBox(
-                                    height: _batchDropdownHeight,
-                                    child: Consumer(
-                                      builder: (context, ref, _) {
-                                        final batchesAsync = ref.watch(
-                                          batchLookupProvider(widget.productId),
-                                        );
-                                        final batches =
-                                            batchesAsync.value ?? [];
-
-                                        final selectedBinCode = row.binLocationCtrl.text.trim();
-                                        final selectedBinId = (row.binId ?? '').trim();
-                                        final hasBinSelected = selectedBinCode.isNotEmpty || selectedBinId.isNotEmpty;
-
-                                        final filteredBatches = batches.where((item) {
-                                          if (!hasBinSelected) return false;
-
-                                          final bId = (item['id'] ?? item['batchId'] ?? item['batch_id'])
-                                              ?.toString()
-                                              .trim() ??
-                                              '';
-                                          final bName = (item['batch_no'] ?? item['batchNo'])
-                                              ?.toString()
-                                              .trim()
-                                              .toLowerCase() ??
-                                              '';
-                                          final bBinId = (item['bin_id'] ?? item['binId'] ?? item['bin_master_id'])
-                                              ?.toString()
-                                              .trim();
-                                          final bBinCode = (item['bin_code'] ?? item['binCode'] ?? item['bin_location'])
-                                              ?.toString()
-                                              .trim();
-
-                                          if (selectedBinId.isNotEmpty && bBinId != null && bBinId.isNotEmpty) {
-                                            if (bBinId == selectedBinId) return true;
-                                          }
-                                          if (selectedBinCode.isNotEmpty && bBinCode != null && bBinCode.isNotEmpty) {
-                                            if (bBinCode.toLowerCase() == selectedBinCode.toLowerCase()) return true;
-                                          }
-
-                                          Set<String>? allowedBatchKeys;
-                                          if (selectedBinId.isNotEmpty && _batchIdsByBinId.containsKey(selectedBinId)) {
-                                            allowedBatchKeys = _batchIdsByBinId[selectedBinId];
-                                          } else if (selectedBinCode.isNotEmpty && _batchIdsByBin.containsKey(selectedBinCode.toLowerCase())) {
-                                            allowedBatchKeys = _batchIdsByBin[selectedBinCode.toLowerCase()];
-                                          }
-
-                                          if (allowedBatchKeys != null && allowedBatchKeys.isNotEmpty) {
-                                            if ((bId.isNotEmpty && allowedBatchKeys.contains(bId)) ||
-                                                (bName.isNotEmpty && allowedBatchKeys.contains(bName))) {
-                                              return true;
-                                            }
-                                          }
-
-                                          return false;
-                                        }).toList();
-
-                                        return FormDropdown<
-                                          Map<String, dynamic>
-                                        >(
-                                          height: _batchDropdownHeight,
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                          border: Border.all(
-                                            color: _dlgBorderCol,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 8,
-                                          ),
-                                          value:
-                                              filteredBatches
-                                                  .firstWhere(
-                                                    (b) =>
-                                                        b['batch_no']
-                                                            ?.toString()
-                                                            .trim() ==
-                                                        row.batchRefCtrl.text
-                                                            .trim(),
-                                                    orElse: () =>
-                                                        <String, String>{},
-                                                  )
-                                                  .isEmpty
-                                              ? null
-                                              : filteredBatches.firstWhere(
-                                                  (b) =>
-                                                      b['batch_no']
-                                                          ?.toString()
-                                                          .trim() ==
-                                                      row.batchRefCtrl.text
-                                                          .trim(),
-                                                ),
-                                          items: filteredBatches,
-                                          hint: 'Select Batch',
-                                          showSearch: true,
-                                          menuMaxHeight: 400,
-                                          menuWidth: 260,
-                                          itemEstimatedHeight:
-                                              _calculateBatchItemEstimatedHeight(
-                                                batches,
-                                              ),
-                                          itemBuilder:
-                                              (item, isSelected, isHovered) {
-                                                final batchNo =
-                                                    item['batch_no']
-                                                        ?.toString() ??
-                                                    '-';
-                                                final balance =
-                                                    item['balance']
-                                                        ?.toString() ??
-                                                    '0';
-                                                final expDate =
-                                                    item['expiry_date']
-                                                        ?.toString() ??
-                                                    '-';
-                                                final mrp =
-                                                    item['mrp']?.toString() ??
-                                                    '0.00';
-                                                final ptr =
-                                                    item['prate']?.toString() ??
-                                                    '0.00';
-
-                                                final displayText =
-                                                    '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr';
-
-                                                return Container(
-                                                  width: double.infinity,
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 8,
-                                                      ),
-                                                  color: isHovered
-                                                      ? const Color(0xFF3B82F6)
-                                                      : (isSelected
-                                                            ? const Color(
-                                                                0xFFF3F4F6,
-                                                              )
-                                                            : Colors
-                                                                  .transparent),
-                                                  child: Text(
-                                                    displayText,
-                                                    softWrap: true,
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: isHovered
-                                                          ? Colors.white
-                                                          : const Color(
-                                                              0xFF1F2937,
-                                                            ),
-                                                      fontFamily: 'Inter',
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                          displayStringForValue: (v) =>
-                                              v['batch_no']?.toString() ?? '',
-                                          searchStringForValue: (v) =>
-                                              v['batch_no']?.toString() ?? '',
-                                          onChanged: (v) {
-                                            setState(() {
-                                              if (v != null) {
-                                                final batchNo = v['batch_no']
-                                                    ?.toString()
-                                                    .trim();
-                                                row.batchRefCtrl.text =
-                                                    batchNo ?? '';
-                                                row.batchNoCtrl.text =
-                                                    batchNo ?? '';
-
-                                                row.batchId =
-                                                    v['id']?.toString() ??
-                                                    v['batchId']?.toString();
-                                                row.layerId =
-                                                    v['layer_id']?.toString() ??
-                                                    v['layerId']?.toString();
-
-                                                row.unitPackCtrl.text =
-                                                    v['unit_pack']
-                                                        ?.toString() ??
-                                                    '';
-
-                                                final rawExp =
-                                                    v['expiry_date']
-                                                        ?.toString() ??
-                                                    '';
-                                                row.expDateCtrl.text =
-                                                    _normalizeDateForUi(rawExp);
-                                                if (row
-                                                    .expDateCtrl
-                                                    .text
-                                                    .isNotEmpty) {
-                                                  try {
-                                                    row.expDate =
-                                                        intl.DateFormat(
-                                                          'dd-MM-yyyy',
-                                                        ).parse(
-                                                          row.expDateCtrl.text,
-                                                        );
-                                                  } catch (_) {}
-                                                }
-
-                                                final rawMfgDate =
-                                                    v['mfg_date']?.toString() ??
-                                                    v['manufactured_date']
-                                                        ?.toString() ??
-                                                    '';
-                                                row.mfgDateCtrl.text =
-                                                    _normalizeDateForUi(
-                                                      rawMfgDate,
-                                                    );
-                                                if (row
-                                                    .mfgDateCtrl
-                                                    .text
-                                                    .isNotEmpty) {
-                                                  try {
-                                                    row.mfgDate =
-                                                        intl.DateFormat(
-                                                          'dd-MM-yyyy',
-                                                        ).parse(
-                                                          row.mfgDateCtrl.text,
-                                                        );
-                                                  } catch (_) {}
-                                                }
-                                                row.mfgBatchCtrl.text =
-                                                    v['mfg_batch']
-                                                        ?.toString() ??
-                                                    v['manufacturer_batch']
-                                                        ?.toString() ??
-                                                    '';
-                                                if (row
-                                                        .mfgDateCtrl
-                                                        .text
-                                                        .isNotEmpty ||
-                                                    row
-                                                        .mfgBatchCtrl
-                                                        .text
-                                                        .isNotEmpty) {
-                                                  _showMfgDetails = true;
-                                                }
-
-                                                final prices =
-                                                    v['prices'] as List?;
-                                                if (prices != null &&
-                                                    prices.isNotEmpty) {
-                                                  final p = prices[0];
-                                                  row.mrpCtrl.text =
-                                                      (p['mrp'] as num?)
-                                                          ?.toDouble()
-                                                          .toStringAsFixed(2) ??
-                                                      '0.00';
-                                                  row.ptrCtrl.text =
-                                                      ((p['ptr'] ??
-                                                                  p['prate'] ??
-                                                                  p['purchase_rate'])
-                                                              as num?)
-                                                          ?.toDouble()
-                                                          .toStringAsFixed(2) ??
-                                                      '0.00';
-                                                } else {
-                                                  row.mrpCtrl.text =
-                                                      (v['mrp'] as num?)
-                                                          ?.toDouble()
-                                                          .toStringAsFixed(2) ??
-                                                      '0.00';
-                                                  row.ptrCtrl.text =
-                                                      ((v['ptr'] ??
-                                                                  v['prate'] ??
-                                                                  v['purchase_rate'])
-                                                              as num?)
-                                                          ?.toDouble()
-                                                          .toStringAsFixed(2) ??
-                                                      '0.00';
-                                                }
-                                              }
-                                            });
-                                          },
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              _buildInput(
-                                controller: row.unitPackCtrl,
-                                flex: 15,
-                                hint: 'Pack',
-                                isNumber: true,
-                                readOnly: true,
-                              ),
-                              _buildInput(
-                                controller: row.mrpCtrl,
-                                flex: 15,
-                                hint: '0',
-                                isNumber: true,
-                                readOnly: true,
-                              ),
-                              _buildInput(
-                                controller: row.ptrCtrl,
-                                flex: 15,
-                                hint: '0',
-                                isNumber: true,
-                                readOnly: true,
-                              ),
-                              _buildDatePicker(
-                                controller: row.expDateCtrl,
-                                anchorKey: row.expKey,
-                                flex: 15,
-                                currentDate: row.expDate,
-                                onDateChanged: (d) =>
-                                    setState(() => row.expDate = d),
-                                readOnly: true,
-                              ),
-                              if (_showMfgDetails) ...[
-                                _buildDatePicker(
-                                  controller: row.mfgDateCtrl,
-                                  anchorKey: row.mfgKey,
-                                  flex: 15,
-                                  currentDate: row.mfgDate,
-                                  onDateChanged: (d) =>
-                                      setState(() => row.mfgDate = d),
-                                  readOnly: true,
-                                ),
-                                _buildInput(
-                                  controller: row.mfgBatchCtrl,
-                                  flex: 15,
-                                  hint: 'Mfg Batch',
-                                  readOnly: true,
-                                ),
-                              ],
-                              _buildInput(
-                                controller: row.qtyOutCtrl,
-                                flex: 15,
-                                hint: '0',
-                                isNumber: true,
-                              ),
-                              if (_showFocColumn) _buildFocInput(row, index),
-                              SizedBox(
-                                width: 24,
-                                child: AnimatedOpacity(
-                                  opacity: isRowHovered ? 1 : 0,
-                                  duration: const Duration(milliseconds: 120),
-                                  child: IconButton(
-                                    onPressed: () => _removeRow(index),
-                                    tooltip: 'Remove row',
-                                    padding: EdgeInsets.zero,
-                                    icon: const Icon(
-                                      LucideIcons.x,
-                                      size: 15,
-                                      color: _dlgDangerRed,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (index < _rows.length - 1)
-                        const Divider(height: 1, color: _dlgBorderCol),
-                    ],
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-              child: Row(
-                children: [
-                  InkWell(
-                    onTap: _addRow,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          LucideIcons.plusCircle,
-                          size: 14,
-                          color: Colors.blue.shade600,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'New Row',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.blue.shade600,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Batches added: ${_rows.length}/100',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: _dlgTextPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: _dlgBorderCol),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      for (var i = 0; i < _rows.length; i++) {
-                        final row = _rows[i];
-                        if (row.binLocationCtrl.text.isEmpty) {
-                          ZerpaiToast.error(
-                            context,
-                            'Please select Bin Location in Row ${i + 1}.',
-                          );
-                          return;
-                        }
-                        if (row.batchRefCtrl.text.isEmpty) {
-                          ZerpaiToast.error(
-                            context,
-                            'Please select Batch Reference in Row ${i + 1}.',
-                          );
-                          return;
-                        }
-                        if (row.batchNoCtrl.text.isEmpty) {
-                          ZerpaiToast.error(
-                            context,
-                            'Please enter Batch No in Row ${i + 1}.',
-                          );
-                          return;
-                        }
-                        if (row.unitPackCtrl.text.isEmpty) {
-                          ZerpaiToast.error(
-                            context,
-                            'Please enter Pack Size in Row ${i + 1}.',
-                          );
-                          return;
-                        }
-                        if (row.mrpCtrl.text.isEmpty) {
-                          ZerpaiToast.error(
-                            context,
-                            'Please enter MRP in Row ${i + 1}.',
-                          );
-                          return;
-                        }
-                        if (row.expDateCtrl.text.isEmpty) {
-                          ZerpaiToast.error(
-                            context,
-                            'Please select Expiry Date in Row ${i + 1}.',
-                          );
-                          return;
-                        }
-
-                        final qtyOut =
-                            double.tryParse(row.qtyOutCtrl.text.trim()) ?? 0;
-                        final foc =
-                            double.tryParse(row.focCtrl.text.trim()) ?? 0;
-                        if (qtyOut <= 0 && foc <= 0) {
-                          ZerpaiToast.error(
-                            context,
-                            'Either Quantity Out or FOC must be filled in Row ${i + 1}.',
-                          );
-                          return;
-                        }
-                      }
-
-                      final seenPairs = <String>{};
-                      for (var i = 0; i < _rows.length; i++) {
-                        final row = _rows[i];
-                        final bin = row.binLocationCtrl.text.trim();
-                        final batch = row.batchNoCtrl.text.trim();
-                        if (bin.isNotEmpty && batch.isNotEmpty) {
-                          final pair = '$bin|$batch';
-                          if (seenPairs.contains(pair)) {
-                            ZerpaiToast.error(
-                              context,
-                              'Same Bin Location and Batch No can\'t be used multiple times.',
-                            );
-                            return;
-                          }
-                          seenPairs.add(pair);
-                        }
-                      }
-
-                      if (_hasQuantityMismatch && !_overwriteLineItem) {
-                        ZerpaiToast.error(context, _quantityMismatchMessage);
-                        return;
-                      }
-
-                      final batchDataList = _rows
-                          .map(
-                            (row) => {
-                              'binLocation': row.binLocationCtrl.text,
-                              'batchRef': row.batchRefCtrl.text,
-                              'batchNo': row.batchNoCtrl.text,
-                              'unitPack': row.unitPackCtrl.text,
-                              'mrp': row.mrpCtrl.text,
-                              'prate': row.ptrCtrl.text,
-                              'expDate': row.expDateCtrl.text,
-                              'mfgDate': row.mfgDateCtrl.text,
-                              'mfgBatch': row.mfgBatchCtrl.text,
-                              'qtyOut': row.qtyOutCtrl.text,
-                              'foc': row.focCtrl.text,
-                              'batchId': row.batchId ?? '',
-                              'layerId': row.layerId ?? '',
-                              'binId': row.binId ?? '',
-                            },
-                          )
-                          .toList();
-
-                      Navigator.pop(
-                        context,
-                        _InvoiceBatchDialogResult(
-                          overwriteLineItem: _overwriteLineItem,
-                          batchCount: _batchCount > 0
-                              ? _batchCount
-                              : _rows.length,
-                          appliedQuantity: _totalQuantityOnlyOut,
-                          totalIncludingFoc: _totalAppliedIncludingFoc,
-                          batchDataList: batchDataList,
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _dlgGreenBtn,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
-                      ),
-                    ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _dlgTextPrimary,
-                      side: const BorderSide(color: _dlgBorderCol),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InvoiceBinHoverBox extends StatefulWidget {
-  final String message;
-  final Widget child;
-  final bool isEnabled;
-
-  const _InvoiceBinHoverBox({
-    required this.message,
-    required this.child,
-    this.isEnabled = true,
-  });
-
-  @override
-  State<_InvoiceBinHoverBox> createState() => _InvoiceBinHoverBoxState();
-}
-
-class _InvoiceBinHoverBoxState extends State<_InvoiceBinHoverBox> {
-  OverlayEntry? _entry;
-  final LayerLink _layerLink = LayerLink();
-
-  void _showOverlay() {
-    if (_entry != null || !widget.isEnabled) return;
-    _entry = _createOverlayEntry();
-    Overlay.maybeOf(context)?.insert(_entry!);
-  }
-
-  void _hideOverlay() {
-    _entry?.remove();
-    _entry = null;
-  }
-
-  OverlayEntry _createOverlayEntry() {
-    return OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          CompositedTransformFollower(
-            link: _layerLink,
-            showWhenUnlinked: false,
-            targetAnchor: Alignment.bottomCenter,
-            followerAnchor: Alignment.topCenter,
-            offset: const Offset(0, 4),
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 250),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  widget.message,
-                  style: const TextStyle(
-                    color: Color(0xFF1F2937),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    fontFamily: 'Inter',
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: MouseRegion(
-        onEnter: (_) => _showOverlay(),
-        onExit: (_) => _hideOverlay(),
-        child: widget.child,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _hideOverlay();
-    super.dispose();
   }
 }
 

@@ -43,12 +43,14 @@ final batchLookupProvider =
 
       final priceMapByBatchId = <String, Map<String, dynamic>>{};
       final balanceMapByBatchId = <String, double>{};
+      final binIdsMapByBatchId = <String, Set<String>>{};
+      final binCodesMapByBatchId = <String, Set<String>>{};
 
       try {
         final pricingResponse = await supabase
             .from('batch_stock_layers')
             .select(
-              'id, batch_id, mrp, purchase_rate, qty, reserved_qty, updated_at',
+              'id, batch_id, bin_id, mrp, purchase_rate, qty, reserved_qty, updated_at, bin_master(bin_code)',
             )
             .eq('product_id', productId)
             .order('updated_at', ascending: false);
@@ -56,7 +58,20 @@ final batchLookupProvider =
         if (pricingResponse.isNotEmpty) {
           for (final p in pricingResponse as List) {
             final batchId = p['batch_id']?.toString().trim();
+            final binId = p['bin_id']?.toString().trim();
+            String? binCode;
+            if (p['bin_master'] != null && p['bin_master'] is Map) {
+              binCode = p['bin_master']['bin_code']?.toString().trim();
+            }
+
             if (batchId != null && batchId.isNotEmpty) {
+              if (binId != null && binId.isNotEmpty) {
+                binIdsMapByBatchId.putIfAbsent(batchId, () => <String>{}).add(binId);
+              }
+              if (binCode != null && binCode.isNotEmpty) {
+                binCodesMapByBatchId.putIfAbsent(batchId, () => <String>{}).add(binCode.toLowerCase());
+              }
+
               // Store first price found (latest updated_at)
               if (!priceMapByBatchId.containsKey(batchId)) {
                 priceMapByBatchId[batchId] = {
@@ -93,6 +108,17 @@ final batchLookupProvider =
             ? (balanceMapByBatchId[batchId] ?? 0.0)
             : 0.0;
 
+        final binIds = (batchId != null && batchId.isNotEmpty)
+            ? (binIdsMapByBatchId[batchId] ?? <String>{})
+            : <String>{};
+        final binCodes = (batchId != null && batchId.isNotEmpty)
+            ? (binCodesMapByBatchId[batchId] ?? <String>{})
+            : <String>{};
+
+        if (batchMap['bin_id'] != null) {
+          binIds.add(batchMap['bin_id'].toString().trim());
+        }
+
         return {
           ...batchMap,
           'batch_no': batchNo,
@@ -102,6 +128,8 @@ final batchLookupProvider =
           'ptr': fallbackPrice?['ptr'] ?? batchMap['ptr'],
           'balance': balance,
           'prices': fallbackPrice != null ? [fallbackPrice] : [],
+          'bin_ids': binIds,
+          'bin_codes': binCodes,
         };
       }).toList();
 

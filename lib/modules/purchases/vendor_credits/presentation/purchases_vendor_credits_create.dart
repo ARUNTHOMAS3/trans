@@ -35,7 +35,7 @@ import 'package:zerpai_erp/modules/pricelists/pricelist/providers/pricelist_prov
 import 'package:file_picker/file_picker.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
-import 'package:zerpai_erp/shared/widgets/dialogs/inventory_bin_batch_foc.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/bin_batch_foc_popupbox.dart';
 
 class VendorCreditsCreatePage extends ConsumerStatefulWidget {
   final String? vendorCreditId;

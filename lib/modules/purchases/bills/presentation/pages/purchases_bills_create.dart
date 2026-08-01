@@ -1021,7 +1021,7 @@ class _PurchasesBillCreateScreenState
               0.0,
               (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
             );
-            row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+            row.quantityCtrl.text = totalQty.toInt().toString();
           }
 
           _lineItems.add(row);
@@ -1407,7 +1407,7 @@ class _PurchasesBillCreateScreenState
                   0.0,
                   (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
                 );
-                row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+                row.quantityCtrl.text = totalQty.toInt().toString();
               }
 
               _lineItems.add(row);
@@ -1474,7 +1474,7 @@ class _PurchasesBillCreateScreenState
                   0.0,
                   (sum, b) => sum + (double.tryParse(b['foc'] ?? '') ?? 0.0),
                 );
-                row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
+                row.quantityCtrl.text = totalQty.toInt().toString();
               }
 
               _lineItems.add(row);
@@ -6146,11 +6146,7 @@ class _PurchasesBillCreateScreenState
               (sum, b) => sum + b.foc,
             );
 
-            if (totalFoc > 0) {
-              row.quantityCtrl.text = (totalQty + totalFoc).toInt().toString();
-            } else {
-              row.quantityCtrl.text = totalQty.toInt().toString();
-            }
+            row.quantityCtrl.text = totalQty.toInt().toString();
           });
         },
       ),
@@ -9835,9 +9831,9 @@ class _PurchasesBillCreateScreenState
                 hasFocValue) ...[
               const SizedBox(height: 4),
               Text(
-                '${totalQtyOut.toInt()} pcs + ${totalFoc.toInt()} foc',
+                '${totalFoc.toInt()} foc',
                 style: const TextStyle(
-                  fontSize: 10,
+                  fontSize: 13,
                   color: Color(0xFF4B5563),
                   fontWeight: FontWeight.bold,
                 ),
