@@ -55,7 +55,7 @@ project-name/
 
 | Concept | Description | Future Update |
 |---------|-------------|---------------|
-| **App Directory** | `app/` | Tách biệt mã nguồn ứng dụng và file cấu hình root. |
+| **App Directory** | `app/` | Tách biệt m   nguồn ứng dụng và file cấu hình root. |
 | **Vapor Mode** | Opt-in performance | Render không cần Virtual DOM (như SolidJS). Bật trong `nuxt.config`. |
 | **Server Functions** | RPC-style calls | Gọi hàm server trực tiếp từ client (thay thế dần API routes thủ công). |
 | **Tailwind v4** | CSS-first | Cấu hình theme trực tiếp trong CSS, không cần `tailwind.config.js`. |

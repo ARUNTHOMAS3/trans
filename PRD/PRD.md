@@ -863,7 +863,7 @@ These rules define the visual and interaction standards for all **creation/edit 
 
 #### 14.12.2 Input Fields & Text Entry
 
-- **Standard Inputs:** Rectangular, slight radius (3    “4px), thin light-gray border (~`#E0E0E0`), consistent height (~36px).
+- **Standard Inputs:** Rectangular, slight radius (3“4px), thin light-gray border (~`#E0E0E0`), consistent height (~36px).
 - **Focus State:** Blue or green border/glow to indicate focus.
 - **Required Fields:** Red asterisk; label often red.
 - **Text Areas:** Multi-line with resize handle (bottom-right diagonal lines). Optional helper text like "Max 500 characters".

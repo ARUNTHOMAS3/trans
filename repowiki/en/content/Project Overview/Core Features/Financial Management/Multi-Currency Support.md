@@ -205,7 +205,7 @@ Practical example references:
   - Fetch exchange rates from external providers or internal lookup tables.
   - Store rates with effective date and base/target currency pair.
 - Conversion algorithms:
-  - Amount in foreign currency Ã— exchange rate = converted amount.
+  - Amount in foreign currency   — exchange rate = converted amount.
   - Round according to currency decimals and configured round-off preference.
   - Accumulate totals per currency to maintain accuracy.
 - Practical example references:

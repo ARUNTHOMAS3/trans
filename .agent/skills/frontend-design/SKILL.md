@@ -58,7 +58,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 | AI Default Tendency | Why It's Bad | Think Instead |
 |---------------------|--------------|---------------|
-| **Bento Grids (Modern ClichÃ©)** | Used in every AI design | Why does this content NEED a grid? |
+| **Bento Grids (Modern Clich  ©)** | Used in every AI design | Why does this content NEED a grid? |
 | **Hero Split (Left/Right)** | Predictable & Boring | How about Massive Typography or Vertical Narrative? |
 | **Mesh/Aurora Gradients** | The "new" lazy background | What's a radical color pairing? |
 | **Glassmorphism** | AI's idea of "premium" | How about solid, high-contrast flat? |
@@ -133,8 +133,8 @@ REFLECTIVE (memory)   †’ After: "I like what this says about me"
 ```
 Use for proportional harmony:
              Content : Sidebar = roughly 62% : 38%
-             Each heading size = previous Ã— 1.618 (for dramatic scale)
-             Spacing can follow: sm   †’ md   †’ lg (each Ã— 1.618)
+             Each heading size = previous   — 1.618 (for dramatic scale)
+             Spacing can follow: sm   †’ md   †’ lg (each   — 1.618)
 ```
 
 ### 8-Point Grid Concept
@@ -232,7 +232,7 @@ Key properties:
              Semi-transparent background
              Backdrop blur
              Subtle border for definition
-  ”              **WARNING:** Standard blue/white glassmorphism is a modern clichÃ©. Use it radically or not at all.
+  ”              **WARNING:** Standard blue/white glassmorphism is a modern clich  ©. Use it radically or not at all.
 ```
 
 ### Shadow Hierarchy

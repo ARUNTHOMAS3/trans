@@ -122,7 +122,7 @@ RSC  †’client serialization deduplicates by object reference, not value. Sam
 **Incorrect (duplicates array):**
 
 ```tsx
-// RSC: sends 6 strings (2 arrays Ã— 3 items)
+// RSC: sends 6 strings (2 arrays   — 3 items)
 <ClientList usernames={usernames} usernamesOrdered={usernames.toSorted()} />
 ```
 
