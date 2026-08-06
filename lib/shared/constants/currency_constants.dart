@@ -51,7 +51,7 @@ const List<CurrencyOption> defaultCurrencyOptions = [
   CurrencyOption(
     code: 'EUR',
     name: 'Euro',
-    symbol: '€',
+    symbol: '  ',
     decimals: 2,
     format: '1,234,567.89',
     label: 'EUR - Euro',

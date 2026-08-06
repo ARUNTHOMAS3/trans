@@ -1,4 +1,4 @@
-﻿# CLAUDE.md â€” Zerpai ERP
+﻿# CLAUDE.md     ” Zerpai ERP
 
 This file governs how Claude should behave when working in this repository. Read it fully before taking any action.
 
@@ -12,7 +12,7 @@ Also read `AI_AGENT_MANDATORY_READS.md` at startup; it defines required governan
 
 | Layer            | Technology                                    |
 | ---------------- | --------------------------------------------- |
-| Frontend         | Flutter (Dart) â€” Web + Android                |
+| Frontend         | Flutter (Dart)     ” Web + Android                |
 | State Management | Riverpod (`flutter_riverpod`)                 |
 | Navigation       | GoRouter (`lib/core/routing/app_router.dart`) |
 | HTTP Client      | Dio (`lib/shared/services/api_client.dart`)   |
@@ -25,7 +25,7 @@ Also read `AI_AGENT_MANDATORY_READS.md` at startup; it defines required governan
 
 ---
 
-## Hard Rules â€” Never Break These
+## Hard Rules     ” Never Break These
 
 ### Frontend
 
@@ -57,8 +57,8 @@ Also read `AI_AGENT_MANDATORY_READS.md` at startup; it defines required governan
 - **Drizzle ORM only**. Never suggest Prisma, TypeORM, or raw SQL outside of Drizzle.
 - **NestJS only**. Never suggest Express, Fastify, Hono, GraphQL, or tRPC.
 - **class-validator + class-transformer** for all DTO validation.
-- **Multi-tenancy is mandatory**: every query on business-owned tables must filter by `entity_id` (FK to `organisation_branch_master.id`). Resolve `entityId` from the `@Tenant()` decorator context â€” use `@Tenant('entityId')` in controllers. Never read `X-Org-Id` or `X-Branch-Id` headers manually in service methods.
-- **`organisation_branch_master`** is the polymorphic entity registry: `type` = `'ORG'` or `'BRANCH'`, `ref_id` â†’ actual `organization.id` or `branches.id`. All business tables reference it via `entity_id`.
+- **Multi-tenancy is mandatory**: every query on business-owned tables must filter by `entity_id` (FK to `organisation_branch_master.id`). Resolve `entityId` from the `@Tenant()` decorator context     ” use `@Tenant('entityId')` in controllers. Never read `X-Org-Id` or `X-Branch-Id` headers manually in service methods.
+- **`organisation_branch_master`** is the polymorphic entity registry: `type` = `'ORG'` or `'BRANCH'`, `ref_id`   †’ actual `organization.id` or `branches.id`. All business tables reference it via `entity_id`.
 - **Exception**: global lookup tables (`products`, `categories`, `brands`, `manufacturers`, `tax_rates`, `tax_groups`, `payment_terms`, `currencies`, `uqc`, `units`, `storage_conditions`, `buying_rules`, `drug_schedules`, `drug_strengths`, `contents`, `racks`, `shipment_preferences`, `tds_rates`, `tds_sections`, `tds_groups`, `price_lists`, `price_list_items`, `countries`, `states`, `timezones`, `gst_treatments`, `gstin_registration_types`, `business_types`, `hsn_sac_codes`, `composite_items`, `composite_item_parts`) have NO `entity_id`. Never add entity_id filtering to these tables.
 
 ### Database
@@ -71,7 +71,7 @@ Also read `AI_AGENT_MANDATORY_READS.md` at startup; it defines required governan
 
 ---
 
-## File Naming Convention (Flutter â€” STRICT)
+## File Naming Convention (Flutter     ” STRICT)
 
 Pattern: `<module>_<submodule>_<page>.dart`
 
@@ -139,7 +139,7 @@ backend/
     app.module.ts
     main.ts
     database/
-      schema.ts       # Drizzle schema â€” source of truth
+      schema.ts       # Drizzle schema     ” source of truth
     common/           # middleware, guards, interceptors
     modules/          # one folder per domain module
 ```
@@ -153,9 +153,9 @@ Prod URL: `https://zabnix-backend.Railway/Cloudflare Pages.app`
 
 Every API request carries:
 
-- `X-Org-Id` â€” organization system identifier (routing/auth)
-- `X-Branch-Id` â€” branch identifier (optional, for branch-scoped sessions)
-- `X-Entity-Id` â€” preferred header; direct `organisation_branch_master.id` for the active scope
+- `X-Org-Id`     ” organization system identifier (routing/auth)
+- `X-Branch-Id`     ” branch identifier (optional, for branch-scoped sessions)
+- `X-Entity-Id`     ” preferred header; direct `organisation_branch_master.id` for the active scope
 
 `TenantMiddleware` intercepts all requests and resolves `entityId` on `req.tenantContext`. All business queries filter by `entity_id`. Use `@Tenant()` or `@Tenant('entityId')` in controllers instead of reading headers manually. The `products` table is the only exception (global, shared across all orgs).
 
@@ -177,20 +177,20 @@ Every API request carries:
 - **Inputs**: Rectangular, 3-4px radius, thin light-gray border, ~36px height.
 - **Numeric fields**: Must block non-numeric characters (alphabets, special chars).
 - **Tables**: Server-side pagination, default 100 rows per page. Inline editing allowed.
-- **Dropdowns**: White box with chevron. All dropdowns with selectable options use `FormDropdown<T>` from `lib/shared/widgets/inputs/dropdown_input.dart` â€” never `DropdownButtonFormField`. `FormDropdown` includes built-in search.
+- **Dropdowns**: White box with chevron. All dropdowns with selectable options use `FormDropdown<T>` from `lib/shared/widgets/inputs/dropdown_input.dart`     ” never `DropdownButtonFormField`. `FormDropdown` includes built-in search.
 - **Buttons**: Primary green (`#22A95E`), secondary gray/outline.
-- **Status indicators**: Colored text only â€” no pill badges.
+- **Status indicators**: Colored text only     ” no pill badges.
 - **Menus**: `MenuAnchor` for action menus, `FormDropdown` for form inputs.
 - **Layout**: Dark sidebar (`~#2C3E50`), white cards on light-gray main canvas.
-- **Tooltips**: Always use `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart` â€” never Flutter's built-in `Tooltip` widget. `ZTooltip` enforces a 220px max-width so text wraps compactly instead of rendering as a single long line. Trigger icon is `LucideIcons.helpCircle` at size 14-15. Tooltip text must be concise (1-2 short sentences max).
+- **Tooltips**: Always use `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`     ” never Flutter's built-in `Tooltip` widget. `ZTooltip` enforces a 220px max-width so text wraps compactly instead of rendering as a single long line. Trigger icon is `LucideIcons.helpCircle` at size 14-15. Tooltip text must be concise (1-2 short sentences max).
 
 ### Keyboard Shortcuts
 
-- `Ctrl+S` â€” Save / Draft
-- `Ctrl+Enter` â€” Publish / Save & Post
-- `Esc` â€” Cancel (with Discard Guard if form is dirty)
-- `/` â€” Focus Search
-- `Alt+N` â€” New entry visual indicator
+- `Ctrl+S`     ” Save / Draft
+- `Ctrl+Enter`     ” Publish / Save & Post
+- `Esc`     ” Cancel (with Discard Guard if form is dirty)
+- `/`     ” Focus Search
+- `Alt+N`     ” New entry visual indicator
 
 All shortcut tooltips must show the key combo (e.g., "Save (Ctrl+S)").
 
@@ -199,9 +199,9 @@ All shortcut tooltips must show the key combo (e.g., "Save (Ctrl+S)").
 ## GST & Indian Business Context
 
 - Target market: Indian SMEs (retail, pharmacy, trading)
-- GST compliance is a core requirement â€” invoices, bills, and reports must be GST-aware
+- GST compliance is a core requirement     ” invoices, bills, and reports must be GST-aware
 - GSTIN codes always stored and displayed in UPPERCASE
-- Fiscal year follows Indian standard (Aprilâ€“March)
+- Fiscal year follows Indian standard (April    “March)
 
 ---
 
@@ -209,9 +209,9 @@ All shortcut tooltips must show the key combo (e.g., "Save (Ctrl+S)").
 
 Replace all `print()` statements with `AppLogger`:
 
-- Debug info â†’ `AppLogger.debug(module: '...', data: ...)`
-- Warnings â†’ `AppLogger.warning(module: '...', data: ...)`
-- Errors â†’ `AppLogger.error(module: '...', data: ...)`
+- Debug info   †’ `AppLogger.debug(module: '...', data: ...)`
+- Warnings   †’ `AppLogger.warning(module: '...', data: ...)`
+- Errors   †’ `AppLogger.error(module: '...', data: ...)`
 
 Never use `print()` in new or modified code.
 
@@ -234,11 +234,11 @@ Never use `print()` in new or modified code.
 
 ---
 
-## Reusables â€” Check Before Creating
+## Reusables     ” Check Before Creating
 
 Before writing any new shared widget, mixin, service, utility, or helper:
 
-1. **Check `REUSABLES.md`** at the project root â€” it catalogs every reusable component in `lib/shared/` and `lib/core/`.
+1. **Check `REUSABLES.md`** at the project root     ” it catalogs every reusable component in `lib/shared/` and `lib/core/`.
 2. If a suitable reusable exists, use it. Do not duplicate it.
 3. If no match exists and you create something genuinely reusable, **add it to `REUSABLES.md`** immediately.
 4. **Tell the user** when you find an existing reusable they could use, including which one it is, or when you create a new one so they can decide whether to promote it.
@@ -251,11 +251,11 @@ Key reusables to always check first: `FormDropdown<T>`, `CustomTextField`, `Zerp
 
 ## What NOT to Do
 
-- Do not suggest React, Vue, Next.js, Tailwind, or any web framework â€” this is a Flutter project
+- Do not suggest React, Vue, Next.js, Tailwind, or any web framework     ” this is a Flutter project
 - Do not add `org_id` filtering to the `products` table
 - Do not use Prisma, TypeORM, or raw SQL outside Drizzle
 - Do not hardcode colors, spacing, or typography values
-- Do not use `print()` â€” use `AppLogger`
+- Do not use `print()`     ” use `AppLogger`
 - Do not invent DB tables or columns not in `PRD/prd_schema.md`
 - Do not run migrations without first running `npm run db:pull`
 - Do not reorder the sidebar navigation

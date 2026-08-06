@@ -228,7 +228,7 @@ If you get CORS errors, ensure `CORS_ORIGIN` includes both:
 Test database connection:
 
 ```bash
-node -e "const {client} = require('./src/db/db'); client.unsafe('SELECT 1').then(() => console.log('âœ… Connected')).catch(console.error)"
+node -e "const {client} = require('./src/db/db'); client.unsafe('SELECT 1').then(() => console.log('     Connected')).catch(console.error)"
 ```
 
 ### Railway/Cloudflare Pages Build Errors
@@ -246,10 +246,10 @@ Common fixes:
 
 ## Next Steps
 
-1. âœ… Copy `.env.example` to `.env`
-2. âœ… Run `npm install`
-3. âœ… Test locally with `npm run start:dev`
-4. âœ… Deploy to Railway/Cloudflare Pages with `Railway/Cloudflare Pages --prod`
+1.      Copy `.env.example` to `.env`
+2.      Run `npm install`
+3.      Test locally with `npm run start:dev`
+4.      Deploy to Railway/Cloudflare Pages with `Railway/Cloudflare Pages --prod`
 5. Update Flutter app to use deployed backend URL
 6. Migrate existing services to use Drizzle ORM
 

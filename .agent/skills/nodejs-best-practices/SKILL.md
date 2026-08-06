@@ -11,7 +11,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 
 ---
 
-## âš ï¸ How to Use This Skill
+##      How to Use This Skill
 
 This skill teaches **decision-making principles**, not fixed code to copy.
 
@@ -27,21 +27,21 @@ This skill teaches **decision-making principles**, not fixed code to copy.
 
 ```
 What are you building?
-â”‚
-â”œâ”€â”€ Edge/Serverless (Cloudflare, Railway/Cloudflare Pages)
-â”‚   â””â”€â”€ Hono (zero-dependency, ultra-fast cold starts)
-â”‚
-â”œâ”€â”€ High Performance API
-â”‚   â””â”€â”€ Fastify (2-3x faster than Express)
-â”‚
-â”œâ”€â”€ Enterprise/Team familiarity
-â”‚   â””â”€â”€ NestJS (structured, DI, decorators)
-â”‚
-â”œâ”€â”€ Legacy/Stable/Maximum ecosystem
-â”‚   â””â”€â”€ Express (mature, most middleware)
-â”‚
-â””â”€â”€ Full-stack with frontend
-    â””â”€â”€ Next.js API Routes or tRPC
+  ‚
+             Edge/Serverless (Cloudflare, Railway/Cloudflare Pages)
+  ‚     ”         Hono (zero-dependency, ultra-fast cold starts)
+  ‚
+             High Performance API
+  ‚     ”         Fastify (2-3x faster than Express)
+  ‚
+             Enterprise/Team familiarity
+  ‚     ”         NestJS (structured, DI, decorators)
+  ‚
+             Legacy/Stable/Maximum ecosystem
+  ‚     ”         Express (mature, most middleware)
+  ‚
+  ”         Full-stack with frontend
+      ”         Next.js API Routes or tRPC
 ```
 
 ### Comparison Principles
@@ -68,24 +68,24 @@ What are you building?
 
 ```
 Node.js 22+: --experimental-strip-types
-â”œâ”€â”€ Run .ts files directly
-â”œâ”€â”€ No build step needed for simple projects
-â””â”€â”€ Consider for: scripts, simple APIs
+             Run .ts files directly
+             No build step needed for simple projects
+  ”         Consider for: scripts, simple APIs
 ```
 
 ### Module System Decision
 
 ```
 ESM (import/export)
-â”œâ”€â”€ Modern standard
-â”œâ”€â”€ Better tree-shaking
-â”œâ”€â”€ Async module loading
-â””â”€â”€ Use for: new projects
+             Modern standard
+             Better tree-shaking
+             Async module loading
+  ”         Use for: new projects
 
 CommonJS (require)
-â”œâ”€â”€ Legacy compatibility
-â”œâ”€â”€ More npm packages support
-â””â”€â”€ Use for: existing codebases, some edge cases
+             Legacy compatibility
+             More npm packages support
+  ”         Use for: existing codebases, some edge cases
 ```
 
 ### Runtime Selection
@@ -104,21 +104,21 @@ CommonJS (require)
 
 ```
 Request Flow:
-â”‚
-â”œâ”€â”€ Controller/Route Layer
-â”‚   â”œâ”€â”€ Handles HTTP specifics
-â”‚   â”œâ”€â”€ Input validation at boundary
-â”‚   â””â”€â”€ Calls service layer
-â”‚
-â”œâ”€â”€ Service Layer
-â”‚   â”œâ”€â”€ Business logic
-â”‚   â”œâ”€â”€ Framework-agnostic
-â”‚   â””â”€â”€ Calls repository layer
-â”‚
-â””â”€â”€ Repository Layer
-    â”œâ”€â”€ Data access only
-    â”œâ”€â”€ Database queries
-    â””â”€â”€ ORM interactions
+  ‚
+             Controller/Route Layer
+  ‚                Handles HTTP specifics
+  ‚                Input validation at boundary
+  ‚     ”         Calls service layer
+  ‚
+             Service Layer
+  ‚                Business logic
+  ‚                Framework-agnostic
+  ‚     ”         Calls repository layer
+  ‚
+  ”         Repository Layer
+                 Data access only
+                 Database queries
+      ”         ORM interactions
 ```
 
 ### Why This Matters:
@@ -127,8 +127,8 @@ Request Flow:
 - **Clarity**: Each layer has single responsibility
 
 ### When to Simplify:
-- Small scripts â†’ Single file OK
-- Prototypes â†’ Less structure acceptable
+- Small scripts   †’ Single file OK
+- Prototypes   †’ Less structure acceptable
 - Always ask: "Will this grow?"
 
 ---
@@ -139,26 +139,26 @@ Request Flow:
 
 ```
 Pattern:
-â”œâ”€â”€ Create custom error classes
-â”œâ”€â”€ Throw from any layer
-â”œâ”€â”€ Catch at top level (middleware)
-â””â”€â”€ Format consistent response
+             Create custom error classes
+             Throw from any layer
+             Catch at top level (middleware)
+  ”         Format consistent response
 ```
 
 ### Error Response Philosophy
 
 ```
 Client gets:
-â”œâ”€â”€ Appropriate HTTP status
-â”œâ”€â”€ Error code for programmatic handling
-â”œâ”€â”€ User-friendly message
-â””â”€â”€ NO internal details (security!)
+             Appropriate HTTP status
+             Error code for programmatic handling
+             User-friendly message
+  ”         NO internal details (security!)
 
 Logs get:
-â”œâ”€â”€ Full stack trace
-â”œâ”€â”€ Request context
-â”œâ”€â”€ User ID (if applicable)
-â””â”€â”€ Timestamp
+             Full stack trace
+             Request context
+             User ID (if applicable)
+  ”         Timestamp
 ```
 
 ### Status Code Selection
@@ -190,16 +190,16 @@ Logs get:
 
 ```
 I/O-bound (async helps):
-â”œâ”€â”€ Database queries
-â”œâ”€â”€ HTTP requests
-â”œâ”€â”€ File system
-â””â”€â”€ Network operations
+             Database queries
+             HTTP requests
+             File system
+  ”         Network operations
 
 CPU-bound (async doesn't help):
-â”œâ”€â”€ Crypto operations
-â”œâ”€â”€ Image processing
-â”œâ”€â”€ Complex calculations
-â””â”€â”€ â†’ Use worker threads or offload
+             Crypto operations
+             Image processing
+             Complex calculations
+  ”           †’ Use worker threads or offload
 ```
 
 ### Avoiding Event Loop Blocking
@@ -216,10 +216,10 @@ CPU-bound (async doesn't help):
 
 ```
 Where to validate:
-â”œâ”€â”€ API entry point (request body/params)
-â”œâ”€â”€ Before database operations
-â”œâ”€â”€ External data (API responses, file uploads)
-â””â”€â”€ Environment variables (startup)
+             API entry point (request body/params)
+             Before database operations
+             External data (API responses, file uploads)
+  ”         Environment variables (startup)
 ```
 
 ### Validation Library Selection
@@ -258,12 +258,12 @@ Where to validate:
 
 ```
 Trust nothing:
-â”œâ”€â”€ Query params â†’ validate
-â”œâ”€â”€ Request body â†’ validate
-â”œâ”€â”€ Headers â†’ verify
-â”œâ”€â”€ Cookies â†’ validate
-â”œâ”€â”€ File uploads â†’ scan
-â””â”€â”€ External APIs â†’ validate response
+             Query params   †’ validate
+             Request body   †’ validate
+             Headers   †’ verify
+             Cookies   †’ validate
+             File uploads   †’ scan
+  ”         External APIs   †’ validate response
 ```
 
 ---
@@ -289,16 +289,16 @@ Trust nothing:
 
 ```
 node --test src/**/*.test.ts
-â”œâ”€â”€ No external dependency
-â”œâ”€â”€ Good coverage reporting
-â””â”€â”€ Watch mode available
+             No external dependency
+             Good coverage reporting
+  ”         Watch mode available
 ```
 
 ---
 
 ## 10. Anti-Patterns to Avoid
 
-### âŒ DON'T:
+###      DON'T:
 - Use Express for new edge projects (use Hono)
 - Use sync methods in production code
 - Put business logic in controllers
@@ -307,7 +307,7 @@ node --test src/**/*.test.ts
 - Trust external data without validation
 - Block event loop with CPU work
 
-### âœ… DO:
+###      DO:
 - Choose framework based on context
 - Ask user for preferences when unclear
 - Use layered architecture for growing projects

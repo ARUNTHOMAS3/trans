@@ -84,6 +84,7 @@ class SalesCustomer {
   final String? gender;
   final String? placeOfCustomer;
   final String? privilegeCardNumber;
+  final String? remarks;
 
   List<Map<String, dynamic>> get customerAddresses => [
         if (billingAddressStreet1 != null || billingAddressCity != null)
@@ -182,6 +183,7 @@ class SalesCustomer {
     this.gender,
     this.placeOfCustomer,
     this.privilegeCardNumber,
+    this.remarks,
   });
 
   SalesCustomer copyWith({
@@ -256,6 +258,7 @@ class SalesCustomer {
     String? gender,
     String? placeOfCustomer,
     String? privilegeCardNumber,
+    String? remarks,
   }) {
     return SalesCustomer(
       id: id ?? this.id,
@@ -337,6 +340,7 @@ class SalesCustomer {
       gender: gender ?? this.gender,
       placeOfCustomer: placeOfCustomer ?? this.placeOfCustomer,
       privilegeCardNumber: privilegeCardNumber ?? this.privilegeCardNumber,
+      remarks: remarks ?? this.remarks,
     );
   }
 
@@ -462,6 +466,7 @@ class SalesCustomer {
       placeOfCustomer: json['placeOfCustomer'] ?? json['place_of_customer'],
       privilegeCardNumber:
           json['privilegeCardNumber'] ?? json['privilege_card_number'],
+      remarks: json['remarks'],
       contactPersons: json['contactPersons'] != null
           ? (json['contactPersons'] as List)
                 .map((i) => CustomerContact.fromJson(i))
@@ -614,6 +619,8 @@ class SalesCustomer {
       if (placeOfCustomer != null) 'place_of_customer': placeOfCustomer,
       if (privilegeCardNumber != null)
         'privilege_card_number': privilegeCardNumber,
+      if (remarks != null && remarks!.isNotEmpty)
+        'remarks': remarks,
       if (contactPersons != null)
         'contactPersons': contactPersons!.map((e) => e.toJson()).toList(),
     };

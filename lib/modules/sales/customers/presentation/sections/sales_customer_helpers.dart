@@ -30,7 +30,7 @@ extension _SalesCustomerHelpers on _SalesCustomerCreateScreenState {
         : 'Taxable';
     customerNumberCtrl.text =
         customer.customerNumber ?? customerNumberCtrl.text;
-    remarksCtrl.text = customer.privilegeCardNumber ?? '';
+    remarksCtrl.text = customer.remarks ?? '';
     xHandleCtrl.text = customer.twitterHandle ?? '';
     whatsappCtrl.text = customer.whatsappNumber ?? '';
     facebookCtrl.text = customer.facebookHandle ?? '';

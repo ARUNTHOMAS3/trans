@@ -2629,6 +2629,16 @@ export class SalesService {
         console.error("Error inserting journal_entry_lines for invoice:", linesErr.message);
       }
     }
+
+    // Save journal_id backlink in invoice_master table
+    try {
+      await client
+        .from("invoice_master")
+        .update({ journal_id: journalEntryId })
+        .eq("id", invoiceId);
+    } catch (jeBacklinkErr) {
+      console.error("Error updating invoice_master journal_id:", jeBacklinkErr);
+    }
   }
 
 }

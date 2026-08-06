@@ -117,9 +117,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double fieldHeight = widget.height ?? 32.0;
+    final double fieldHeight = widget.height ?? 32.0;
         final bool isMultiline =
             (widget.maxLines == null || widget.maxLines! > 1) ||
             fieldHeight > 60;
@@ -201,9 +199,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
           formatters.add(SentenceCaseTextFormatter());
         }
 
-        final bool heightIsTight =
-            constraints.hasBoundedHeight &&
-            constraints.maxHeight <= fieldHeight + 16;
+        final bool heightIsTight = false;
         final bool canShowExternalError = hasError && !heightIsTight;
 
         return Column(
@@ -583,8 +579,6 @@ class _CustomTextFieldState extends State<CustomTextField> {
             ],
           ],
         );
-      },
-    );
   }
 }
 

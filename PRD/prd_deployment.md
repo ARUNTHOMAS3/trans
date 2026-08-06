@@ -1,6 +1,8 @@
-# Deployment & Release Management Guide
+# Deployment & Release Management Guide
 
-## âš ï¸ PRD Edit Policy
+
+
+##      PRD Edit Policy
 Do not edit PRD files unless explicitly requested by the user or team head.
 ## ðŸ”’ Auth Policy (Pre-Production)
 No authentication setup is allowed until production. The application must run without enforced login/RBAC/JWT in dev and staging. Auth UI may exist but must not be wired into routing until production approval.
@@ -21,27 +23,27 @@ This document defines the deployment pipeline, release process, and versioning s
 
 **Pipeline Stages:**
 
-```
-Pull Request â†’ dev branch:
-  â”œâ”€ Format Check
-  â”œâ”€ Linting
-  â”œâ”€ Unit Tests
-  â”œâ”€ Build Verification
-  â”œâ”€ Security Scan
-  â””â”€ Code Coverage Report
-
-Merge to dev:
-  â”œâ”€ Deploy to Railway/Cloudflare Pages Staging
-  â”œâ”€ Integration Tests
-  â””â”€ Smoke Tests
-
-Merge to main:
-  â”œâ”€ Create Git Tag
-  â”œâ”€ Generate Release Notes
-  â”œâ”€ Run Migrations (manual approval)
-  â”œâ”€ Deploy to Railway/Cloudflare Pages Production
-  â”œâ”€ Health Checks
-  â””â”€ Monitor (2 hours)
+``    
+Pu     quest   †’ dev branch:
+           Format Check
+           Linting
+           Unit Tests
+           Build Verification
+    ”    ”   Security Scan
+    ””  ”   Code Coverage Report
+    
+Me  e  o dev:
+           Deploy to Railway/Cloudflare Pages Staging
+    ”    ”   Integration Tests
+    ””  ”   Smoke Tests
+    
+Me  e  o main:
+           Create Git Tag
+           Generate Release Notes
+           Run Migrations (manual approval)
+           Deploy to Railway/Cloudflare Pages Production
+    ”    ”   Health Checks
+    ””  ”   Monitor (2 hours)
 ```
 
 ### 2.2 CI Configuration Files
@@ -180,9 +182,9 @@ jobs:
 **Format:** `MAJOR.MINOR.PATCH`
 
 **Rules:**
-- **MAJOR** (e.g., 1.0.0 â†’ 2.0.0): Breaking API changes, major architectural rewrites
-- **MINOR** (e.g., 1.0.0 â†’ 1.1.0): New features, backward compatible
-- **PATCH** (e.g., 1.0.0 â†’ 1.0.1): Bug fixes, small improvements
+- **MAJOR** (e.g., 1.0.0   †’ 2.0.0): Breaking API changes, major architectural rewrites
+- **MINOR** (e.g., 1.0.0   †’ 1.1.0): New features, backward compatible
+- **PATCH** (e.g., 1.0.0   †’ 1.0.1): Bug fixes, small improvements
 
 **Examples:**
 - `v1.0.0` - Initial production release
@@ -374,7 +376,7 @@ npm run test:smoke:production
 **Via Railway/Cloudflare Pages Dashboard:**
 1. Go to Deployments
 2. Find previous stable deployment
-3. Click "..." menu â†’ "Promote to Production"
+3. Click "..." menu   †’ "Promote to Production"
 4. Confirm promotion
 
 **Estimated Time:** 2-5 minutes
@@ -464,13 +466,13 @@ git merge hotfix/fix-critical-bug
 git push origin dev
 
 # 8. Bump version (patch)
-# v1.1.0 â†’ v1.1.1
+# v1.1.0   †’ v1.1.1
 ```
 
 ### 7.2 Hotfix Versioning
 
 - Always a PATCH version bump
-- `v1.1.0` â†’ `v1.1.1`
+- `v1.1.0`   †’ `v1.1.1`
 - Tag immediately after merge
 
 ### 7.3 Hotfix Communication
@@ -562,12 +564,12 @@ No user action required.
 - Mobile-responsive invoice creation screen
 - Better error messages for failed API calls
 
-## âš ï¸ Breaking Changes
+##      Breaking Changes
 None
 
 ## ðŸ“Š Performance
-- Average page load: 1.8s (â†“ from 2.1s)
-- API p95 latency: 450ms (â†“ from 520ms)
+- Average page load: 1.8s (  †“ from 2.1s)
+- API p95 latency: 450ms (  †“ from 520ms)
 
 ## ðŸ“š Documentation
 - [Barcode Scanner Guide](https://docs.zerpai.com/barcode)

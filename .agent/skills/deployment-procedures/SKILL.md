@@ -11,7 +11,7 @@ allowed-tools: Read, Glob, Grep, Bash
 
 ---
 
-## âš ï¸ How to Use This Skill
+##      How to Use This Skill
 
 This skill teaches **deployment principles**, not bash scripts to copy.
 
@@ -27,19 +27,19 @@ This skill teaches **deployment principles**, not bash scripts to copy.
 
 ```
 What are you deploying?
-â”‚
-â”œâ”€â”€ Static site / JAMstack
-â”‚   â””â”€â”€ Railway/Cloudflare Pages, Netlify, Cloudflare Pages
-â”‚
-â”œâ”€â”€ Simple web app
-â”‚   â”œâ”€â”€ Managed â†’ Railway, Render, Fly.io
-â”‚   â””â”€â”€ Control â†’ VPS + PM2/Docker
-â”‚
-â”œâ”€â”€ Microservices
-â”‚   â””â”€â”€ Container orchestration
-â”‚
-â””â”€â”€ Serverless
-    â””â”€â”€ Edge functions, Lambda
+  ‚
+             Static site / JAMstack
+  ‚     ”         Railway/Cloudflare Pages, Netlify, Cloudflare Pages
+  ‚
+             Simple web app
+  ‚                Managed   †’ Railway, Render, Fly.io
+  ‚     ”         Control   †’ VPS + PM2/Docker
+  ‚
+             Microservices
+  ‚     ”         Container orchestration
+  ‚
+  ”         Serverless
+      ”         Edge functions, Lambda
 ```
 
 ### Each Platform Has Different Procedures
@@ -84,19 +84,19 @@ What are you deploying?
 
 ```
 1. PREPARE
-   â””â”€â”€ Verify code, build, env vars
+     ”         Verify code, build, env vars
 
 2. BACKUP
-   â””â”€â”€ Save current state before changing
+     ”         Save current state before changing
 
 3. DEPLOY
-   â””â”€â”€ Execute with monitoring open
+     ”         Execute with monitoring open
 
 4. VERIFY
-   â””â”€â”€ Health check, logs, key flows
+     ”         Health check, logs, key flows
 
 5. CONFIRM or ROLLBACK
-   â””â”€â”€ All good? Confirm. Issues? Rollback.
+     ”         All good? Confirm. Issues? Rollback.
 ```
 
 ### Phase Principles
@@ -203,7 +203,7 @@ What are you deploying?
 
 ## 8. Anti-Patterns
 
-| âŒ Don't | âœ… Do |
+|      Don't |      Do |
 |----------|-------|
 | Deploy on Friday | Deploy early in week |
 | Rush deployment | Follow the process |

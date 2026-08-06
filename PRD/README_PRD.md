@@ -1,6 +1,6 @@
 ﻿# ðŸ“š Zerpai ERP Documentation Index
 
-## âš ï¸ PRD Edit Policy
+##      PRD Edit Policy
 
 Do not edit PRD files unless explicitly requested by the user or team head.
 
@@ -12,7 +12,7 @@ No authentication setup is allowed until production. The application must run wi
 
 ---
 
-## âš¡ **QUICK START**
+##   š¡ **QUICK START**
 
 ### ðŸ”´ **Starting Development? Read This First:**
 
@@ -28,7 +28,7 @@ No authentication setup is allowed until production. The application must run wi
 
 ### **Core Product Requirements**
 
-#### 1. **`PRD.md`** â­ **START HERE**
+#### 1. **`PRD.md`**   ­ **START HERE**
 
 - **Complete PRD (25 sections, ~1,800 lines)**
 - Architecture, tech stack, workflows
@@ -119,7 +119,7 @@ These are extracted from the comprehensive PRD for focused operational use:
 
 ---
 
-#### 10. **`prd_keyboard_shortcuts.md`** âŒ¨ï¸ **SHORTCUT REFERENCE**
+#### 10. **`prd_keyboard_shortcuts.md`**     ¨ï¸ **SHORTCUT REFERENCE**
 - Centralized list of all power-user shortcuts
 - Implementation details (ShortcutHandler, isDirty tracking)
 - Tooltip and visual hint standards
@@ -195,7 +195,7 @@ These **cannot** be changed without major discussion:
 4. **Hive** for offline data - Section 7.1
 5. **File Naming/Placement:** `snake_case` owner-based module files with live `presentation/pages/` usage - Section 15
 6. **UI System Compliance:** Strictly via `app_theme.dart` - Section 14
-7. **Git Workflow:** `feat/*`, `fix/*` â†’ `dev` â†’ `main` - Section 14.4
+7. **Git Workflow:** `feat/*`, `fix/*`   †’ `dev`   †’ `main` - Section 14.4
 8. **Testing:** 70% coverage minimum - Section 17.2
 9. **Latest Stable Dependencies Only** - Section 7.1
 10. **DB Options/Master Table Naming:** `<module_name>_<options_descriptor>` for all new lookup tables - Section 12.1
@@ -230,7 +230,7 @@ All PRD documents are version-controlled in Git. Check commit history for change
 
 ---
 
-## ðŸš€ Getting Started Checklist
+## ðŸš   Getting Started Checklist
 
 **New to the project? Start here:**
 

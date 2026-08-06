@@ -25,23 +25,23 @@ Streamlined structure thanks to Tailwind v4 (theme configuration lives inside CS
 
 ```
 project-name/
-â”œâ”€â”€ src/
-â”‚   â”œâ”€â”€ app/
-â”‚   â”‚   â”œâ”€â”€ layout.tsx    # Contains root SEO Metadata
-â”‚   â”‚   â”œâ”€â”€ page.tsx      # Landing Page
-â”‚   â”‚   â”œâ”€â”€ globals.css   # Import Tailwind v4 & @theme config
-â”‚   â”‚   â”œâ”€â”€ not-found.tsx # Custom 404 page
-â”‚   â”‚   â””â”€â”€ (routes)/     # Route groups (about, contact...)
-â”‚   â”œâ”€â”€ components/
-â”‚   â”‚   â”œâ”€â”€ layout/       # Header, Footer
-â”‚   â”‚   â”œâ”€â”€ sections/     # Hero, Features, Pricing, CTA
-â”‚   â”‚   â””â”€â”€ ui/           # Atomic components (Button, Card)
-â”‚   â””â”€â”€ lib/
-â”‚       â””â”€â”€ utils.ts      # Helper functions (cn, formatters)
-â”œâ”€â”€ content/              # Markdown/MDX content
-â”œâ”€â”€ public/               # Static assets (images, fonts)
-â”œâ”€â”€ next.config.ts        # Next.js Config (TypeScript)
-â””â”€â”€ package.json
+             src/
+  ‚                app/
+  ‚     ‚                layout.tsx    # Contains root SEO Metadata
+  ‚     ‚                page.tsx      # Landing Page
+  ‚     ‚                globals.css   # Import Tailwind v4 & @theme config
+  ‚     ‚                not-found.tsx # Custom 404 page
+  ‚     ‚     ”         (routes)/     # Route groups (about, contact...)
+  ‚                components/
+  ‚     ‚                layout/       # Header, Footer
+  ‚     ‚                sections/     # Hero, Features, Pricing, CTA
+  ‚     ‚     ”         ui/           # Atomic components (Button, Card)
+  ‚     ”         lib/
+  ‚         ”         utils.ts      # Helper functions (cn, formatters)
+             content/              # Markdown/MDX content
+             public/               # Static assets (images, fonts)
+             next.config.ts        # Next.js Config (TypeScript)
+  ”         package.json
 ```
 
 ---

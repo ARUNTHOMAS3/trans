@@ -20,7 +20,7 @@ This section contains **7 rules** focused on server-side performance.
 
 **Impact: CRITICAL (prevents unauthorized access to server mutations)**
 
-Server Actions (functions with `"use server"`) are exposed as public endpoints, just like API routes. Always verify authentication and authorization **inside** each Server Actionâ€”do not rely solely on middleware, layout guards, or page-level checks, as Server Actions can be invoked directly.
+Server Actions (functions with `"use server"`) are exposed as public endpoints, just like API routes. Always verify authentication and authorization **inside** each Server Action    ”do not rely solely on middleware, layout guards, or page-level checks, as Server Actions can be invoked directly.
 
 Next.js documentation explicitly states: "Treat Server Actions with the same security considerations as public-facing API endpoints, and verify if the user is allowed to perform a mutation."
 
@@ -117,7 +117,7 @@ Reference: [https://nextjs.org/docs/app/guides/authentication](https://nextjs.or
 
 **Impact: LOW (reduces network payload by avoiding duplicate serialization)**
 
-RSCâ†’client serialization deduplicates by object reference, not value. Same reference = serialized once; new reference = serialized again. Do transformations (`.toSorted()`, `.filter()`, `.map()`) in client, not server.
+RSC  †’client serialization deduplicates by object reference, not value. Same reference = serialized once; new reference = serialized again. Do transformations (`.toSorted()`, `.filter()`, `.map()`) in client, not server.
 
 **Incorrect (duplicates array):**
 
@@ -160,11 +160,11 @@ users={[{id:1},{id:2}]} sorted={users.toSorted()} // sends 2 arrays + 2 unique o
 **More examples:**
 
 ```tsx
-// âŒ Bad
+//      Bad
 <C users={users} active={users.filter(u => u.active)} />
 <C product={product} productName={product.name} />
 
-// âœ… Good
+//      Good
 <C users={users} />
 <C product={product} />
 // Do filtering/destructuring in client

@@ -143,7 +143,7 @@ Reviewers verify:
 - File placement matches the decision tree.
 - Modules follow internal structure (models, providers, repositories, presentation).
 - No PascalCase or kebab-case filenames.
-- Imports are organized (core â†’ shared â†’ modules).
+- Imports are organized (core   †’ shared   †’ modules).
 - Mirrored test structure exists.
 
 **Section sources**
@@ -219,7 +219,7 @@ NPM --> Jest["jest"]
 - [backend/TESTING.md](file://backend/TESTING.md#L220-L246)
 
 ## Conclusion
-By following this guideâ€”using the correct branches, adhering to folder and naming conventions, running local QA checks, and engaging respectfullyâ€”you help maintain a high-quality, scalable codebase for ZerpAI ERP.
+By following this guide    ”using the correct branches, adhering to folder and naming conventions, running local QA checks, and engaging respectfully    ”you help maintain a high-quality, scalable codebase for ZerpAI ERP.
 
 ## Appendices
 

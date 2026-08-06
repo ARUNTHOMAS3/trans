@@ -1,7 +1,7 @@
 ﻿# Monitoring & Observability PRD
 **Last Updated: 2026-04-20 12:46:08**
 
-## âš ï¸ PRD Edit Policy
+##      PRD Edit Policy
 Do not edit PRD files unless explicitly requested by the user or team head.
 ## ðŸ”’ Auth Policy (Pre-Production)
 No authentication setup is allowed until production. The application must run without enforced login/RBAC/JWT in dev and staging. Auth UI may exist but must not be wired into routing until production approval.
@@ -45,7 +45,7 @@ No authentication setup is allowed until production. The application must run wi
 - **Invoices Created** per day
 - **POS Transactions** per day
 - **Revenue Processed**
-- **Sync Errors** (offlineâ†’online)
+- **Sync Errors** (offline  †’online)
 
 ---
 
@@ -139,7 +139,7 @@ No authentication setup is allowed until production. The application must run wi
 
 ## 7. Incident Response
 
-**Severity:** P0 (Critical) â†’ P3 (Low)
+**Severity:** P0 (Critical)   †’ P3 (Low)
 
 **Response Times:**
 - P0: Immediate

@@ -13,7 +13,8 @@ import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/providers/purchases_purchase_returns_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_overview.dart';
+import 'package:zerpai_erp/modules/sales/controllers/sales_order_controller.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/providers/pricelist_provider.dart';
@@ -29,7 +30,7 @@ import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:file_picker/file_picker.dart';
 
-// â”€â”€ Line item model â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//          Line item model
 
 class _PRLineItem {
   Item? sourceItem;
@@ -72,7 +73,7 @@ class _PRLineItem {
   }
 }
 
-// â”€â”€ Main page widget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//          Main page widget
 
 class PurchaseReturnsCreatePage extends ConsumerStatefulWidget {
   final String? purchaseReturnId;
@@ -95,7 +96,7 @@ class _PurchaseReturnsCreatePageState
   static const double _rowMaxWidth = 1400.0;
   static const double _vendorFieldWidth = 500.0;
 
-  // â”€â”€ Form state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //          Form state
   Vendor? _selectedVendorObj;
   String? get _selectedVendorName => _selectedVendorObj?.displayName;
 
@@ -169,7 +170,7 @@ class _PurchaseReturnsCreatePageState
     super.dispose();
   }
 
-  // â”€â”€ Item management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //          Item management
 
   void _addItem() => setState(() => _items.add(_PRLineItem()));
 
@@ -223,7 +224,7 @@ class _PurchaseReturnsCreatePageState
     );
   }
 
-  // â”€â”€ Number preference dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //          Number preference dialog
 
   void _showPreferencesDialog() {
     showGeneralDialog(
@@ -257,7 +258,7 @@ class _PurchaseReturnsCreatePageState
     );
   }
 
-  // â”€â”€ Date picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //          Date picker
 
   Future<void> _pickReturnDate() async {
     final date = await ZerpaiDatePicker.show(
@@ -274,7 +275,7 @@ class _PurchaseReturnsCreatePageState
     });
   }
 
-  // â”€â”€ Data loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //          Data loading
 
   Future<void> _fetchNextNumber() async {
     try {
@@ -292,34 +293,98 @@ class _PurchaseReturnsCreatePageState
 
   Future<void> _loadForEdit() async {
     try {
-      final ret = await ref
-          .read(purchaseReturnsRepositoryProvider)
-          .getPurchaseReturn(widget.purchaseReturnId!);
-      if (ret == null || !mounted) return;
+      PurchaseReturn? ret;
+      try {
+        ret = await ref
+            .read(purchaseReturnsRepositoryProvider)
+            .getPurchaseReturn(widget.purchaseReturnId!);
+      } catch (_) {}
 
-      _returnNumberController.text = ret.returnNumber;
-      _purchaseOrderController.text = ret.purchaseOrderNumber ?? '';
-      _purchaseReceiveController.text = ret.purchaseReceiveNumber ?? '';
-      _notesController.text = ret.notes ?? '';
-      _returnDate = ret.returnDate ?? DateTime.now();
+      if (ret != null) {
+        _selectedVendorObj = Vendor(
+          id: ret.vendorId ?? '',
+          displayName: ret.vendorName ?? '',
+          companyName: ret.vendorName ?? '',
+          gstin: '29AABCA9876E1Z2',
+        );
+        _selectedBill = 'B2B/25-26/00098';
+        _selectedSourceOfSupply = '[KA] - Karnataka';
+        _selectedDestinationOfSupply = '[KL] - Kerala';
+        _returnNumberController.text = ret.returnNumber;
+        _purchaseOrderController.text = ret.purchaseOrderNumber ?? '';
+        _purchaseReceiveController.text = ret.purchaseReceiveNumber ?? '';
+        _notesController.text = ret.notes ?? '';
+        _returnDate = ret.returnDate ?? DateTime.now();
+        _returnDateController.text = DateFormat(
+          'dd-MM-yyyy',
+        ).format(_returnDate);
+
+        for (final item in _items) item.dispose();
+        _items.clear();
+
+        for (final item in ret.items) {
+          final line = _PRLineItem();
+          line.sourceItem = Item(
+            id: item.itemId ?? '',
+            type: 'goods',
+            productName: item.itemName,
+            itemCode: 'ITEM-001',
+            unitId: 'unit-1',
+            costPrice: item.rate,
+          );
+          line.orderedQtyController.text = item.orderedQty > 0
+              ? item.orderedQty.toStringAsFixed(0)
+              : '';
+          line.returnQtyController.text = item.returnQty > 0
+              ? item.returnQty.toStringAsFixed(0)
+              : '';
+          line.rateController.text = item.rate > 0
+              ? item.rate.toStringAsFixed(2)
+              : '';
+          line.descriptionController.text = item.description ?? '';
+          line.selectedTax = item.taxRateName;
+          _items.add(line);
+        }
+        if (_items.isEmpty) _addItem();
+        setState(() {});
+        return;
+      }
+
+      final detail = ref.read(
+        purchaseReturnDetailProvider(widget.purchaseReturnId!),
+      );
+      _selectedVendorObj = Vendor(
+        id: 'v-mock',
+        displayName: detail.vendorName,
+        companyName: detail.vendorName,
+        gstin: '29AABCA9876E1Z2',
+      );
+      _returnNumberController.text = detail.returnNumber;
+      _purchaseOrderController.text = detail.purchaseOrderNumber ?? '';
+      _purchaseReceiveController.text = detail.purchaseReceiveNumber ?? '';
+      _selectedBill = detail.billNumber;
+      _selectedSourceOfSupply = detail.sourceOfSupply;
+      _selectedDestinationOfSupply = detail.destinationOfSupply;
+      _returnDate = detail.date;
       _returnDateController.text = DateFormat('dd-MM-yyyy').format(_returnDate);
 
       for (final item in _items) item.dispose();
       _items.clear();
 
-      for (final item in ret.items) {
+      for (final item in detail.items) {
         final line = _PRLineItem();
-        line.orderedQtyController.text = item.orderedQty > 0
-            ? item.orderedQty.toStringAsFixed(0)
-            : '';
-        line.returnQtyController.text = item.returnQty > 0
-            ? item.returnQty.toStringAsFixed(0)
-            : '';
-        line.rateController.text = item.rate > 0
-            ? item.rate.toStringAsFixed(2)
-            : '';
-        line.descriptionController.text = item.description ?? '';
-        line.selectedTax = item.taxRateName;
+        line.sourceItem = Item(
+          id: 'item-mock-${item.name}',
+          type: 'goods',
+          productName: item.name,
+          itemCode: 'ITEM-001',
+          unitId: 'unit-1',
+          costPrice: item.rate,
+        );
+        line.returnQtyController.text = item.returnQty.toStringAsFixed(0);
+        line.rateController.text = item.rate.toStringAsFixed(2);
+        line.descriptionController.text = item.description;
+        line.selectedTax = item.taxRate;
         _items.add(line);
       }
       if (_items.isEmpty) _addItem();
@@ -332,7 +397,7 @@ class _PurchaseReturnsCreatePageState
     }
   }
 
-  // â”€â”€ Calculations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //          Calculations
 
   double _parseMoney(String value) =>
       double.tryParse(value.trim().replaceAll(',', '')) ?? 0;
@@ -352,7 +417,7 @@ class _PurchaseReturnsCreatePageState
   double get _adjustmentAmount => _parseMoney(_adjustmentController.text);
   double get _grandTotal => _subTotal + _adjustmentAmount;
 
-  // â”€â”€ Save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //          Save
 
   Future<void> _save({bool draft = true}) async {
     final validItems = _items
@@ -429,7 +494,7 @@ class _PurchaseReturnsCreatePageState
     }
   }
 
-  // â”€â”€ Build â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //          Build
 
   @override
   Widget build(BuildContext context) {
@@ -450,27 +515,125 @@ class _PurchaseReturnsCreatePageState
         useHorizontalPadding: true,
         footer: Container(
           width: double.infinity,
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: BorderSide(color: AppTheme.borderLight),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
           child: _MaxWidthContainer(
             maxWidth: _rowMaxWidth,
             child: Row(
               children: [
-                ZButton.primary(
-                  label: _saving ? 'Savingâ€¦' : 'Save as Draft',
-                  onPressed: _saving ? null : () => _save(draft: true),
+                SizedBox(
+                  height: 32,
+                  child: OutlinedButton(
+                    onPressed: _saving ? null : () => _save(draft: true),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      side: const BorderSide(color: AppTheme.borderLight),
+                      backgroundColor: Colors.white,
+                    ),
+                    child: Text(
+                      _saving ? 'Saving...' : 'Save as Draft',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
-                ZButton.secondary(
-                  label: 'Save and Confirm',
-                  onPressed: _saving ? null : () => _save(draft: false),
+                SizedBox(
+                  height: 32,
+                  child: ElevatedButton(
+                    onPressed: _saving ? null : () => _save(draft: false),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    child: const Text(
+                      'Save and Confirm',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
-                ZButton.secondary(
-                  label: 'Cancel',
-                  onPressed: () => context.canPop()
-                      ? context.pop()
-                      : context.go(AppRoutes.purchaseReturns),
+                SizedBox(
+                  height: 32,
+                  child: OutlinedButton(
+                    onPressed: () => context.canPop()
+                        ? context.pop()
+                        : context.go(AppRoutes.purchaseReturns),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      side: const BorderSide(color: AppTheme.borderLight),
+                      backgroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    const Icon(
+                      LucideIcons.checkCircle2,
+                      size: 14,
+                      color: Color(0xFF10B981),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Inventory Tracking',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '|  PDF Template: \'Standard Template\'',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: () {},
+                      child: const Text(
+                        'Change',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.primaryBlue,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -482,16 +645,16 @@ class _PurchaseReturnsCreatePageState
           child: _MaxWidthContainer(
             maxWidth: _rowMaxWidth,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 24),
 
-                // â”€â”€ Vendor header band â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //          Vendor header band
                 _HeaderBackgroundBand(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         // Vendor Name
                         _CompactFormRow(
@@ -503,89 +666,107 @@ class _PurchaseReturnsCreatePageState
                             children: [
                               SizedBox(
                                 width: _vendorFieldWidth,
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: FormDropdown<Vendor>(
-                                        value: _selectedVendorObj,
-                                        items: vendors,
-                                        isLoading: vendorIsLoading,
-                                        displayStringForValue: (v) =>
-                                            v.displayName,
-                                        searchStringForValue: (v) =>
-                                            '${v.displayName} ${v.gstin ?? ''}',
-                                        hint: 'Select or type a vendor',
+                                child: widget.isEdit
+                                    ? CustomTextField(
+                                        controller: TextEditingController(
+                                          text: _selectedVendorName ?? '',
+                                        ),
                                         height: _fieldHeight,
-                                        menuMaxHeight: 320,
-                                        showRightBorder: false,
-                                        borderRadius: const BorderRadius.only(
-                                          topLeft: Radius.circular(4),
-                                          bottomLeft: Radius.circular(4),
-                                        ),
-                                        allowClear: true,
-                                        onChanged: (val) => setState(() {
-                                          _selectedVendorObj = val;
-                                          if (val == null) {
-                                            _selectedSourceOfSupply = null;
-                                            _selectedDestinationOfSupply = null;
-                                            _selectedBill = null;
-                                          }
-                                        }),
+                                        readOnly: true,
+                                        enabled: false,
+                                      )
+                                    : Row(
+                                        children: [
+                                          Expanded(
+                                            child: FormDropdown<Vendor>(
+                                              value: _selectedVendorObj,
+                                              items: vendors,
+                                              isLoading: vendorIsLoading,
+                                              displayStringForValue: (v) =>
+                                                  v.displayName,
+                                              searchStringForValue: (v) =>
+                                                  '${v.displayName} ${v.gstin ?? ''}',
+                                              hint: 'Select or type a vendor',
+                                              height: _fieldHeight,
+                                              menuMaxHeight: 320,
+                                              showRightBorder: false,
+                                              borderRadius:
+                                                  const BorderRadius.only(
+                                                    topLeft: Radius.circular(4),
+                                                    bottomLeft: Radius.circular(
+                                                      4,
+                                                    ),
+                                                  ),
+                                              allowClear: true,
+                                              onChanged: (val) => setState(() {
+                                                _selectedVendorObj = val;
+                                                if (val == null) {
+                                                  _selectedSourceOfSupply =
+                                                      null;
+                                                  _selectedDestinationOfSupply =
+                                                      null;
+                                                  _selectedBill = null;
+                                                }
+                                              }),
+                                            ),
+                                          ),
+                                          Container(
+                                            width: _fieldHeight,
+                                            height: _fieldHeight,
+                                            decoration: const BoxDecoration(
+                                              color: AppTheme.successGreen,
+                                              borderRadius: BorderRadius.only(
+                                                topRight: Radius.circular(4),
+                                                bottomRight: Radius.circular(4),
+                                              ),
+                                            ),
+                                            child: IconButton(
+                                              padding: EdgeInsets.zero,
+                                              icon: const Icon(
+                                                LucideIcons.search,
+                                                size: 16,
+                                                color: Colors.white,
+                                              ),
+                                              onPressed: () async {
+                                                final allCustomers =
+                                                    ref
+                                                        .read(
+                                                          salesCustomersProvider,
+                                                        )
+                                                        .valueOrNull ??
+                                                    [];
+                                                final result =
+                                                    await AdvancedCustomerSearchModal.show(
+                                                      context,
+                                                      customers: allCustomers,
+                                                    );
+                                                if (result != null && mounted) {
+                                                  final matched = allCustomers
+                                                      .firstWhere(
+                                                        (c) =>
+                                                            c.displayName ==
+                                                            result,
+                                                        orElse: () =>
+                                                            allCustomers.first,
+                                                      );
+                                                  setState(() {
+                                                    _selectedVendorObj = Vendor(
+                                                      id: matched.id,
+                                                      displayName:
+                                                          matched.displayName,
+                                                    );
+                                                    _selectedSourceOfSupply =
+                                                        null;
+                                                    _selectedDestinationOfSupply =
+                                                        null;
+                                                    _selectedBill = null;
+                                                  });
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                    Container(
-                                      width: _fieldHeight,
-                                      height: _fieldHeight,
-                                      decoration: const BoxDecoration(
-                                        color: AppTheme.successGreen,
-                                        borderRadius: BorderRadius.only(
-                                          topRight: Radius.circular(4),
-                                          bottomRight: Radius.circular(4),
-                                        ),
-                                      ),
-                                      child: IconButton(
-                                        padding: EdgeInsets.zero,
-                                        icon: const Icon(
-                                          LucideIcons.search,
-                                          size: 16,
-                                          color: Colors.white,
-                                        ),
-                                        onPressed: () async {
-                                          final allCustomers =
-                                              ref
-                                                  .read(salesCustomersProvider)
-                                                  .valueOrNull ??
-                                              [];
-                                          final result =
-                                              await AdvancedCustomerSearchModal.show(
-                                                context,
-                                                customers: allCustomers,
-                                              );
-                                          if (result != null && mounted) {
-                                            final matched = allCustomers
-                                                .firstWhere(
-                                                  (c) =>
-                                                      c.displayName == result,
-                                                  orElse: () =>
-                                                      allCustomers.first,
-                                                );
-                                            setState(() {
-                                              _selectedVendorObj = Vendor(
-                                                id: matched.id,
-                                                displayName:
-                                                    matched.displayName,
-                                              );
-                                              _selectedSourceOfSupply = null;
-                                              _selectedDestinationOfSupply =
-                                                  null;
-                                              _selectedBill = null;
-                                            });
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
                               ),
                               if (_selectedVendorName != null) ...[
                                 const SizedBox(width: 12),
@@ -609,6 +790,7 @@ class _PurchaseReturnsCreatePageState
                             fieldWidth: 330,
                             child: FormDropdown<String>(
                               value: _selectedSourceOfSupply,
+                              enabled: !widget.isEdit,
                               items: const [
                                 '[KL] - Kerala',
                                 '[TN] - Tamil Nadu',
@@ -618,8 +800,10 @@ class _PurchaseReturnsCreatePageState
                               ],
                               hint: 'Select source of supply',
                               height: _fieldHeight,
-                              onChanged: (v) =>
-                                  setState(() => _selectedSourceOfSupply = v),
+                              onChanged: widget.isEdit
+                                  ? (_) {}
+                                  : (v) =>
+                                      setState(() => _selectedSourceOfSupply = v),
                             ),
                           ),
                           // Destination of Supply
@@ -630,6 +814,7 @@ class _PurchaseReturnsCreatePageState
                             fieldWidth: 330,
                             child: FormDropdown<String>(
                               value: _selectedDestinationOfSupply,
+                              enabled: !widget.isEdit,
                               items: const [
                                 '[KL] - Kerala',
                                 '[TN] - Tamil Nadu',
@@ -639,9 +824,11 @@ class _PurchaseReturnsCreatePageState
                               ],
                               hint: 'Select destination of supply',
                               height: _fieldHeight,
-                              onChanged: (v) => setState(
-                                () => _selectedDestinationOfSupply = v,
-                              ),
+                              onChanged: widget.isEdit
+                                  ? (_) {}
+                                  : (v) => setState(
+                                      () => _selectedDestinationOfSupply = v,
+                                    ),
                             ),
                           ),
                           // Bill#
@@ -654,17 +841,26 @@ class _PurchaseReturnsCreatePageState
                               children: [
                                 FormDropdown<String>(
                                   value: _selectedBill,
-                                  items: const ['BILL-001', 'BILL-002'],
+                                  enabled: !widget.isEdit,
+                                  items: const [
+                                    'BILL-001',
+                                    'BILL-002',
+                                    'B2B/25-26/00089',
+                                    'B2B/25-26/00098',
+                                    'B2B/25-26/00101',
+                                  ],
                                   hint: 'Select linked bill',
                                   height: _fieldHeight,
-                                  allowClear: true,
-                                  onChanged: (v) =>
-                                      setState(() => _selectedBill = v),
+                                  allowClear: !widget.isEdit,
+                                  onChanged: widget.isEdit
+                                      ? (_) {}
+                                      : (v) =>
+                                          setState(() => _selectedBill = v),
                                 ),
                                 if (_selectedBill != null) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Bill Date: â€”',
+                                    'Bill Date: ${DateFormat('dd-MM-yyyy').format(_returnDate)}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: AppTheme.textSecondary,
@@ -682,7 +878,7 @@ class _PurchaseReturnsCreatePageState
 
                 const SizedBox(height: 16),
 
-                // â”€â”€ Purchase Return# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //          Purchase Return#
                 _CompactFormRow(
                   label: 'Purchase Return#',
                   required: true,
@@ -725,7 +921,7 @@ class _PurchaseReturnsCreatePageState
                   ),
                 ),
 
-                // â”€â”€ Purchase Order# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // Purchase Order#
                 _CompactFormRow(
                   label: 'Purchase Order#',
                   fieldWidth: 330,
@@ -736,7 +932,7 @@ class _PurchaseReturnsCreatePageState
                   ),
                 ),
 
-                // â”€â”€ Purchase Receive# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // Purchase Receive#
                 _CompactFormRow(
                   label: 'Receive#',
                   fieldWidth: 330,
@@ -747,7 +943,7 @@ class _PurchaseReturnsCreatePageState
                   ),
                 ),
 
-                // â”€â”€ Purchase Return Date â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                // Purchase Return Date
                 _CompactFormRow(
                   label: 'Purchase Return Date',
                   fieldWidth: 330,
@@ -765,7 +961,7 @@ class _PurchaseReturnsCreatePageState
                   ),
                 ),
 
-                // â”€â”€ Reason for Return â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //          Reason for Return
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(
@@ -797,7 +993,7 @@ class _PurchaseReturnsCreatePageState
                         child: CustomTextField(
                           controller: _reasonController,
                           hintText:
-                              'e.g. Damaged goods, wrong items delivered, quality issueâ€¦',
+                              'e.g. Damaged goods, wrong items delivered, quality issue    ¦',
                           height: _fieldHeight,
                         ),
                       ),
@@ -805,7 +1001,7 @@ class _PurchaseReturnsCreatePageState
                   ),
                 ),
 
-                // â”€â”€ Reverse charge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //          Reverse charge
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Row(
@@ -839,7 +1035,7 @@ class _PurchaseReturnsCreatePageState
 
                 const SizedBox(height: 32),
 
-                // â”€â”€ Item table toolbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //          Item table toolbar
                 _PRItemTableToolbar(
                   warehouseLocation: _warehouseLocation,
                   onWarehouseChanged: (v) =>
@@ -848,16 +1044,17 @@ class _PurchaseReturnsCreatePageState
                   onDiscountTypeChanged: (v) =>
                       setState(() => _discountType = v),
                   selectedPriceList: _selectedPriceList,
-                  priceListOptions: ref.watch(activePriceListsProvider),
+                  priceListOptions:
+                      ref.watch(realPriceListsProvider).valueOrNull ?? [],
                   priceListsLoading: ref
-                      .watch(priceListNotifierProvider)
+                      .watch(realPriceListsProvider)
                       .isLoading,
                   onPriceListChanged: (v) =>
                       setState(() => _selectedPriceList = v),
                 ),
                 const SizedBox(height: 16),
 
-                // â”€â”€ Items grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //          Items grid
                 _PRItemsGrid(
                   items: _items,
                   availableProducts: ref.watch(itemsControllerProvider).items,
@@ -875,7 +1072,7 @@ class _PurchaseReturnsCreatePageState
 
                 const SizedBox(height: 32),
 
-                // â”€â”€ Totals panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //          Totals panel
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -888,7 +1085,7 @@ class _PurchaseReturnsCreatePageState
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             // Sub Total
                             Padding(
@@ -986,7 +1183,7 @@ class _PurchaseReturnsCreatePageState
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
-                                    'Total (â‚¹)',
+                                    'Total (  ‚¹)',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -1013,7 +1210,7 @@ class _PurchaseReturnsCreatePageState
 
                 const SizedBox(height: 32),
 
-                // â”€â”€ Notes + Attach Files â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //Notes + Attach Files
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: const BoxDecoration(color: AppTheme.bgLight),
@@ -1125,7 +1322,7 @@ class _PurchaseReturnsCreatePageState
                 const Divider(height: 1, color: AppTheme.borderLight),
                 const SizedBox(height: 24),
 
-                // â”€â”€ Additional Fields note â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                //          Additional Fields note
                 RichText(
                   text: const TextSpan(
                     style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
@@ -1142,12 +1339,12 @@ class _PurchaseReturnsCreatePageState
                         text: 'Settings',
                         style: TextStyle(fontStyle: FontStyle.italic),
                       ),
-                      TextSpan(text: ' â†’ '),
+                      TextSpan(text: '   †’ '),
                       TextSpan(
                         text: 'Purchases',
                         style: TextStyle(fontStyle: FontStyle.italic),
                       ),
-                      TextSpan(text: ' â†’ '),
+                      TextSpan(text: '   †’ '),
                       TextSpan(
                         text: 'Purchase Returns',
                         style: TextStyle(fontStyle: FontStyle.italic),
@@ -1167,7 +1364,7 @@ class _PurchaseReturnsCreatePageState
   }
 }
 
-// â”€â”€ Currency badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//          Currency badge
 
 class _PRCurrencyBadge extends StatelessWidget {
   const _PRCurrencyBadge();
@@ -1205,7 +1402,7 @@ class _PRCurrencyBadge extends StatelessWidget {
   }
 }
 
-// â”€â”€ Vendor address panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//          Vendor address panel
 
 class _PRVendorAddressPanel extends StatefulWidget {
   final Vendor vendor;
@@ -1282,8 +1479,7 @@ class _PRVendorAddressPanelState extends State<_PRVendorAddressPanel> {
   }
 }
 
-// â”€â”€ Preferences dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
+// Preferences dialog
 class _PRPreferencesDialog extends StatefulWidget {
   final String prefix;
   final String nextNumber;
@@ -1410,7 +1606,7 @@ class _PRPreferencesDialogState extends State<_PRPreferencesDialog> {
   }
 }
 
-// â”€â”€ Item table toolbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Item table toolbar
 
 class _PRItemTableToolbar extends ConsumerWidget {
   final String warehouseLocation;
@@ -1573,7 +1769,7 @@ class _DottedUnderlinePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// â”€â”€ Items grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Items grid
 
 class _PRItemsGrid extends StatefulWidget {
   final List<_PRLineItem> items;
@@ -1614,6 +1810,96 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
   bool _isBulkUpdateActive = false;
   bool _areAdditionalInfosHidden = false;
   int? _hoveredItemActionIndex;
+  final TextEditingController _itemDetailsSearchCtrl = TextEditingController();
+  bool _showSearchItemDetails = false;
+  // ignore: unused_field
+  String _itemDetailsSearchQuery = '';
+
+  @override
+  void dispose() {
+    _itemDetailsSearchCtrl.dispose();
+    super.dispose();
+  }
+
+  Widget _buildHeaderSearchField({
+    required String label,
+    required TextEditingController controller,
+    required String hintText,
+    required ValueChanged<String> onChanged,
+    required bool isSearchVisible,
+    required VoidCallback onToggle,
+    TextAlign textAlign = TextAlign.start,
+  }) {
+    if (!isSearchVisible) {
+      return Row(
+        mainAxisAlignment: textAlign == TextAlign.center
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TH(label),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: onToggle,
+            child: const Icon(
+              LucideIcons.search,
+              size: 13,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: AppTheme.borderLight),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.search, size: 12, color: AppTheme.textMuted),
+          const SizedBox(width: 6),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              autofocus: true,
+              style: const TextStyle(fontSize: 11, color: AppTheme.textPrimary),
+              textAlign: textAlign,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: hintText,
+                hintStyle: const TextStyle(
+                  fontSize: 10,
+                  color: AppTheme.textMuted,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              controller.clear();
+              onChanged('');
+              onToggle();
+            },
+            child: const Icon(
+              LucideIcons.x,
+              size: 12,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildHeaderActionButton() {
     return Container(
@@ -1820,7 +2106,7 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Table header bar
         Container(
@@ -1950,112 +2236,141 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
         Container(
           margin: const EdgeInsets.only(right: _rowActionsWidth),
           decoration: const BoxDecoration(
-            color: AppTheme.backgroundColor,
+            color: Colors.white,
             border: Border(
+              top: BorderSide(color: AppTheme.borderLight),
               left: BorderSide(color: AppTheme.borderLight),
               right: BorderSide(color: AppTheme.borderLight),
               bottom: BorderSide(color: AppTheme.borderLight),
             ),
           ),
-          child: Row(
-            children: [
-              const SizedBox(width: 40),
-              const Expanded(
-                flex: 14,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: _TH('ITEM DETAILS'),
-                ),
-              ),
-              _vLine(),
-              const Expanded(
-                flex: 4,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: _TH('ORDERED QTY', right: true),
-                ),
-              ),
-              _vLine(),
-              const Expanded(
-                flex: 4,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: _TH('RETURN QTY', right: true),
-                ),
-              ),
-              _vLine(),
-              Expanded(
-                flex: 4,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      const _TH('RATE'),
-                      const SizedBox(width: 4),
-                      Icon(
-                        LucideIcons.layoutGrid,
-                        size: 14,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ],
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(width: 40),
+                _vLine(),
+                Expanded(
+                  flex: 14,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: _buildHeaderSearchField(
+                      label: 'ITEM DETAILS',
+                      controller: _itemDetailsSearchCtrl,
+                      hintText: 'Search items...',
+                      onChanged: (val) {
+                        setState(() => _itemDetailsSearchQuery = val);
+                      },
+                      isSearchVisible: _showSearchItemDetails,
+                      onToggle: () {
+                        setState(() {
+                          _showSearchItemDetails = !_showSearchItemDetails;
+                          if (!_showSearchItemDetails) {
+                            _itemDetailsSearchCtrl.clear();
+                            _itemDetailsSearchQuery = '';
+                          }
+                        });
+                      },
+                    ),
                   ),
                 ),
-              ),
-              _vLine(),
-              Expanded(
-                flex: 4,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
+                _vLine(),
+                const Expanded(
+                  flex: 4,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: _TH('ORDERED QTY', right: true),
                   ),
-                  child: widget.isReverseCharge
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Text(
-                              'TAX',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textSecondary,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            Text(
-                              '(REVERSE CHARGE)',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.primaryBlue,
-                                letterSpacing: 0.3,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        )
-                      : const _TH(
-                          'TAX',
-                          tooltip:
-                              'Applicable tax for the items. You can select a tax rate from the list.',
+                ),
+                _vLine(),
+                const Expanded(
+                  flex: 4,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: _TH('RETURN QTY', right: true),
+                  ),
+                ),
+                _vLine(),
+                Expanded(
+                  flex: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: const [
+                        _TH('RATE'),
+                        SizedBox(width: 4),
+                        ZTooltip(
+                          message:
+                              'You can perform basic calculations directly in this field using parentheses ( ) and arithmetic operators: + - / *',
+                          child: Icon(
+                            LucideIcons.calculator,
+                            size: 14,
+                            color: AppTheme.primaryBlue,
+                          ),
                         ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              _vLine(),
-              const Expanded(
-                flex: 4,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: _TH('AMOUNT', right: true),
+                _vLine(),
+                Expanded(
+                  flex: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: widget.isReverseCharge
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Text(
+                                'TAX',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textSecondary,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              Text(
+                                '(REVERSE CHARGE)',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.primaryBlue,
+                                  letterSpacing: 0.3,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          )
+                        : const _TH(
+                            'TAX',
+                            tooltip:
+                                'Applicable tax for the items. You can select a tax rate from the list.',
+                          ),
+                  ),
                 ),
-              ),
-            ],
+                _vLine(),
+                const Expanded(
+                  flex: 4,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    child: _TH('AMOUNT', right: true),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         // Item rows
@@ -2071,7 +2386,7 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
                 setState(() => _hoveredItemActionIndex = null);
             },
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Container(
@@ -2159,7 +2474,7 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
   }
 }
 
-// â”€â”€ Item row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ────────────────────────────────────────────────────────────────────────────────
 
 class _PRItemRow extends StatefulWidget {
   final _PRLineItem item;
@@ -2209,355 +2524,358 @@ class _PRItemRowState extends State<_PRItemRow> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Grip handle
-        const SizedBox(
-          width: 40,
-          child: Padding(
-            padding: EdgeInsets.only(top: 14),
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Icon(
-                LucideIcons.gripVertical,
-                size: 16,
-                color: AppTheme.borderLight,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Grip handle
+          const SizedBox(
+            width: 40,
+            child: Padding(
+              padding: EdgeInsets.only(top: 14),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Icon(
+                  LucideIcons.gripVertical,
+                  size: 16,
+                  color: AppTheme.borderLight,
+                ),
               ),
             ),
           ),
-        ),
-        // ITEM DETAILS
-        Expanded(
-          flex: 14,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppTheme.bgDisabled,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Icon(
-                        LucideIcons.image,
-                        size: 20,
-                        color: AppTheme.textMuted,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FormDropdown<Item>(
-                        value: item.sourceItem,
-                        items: widget.availableProducts,
-                        hint: 'Type or click to select an item.',
-                        height:
-                            _PurchaseReturnsCreatePageState._tableFieldHeight,
-                        hideBorderDefault: true,
-                        allowClear: true,
-                        displayStringForValue: (p) => p.productName,
-                        searchStringForValue: (p) =>
-                            '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
-                        onSearch: widget.onSearchProducts,
-                        itemBuilder: (product, isSelected, isHovered) =>
-                            _PRProductDropdownItem(
-                              productName: product.productName,
-                              itemCode: product.itemCode,
-                              highlighted: isSelected || isHovered,
-                            ),
-                        onChanged: _onItemSelected,
-                      ),
-                    ),
-                  ],
-                ),
-                if (item.sourceItem != null) ...[
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 48),
-                    child: CustomTextField(
-                      controller: item.descriptionController,
-                      hintText: 'Item description',
-                      height: 32,
-                      hideBorderDefault: true,
-                      maxLines: 2,
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 48),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.selectionActiveBg,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            item.sourceItem!.type.toUpperCase() == 'SERVICE'
-                                ? 'SERVICE'
-                                : 'GOODS',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.primaryBlue,
-                            ),
-                          ),
+          _vLine(),
+          // ITEM DETAILS
+          Expanded(
+            flex: 14,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppTheme.bgDisabled,
+                          borderRadius: BorderRadius.circular(4),
                         ),
-                        if (item.sourceItem!.hsnCode != null) ...[
-                          const SizedBox(width: 8),
-                          const Text(
-                            'HSN: ',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            item.sourceItem!.hsnCode!,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textPrimary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(
-                            LucideIcons.pencil,
-                            size: 10,
-                            color: AppTheme.primaryBlue,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        _vLine(),
-        // ORDERED QTY
-        Expanded(
-          flex: 4,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: CustomTextField(
-              controller: item.orderedQtyController,
-              height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-              textAlign: TextAlign.right,
-              hintText: '0',
-              hideBorderDefault: true,
-              keyboardType: TextInputType.number,
-              onChanged: (_) => widget.onChanged(),
-            ),
-          ),
-        ),
-        _vLine(),
-        // RETURN QTY
-        Expanded(
-          flex: 4,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: CustomTextField(
-              controller: item.returnQtyController,
-              height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-              textAlign: TextAlign.right,
-              hintText: '0',
-              hideBorderDefault: true,
-              keyboardType: TextInputType.number,
-              onChanged: (_) {
-                setState(() {});
-                widget.onChanged();
-              },
-            ),
-          ),
-        ),
-        _vLine(),
-        // RATE
-        Expanded(
-          flex: 4,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                CustomTextField(
-                  controller: item.rateController,
-                  height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                  textAlign: TextAlign.right,
-                  hintText: '0.00',
-                  hideBorderDefault: true,
-                  keyboardType: TextInputType.number,
-                  onChanged: (_) {
-                    setState(() {});
-                    widget.onChanged();
-                  },
-                ),
-                if (item.sourceItem != null) ...[
-                  const SizedBox(height: 4),
-                  InkWell(
-                    onTap: () {},
-                    child: const Text(
-                      'Recent Transactions',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppTheme.primaryBlue,
-                        decoration: TextDecoration.underline,
+                        child: const Icon(
+                          LucideIcons.image,
+                          size: 20,
+                          color: AppTheme.textMuted,
+                        ),
                       ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        _vLine(),
-        // TAX
-        Expanded(
-          flex: 4,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FormDropdown<_PRTaxOption>(
-                  value: item.selectedTax == null
-                      ? null
-                      : _prTaxOptionItems.firstWhere(
-                          (o) => o.label == item.selectedTax,
-                          orElse: () => _prTaxOptionItems[4],
-                        ),
-                  items: _prTaxOptionItems,
-                  hint: 'Select Tax',
-                  height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                  menuWidth: 360,
-                  hideBorderDefault: true,
-                  allowClear: true,
-                  displayStringForValue: (o) => o.label,
-                  isItemEnabled: (o) => !o.isHeader,
-                  itemBuilder: (option, isSelected, isHovered) {
-                    if (option.isHeader) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        color: AppTheme.bgLight,
-                        width: double.infinity,
-                        child: Text(
-                          option.label,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      );
-                    }
-                    final active = isHovered || isSelected;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      color: isHovered ? AppTheme.primaryBlue : Colors.white,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  option.label,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: isHovered
-                                        ? Colors.white
-                                        : (isSelected
-                                              ? AppTheme.primaryBlue
-                                              : AppTheme.textPrimary),
-                                    fontWeight: active
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
-                                  ),
-                                ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FormDropdown<Item>(
+                          value: item.sourceItem,
+                          items: widget.availableProducts,
+                          hint: 'Type or click to select an item.',
+                          height:
+                              _PurchaseReturnsCreatePageState._tableFieldHeight,
+                          hideBorderDefault: true,
+                          allowClear: true,
+                          displayStringForValue: (p) => p.productName,
+                          searchStringForValue: (p) =>
+                              '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
+                          onSearch: widget.onSearchProducts,
+                          itemBuilder: (product, isSelected, isHovered) =>
+                              _PRProductDropdownItem(
+                                productName: product.productName,
+                                itemCode: product.itemCode,
+                                highlighted: isSelected || isHovered,
                               ),
-                              if (isSelected)
-                                Icon(
-                                  Icons.check,
-                                  size: 16,
-                                  color: isHovered
-                                      ? Colors.white
-                                      : AppTheme.primaryBlue,
-                                ),
-                            ],
+                          onChanged: _onItemSelected,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (item.sourceItem != null) ...[
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 48),
+                      child: CustomTextField(
+                        controller: item.descriptionController,
+                        hintText: 'Item description',
+                        height: 32,
+                        hideBorderDefault: true,
+                        maxLines: 2,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 48),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0088FF),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              item.sourceItem!.type.toUpperCase() == 'SERVICE'
+                                  ? 'SERVICE'
+                                  : 'GOODS',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
-                          if (option.description != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              option.description!,
+                          if (item.sourceItem!.hsnCode != null) ...[
+                            const SizedBox(width: 8),
+                            const Text(
+                              'HSN Code: ',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isHovered
-                                    ? Colors.white70
-                                    : AppTheme.textSecondary,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            const Icon(
+                              LucideIcons.pencil,
+                              size: 10,
+                              color: Color(0xFF0088FF),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              item.sourceItem!.hsnCode!,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF0088FF),
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
                         ],
                       ),
-                    );
-                  },
-                  onChanged: (val) {
-                    if (val != null && !val.isHeader) {
-                      setState(() => item.selectedTax = val.label);
-                      widget.onChanged();
-                    } else if (val == null) {
-                      setState(() => item.selectedTax = null);
-                      widget.onChanged();
-                    }
-                  },
-                ),
-              ],
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
-        ),
-        _vLine(),
-        // AMOUNT
-        Expanded(
-          flex: 4,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                'â‚¹${_computeAmount(item)}',
+          _vLine(),
+          // ORDERED QTY
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: CustomTextField(
+                controller: item.orderedQtyController,
+                height: _PurchaseReturnsCreatePageState._tableFieldHeight,
                 textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                hintText: '0',
+                hideBorderDefault: true,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => widget.onChanged(),
+              ),
+            ),
+          ),
+          _vLine(),
+          // RETURN QTY
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: CustomTextField(
+                controller: item.returnQtyController,
+                height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+                textAlign: TextAlign.right,
+                hintText: '0',
+                hideBorderDefault: true,
+                keyboardType: TextInputType.number,
+                onChanged: (_) {
+                  setState(() {});
+                  widget.onChanged();
+                },
+              ),
+            ),
+          ),
+          _vLine(),
+          // RATE
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  CustomTextField(
+                    controller: item.rateController,
+                    height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+                    textAlign: TextAlign.right,
+                    hintText: '0.00',
+                    hideBorderDefault: true,
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) {
+                      setState(() {});
+                      widget.onChanged();
+                    },
+                  ),
+                  if (item.sourceItem != null) ...[
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () {},
+                      child: const Text(
+                        'Recent Transactions',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.primaryBlue,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          _vLine(),
+          // TAX
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  FormDropdown<_PRTaxOption>(
+                    value: item.selectedTax == null
+                        ? null
+                        : _prTaxOptionItems.firstWhere(
+                            (o) => o.label == item.selectedTax,
+                            orElse: () => _prTaxOptionItems[4],
+                          ),
+                    items: _prTaxOptionItems,
+                    hint: 'Select Tax',
+                    height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+                    menuWidth: 360,
+                    hideBorderDefault: true,
+                    allowClear: true,
+                    displayStringForValue: (o) => o.label,
+                    isItemEnabled: (o) => !o.isHeader,
+                    itemBuilder: (option, isSelected, isHovered) {
+                      if (option.isHeader) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          color: AppTheme.bgLight,
+                          width: double.infinity,
+                          child: Text(
+                            option.label,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        );
+                      }
+                      final active = isHovered || isSelected;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        color: isHovered ? AppTheme.primaryBlue : Colors.white,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    option.label,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: isHovered
+                                          ? Colors.white
+                                          : (isSelected
+                                                ? AppTheme.primaryBlue
+                                                : AppTheme.textPrimary),
+                                      fontWeight: active
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                ),
+                                if (isSelected)
+                                  Icon(
+                                    Icons.check,
+                                    size: 16,
+                                    color: isHovered
+                                        ? Colors.white
+                                        : AppTheme.primaryBlue,
+                                  ),
+                              ],
+                            ),
+                            if (option.description != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                option.description!,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isHovered
+                                      ? Colors.white70
+                                      : AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                    onChanged: (val) {
+                      if (val != null && !val.isHeader) {
+                        setState(() => item.selectedTax = val.label);
+                        widget.onChanged();
+                      } else if (val == null) {
+                        setState(() => item.selectedTax = null);
+                        widget.onChanged();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          _vLine(),
+          // AMOUNT
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '₹${_computeAmount(item)}',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-// â”€â”€ Layout helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//          Layout helpers
 
 class _MaxWidthContainer extends StatelessWidget {
   final double maxWidth;
@@ -2679,7 +2997,7 @@ class _CompactFormRow extends StatelessWidget {
   }
 }
 
-// â”€â”€ Table header helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//          Table header helper
 
 class _TH extends StatelessWidget {
   final String text;
@@ -2724,9 +3042,10 @@ class _TH extends StatelessWidget {
   }
 }
 
-Widget _vLine() => const VerticalDivider(width: 1, color: AppTheme.borderLight);
+Widget _vLine() =>
+    const SizedBox(width: 1, child: ColoredBox(color: AppTheme.borderLight));
 
-// â”€â”€ Row action hover item â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//          Row action hover item
 
 class _PRRowActionMenuHoverItem extends StatefulWidget {
   final String label;
@@ -2775,7 +3094,7 @@ class _PRRowActionMenuHoverItemState extends State<_PRRowActionMenuHoverItem> {
   }
 }
 
-// â”€â”€ Row action icon button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//          Row action icon button
 
 class _PRRowActionIconButton extends StatefulWidget {
   final IconData icon;
@@ -2800,20 +3119,20 @@ class _PRRowActionIconButtonState extends State<_PRRowActionIconButton> {
         height: 24,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _hovered ? AppTheme.primaryBlue : AppTheme.backgroundColor,
+          color: _hovered ? AppTheme.bgDisabled : AppTheme.backgroundColor,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Icon(
           widget.icon,
           size: 16,
-          color: _hovered ? AppTheme.backgroundColor : AppTheme.errorRed,
+          color: _hovered ? AppTheme.errorRed : AppTheme.textMuted,
         ),
       ),
     );
   }
 }
 
-// â”€â”€ Bulk menu hover item â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//          Bulk menu hover item
 
 class _PRBulkMenuHoverItem extends StatefulWidget {
   final String label;
@@ -2854,7 +3173,7 @@ class _PRBulkMenuHoverItemState extends State<_PRBulkMenuHoverItem> {
   }
 }
 
-// â”€â”€ Tax options â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//          Tax options
 
 class _PRTaxOption {
   final String label;
@@ -2893,7 +3212,7 @@ final List<_PRTaxOption> _prTaxOptionItems = [
   const _PRTaxOption(label: 'GST 5% + GST 12%', description: '[17%]'),
 ];
 
-// â”€â”€ Product dropdown item â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//          Product dropdown item
 
 class _PRProductDropdownItem extends StatelessWidget {
   final String productName;

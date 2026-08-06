@@ -1,4 +1,4 @@
-﻿# Core â€” API Client & Caching Flow
+﻿# Core     ” API Client & Caching Flow
 
 ## Dio ApiClient Architecture
 

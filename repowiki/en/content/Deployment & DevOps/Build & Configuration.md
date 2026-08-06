@@ -452,7 +452,7 @@ end
   - Use release builds for production deployments
 - NestJS
   - Enable production mode via NODE_ENV=production
-  - Use Drizzleâ€™s strict mode and schema validation to prevent runtime errors
+  - Use Drizzle    ™s strict mode and schema validation to prevent runtime errors
   - Leverage incremental builds and source maps for debugging during development
 
 [No sources needed since this section provides general guidance]
@@ -478,7 +478,7 @@ end
 - [analysis_options.yaml](file://analysis_options.yaml#L1-L29)
 
 ## Conclusion
-ZerpAI ERPâ€™s build and configuration rely on well-defined Flutter and NestJS pipelines. The frontend loads environment variables from assets and initializes Supabase and Hive, while the backend compiles TypeScript, connects to PostgreSQL via Drizzle, and serves REST endpoints. Environment-specific builds are supported via environment templates and Railway/Cloudflare Pages configurations. Following the outlined steps ensures reliable development, testing, and production deployments.
+ZerpAI ERP    ™s build and configuration rely on well-defined Flutter and NestJS pipelines. The frontend loads environment variables from assets and initializes Supabase and Hive, while the backend compiles TypeScript, connects to PostgreSQL via Drizzle, and serves REST endpoints. Environment-specific builds are supported via environment templates and Railway/Cloudflare Pages configurations. Following the outlined steps ensures reliable development, testing, and production deployments.
 
 [No sources needed since this section summarizes without analyzing specific files]
 

@@ -170,7 +170,7 @@ Practical example references:
 - [item_model.dart](file://lib/modules/items/models/item_model.dart#L126-L132)
 
 ### Sales Order Totals and Line Items
-- Purpose: Maintain subTotal, taxTotal, discountTotal, shippingCharges, adjustment, and total in the orderâ€™s currency.
+- Purpose: Maintain subTotal, taxTotal, discountTotal, shippingCharges, adjustment, and total in the order    ™s currency.
 - Implications:
   - Supports multi-currency sales documents.
   - Requires conversion logic when aggregating across currencies.

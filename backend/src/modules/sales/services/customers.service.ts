@@ -257,28 +257,47 @@ export class CustomersService {
         .or(`system_account_name.eq.${customerName},user_account_name.eq.${customerName}`)
         .maybeSingle();
 
+      let accountId = existingAccount?.id;
+
       if (!existingAccount) {
-        await client.from("accounts").insert({
-          system_account_name: customerName,
-          user_account_name: customerName,
-          account_type: "Accounts Receivable",
-          account_group: "Assets",
-          account_code: customer.customer_number || null,
-          description: customerRemarks,
-          currency: customerCurrency,
-          is_active: true,
-          is_system: false,
-          is_deletable: true,
-          show_in_zerpai_expense: false,
-          is_deleted: false,
-          entity_id: tenant.entityId,
-          org_id: tenant.orgId || "00000000-0000-0000-0000-000000000000",
-        });
+        const { data: newAcc } = await client
+          .from("accounts")
+          .insert({
+            system_account_name: customerName,
+            user_account_name: customerName,
+            account_type: "Accounts Receivable",
+            account_group: "Assets",
+            account_code: customer.customer_number || null,
+            description: customerRemarks,
+            currency: customerCurrency,
+            is_active: true,
+            is_system: false,
+            is_deletable: true,
+            show_in_zerpai_expense: false,
+            is_deleted: false,
+            entity_id: tenant.entityId,
+            org_id: tenant.orgId || "00000000-0000-0000-0000-000000000000",
+          })
+          .select("id")
+          .single();
+
+        accountId = newAcc?.id;
       } else {
-        await client.from("accounts").update({
-          description: customerRemarks,
-          currency: customerCurrency,
-        }).eq("id", existingAccount.id);
+        await client
+          .from("accounts")
+          .update({
+            description: customerRemarks,
+            currency: customerCurrency,
+          })
+          .eq("id", existingAccount.id);
+      }
+
+      if (accountId) {
+        await client
+          .from("customers")
+          .update({ account_id: accountId })
+          .eq("id", customer.id);
+        customer.account_id = accountId;
       }
     } catch (accErr) {
       console.error("⚠️ Failed to sync customer account in accounts table:", accErr);

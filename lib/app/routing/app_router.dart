@@ -1537,13 +1537,11 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/purchase-returns',
               name: AppRoutes.purchaseReturns,
-              builder: (context, state) {
-                final id = state.uri.queryParameters['id'];
-                if (id != null && id.isNotEmpty) {
-                  return PurchaseReturnDetailPage(purchaseReturnId: id);
-                }
-                return const PurchaseReturnsReportPage();
-              },
+              builder: (context, state) => PurchaseReturnsReportPage(
+                initialId: state.uri.queryParameters['id'],
+                initialStatus: state.uri.queryParameters['status'],
+                initialSearch: state.uri.queryParameters['q'],
+              ),
             ),
             GoRoute(
               path: 'purchases/purchase-returns/create',

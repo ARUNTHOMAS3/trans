@@ -108,7 +108,7 @@ SUP --> PG
 - Riverpod: Predictable, testable, and scalable state management for Flutter.
 
 Rationale and version requirements:
-- Flutter 3.x SDK ensures modern Dart language features and cross-platform builds. The projectâ€™s SDK constraint aligns with this.
+- Flutter 3.x SDK ensures modern Dart language features and cross-platform builds. The project    ™s SDK constraint aligns with this.
 - NestJS 10.x provides a robust, scalable backend foundation with excellent TypeScript support and modular architecture.
 - Supabase offers a unified platform for auth, DB, and storage, simplifying infrastructure for SMEs.
 - PostgreSQL is the industry-standard relational engine; Supabase manages migrations and RLS policies.
@@ -544,7 +544,7 @@ DrizzleKit --> NestCommon
 - [backend/drizzle.config.ts](file://backend/drizzle.config.ts#L6-L15)
 
 ## Conclusion
-ZerpAI ERP leverages a modern, cohesive stack: Flutter 3.x for a responsive, cross-platform UI with Riverpod state management; NestJS 10.x with TypeScript for a maintainable backend; Supabase for authentication, storage, and database; and PostgreSQL for reliable persistence. This combination delivers scalability, regulatory alignment for Indian markets, offline-first capabilities, and simplified infrastructureâ€”ideal for SMEs seeking an enterprise-grade ERP without heavy DevOps overhead.
+ZerpAI ERP leverages a modern, cohesive stack: Flutter 3.x for a responsive, cross-platform UI with Riverpod state management; NestJS 10.x with TypeScript for a maintainable backend; Supabase for authentication, storage, and database; and PostgreSQL for reliable persistence. This combination delivers scalability, regulatory alignment for Indian markets, offline-first capabilities, and simplified infrastructure    ”ideal for SMEs seeking an enterprise-grade ERP without heavy DevOps overhead.
 
 ## Appendices
 - Development Environment Setup

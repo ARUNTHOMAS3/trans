@@ -356,7 +356,7 @@ Logger --> Dio
 - Caching:
   - Configure CACHE_STALENESS_HOURS and MAX_CACHE_SIZE_MB to balance freshness and performance.
 - Database:
-  - Prefer Drizzleâ€™s typed queries and joins to avoid N+1 and unnecessary scans.
+  - Prefer Drizzle    ™s typed queries and joins to avoid N+1 and unnecessary scans.
   - Use pagination and filters in controllers for large datasets.
 - Offline mode:
   - ENABLE_OFFLINE_MODE leverages Hive caching; monitor cache sizes and stale thresholds.

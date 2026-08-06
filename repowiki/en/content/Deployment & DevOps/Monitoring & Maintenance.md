@@ -391,7 +391,7 @@ Backend --> Mon["Monitoring Stack"]
 - [db.ts](file://backend/src/db/db.ts#L8-L12)
 
 ## Conclusion
-ZerpAI ERPâ€™s monitoring and maintenance framework combines structured logging, health checks, and external observability tools to ensure reliability and performance. Database optimization, robust alerting, and a clear incident response process support continuous operations. Disaster recovery and business continuity plans provide resilience against failures and breaches.
+ZerpAI ERP    ™s monitoring and maintenance framework combines structured logging, health checks, and external observability tools to ensure reliability and performance. Database optimization, robust alerting, and a clear incident response process support continuous operations. Disaster recovery and business continuity plans provide resilience against failures and breaches.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -417,7 +417,7 @@ ZerpAI ERPâ€™s monitoring and maintenance framework combines structured log
 
 ### Incident Response Protocols
 - Severity levels: P0 (immediate), P1 (< 2 hours), P2 (< 24 hours), P3 (next sprint)
-- Workflow: detection â†’ assessment â†’ communication â†’ mitigation â†’ resolution â†’ post-mortem
+- Workflow: detection   †’ assessment   †’ communication   †’ mitigation   †’ resolution   †’ post-mortem
 - Runbooks: maintain templates and required runbooks for common incidents
 
 **Section sources**

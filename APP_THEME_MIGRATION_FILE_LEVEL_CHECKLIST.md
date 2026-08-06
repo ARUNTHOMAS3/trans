@@ -1,4 +1,4 @@
-# App Theme Migration â€“ File Level Checklist
+# App Theme Migration     “ File Level Checklist
 
 _Generated: 2026-05-06_
 

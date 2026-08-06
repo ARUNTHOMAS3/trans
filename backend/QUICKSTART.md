@@ -66,12 +66,12 @@ Railway/Cloudflare Pages --prod
 ## Environment Variables
 
 The `.env.example` already contains your complete configuration:
-- âœ… Supabase database credentials
-- âœ… Supabase API keys
-- âœ… Cloudflare R2 storage
-- âœ… JWT secret
-- âœ… CORS origins
-- âœ… Frontend/Backend URLs
+-      Supabase database credentials
+-      Supabase API keys
+-      Cloudflare R2 storage
+-      JWT secret
+-      CORS origins
+-      Frontend/Backend URLs
 
 Just copy it to `.env`:
 ```powershell

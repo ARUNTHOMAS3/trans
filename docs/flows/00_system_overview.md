@@ -1,4 +1,4 @@
-﻿# System Overview â€” Zerpai ERP
+﻿# System Overview     ” Zerpai ERP
 
 ## Full Architecture Flow
 
@@ -122,7 +122,7 @@ flowchart LR
     SVC -->|business tables - WHERE entity_id = ...| TENANT[(entity_id-scoped tables)]
 ```
 
-## Data Pattern â€” Online-First with Offline Fallback
+## Data Pattern     ” Online-First with Offline Fallback
 
 ```mermaid
 flowchart TD

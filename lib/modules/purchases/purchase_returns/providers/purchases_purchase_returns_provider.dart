@@ -2,14 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository_impl.dart';
-import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 
 // ── Repository provider ──────────────────────────────────────────────────────
 
-final purchaseReturnsRepositoryProvider = Provider<PurchaseReturnsRepository>((
-  ref,
-) {
+final purchaseReturnsRepositoryProvider =
+    Provider<PurchaseReturnsRepository>((ref) {
   return PurchaseReturnsRepositoryImpl(ref.read(apiClientProvider));
 });
 
@@ -59,7 +58,7 @@ class PurchaseReturnsNotifier
   final List<PurchaseReturn> _localReturns = [];
 
   PurchaseReturnsNotifier(this._repository)
-    : super(const AsyncValue.loading()) {
+      : super(const AsyncValue.loading()) {
     fetchReturns();
   }
 
@@ -71,12 +70,7 @@ class PurchaseReturnsNotifier
   }) async {
     final prev = state.valueOrNull ?? const PurchaseReturnsState();
     state = AsyncValue.data(
-      prev.copyWith(
-        isLoading: true,
-        error: null,
-        search: search,
-        status: status,
-      ),
+      prev.copyWith(isLoading: true, error: null, search: search, status: status),
     );
 
     try {
@@ -87,32 +81,24 @@ class PurchaseReturnsNotifier
         status: status,
       );
       final merged = _merge(remote, _localReturns);
-      state = AsyncValue.data(
-        PurchaseReturnsState(
-          returns: merged,
-          isLoading: false,
-          totalCount: merged.length,
-          search: search,
-          status: status,
-        ),
-      );
+      state = AsyncValue.data(PurchaseReturnsState(
+        returns: merged,
+        isLoading: false,
+        totalCount: merged.length,
+        search: search,
+        status: status,
+      ));
     } catch (e, st) {
-      AppLogger.error(
-        'Failed to fetch purchase returns: $e',
-        module: 'purchases',
-        error: st,
-      );
+      AppLogger.error('Failed to fetch purchase returns: $e', module: 'purchases', error: st);
       final filtered = _applyFilters(_localReturns, search, status);
-      state = AsyncValue.data(
-        PurchaseReturnsState(
-          returns: filtered,
-          isLoading: false,
-          error: e.toString(),
-          totalCount: filtered.length,
-          search: search,
-          status: status,
-        ),
-      );
+      state = AsyncValue.data(PurchaseReturnsState(
+        returns: filtered,
+        isLoading: false,
+        error: e.toString(),
+        totalCount: filtered.length,
+        search: search,
+        status: status,
+      ));
     }
   }
 
@@ -126,11 +112,7 @@ class PurchaseReturnsNotifier
       );
       return created;
     } catch (e, st) {
-      AppLogger.error(
-        'Failed to create purchase return: $e',
-        module: 'purchases',
-        error: st,
-      );
+      AppLogger.error('Failed to create purchase return: $e', module: 'purchases', error: st);
       return null;
     }
   }
@@ -140,10 +122,8 @@ class PurchaseReturnsNotifier
     PurchaseReturn purchaseReturn,
   ) async {
     try {
-      final updated = await _repository.updatePurchaseReturn(
-        id,
-        purchaseReturn,
-      );
+      final updated =
+          await _repository.updatePurchaseReturn(id, purchaseReturn);
       if (updated != null) {
         _upsertLocal(updated);
         await fetchReturns(
@@ -153,11 +133,7 @@ class PurchaseReturnsNotifier
       }
       return updated;
     } catch (e, st) {
-      AppLogger.error(
-        'Failed to update purchase return: $e',
-        module: 'purchases',
-        error: st,
-      );
+      AppLogger.error('Failed to update purchase return: $e', module: 'purchases', error: st);
       return null;
     }
   }
@@ -174,19 +150,15 @@ class PurchaseReturnsNotifier
       }
       return ok;
     } catch (e, st) {
-      AppLogger.error(
-        'Failed to delete purchase return: $e',
-        module: 'purchases',
-        error: st,
-      );
+      AppLogger.error('Failed to delete purchase return: $e', module: 'purchases', error: st);
       return false;
     }
   }
 
   Future<void> refresh() => fetchReturns(
-    search: state.valueOrNull?.search,
-    status: state.valueOrNull?.status,
-  );
+        search: state.valueOrNull?.search,
+        status: state.valueOrNull?.status,
+      );
 
   // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -239,9 +211,8 @@ class PurchaseReturnsNotifier
   }
 
   void _upsertLocal(PurchaseReturn r) {
-    final idx = _localReturns.indexWhere(
-      (e) => e.id == r.id || e.returnNumber == r.returnNumber,
-    );
+    final idx = _localReturns
+        .indexWhere((e) => e.id == r.id || e.returnNumber == r.returnNumber);
     if (idx >= 0) {
       _localReturns[idx] = r;
     } else {
@@ -252,12 +223,9 @@ class PurchaseReturnsNotifier
 
 // ── Provider ─────────────────────────────────────────────────────────────────
 
-final purchaseReturnsProvider =
-    StateNotifierProvider<
-      PurchaseReturnsNotifier,
-      AsyncValue<PurchaseReturnsState>
-    >((ref) {
-      return PurchaseReturnsNotifier(
-        ref.watch(purchaseReturnsRepositoryProvider),
-      );
-    });
+final purchaseReturnsProvider = StateNotifierProvider<PurchaseReturnsNotifier,
+    AsyncValue<PurchaseReturnsState>>((ref) {
+  return PurchaseReturnsNotifier(
+    ref.watch(purchaseReturnsRepositoryProvider),
+  );
+});

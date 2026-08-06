@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
-import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
+import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
@@ -235,26 +235,16 @@ class _VendorCreditDetailPageState
     setState(() => _drawerItem = null);
   }
 
-  Widget _buildVcPdfCard(
-    VendorCreditDetail creditNote,
-    OrgSettings? orgSettings,
-  ) {
+  Widget _buildVcPdfCard(VendorCreditDetail creditNote, OrgSettings? orgSettings) {
     final fmt = NumberFormat('#,##,##0.00', 'en_IN');
     final dateStr = DateFormat('dd-MM-yyyy').format(creditNote.date);
 
     Color ribbonColor;
     switch (creditNote.status.toLowerCase()) {
-      case 'closed':
-        ribbonColor = AppTheme.successGreen;
-        break;
-      case 'open':
-        ribbonColor = AppTheme.primaryBlue;
-        break;
-      case 'void':
-        ribbonColor = AppTheme.errorRed;
-        break;
-      default:
-        ribbonColor = AppTheme.textSecondary;
+      case 'closed': ribbonColor = AppTheme.successGreen; break;
+      case 'open': ribbonColor = AppTheme.primaryBlue; break;
+      case 'void': ribbonColor = AppTheme.errorRed; break;
+      default: ribbonColor = AppTheme.textSecondary;
     }
 
     return Container(
@@ -264,11 +254,7 @@ class _VendorCreditDetailPageState
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: AppTheme.borderLight),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 3)),
         ],
       ),
       child: Stack(
@@ -290,24 +276,13 @@ class _VendorCreditDetailPageState
                           const _PdfOrgLogo(width: 140, height: 60),
                           const SizedBox(height: 14),
                           Text(
-                            orgSettings?.name.trim().isNotEmpty == true
-                                ? orgSettings!.name.trim()
-                                : 'YOUR COMPANY NAME',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textPrimary,
-                            ),
+                            orgSettings?.name.trim().isNotEmpty == true ? orgSettings!.name.trim() : 'YOUR COMPANY NAME',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            orgSettings?.paymentStubAddress?.trim() ??
-                                'Address Line 1\nCity, State PIN',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: AppTheme.textSecondary,
-                              height: 1.6,
-                            ),
+                            orgSettings?.paymentStubAddress?.trim() ?? 'Address Line 1\nCity, State PIN',
+                            style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondary, height: 1.6),
                           ),
                         ],
                       ),
@@ -315,24 +290,9 @@ class _VendorCreditDetailPageState
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Text(
-                          'VENDOR CREDIT',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.textPrimary,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+                        const Text('VENDOR CREDIT', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppTheme.textPrimary, letterSpacing: 0.5)),
                         const SizedBox(height: 4),
-                        Text(
-                          'Credit Note# ${creditNote.creditNoteNumber}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.primaryBlue,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        Text('Credit Note# ${creditNote.creditNoteNumber}', style: const TextStyle(fontSize: 13, color: AppTheme.primaryBlue, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ],
@@ -348,33 +308,11 @@ class _VendorCreditDetailPageState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'VENDOR ADDRESS',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.textSecondary,
-                              letterSpacing: 0.4,
-                            ),
-                          ),
+                          const Text('VENDOR ADDRESS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.textSecondary, letterSpacing: 0.4)),
                           const SizedBox(height: 6),
-                          Text(
-                            creditNote.vendorName,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.primaryBlueDark,
-                            ),
-                          ),
+                          Text(creditNote.vendorName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryBlueDark)),
                           const SizedBox(height: 4),
-                          Text(
-                            creditNote.billingAddress,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSubtle,
-                              height: 1.5,
-                            ),
-                          ),
+                          Text(creditNote.billingAddress, style: const TextStyle(fontSize: 12, color: AppTheme.textSubtle, height: 1.5)),
                         ],
                       ),
                     ),
@@ -383,24 +321,14 @@ class _VendorCreditDetailPageState
                       children: [
                         _pdfMetaRow('Credit Date', dateStr),
                         _pdfMetaRow('Reference#', creditNote.referenceNumber),
-                        _pdfMetaRow(
-                          'Source of Supply',
-                          creditNote.sourceOfSupply,
-                        ),
-                        _pdfMetaRow(
-                          'Destination',
-                          creditNote.destinationOfSupply,
-                        ),
+                        _pdfMetaRow('Source of Supply', creditNote.sourceOfSupply),
+                        _pdfMetaRow('Destination', creditNote.destinationOfSupply),
                       ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
-                _ItemsTable(
-                  items: creditNote.items,
-                  fmt: fmt,
-                  onItemTap: (_) {},
-                ),
+                _ItemsTable(items: creditNote.items, fmt: fmt, onItemTap: (_) {}),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(0, 20, 0, 24),
                   child: Row(
@@ -415,21 +343,9 @@ class _VendorCreditDetailPageState
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        SizedBox(
-                          width: 220,
-                          child: Divider(
-                            color: AppTheme.textPrimary,
-                            thickness: 1,
-                          ),
-                        ),
+                        SizedBox(width: 220, child: Divider(color: AppTheme.textPrimary, thickness: 1)),
                         SizedBox(height: 4),
-                        Text(
-                          'Authorized Signature',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
+                        Text('Authorized Signature', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                       ],
                     ),
                   ],
@@ -458,14 +374,8 @@ class _VendorCreditDetailPageState
                           color: ribbonColor,
                           alignment: Alignment.center,
                           child: Text(
-                            creditNote.status[0].toUpperCase() +
-                                creditNote.status.substring(1).toLowerCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              decoration: TextDecoration.none,
-                            ),
+                            creditNote.status[0].toUpperCase() + creditNote.status.substring(1).toLowerCase(),
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600, decoration: TextDecoration.none),
                           ),
                         ),
                       ),
@@ -480,24 +390,50 @@ class _VendorCreditDetailPageState
     );
   }
 
+  Widget _buildPdfLogo(OrgSettings? orgSettings) {
+    final logoUrl = orgSettings?.logoUrl;
+    if (logoUrl != null && logoUrl.trim().isNotEmpty) {
+      return Container(
+        width: 140,
+        height: 60,
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppTheme.borderLight),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Image.network(
+          logoUrl,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => _buildPdfLogoFallback(),
+        ),
+      );
+    }
+    return _buildPdfLogoFallback();
+  }
+
+  Widget _buildPdfLogoFallback() {
+    return Container(
+      width: 140,
+      height: 60,
+      color: const Color(0xFF101820),
+      child: const Center(
+        child: Text(
+          'LOGO',
+          style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 0.8),
+        ),
+      ),
+    );
+  }
+
   Widget _pdfMetaRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '$label : ',
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.textPrimary,
-            ),
-          ),
+          Text('$label : ', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppTheme.textPrimary)),
         ],
       ),
     );
@@ -560,14 +496,12 @@ class _VendorCreditDetailPageState
                               const SizedBox(width: 8),
                               Switch(
                                 value: _showPdfView,
-                                onChanged: (v) =>
-                                    setState(() => _showPdfView = v),
+                                onChanged: (v) => setState(() => _showPdfView = v),
                                 activeTrackColor: AppTheme.primaryBlue,
                                 activeThumbColor: Colors.white,
                                 inactiveTrackColor: AppTheme.borderLight,
                                 inactiveThumbColor: Colors.white,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                             ],
                           ),
@@ -610,11 +544,7 @@ class _ActionBar extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onJournal;
 
-  const _ActionBar({
-    required this.creditNote,
-    required this.onDelete,
-    required this.onJournal,
-  });
+  const _ActionBar({required this.creditNote, required this.onDelete, required this.onJournal});
 
   @override
   Widget build(BuildContext context) {
@@ -670,10 +600,7 @@ class _ActionBar extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.textPrimary,
                 side: const BorderSide(color: AppTheme.borderLight),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                 minimumSize: Size.zero,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
@@ -692,33 +619,19 @@ class _ActionBar extends StatelessWidget {
             ),
             menuChildren: [
               MenuItemButton(
-                leadingIcon: const Icon(
-                  LucideIcons.fileText,
-                  size: 14,
-                  color: AppTheme.textSecondary,
-                ),
+                leadingIcon: const Icon(LucideIcons.fileText, size: 14, color: AppTheme.textSecondary),
                 onPressed: () {},
                 child: const SizedBox(
                   width: 120,
-                  child: Text(
-                    'PDF',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-                  ),
+                  child: Text('PDF', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                 ),
               ),
               MenuItemButton(
-                leadingIcon: const Icon(
-                  LucideIcons.printer,
-                  size: 14,
-                  color: AppTheme.textSecondary,
-                ),
+                leadingIcon: const Icon(LucideIcons.printer, size: 14, color: AppTheme.textSecondary),
                 onPressed: () {},
                 child: const SizedBox(
                   width: 120,
-                  child: Text(
-                    'Print',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-                  ),
+                  child: Text('Print', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                 ),
               ),
             ],
@@ -762,33 +675,19 @@ class _ActionBar extends StatelessWidget {
             ),
             menuChildren: [
               MenuItemButton(
-                leadingIcon: const Icon(
-                  LucideIcons.bookOpen,
-                  size: 14,
-                  color: AppTheme.textSecondary,
-                ),
+                leadingIcon: const Icon(LucideIcons.bookOpen, size: 14, color: AppTheme.textSecondary),
                 onPressed: onJournal,
                 child: const SizedBox(
                   width: 150,
-                  child: Text(
-                    'Journal',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-                  ),
+                  child: Text('Journal', style: TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                 ),
               ),
               MenuItemButton(
-                leadingIcon: const Icon(
-                  LucideIcons.trash2,
-                  size: 14,
-                  color: AppTheme.errorRed,
-                ),
+                leadingIcon: const Icon(LucideIcons.trash2, size: 14, color: AppTheme.errorRed),
                 onPressed: onDelete,
                 child: const SizedBox(
                   width: 150,
-                  child: Text(
-                    'Delete',
-                    style: TextStyle(fontSize: 13, color: AppTheme.errorRed),
-                  ),
+                  child: Text('Delete', style: TextStyle(fontSize: 13, color: AppTheme.errorRed)),
                 ),
               ),
             ],
@@ -1232,11 +1131,7 @@ class _DocumentCard extends StatelessWidget {
       alignment: Alignment.center,
       child: const Text(
         'LOGO',
-        style: TextStyle(
-          color: Colors.white54,
-          fontSize: 12,
-          letterSpacing: 0.8,
-        ),
+        style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8),
       ),
     );
   }
@@ -1859,151 +1754,80 @@ class _ApplyToBillsDialogState extends State<ApplyToBillsDialog> {
                         if (_setAppliedOnDate)
                           5: const FlexColumnWidth(1.8), // CREDITS APPLIED ON
                         if (_setAppliedOnDate)
-                          6:
-                              const FlexColumnWidth(1.8) // CREDITS TO APPLY
+                          6: const FlexColumnWidth(1.8) // CREDITS TO APPLY
                         else
-                          5: const FlexColumnWidth(
-                            1.8,
-                          ), // CREDITS TO APPLY (no date col)
+                          5: const FlexColumnWidth(1.8), // CREDITS TO APPLY (no date col)
                       },
-                      defaultVerticalAlignment:
-                          TableCellVerticalAlignment.middle,
+                      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                       children: [
                         // ── Header row ──
                         TableRow(
-                          decoration: const BoxDecoration(
-                            color: AppTheme.bgLight,
-                          ),
+                          decoration: const BoxDecoration(color: AppTheme.bgLight),
                           children: [
                             _ATBCell(child: _ATBColHeader('BILL#')),
                             _ATBCell(child: _ATBColHeader('BILL DATE')),
                             _ATBCell(child: _ATBColHeader('LOCATION')),
-                            _ATBCell(
-                              child: _ATBColHeader(
-                                'BILL AMOUNT',
-                                align: TextAlign.right,
-                              ),
-                            ),
-                            _ATBCell(
-                              child: _ATBColHeader(
-                                'BILL BALANCE',
-                                align: TextAlign.right,
-                              ),
-                            ),
+                            _ATBCell(child: _ATBColHeader('BILL AMOUNT', align: TextAlign.right)),
+                            _ATBCell(child: _ATBColHeader('BILL BALANCE', align: TextAlign.right)),
                             if (_setAppliedOnDate)
-                              _ATBCell(
-                                child: _ATBColHeader('CREDITS APPLIED ON'),
-                              ),
-                            _ATBCell(
-                              child: _ATBColHeader(
-                                'CREDITS TO APPLY',
-                                align: TextAlign.right,
-                              ),
-                            ),
+                              _ATBCell(child: _ATBColHeader('CREDITS APPLIED ON')),
+                            _ATBCell(child: _ATBColHeader('CREDITS TO APPLY', align: TextAlign.right)),
                           ],
                         ),
                         // ── Data rows ──
                         ...List.generate(_bills.length, (i) {
                           final b = _bills[i];
                           return TableRow(
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                            ),
+                            decoration: const BoxDecoration(color: Colors.white),
                             children: [
                               _ATBCell(
-                                child: Text(
-                                  b.billNumber,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
+                                child: Text(b.billNumber,
+                                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                               ),
                               _ATBCell(
-                                child: Text(
-                                  b.billDate,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
+                                child: Text(b.billDate,
+                                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                               ),
                               _ATBCell(
-                                child: Text(
-                                  b.location,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
+                                child: Text(b.location,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                               ),
                               _ATBCell(
-                                child: Text(
-                                  '₹${_fmt.format(b.billAmount)}',
-                                  textAlign: TextAlign.right,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
+                                child: Text('₹${_fmt.format(b.billAmount)}',
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                               ),
                               _ATBCell(
-                                child: Text(
-                                  '₹${_fmt.format(b.billBalance)}',
-                                  textAlign: TextAlign.right,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
+                                child: Text('₹${_fmt.format(b.billBalance)}',
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                               ),
                               if (_setAppliedOnDate)
                                 _ATBCell(
-                                  child: Text(
-                                    b.creditsAppliedOn,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.textPrimary,
-                                    ),
-                                  ),
+                                  child: Text(b.creditsAppliedOn,
+                                      style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
                                 ),
                               _ATBCell(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 8,
-                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                 child: TextField(
                                   controller: b.creditsToApplyController,
                                   textAlign: TextAlign.right,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                   style: const TextStyle(fontSize: 13),
                                   decoration: InputDecoration(
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 8,
-                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(3),
-                                      borderSide: const BorderSide(
-                                        color: AppTheme.borderLight,
-                                      ),
+                                      borderSide: const BorderSide(color: AppTheme.borderLight),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(3),
-                                      borderSide: const BorderSide(
-                                        color: AppTheme.borderLight,
-                                      ),
+                                      borderSide: const BorderSide(color: AppTheme.borderLight),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(3),
-                                      borderSide: const BorderSide(
-                                        color: AppTheme.primaryBlue,
-                                        width: 1.5,
-                                      ),
+                                      borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 1.5),
                                     ),
                                     isDense: true,
                                   ),
@@ -2128,7 +1952,10 @@ class _ATBCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(padding: padding, child: child);
+    return Padding(
+      padding: padding,
+      child: child,
+    );
   }
 }
 
@@ -2197,27 +2024,16 @@ class _JournalSection extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(
-                  LucideIcons.bookOpen,
-                  size: 15,
-                  color: AppTheme.textSecondary,
-                ),
+                const Icon(LucideIcons.bookOpen, size: 15, color: AppTheme.textSecondary),
                 const SizedBox(width: 8),
                 const Text(
                   'Journal',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
                 ),
                 const Spacer(),
                 Text(
                   creditNote.creditNoteNumber,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
               ],
             ),
@@ -2230,38 +2046,15 @@ class _JournalSection extends StatelessWidget {
               children: const [
                 Expanded(
                   flex: 4,
-                  child: Text(
-                    'Account',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
+                  child: Text('Account', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
                 ),
                 SizedBox(
                   width: 140,
-                  child: Text(
-                    'Debit',
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
+                  child: Text('Debit', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
                 ),
                 SizedBox(
                   width: 140,
-                  child: Text(
-                    'Credit',
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
+                  child: Text('Credit', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
                 ),
               ],
             ),
@@ -2277,25 +2070,14 @@ class _JournalSection extends StatelessWidget {
               children: [
                 const Expanded(
                   flex: 4,
-                  child: Text(
-                    'Total',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
+                  child: Text('Total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
                 ),
                 SizedBox(
                   width: 140,
                   child: Text(
                     fmt.format(entries.fold(0.0, (s, e) => s + e.debit)),
                     textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
                   ),
                 ),
                 SizedBox(
@@ -2303,11 +2085,7 @@ class _JournalSection extends StatelessWidget {
                   child: Text(
                     fmt.format(entries.fold(0.0, (s, e) => s + e.credit)),
                     textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
                   ),
                 ),
               ],
@@ -2321,17 +2099,9 @@ class _JournalSection extends StatelessWidget {
   List<_JournalEntry> _journalEntries(VendorCreditDetail c, NumberFormat fmt) {
     return [
       _JournalEntry(account: 'Accounts Payable', debit: 0, credit: c.total),
-      _JournalEntry(
-        account: 'Purchase Returns & Allowances',
-        debit: c.subtotal,
-        credit: 0,
-      ),
+      _JournalEntry(account: 'Purchase Returns & Allowances', debit: c.subtotal, credit: 0),
       if (c.taxAmount > 0)
-        _JournalEntry(
-          account: 'Input Tax Credit (GST)',
-          debit: c.taxAmount,
-          credit: 0,
-        ),
+        _JournalEntry(account: 'Input Tax Credit (GST)', debit: c.taxAmount, credit: 0),
     ];
   }
 }
@@ -2340,11 +2110,7 @@ class _JournalEntry {
   final String account;
   final double debit;
   final double credit;
-  const _JournalEntry({
-    required this.account,
-    required this.debit,
-    required this.credit,
-  });
+  const _JournalEntry({required this.account, required this.debit, required this.credit});
 }
 
 class _JournalRow extends StatelessWidget {
@@ -2363,10 +2129,7 @@ class _JournalRow extends StatelessWidget {
         children: [
           Expanded(
             flex: 4,
-            child: Text(
-              entry.account,
-              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-            ),
+            child: Text(entry.account, style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
           ),
           SizedBox(
             width: 140,
@@ -2389,6 +2152,7 @@ class _JournalRow extends StatelessWidget {
     );
   }
 }
+
 
 class _PdfOrgLogo extends ConsumerWidget {
   const _PdfOrgLogo({this.width = 140, this.height = 60});
@@ -2419,16 +2183,14 @@ class _PdfOrgLogo extends ConsumerWidget {
   }
 
   Widget _fallback() => Container(
-    width: width,
-    height: height,
-    decoration: BoxDecoration(
-      color: const Color(0xFF1A1A2E),
-      borderRadius: BorderRadius.circular(4),
-    ),
-    alignment: Alignment.center,
-    child: const Text(
-      'LOGO',
-      style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8),
-    ),
-  );
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        alignment: Alignment.center,
+        child: const Text('LOGO',
+            style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8)),
+      );
 }

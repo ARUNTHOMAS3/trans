@@ -1201,7 +1201,66 @@ export class BillsService {
       return;
     }
 
-    // 4. Resolver helper
+    // 4. Find or create journal_entries header for BILL
+    const { data: existingJE } = await supabase
+      .from('journal_entries')
+      .select('id')
+      .eq('entity_id', entityId)
+      .eq('source_document_type', 'BILL')
+      .eq('source_document_id', billId)
+      .maybeSingle();
+
+    const journalEntryId = existingJE?.id || uuidv4();
+
+    if (existingJE?.id) {
+      await supabase
+        .from('journal_entry_lines')
+        .delete()
+        .eq('journal_entry_id', existingJE.id);
+    }
+
+    const billNumber = dto.billNumber || dto.bill_number || 'BILL';
+    const billDate = dto.billDate || dto.bill_date || new Date().toISOString().split('T')[0];
+    const defaultOrgId = '00000000-0000-0000-0000-000000000000';
+
+    const currentUserId = dto.userId || dto.created_by || dto.updated_by || null;
+    const jeHeader = {
+      id: journalEntryId,
+      org_id: orgId || defaultOrgId,
+      entity_id: entityId,
+      fiscal_year_id: null,
+      journal_number: `JE-${billNumber}`,
+      journal_type: 'BILL',
+      journal_date: billDate,
+      posting_date: billDate,
+      reference_number: billNumber,
+      narration: dto.notes || `Purchase Bill ${billNumber}`,
+      source_module: 'PURCHASES',
+      source_document_type: 'BILL',
+      source_document_id: billId,
+      currency_code: 'INR',
+      exchange_rate: 1.0,
+      status: 'POSTED',
+      created_by: (existingJE as any)?.created_by || currentUserId,
+      updated_by: currentUserId,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existingJE?.id) {
+      await supabase
+        .from('journal_entries')
+        .update(jeHeader)
+        .eq('id', journalEntryId);
+    } else {
+      await supabase
+        .from('journal_entries')
+        .insert({
+          ...jeHeader,
+          created_at: new Date().toISOString(),
+        });
+    }
+
+    // 5. Resolver helper
     const findAccount = (names: string[], types?: string[]): string | null => {
       const match = dbAccounts.find((acc: any) => {
         const uName = acc.user_account_name?.toLowerCase() || '';
@@ -1229,7 +1288,7 @@ export class BillsService {
       return dbAccounts[0]?.id || null;
     };
 
-    // 5. Parse amounts
+    // 6. Parse amounts
     const discountAmount = parseFloat(dto.discountAmount?.toString() || dto.discountTotal?.toString() || '0');
     const taxAmount = parseFloat(dto.taxAmount?.toString() || dto.taxTotal?.toString() || '0');
     const tdsAmount = parseFloat(dto.tdsTotal?.toString() || '0');
@@ -1250,7 +1309,7 @@ export class BillsService {
     const inputCgstId = findAccount(['Input CGST', 'CGST'], ['Other Current Asset', 'Other Asset', 'Other Current Liability', 'Other Liability']);
     const inputIgstId = findAccount(['Input IGST', 'IGST'], ['Other Current Asset', 'Other Asset', 'Other Current Liability', 'Other Liability']);
 
-    // 6. Group item gross amounts (qty * rate) by account_id and compute gross subtotal
+    // 7. Group item gross amounts (qty * rate) by account_id and compute gross subtotal
     let computedGrossSubtotal = 0;
     const itemAccountsMap = new Map<string, number>();
     const lineItemDiscountsMap = new Map<string, number>();
@@ -1287,7 +1346,7 @@ export class BillsService {
       }
     }
 
-    // 7. Determine if GST is applied
+    // 8. Determine if GST is applied
     const isGstBill = taxAmount > 0.0001;
     let isIGST = false;
 
@@ -1304,7 +1363,7 @@ export class BillsService {
       }
     }
 
-    // 8. Build transaction entries
+    // 9. Build transaction entries
     const entries: any[] = [];
     const addEntry = (accountId: string | null, type: string, debit: number, credit: number) => {
       if (!accountId) return;
@@ -1312,11 +1371,13 @@ export class BillsService {
       const cVal = Math.round(credit * 100) / 100;
       if (dVal > 0.0001 || cVal > 0.0001) {
         entries.push({
+          id: uuidv4(),
+          journal_entry_id: journalEntryId,
           entity_id: entityId,
-          org_id: orgId,
+          org_id: orgId || defaultOrgId,
           account_id: accountId,
-          transaction_date: dto.billDate || new Date().toISOString(),
-          reference_number: dto.billNumber || dto.bill_number || 'BILL',
+          transaction_date: dto.billDate || dto.bill_date || new Date().toISOString(),
+          reference_number: billNumber,
           description: dto.notes || 'Purchase Bill transaction',
           debit: dVal,
           credit: cVal,
@@ -1457,7 +1518,7 @@ export class BillsService {
       }
     }
 
-    // 9. Bulk Insert
+    // 10. Bulk Insert & Save journal_id backlink
     if (entries.length > 0) {
       const { error: insertError } = await supabase
         .from('journal_entry_lines')
@@ -1465,6 +1526,15 @@ export class BillsService {
       if (insertError) {
         throw new HttpException(`Failed to save account transactions: ${insertError.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
       }
+    }
+
+    try {
+      await supabase
+        .from('bills')
+        .update({ journal_id: journalEntryId })
+        .eq('id', billId);
+    } catch (jeBacklinkErr) {
+      console.error('Error updating bills journal_id:', jeBacklinkErr);
     }
   }
 }

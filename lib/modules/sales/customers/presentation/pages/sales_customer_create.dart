@@ -962,6 +962,7 @@ class _SalesCustomerCreateScreenState
         msmeDocUrl: msmeUrl,
         documentUrls: generalDocumentUrls,
         isRecurring: isRecurring,
+        remarks: remarksCtrl.text.trim(),
         contactPersons: contactPersons.isNotEmpty ? contactPersons : null,
       );
 

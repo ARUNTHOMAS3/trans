@@ -261,9 +261,9 @@ class _ManualJournalCreateScreenState
       final settings = raw['data'] is Map
           ? Map<String, dynamic>.from(raw['data'] as Map)
           : raw;
-      final bool autoGen = settings['auto_generate'] == true;
+      final bool autoGen = settings['auto_generate'] != false;
       final bool overrideAllowed =
-          settings['is_manual_override_allowed'] == true;
+          settings['is_manual_override_allowed'] != false;
       final prefix = _stringValue(settings, 'prefix', 'MJ');
       final nextNum = _intValue(settings, 'next_number', 1);
       final generatedNumber = _stringValue(
@@ -289,9 +289,9 @@ class _ManualJournalCreateScreenState
     } catch (_) {
       try {
         final settings = await ref.refresh(journalSettingsProvider.future);
-        final bool autoGen = settings['auto_generate'] == true;
+        final bool autoGen = settings['auto_generate'] != false;
         final bool overrideAllowed =
-            settings['is_manual_override_allowed'] == true;
+            settings['is_manual_override_allowed'] != false;
         final prefix = _stringValue(settings, 'prefix', 'MJ');
         final nextNum = _intValue(settings, 'next_number', 1);
 
@@ -446,7 +446,7 @@ class _ManualJournalCreateScreenState
 
     if (!mounted) return;
 
-    final defaultAutoGenerate = settings['auto_generate'] == true;
+    final defaultAutoGenerate = settings['auto_generate'] != false;
     final defaultPrefix = _stringValue(settings, 'prefix', 'MJ');
     final defaultNextNumber = _intValue(settings, 'next_number', 1);
 

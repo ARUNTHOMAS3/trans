@@ -353,7 +353,7 @@ RD --> AL
 ## Troubleshooting Guide
 - Empty or Missing Data
   - Verify that the invoices provider resolves to a non-empty list.
-  - Confirm that the Sales Controllerâ€™s load method executes successfully.
+  - Confirm that the Sales Controller    ™s load method executes successfully.
   - References:
     - Provider watch and empty-state handling: [reports_sales_sales_daily.dart](file://lib/modules/reports/presentation/reports_sales_sales_daily.dart#L23-L32)
     - Controller load method: [sales_order_controller.dart](file://lib/modules/sales/controller/sales_order_controller.dart#L76-L84)

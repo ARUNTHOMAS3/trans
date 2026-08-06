@@ -1,4 +1,4 @@
-﻿# ZERPAI ERP â€” Technology Stack
+﻿# ZERPAI ERP     ” Technology Stack
 
 ## Frontend
 

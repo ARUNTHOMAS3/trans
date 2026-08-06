@@ -301,13 +301,13 @@ This section should be actively maintained when the stack changes.
 
 ## 9. Related PRD References
 
-- `PRD/PRD.md` â€” master PRD and locked behavioral rules
-- `PRD/prd_folder_structure.md` â€” frontend/backend folder conventions
-- `PRD/prd_ui.md` â€” UI system and control rules
-- `PRD/prd_schema.md` â€” schema snapshot and form-table mapping rules
-- `PRD/prd_deployment.md` â€” release, rollback, and environment workflow
-- `PRD/prd_monitoring.md` â€” monitoring and alerting expectations
-- `PRD/prd_disaster_recovery.md` â€” backup, restore, RTO/RPO
+- `PRD/PRD.md`     ” master PRD and locked behavioral rules
+- `PRD/prd_folder_structure.md`     ” frontend/backend folder conventions
+- `PRD/prd_ui.md`     ” UI system and control rules
+- `PRD/prd_schema.md`     ” schema snapshot and form-table mapping rules
+- `PRD/prd_deployment.md`     ” release, rollback, and environment workflow
+- `PRD/prd_monitoring.md`     ” monitoring and alerting expectations
+- `PRD/prd_disaster_recovery.md`     ” backup, restore, RTO/RPO
 
 
 ---

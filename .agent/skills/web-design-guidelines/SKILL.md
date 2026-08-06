@@ -50,9 +50,9 @@ If no files specified, ask the user which files to review.
 ## Design Workflow
 
 ```
-1. DESIGN   â†’ Read frontend-design principles
-2. CODE     â†’ Implement the design
-3. AUDIT    â†’ Run web-design-guidelines review â† YOU ARE HERE
-4. FIX      â†’ Address findings from audit
+1. DESIGN     †’ Read frontend-design principles
+2. CODE       †’ Implement the design
+3. AUDIT      †’ Run web-design-guidelines review   † YOU ARE HERE
+4. FIX        †’ Address findings from audit
 ```
 

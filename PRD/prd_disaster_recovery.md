@@ -1,6 +1,8 @@
-# Disaster Recovery & Business Continuity Plan
+# Disaster Recovery & Business Continuity Plan
 
-## âš ï¸ PRD Edit Policy
+  
+
+## â   PRD Edit Policy
 Do not edit PRD files unless explicitly requested by the user or team head.
 ## ðŸ”’ Auth Policy (Pre-Production)
 No authentication setup is allowed until production. The application must run without enforced login/RBAC/JWT in dev and staging. Auth UI may exist but must not be wired into routing until production approval.
@@ -31,7 +33,7 @@ This document outlines the disaster recovery and business continuity procedures 
 - **Window:** Last 7 days
 - **Use Case:** Recover from accidental deletes, bad migrations
 
-**Manual Backups:**
+**Manual Backups:**      
 - **When:** Before major migrations or releases
 - **How:** Via Supabase Dashboard â†’ Database â†’ Backups â†’ Create Backup
 - **Naming:** `manual_backup_YYYYMMDD_v1.x.x_pre_migration`

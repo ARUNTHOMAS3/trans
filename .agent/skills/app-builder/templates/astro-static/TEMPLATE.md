@@ -21,17 +21,17 @@ description: Astro static site template principles. Content-focused websites, bl
 
 ```
 project-name/
-â”œâ”€â”€ src/
-â”‚   â”œâ”€â”€ components/      # .astro components
-â”‚   â”œâ”€â”€ content/         # MDX content
-â”‚   â”‚   â”œâ”€â”€ blog/
-â”‚   â”‚   â””â”€â”€ config.ts    # Collection schemas
-â”‚   â”œâ”€â”€ layouts/         # Page layouts
-â”‚   â”œâ”€â”€ pages/           # File-based routing
-â”‚   â””â”€â”€ styles/
-â”œâ”€â”€ public/              # Static assets
-â”œâ”€â”€ astro.config.mjs
-â””â”€â”€ package.json
+             src/
+  ‚                components/      # .astro components
+  ‚                content/         # MDX content
+  ‚     ‚                blog/
+  ‚     ‚     ”         config.ts    # Collection schemas
+  ‚                layouts/         # Page layouts
+  ‚                pages/           # File-based routing
+  ‚     ”         styles/
+             public/              # Static assets
+             astro.config.mjs
+  ”         package.json
 ```
 
 ---

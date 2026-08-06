@@ -3,9 +3,9 @@
 ## Product And Environment
 
 - Auth is enabled in production; use `ENABLE_AUTH=false` dart-define or backend env toggle for local dev bypass.
-- All business-owned tables scope data via `entity_id uuid NOT NULL REFERENCES organisation_branch_master(id)` â€” the single canonical tenant scope column.
-- `organisation_branch_master` is the polymorphic entity registry: `type` = `'ORG'` or `'BRANCH'`, `ref_id` â†’ actual `organization.id` or `branches.id`.
-- Access resolved tenant context in controllers via `@Tenant()` or `@Tenant('entityId')` decorator â€” never read headers manually in services.
+- All business-owned tables scope data via `entity_id uuid NOT NULL REFERENCES organisation_branch_master(id)`     ” the single canonical tenant scope column.
+- `organisation_branch_master` is the polymorphic entity registry: `type` = `'ORG'` or `'BRANCH'`, `ref_id`   †’ actual `organization.id` or `branches.id`.
+- Access resolved tenant context in controllers via `@Tenant()` or `@Tenant('entityId')` decorator     ” never read headers manually in services.
 - Tenant headers: `X-Entity-Id` (preferred), `X-Org-Id` (routing), `X-Branch-Id` (optional branch scope).
 
 ## Technical Choices

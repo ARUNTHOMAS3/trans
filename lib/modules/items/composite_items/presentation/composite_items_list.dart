@@ -41,34 +41,34 @@ class CompositeItemsReportPage extends ConsumerStatefulWidget {
 
 class _CompositeItemsReportPageState
     extends ConsumerState<CompositeItemsReportPage> {
-  // â”€â”€â”€ Filter options â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      Filter options
   static const List<FavoriteFilterOption> _filterOptions = [
     FavoriteFilterOption(label: 'All Composite Items', value: 'all'),
-    FavoriteFilterOption(label: 'Ungrouped Items',     value: 'ungrouped'),
-    FavoriteFilterOption(label: 'Active Items',        value: 'active'),
-    FavoriteFilterOption(label: 'Low Stock Items',     value: 'low_stock'),
-    FavoriteFilterOption(label: 'Inactive Items',      value: 'inactive'),
-    FavoriteFilterOption(label: 'Assembly',            value: 'assembly'),
-    FavoriteFilterOption(label: 'Kit',                 value: 'kit'),
+    FavoriteFilterOption(label: 'Ungrouped Items', value: 'ungrouped'),
+    FavoriteFilterOption(label: 'Active Items', value: 'active'),
+    FavoriteFilterOption(label: 'Low Stock Items', value: 'low_stock'),
+    FavoriteFilterOption(label: 'Inactive Items', value: 'inactive'),
+    FavoriteFilterOption(label: 'Assembly', value: 'assembly'),
+    FavoriteFilterOption(label: 'Kit', value: 'kit'),
   ];
   late FavoriteFilterOption _selectedFilter = _filterOptions[0];
 
-  // â”€â”€â”€ Sort state (mirrors provider) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      Sort state (mirrors provider)
   String get _sortField => ref.watch(compositeItemsProvider).sortField;
   bool get _sortAscending => ref.watch(compositeItemsProvider).sortAscending;
 
-  // â”€â”€â”€ More-menu overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      More-menu overlay
   final LayerLink _moreMenuLayerLink = LayerLink();
   bool _isMoreMenuOpen = false;
   OverlayEntry? _moreMenuOverlayEntry;
   _SubMenuType _activeSubMenu = _SubMenuType.none;
 
-  // â”€â”€â”€ Columns-picker overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      Columns-picker overlay
   final LayerLink _colsLayerLink = LayerLink();
   bool _isColsOpen = false;
   OverlayEntry? _colsOverlay;
 
-  // â”€â”€â”€ UI state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      UI state
   bool _isLoading = false;
   bool _allSelected = false;
   bool _showTotalCount = false;
@@ -84,46 +84,110 @@ class _CompositeItemsReportPageState
   bool _showResizedBanner = false;
   final Set<String> _expandedRecordIds = {};
 
-  // â”€â”€â”€ Column definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      Column definitions
   final List<_ColumnDef> _columns = [
     // ── Visible by default ────────────────────────────────────────────────────
-    _ColumnDef(id: 'name',                label: 'Name',                 width: 220, visible: true,  isLocked: true),
-    _ColumnDef(id: 'itemType',            label: 'Composition Type',     width: 160, visible: true),
-    _ColumnDef(id: 'sku',                 label: 'SKU',                  width: 140, visible: true),
-    _ColumnDef(id: 'reorderLevel',        label: 'Reorder Level',        width: 120, visible: true),
-    _ColumnDef(id: 'category',            label: 'Category',             width: 160, visible: true),
-    _ColumnDef(id: 'manufacturer',        label: 'Manufacturer',         width: 160, visible: true),
-    _ColumnDef(id: 'brand',               label: 'Brand',                width: 140, visible: true),
-    _ColumnDef(id: 'unit',                label: 'Unit',                 width: 100, visible: false),
-    _ColumnDef(id: 'hsnCode',             label: 'HSN Code',             width: 120, visible: false),
+    _ColumnDef(
+      id: 'name',
+      label: 'Name',
+      width: 220,
+      visible: true,
+      isLocked: true,
+    ),
+    _ColumnDef(
+      id: 'itemType',
+      label: 'Composition Type',
+      width: 160,
+      visible: true,
+    ),
+    _ColumnDef(id: 'sku', label: 'SKU', width: 140, visible: true),
+    _ColumnDef(
+      id: 'reorderLevel',
+      label: 'Reorder Level',
+      width: 120,
+      visible: true,
+    ),
+    _ColumnDef(id: 'category', label: 'Category', width: 160, visible: true),
+    _ColumnDef(
+      id: 'manufacturer',
+      label: 'Manufacturer',
+      width: 160,
+      visible: true,
+    ),
+    _ColumnDef(id: 'brand', label: 'Brand', width: 140, visible: true),
+    _ColumnDef(id: 'unit', label: 'Unit', width: 100, visible: false),
+    _ColumnDef(id: 'hsnCode', label: 'HSN Code', width: 120, visible: false),
     // ── Hidden by default ─────────────────────────────────────────────────────
-    _ColumnDef(id: 'accountName',         label: 'Account Name',         width: 160, visible: false),
-    _ColumnDef(id: 'description',         label: 'Description',          width: 200, visible: false),
-    _ColumnDef(id: 'dimensions',          label: 'Dimensions',           width: 140, visible: false),
-    _ColumnDef(id: 'mpn',                 label: 'MPN',                  width: 120, visible: false),
-    _ColumnDef(id: 'purchaseAccountName', label: 'Purchase Account Name',width: 190, visible: false),
-    _ColumnDef(id: 'purchaseDescription', label: 'Purchase Description', width: 200, visible: false),
-    _ColumnDef(id: 'purchaseRate',        label: 'Purchase Rate',        width: 130, visible: false),
-    _ColumnDef(id: 'rate',                label: 'Rate',                 width: 110, visible: false),
-    _ColumnDef(id: 'type',                label: 'Type',                 width: 110, visible: false),
-    _ColumnDef(id: 'upc',                 label: 'UPC',                  width: 120, visible: false),
-    _ColumnDef(id: 'usageUnit',           label: 'Usage Unit',           width: 120, visible: false),
-    _ColumnDef(id: 'weight',              label: 'Weight',               width: 110, visible: false),
+    _ColumnDef(
+      id: 'accountName',
+      label: 'Account Name',
+      width: 160,
+      visible: false,
+    ),
+    _ColumnDef(
+      id: 'description',
+      label: 'Description',
+      width: 200,
+      visible: false,
+    ),
+    _ColumnDef(
+      id: 'dimensions',
+      label: 'Dimensions',
+      width: 140,
+      visible: false,
+    ),
+    _ColumnDef(id: 'mpn', label: 'MPN', width: 120, visible: false),
+    _ColumnDef(
+      id: 'purchaseAccountName',
+      label: 'Purchase Account Name',
+      width: 190,
+      visible: false,
+    ),
+    _ColumnDef(
+      id: 'purchaseDescription',
+      label: 'Purchase Description',
+      width: 200,
+      visible: false,
+    ),
+    _ColumnDef(
+      id: 'purchaseRate',
+      label: 'Purchase Rate',
+      width: 130,
+      visible: false,
+    ),
+    _ColumnDef(id: 'rate', label: 'Rate', width: 110, visible: false),
+    _ColumnDef(id: 'type', label: 'Type', width: 110, visible: false),
+    _ColumnDef(id: 'upc', label: 'UPC', width: 120, visible: false),
+    _ColumnDef(
+      id: 'usageUnit',
+      label: 'Usage Unit',
+      width: 120,
+      visible: false,
+    ),
+    _ColumnDef(id: 'weight', label: 'Weight', width: 110, visible: false),
   ];
 
-  // â”€â”€â”€ Data helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  List<CompositeItem> get _allRecords => ref.watch(compositeItemsProvider).records;
+  //      Data helpers
+  List<CompositeItem> get _allRecords =>
+      ref.watch(compositeItemsProvider).records;
 
   List<CompositeItem> get _filteredRecords {
     return _allRecords.where((item) {
       switch (_selectedFilter.value) {
-        case 'assembly':  return item.itemType == 'Assembly Item';
-        case 'kit':       return item.itemType == 'Kit Item';
-        case 'active':    return item.isActive;
-        case 'inactive':  return !item.isActive;
-        case 'low_stock': return item.stockQuantity < item.reorderLevel;
-        case 'ungrouped': return !item.isGrouped;
-        default:          return true; // 'all'
+        case 'assembly':
+          return item.itemType == 'Assembly Item';
+        case 'kit':
+          return item.itemType == 'Kit Item';
+        case 'active':
+          return item.isActive;
+        case 'inactive':
+          return !item.isActive;
+        case 'low_stock':
+          return item.stockQuantity < item.reorderLevel;
+        case 'ungrouped':
+          return !item.isGrouped;
+        default:
+          return true; // 'all'
       }
     }).toList();
   }
@@ -134,88 +198,121 @@ class _CompositeItemsReportPageState
     final records = _filteredRecords;
     final startIndex = (_currentPage - 1) * _rowsPerPage;
     final endIndex = (startIndex + _rowsPerPage).clamp(0, records.length);
-    if (startIndex >= endIndex) { _allSelected = false; return; }
-    _allSelected = records.sublist(startIndex, endIndex).every((r) => r.isSelected);
+    if (startIndex >= endIndex) {
+      _allSelected = false;
+      return;
+    }
+    _allSelected = records
+        .sublist(startIndex, endIndex)
+        .every((r) => r.isSelected);
   }
 
   String _cellValue(_ColumnDef col, CompositeItem r) {
     switch (col.id) {
-      case 'name':                return r.name;
-      case 'itemType':            return r.itemType.replaceAll(' Item', '');
-      case 'sku':                 return r.sku;
-      case 'reorderLevel':        return r.reorderLevel > 0 ? '${r.reorderLevel}' : '';
-      case 'category':            return r.category.toUpperCase();
-      case 'manufacturer':        return r.manufacturer;
-      case 'brand':               return r.brand;
-      case 'unit':                return r.unit;
-      case 'hsnCode':             return r.hsnCode;
-      case 'accountName':         return r.accountName;
-      case 'description':         return r.description;
-      case 'dimensions':          return r.dimensions;
-      case 'mpn':                 return r.mpn;
-      case 'purchaseAccountName': return r.purchaseAccountName;
-      case 'purchaseDescription': return r.purchaseDescription;
-      case 'purchaseRate':        return r.purchaseRate > 0 ? r.purchaseRate.toStringAsFixed(2) : '';
-      case 'rate':                return r.sellingPrice > 0 ? r.sellingPrice.toStringAsFixed(2) : '';
-      case 'type':                return r.itemType.replaceAll(' Item', '');
-      case 'upc':                 return r.upc;
-      case 'usageUnit':           return r.usageUnit;
-      case 'weight':              return r.weight > 0 ? '${r.weight} kg' : '';
-      default:                    return '';
+      case 'name':
+        return r.name;
+      case 'itemType':
+        return r.itemType.replaceAll(' Item', '');
+      case 'sku':
+        return r.sku;
+      case 'reorderLevel':
+        return r.reorderLevel > 0 ? '${r.reorderLevel}' : '';
+      case 'category':
+        return r.category.toUpperCase();
+      case 'manufacturer':
+        return r.manufacturer;
+      case 'brand':
+        return r.brand;
+      case 'unit':
+        return r.unit;
+      case 'hsnCode':
+        return r.hsnCode;
+      case 'accountName':
+        return r.accountName;
+      case 'description':
+        return r.description;
+      case 'dimensions':
+        return r.dimensions;
+      case 'mpn':
+        return r.mpn;
+      case 'purchaseAccountName':
+        return r.purchaseAccountName;
+      case 'purchaseDescription':
+        return r.purchaseDescription;
+      case 'purchaseRate':
+        return r.purchaseRate > 0 ? r.purchaseRate.toStringAsFixed(2) : '';
+      case 'rate':
+        return r.sellingPrice > 0 ? r.sellingPrice.toStringAsFixed(2) : '';
+      case 'type':
+        return r.itemType.replaceAll(' Item', '');
+      case 'upc':
+        return r.upc;
+      case 'usageUnit':
+        return r.usageUnit;
+      case 'weight':
+        return r.weight > 0 ? '${r.weight} kg' : '';
+      default:
+        return '';
     }
   }
 
-  // â”€â”€â”€ Refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      Refresh
   Future<void> _refreshData() async {
-    setState(() { _isLoading = true; _allSelected = false; });
+    setState(() {
+      _isLoading = true;
+      _allSelected = false;
+    });
     await ref.read(compositeItemsProvider.notifier).refresh();
     if (mounted) setState(() => _isLoading = false);
   }
 
-  // â”€â”€â”€ More menu overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      More menu overlay
   void _showMoreMenu() {
     if (_moreMenuOverlayEntry != null) return;
     final overlay = Overlay.of(context);
-    _moreMenuOverlayEntry = OverlayEntry(builder: (context) {
-      return Stack(children: [
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: _closeMoreMenu,
-            child: const SizedBox.expand(),
-          ),
-        ),
-        CompositedTransformFollower(
-          link: _moreMenuLayerLink,
-          showWhenUnlinked: false,
-          followerAnchor: Alignment.topRight,
-          targetAnchor: Alignment.bottomRight,
-          offset: const Offset(0, 8),
-          child: Material(
-            elevation: 0,
-            color: Colors.transparent,
-            child: _MoreMenuDropdownContent(
-              activeSubMenu: _activeSubMenu,
-              onSubMenuChanged: (type) {
-                setState(() => _activeSubMenu = type);
-                _moreMenuOverlayEntry?.markNeedsBuild();
-              },
-              sortField: _sortField,
-              sortAscending: _sortAscending,
-              onSort: (field, asc) {
-                ref.read(compositeItemsProvider.notifier).sort(field, asc);
-              },
-              onClose: _closeMoreMenu,
-              onRefresh: _refreshData,
+    _moreMenuOverlayEntry = OverlayEntry(
+      builder: (context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _closeMoreMenu,
+                child: const SizedBox.expand(),
+              ),
             ),
-          ),
-        ),
-      ]);
-    });
+            CompositedTransformFollower(
+              link: _moreMenuLayerLink,
+              showWhenUnlinked: false,
+              followerAnchor: Alignment.topRight,
+              targetAnchor: Alignment.bottomRight,
+              offset: const Offset(0, 8),
+              child: Material(
+                elevation: 0,
+                color: Colors.transparent,
+                child: _MoreMenuDropdownContent(
+                  activeSubMenu: _activeSubMenu,
+                  onSubMenuChanged: (type) {
+                    setState(() => _activeSubMenu = type);
+                    _moreMenuOverlayEntry?.markNeedsBuild();
+                  },
+                  sortField: _sortField,
+                  sortAscending: _sortAscending,
+                  onSort: (field, asc) {
+                    ref.read(compositeItemsProvider.notifier).sort(field, asc);
+                  },
+                  onClose: _closeMoreMenu,
+                  onRefresh: _refreshData,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
     overlay.insert(_moreMenuOverlayEntry!);
     setState(() => _isMoreMenuOpen = true);
   }
-
 
   void _closeMoreMenu() {
     _moreMenuOverlayEntry?.remove();
@@ -226,61 +323,65 @@ class _CompositeItemsReportPageState
     });
   }
 
-  // â”€â”€â”€ Columns overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      Columns overlay
   void _openColsOverlay() {
     if (_colsOverlay != null) return;
     final overlay = Overlay.of(context);
-    _colsOverlay = OverlayEntry(builder: (ctx) {
-      return Stack(children: [
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: _closeColsOverlay,
-            child: const SizedBox.expand(),
-          ),
-        ),
-        CompositedTransformFollower(
-          link: _colsLayerLink,
-          showWhenUnlinked: false,
-          offset: const Offset(0, 26),
-          child: Material(
-            elevation: 8,
-            color: Colors.transparent,
-            child: Container(
-              width: 220,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _ColsMenuItem(
-                    icon: LucideIcons.sliders,
-                    label: 'Customize Columns',
-                    onTap: () {
-                      _closeColsOverlay();
-                      _showCustomizeColumnsDialog();
-                    },
-                  ),
-                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                  _ColsMenuToggleItem(
-                    icon: LucideIcons.alignLeft,
-                    label: _clipText ? 'Clip Text' : 'Wrap Text',
-                    onChanged: (v) {
-                      _closeColsOverlay();
-                      setState(() => _clipText = !_clipText);
-                    },
-                  ),
-                ],
+    _colsOverlay = OverlayEntry(
+      builder: (ctx) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _closeColsOverlay,
+                child: const SizedBox.expand(),
               ),
             ),
-          ),
-        ),
-      ]);
-    });
+            CompositedTransformFollower(
+              link: _colsLayerLink,
+              showWhenUnlinked: false,
+              offset: const Offset(0, 26),
+              child: Material(
+                elevation: 8,
+                color: Colors.transparent,
+                child: Container(
+                  width: 220,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ColsMenuItem(
+                        icon: LucideIcons.sliders,
+                        label: 'Customize Columns',
+                        onTap: () {
+                          _closeColsOverlay();
+                          _showCustomizeColumnsDialog();
+                        },
+                      ),
+                      const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                      _ColsMenuToggleItem(
+                        icon: LucideIcons.alignLeft,
+                        label: _clipText ? 'Clip Text' : 'Wrap Text',
+                        onChanged: (v) {
+                          _closeColsOverlay();
+                          setState(() => _clipText = !_clipText);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
     overlay.insert(_colsOverlay!);
     setState(() => _isColsOpen = true);
   }
@@ -292,13 +393,19 @@ class _CompositeItemsReportPageState
   }
 
   void _showCustomizeColumnsDialog() {
-    final configs = _columns.asMap().entries.map((e) => ColumnConfig(
-      id: e.value.id,
-      label: e.value.label,
-      isVisible: e.value.visible,
-      orderIndex: e.key,
-      isLocked: e.value.isLocked,
-    )).toList();
+    final configs = _columns
+        .asMap()
+        .entries
+        .map(
+          (e) => ColumnConfig(
+            id: e.value.id,
+            label: e.value.label,
+            isVisible: e.value.visible,
+            orderIndex: e.key,
+            isLocked: e.value.isLocked,
+          ),
+        )
+        .toList();
 
     showDialog(
       context: context,
@@ -312,8 +419,10 @@ class _CompositeItemsReportPageState
               final match = updated.firstWhere(
                 (u) => u.id == col.id,
                 orElse: () => ColumnConfig(
-                  id: col.id, label: col.label,
-                  isVisible: col.visible, isLocked: col.isLocked,
+                  id: col.id,
+                  label: col.label,
+                  isVisible: col.visible,
+                  isLocked: col.isLocked,
                 ),
               );
               col.visible = match.isVisible;
@@ -333,109 +442,144 @@ class _CompositeItemsReportPageState
     );
   }
 
-  // â”€â”€â”€ Column resize â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      Column resize
   void _onColResize(int colIndex, double delta) {
     setState(() {
-      _columns[colIndex].width = (_columns[colIndex].width + delta).clamp(60.0, 600.0);
+      _columns[colIndex].width = (_columns[colIndex].width + delta).clamp(
+        60.0,
+        600.0,
+      );
       _showResizedBanner = true;
     });
   }
 
-  // â”€â”€â”€ Sort icon â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  bool _isSortable(String id) => const {'name', 'itemType', 'sku', 'category', 'reorderLevel'}.contains(id);
+  //      Sort icon
+  bool _isSortable(String id) => const {
+    'name',
+    'itemType',
+    'sku',
+    'category',
+    'reorderLevel',
+  }.contains(id);
 
   Widget _buildSortIcon(String id) {
     final isSorted = _sortField == id;
     final isAsc = _sortAscending;
     const active = Color(0xFF2563EB);
     const inactive = Color(0xFF9CA3AF);
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      GestureDetector(
-        onTap: () => ref.read(compositeItemsProvider.notifier).sort(id, true),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Icon(Icons.arrow_upward_rounded, size: 14,
-            color: isSorted && isAsc ? active : inactive),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: () => ref.read(compositeItemsProvider.notifier).sort(id, true),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Icon(
+              Icons.arrow_upward_rounded,
+              size: 14,
+              color: isSorted && isAsc ? active : inactive,
+            ),
+          ),
         ),
-      ),
-      const SizedBox(width: 2),
-      GestureDetector(
-        onTap: () => ref.read(compositeItemsProvider.notifier).sort(id, false),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Icon(Icons.arrow_downward_rounded, size: 14,
-            color: isSorted && !isAsc ? active : inactive),
+        const SizedBox(width: 2),
+        GestureDetector(
+          onTap: () =>
+              ref.read(compositeItemsProvider.notifier).sort(id, false),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Icon(
+              Icons.arrow_downward_rounded,
+              size: 14,
+              color: isSorted && !isAsc ? active : inactive,
+            ),
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
-  // â”€â”€â”€ Header cell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  Widget _buildHeader(_ColumnDef col, int globalIdx, int visibleIdx, double scaledWidth) {
+  //      Header cell
+  Widget _buildHeader(
+    _ColumnDef col,
+    int globalIdx,
+    int visibleIdx,
+    double scaledWidth,
+  ) {
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredHeaderIndex = visibleIdx),
       onExit: (_) => setState(() => _hoveredHeaderIndex = null),
       child: SizedBox(
         width: scaledWidth,
         height: 38,
-        child: Stack(children: [
-          Positioned.fill(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 6, right: 10),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Flexible(
-                    child: Text(
-                      col.label.toUpperCase(),
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textSecondary,
-                        letterSpacing: .3,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 6, right: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          col.label.toUpperCase(),
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textSecondary,
+                            letterSpacing: .3,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (_isSortable(col.id)) ...[
+                        const SizedBox(width: 4),
+                        _buildSortIcon(col.id),
+                      ],
+                    ],
                   ),
-                  if (_isSortable(col.id)) ...[
-                    const SizedBox(width: 4),
-                    _buildSortIcon(col.id),
-                  ],
-                ]),
+                ),
               ),
             ),
-          ),
-          // Resize handle
-          Positioned(
-            right: 0, top: 0, bottom: 0,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.resizeColumn,
-              child: GestureDetector(
-                onHorizontalDragUpdate: (d) => _onColResize(globalIdx, d.delta.dx),
-                child: Container(
-                  width: 8,
-                  color: Colors.transparent,
-                  child: Center(
-                    child: Container(
-                      width: 2, height: 16,
-                      decoration: BoxDecoration(
-                        color: (_hoveringHeaderRow && _hoveredHeaderIndex == visibleIdx)
-                            ? const Color(0xFFCBD5E1)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(1),
+            // Resize handle
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.resizeColumn,
+                child: GestureDetector(
+                  onHorizontalDragUpdate: (d) =>
+                      _onColResize(globalIdx, d.delta.dx),
+                  child: Container(
+                    width: 8,
+                    color: Colors.transparent,
+                    child: Center(
+                      child: Container(
+                        width: 2,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color:
+                              (_hoveringHeaderRow &&
+                                  _hoveredHeaderIndex == visibleIdx)
+                              ? const Color(0xFFCBD5E1)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(1),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ]),
+          ],
+        ),
       ),
     );
   }
 
-  // â”€â”€â”€ Select all / single â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      Select all / single
   void _toggleSelectAll(bool? val) {
     if (val == null) return;
     final records = _filteredRecords;
@@ -443,19 +587,23 @@ class _CompositeItemsReportPageState
     final endIndex = (startIndex + _rowsPerPage).clamp(0, records.length);
     setState(() {
       _allSelected = val;
-      ref.read(compositeItemsProvider.notifier).toggleSelectAll(val, startIndex, endIndex);
+      ref
+          .read(compositeItemsProvider.notifier)
+          .toggleSelectAll(val, startIndex, endIndex);
     });
   }
 
   void _toggleRecordSelect(int absoluteIndex, bool? val) {
     if (val == null) return;
     setState(() {
-      ref.read(compositeItemsProvider.notifier).toggleRecordSelect(absoluteIndex, val);
+      ref
+          .read(compositeItemsProvider.notifier)
+          .toggleRecordSelect(absoluteIndex, val);
       _updateAllSelectedState();
     });
   }
 
-  // â”€â”€â”€ dispose â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      dispose
   @override
   void dispose() {
     _moreMenuOverlayEntry?.remove();
@@ -465,13 +613,15 @@ class _CompositeItemsReportPageState
     super.dispose();
   }
 
-  // â”€â”€â”€ build â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //      build
   @override
   Widget build(BuildContext context) {
     final records = _filteredRecords;
     final startIndex = (_currentPage - 1) * _rowsPerPage;
     final endIndex = (startIndex + _rowsPerPage).clamp(0, records.length);
-    final paginatedRecords = records.isEmpty ? <CompositeItem>[] : records.sublist(startIndex, endIndex);
+    final paginatedRecords = records.isEmpty
+        ? <CompositeItem>[]
+        : records.sublist(startIndex, endIndex);
 
     return ZerpaiLayout(
       pageTitle: '',
@@ -482,108 +632,193 @@ class _CompositeItemsReportPageState
         child: Container(
           color: Colors.white,
           child: Column(
-          children: [
-            // â”€â”€ Resized-columns banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            if (_showResizedBanner)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                color: const Color(0xFFEFF6FF),
-                child: Row(children: [
-                  const Icon(Icons.info_outline, size: 16, color: Color(0xFF2563EB)),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'You have resized the columns. Would you like to save the changes?',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF1E40AF)),
-                    ),
+            children: [
+              //          Resized-columns banner
+              if (_showResizedBanner)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => setState(() => _showResizedBanner = false),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF22A95E),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 30),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                    ),
-                    child: const Text('Save', style: TextStyle(fontSize: 12)),
+                  color: const Color(0xFFEFF6FF),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Color(0xFF2563EB),
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'You have resized the columns. Would you like to save the changes?',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF1E40AF),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () =>
+                            setState(() => _showResizedBanner = false),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF22A95E),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 30),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        child: const Text(
+                          'Save',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      OutlinedButton(
+                        onPressed: () =>
+                            setState(() => _showResizedBanner = false),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 30),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 6),
-                  OutlinedButton(
-                    onPressed: () => setState(() => _showResizedBanner = false),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 30),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                    ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 12)),
-                  ),
-                ]),
-              ),
+                ),
 
-            // â”€â”€ Bulk ribbon OR normal top bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            if (_selectedCount > 0)
-              _BulkActionRibbon(
-                selectedCount: _selectedCount,
-                onActionSelected: (action) {
-                  final totalRecords = _allRecords.length;
-                  if (action == 'mark_active') {
-                    ref.read(compositeItemsProvider.notifier).bulkMarkActive(true);
-                    ref.read(compositeItemsProvider.notifier).toggleSelectAll(false, 0, totalRecords);
-                    setState(() {
-                      _allSelected = false;
-                      _updateAllSelectedState();
-                    });
-                    ZerpaiToast.success(context, 'Selected item(s) marked as Active');
-                  } else if (action == 'mark_inactive') {
-                    ref.read(compositeItemsProvider.notifier).bulkMarkActive(false);
-                    ref.read(compositeItemsProvider.notifier).toggleSelectAll(false, 0, totalRecords);
-                    setState(() {
-                      _allSelected = false;
-                      _updateAllSelectedState();
-                    });
-                    ZerpaiToast.success(context, 'Selected item(s) marked as Inactive');
-                  } else if (action == 'add_group') {
-                    ref.read(compositeItemsProvider.notifier).bulkAddGroup();
-                    ref.read(compositeItemsProvider.notifier).toggleSelectAll(false, 0, totalRecords);
-                    setState(() {
-                      _allSelected = false;
-                      _updateAllSelectedState();
-                    });
-                    ZerpaiToast.success(context, 'Selected item(s) added to group');
-                  } else if (action == 'mark_returnable') {
-                    ref.read(compositeItemsProvider.notifier).bulkMarkReturnable(true);
-                    ref.read(compositeItemsProvider.notifier).toggleSelectAll(false, 0, totalRecords);
-                    setState(() {
-                      _allSelected = false;
-                      _updateAllSelectedState();
-                    });
-                    ZerpaiToast.success(context, 'Selected item(s) marked as Returnable');
-                  } else if (action == 'enable_bin') {
-                    ref.read(compositeItemsProvider.notifier).bulkEnableBinLocation(true);
-                    ref.read(compositeItemsProvider.notifier).toggleSelectAll(false, 0, totalRecords);
-                    setState(() {
-                      _allSelected = false;
-                      _updateAllSelectedState();
-                    });
-                    ZerpaiToast.success(context, 'Bin location enabled for selected item(s)');
-                  } else if (action == 'disable_bin') {
-                    ref.read(compositeItemsProvider.notifier).bulkEnableBinLocation(false);
-                    ref.read(compositeItemsProvider.notifier).toggleSelectAll(false, 0, totalRecords);
-                    setState(() {
-                      _allSelected = false;
-                      _updateAllSelectedState();
-                    });
-                    ZerpaiToast.success(context, 'Bin location disabled for selected item(s)');
-                  } else if (action == 'delete') {
+              //          Bulk ribbon OR normal top bar
+              if (_selectedCount > 0)
+                _BulkActionRibbon(
+                  selectedCount: _selectedCount,
+                  onActionSelected: (action) {
+                    final totalRecords = _allRecords.length;
+                    if (action == 'mark_active') {
+                      ref
+                          .read(compositeItemsProvider.notifier)
+                          .bulkMarkActive(true);
+                      ref
+                          .read(compositeItemsProvider.notifier)
+                          .toggleSelectAll(false, 0, totalRecords);
+                      setState(() {
+                        _allSelected = false;
+                        _updateAllSelectedState();
+                      });
+                      ZerpaiToast.success(
+                        context,
+                        'Selected item(s) marked as Active',
+                      );
+                    } else if (action == 'mark_inactive') {
+                      ref
+                          .read(compositeItemsProvider.notifier)
+                          .bulkMarkActive(false);
+                      ref
+                          .read(compositeItemsProvider.notifier)
+                          .toggleSelectAll(false, 0, totalRecords);
+                      setState(() {
+                        _allSelected = false;
+                        _updateAllSelectedState();
+                      });
+                      ZerpaiToast.success(
+                        context,
+                        'Selected item(s) marked as Inactive',
+                      );
+                    } else if (action == 'add_group') {
+                      ref.read(compositeItemsProvider.notifier).bulkAddGroup();
+                      ref
+                          .read(compositeItemsProvider.notifier)
+                          .toggleSelectAll(false, 0, totalRecords);
+                      setState(() {
+                        _allSelected = false;
+                        _updateAllSelectedState();
+                      });
+                      ZerpaiToast.success(
+                        context,
+                        'Selected item(s) added to group',
+                      );
+                    } else if (action == 'mark_returnable') {
+                      ref
+                          .read(compositeItemsProvider.notifier)
+                          .bulkMarkReturnable(true);
+                      ref
+                          .read(compositeItemsProvider.notifier)
+                          .toggleSelectAll(false, 0, totalRecords);
+                      setState(() {
+                        _allSelected = false;
+                        _updateAllSelectedState();
+                      });
+                      ZerpaiToast.success(
+                        context,
+                        'Selected item(s) marked as Returnable',
+                      );
+                    } else if (action == 'enable_bin') {
+                      ref
+                          .read(compositeItemsProvider.notifier)
+                          .bulkEnableBinLocation(true);
+                      ref
+                          .read(compositeItemsProvider.notifier)
+                          .toggleSelectAll(false, 0, totalRecords);
+                      setState(() {
+                        _allSelected = false;
+                        _updateAllSelectedState();
+                      });
+                      ZerpaiToast.success(
+                        context,
+                        'Bin location enabled for selected item(s)',
+                      );
+                    } else if (action == 'disable_bin') {
+                      ref
+                          .read(compositeItemsProvider.notifier)
+                          .bulkEnableBinLocation(false);
+                      ref
+                          .read(compositeItemsProvider.notifier)
+                          .toggleSelectAll(false, 0, totalRecords);
+                      setState(() {
+                        _allSelected = false;
+                        _updateAllSelectedState();
+                      });
+                      ZerpaiToast.success(
+                        context,
+                        'Bin location disabled for selected item(s)',
+                      );
+                    } else if (action == 'delete') {
+                      showDialog<bool>(
+                        context: context,
+                        builder: (context) => const _DeleteConfirmationDialog(),
+                      ).then((confirmed) {
+                        if (confirmed == true) {
+                          setState(() {
+                            ref
+                                .read(compositeItemsProvider.notifier)
+                                .deleteSelected();
+                            _allSelected = false;
+                            _currentPage = 1;
+                            _updateAllSelectedState();
+                          });
+                          ZerpaiToast.deleted(context, 'Composite Item(s)');
+                        }
+                      });
+                    }
+                  },
+                  onDelete: () {
                     showDialog<bool>(
                       context: context,
                       builder: (context) => const _DeleteConfirmationDialog(),
                     ).then((confirmed) {
                       if (confirmed == true) {
                         setState(() {
-                          ref.read(compositeItemsProvider.notifier).deleteSelected();
+                          ref
+                              .read(compositeItemsProvider.notifier)
+                              .deleteSelected();
                           _allSelected = false;
                           _currentPage = 1;
                           _updateAllSelectedState();
@@ -591,514 +826,781 @@ class _CompositeItemsReportPageState
                         ZerpaiToast.deleted(context, 'Composite Item(s)');
                       }
                     });
-                  }
-                },
-                onDelete: () {
-                  showDialog<bool>(
-                    context: context,
-                    builder: (context) => const _DeleteConfirmationDialog(),
-                  ).then((confirmed) {
-                    if (confirmed == true) {
-                      setState(() {
-                        ref.read(compositeItemsProvider.notifier).deleteSelected();
-                        _allSelected = false;
-                        _currentPage = 1;
-                        _updateAllSelectedState();
-                      });
-                      ZerpaiToast.deleted(context, 'Composite Item(s)');
-                    }
-                  });
-                },
-                onDismiss: () => setState(() {
-                  _allSelected = false;
-                  ref.read(compositeItemsProvider.notifier).toggleSelectAll(false, 0, _allRecords.length);
-                }),
-              )
-            else
-              // Normal top bar
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                child: Row(children: [
-                  // Filter dropdown title
-                  FavoriteFilterDropdown(
-                    moduleName: 'composite_items',
-                    options: _filterOptions,
-                    selectedOption: _selectedFilter,
-                    onChanged: (opt) => setState(() => _selectedFilter = opt),
+                  },
+                  onDismiss: () => setState(() {
+                    _allSelected = false;
+                    ref
+                        .read(compositeItemsProvider.notifier)
+                        .toggleSelectAll(false, 0, _allRecords.length);
+                  }),
+                )
+              else
+                // Normal top bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 8.0,
                   ),
-                  const Spacer(),
-                  // + New button
-                  ElevatedButton(
-                    onPressed: () {
-                      final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '6000000000';
-                      context.go('/$orgId/items/composite-items/create');
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.successGreen,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      minimumSize: const Size(0, 32),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                    ),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.add, size: 14, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        'New',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ]),
-                  ),
-                  const SizedBox(width: 8),
-                  // More menu (â‹¯)
-                  CompositedTransformTarget(
-                    link: _moreMenuLayerLink,
-                    child: IconButton(
-                      onPressed: () => _isMoreMenuOpen ? _closeMoreMenu() : _showMoreMenu(),
-                      icon: Icon(
-                        LucideIcons.moreHorizontal,
-                        size: 20,
-                        color: _isMoreMenuOpen ? const Color(0xFF2563EB) : AppTheme.textSecondary,
-                      ),
-                      splashRadius: 20,
-                    ),
-                  ),
-                ]),
-              ),
-
-            const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-            // â”€â”€ Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            Expanded(
-              child: LayoutBuilder(builder: (ctx, constraints) {
-                final screenW = constraints.maxWidth;
-                final visibleCols = _columns.where((c) => c.visible).toList();
-                const double prefixW = 8 + 14 + 8 + 36 + 8.0; // sliders + checkbox area
-                const double suffixW = 0.0;                   // no right search icon area
-                final colsTotalW = visibleCols.fold(0.0, (s, c) => s + c.width);
-                final minTableW = colsTotalW + prefixW + suffixW;
-                final bool shouldStretch = screenW > minTableW;
-                final double scale = shouldStretch ? (screenW - prefixW - suffixW) / colsTotalW : 1.0;
-                final double tableW = shouldStretch ? screenW : minTableW;
-
-                Widget tableContent = SizedBox(
-                  width: tableW,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  child: Row(
                     children: [
-                      // â”€â”€ Header row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                      MouseRegion(
-                        onEnter: (_) => setState(() => _hoveringHeaderRow = true),
-                        onExit: (_) => setState(() {
-                          _hoveringHeaderRow = false;
-                          _hoveredHeaderIndex = null;
-                        }),
-                        child: Container(
-                          height: 38,
-                          color: const Color(0xFFF9FAFB),
-                          child: Row(children: [
-                            const SizedBox(width: 8),
-                            // Columns picker icon
-                            CompositedTransformTarget(
-                              link: _colsLayerLink,
-                              child: MouseRegion(
-                                cursor: SystemMouseCursors.click,
-                                child: GestureDetector(
-                                  onTap: () => _isColsOpen ? _closeColsOverlay() : _openColsOverlay(),
-                                  child: const Icon(LucideIcons.sliders, size: 14, color: Color(0xFF2563EB)),
-                                ),
+                      // Filter dropdown title
+                      FavoriteFilterDropdown(
+                        moduleName: 'composite_items',
+                        options: _filterOptions,
+                        selectedOption: _selectedFilter,
+                        onChanged: (opt) =>
+                            setState(() => _selectedFilter = opt),
+                      ),
+                      const Spacer(),
+                      // + New button
+                      ElevatedButton(
+                        onPressed: () {
+                          final orgId =
+                              GoRouterState.of(
+                                context,
+                              ).pathParameters['orgSystemId'] ??
+                              '6000000000';
+                          context.go('/$orgId/items/composite-items/create');
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.successGreen,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          minimumSize: const Size(0, 32),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add, size: 14, color: Colors.white),
+                            SizedBox(width: 4),
+                            Text(
+                              'New',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            // Select-all checkbox
-                            SizedBox(
-                              width: 36,
-                              child: Center(
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: Checkbox(
-                                value: _allSelected,
-                                onChanged: _toggleSelectAll,
-                                activeColor: AppTheme.primaryBlue,
-                                visualDensity: VisualDensity.compact,
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    side: const BorderSide(color: AppTheme.borderColor, width: 1.4),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Column headers
-                            ...List.generate(visibleCols.length, (vi) {
-                              final col = visibleCols[vi];
-                              final globalIdx = _columns.indexOf(col);
-                              return _buildHeader(col, globalIdx, vi, col.width * scale);
-                            }),
-                          ]),
+                          ],
                         ),
                       ),
-                      const Divider(height: 1, color: Color(0xFFE5E7EB)),
-
-                      // â”€â”€ Rows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                      if (paginatedRecords.isEmpty)
-                        SizedBox(
-                          height: 300,
-                          child: Center(
-                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                              const Icon(LucideIcons.box, size: 48, color: Colors.grey),
-                              const SizedBox(height: 16),
-                              Text('No Composite Items found',
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Create a new composite item or adjust your filter.',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                            ]),
+                      const SizedBox(width: 8),
+                      // More menu (  ‹¯)
+                      CompositedTransformTarget(
+                        link: _moreMenuLayerLink,
+                        child: IconButton(
+                          onPressed: () => _isMoreMenuOpen
+                              ? _closeMoreMenu()
+                              : _showMoreMenu(),
+                          icon: Icon(
+                            LucideIcons.moreHorizontal,
+                            size: 20,
+                            color: _isMoreMenuOpen
+                                ? const Color(0xFF2563EB)
+                                : AppTheme.textSecondary,
                           ),
-                        )
-                      else
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: paginatedRecords.length,
-                          itemBuilder: (context, index) {
-                            final record = paginatedRecords[index];
-                            final absoluteIndex = startIndex + index;
-                            final isHovered = _hoveredRowIndex == index;
-                            final isExpanded = _expandedRecordIds.contains(record.id);
+                          splashRadius: 20,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
-                            String formatAssociateItem(String item) {
-                              final regExp = RegExp(r'\s*\(x(\d+)\)');
-                              final match = regExp.firstMatch(item);
-                              if (match != null) {
-                                final qty = match.group(1);
-                                final nameWithoutQty = item.replaceAll(regExp, '');
-                                return '${nameWithoutQty.toUpperCase()} ( $qty pcs )';
-                              }
-                              return '${item.toUpperCase()} ( 1 pcs )';
-                            }
+              const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-                            return MouseRegion(
-                              onEnter: (_) => setState(() => _hoveredRowIndex = index),
-                              onExit: (_) => setState(() => _hoveredRowIndex = null),
-                              child: Container(
-                                decoration: const BoxDecoration(
-                                  color: Colors.transparent,
-                                ),
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      height: _clipText ? 38 : null,
-                                      constraints: _clipText ? null : const BoxConstraints(minHeight: 38),
-                                      padding: EdgeInsets.symmetric(vertical: _clipText ? 0 : 5),
-                                      decoration: BoxDecoration(
-                                        color: record.isSelected
-                                            ? const Color(0xFFF8FAFF)
-                                            : (isHovered ? const Color(0xFFF0F4FF) : Colors.white),
-                                        border: const Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+              //          Table
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (ctx, constraints) {
+                    final screenW = constraints.maxWidth;
+                    final visibleCols = _columns
+                        .where((c) => c.visible)
+                        .toList();
+                    const double prefixW =
+                        8 + 14 + 8 + 36 + 8.0; // sliders + checkbox area
+                    const double suffixW = 0.0; // no right search icon area
+                    final colsTotalW = visibleCols.fold(
+                      0.0,
+                      (s, c) => s + c.width,
+                    );
+                    final minTableW = colsTotalW + prefixW + suffixW;
+                    final bool shouldStretch = screenW > minTableW;
+                    final double scale = shouldStretch
+                        ? (screenW - prefixW - suffixW) / colsTotalW
+                        : 1.0;
+                    final double tableW = shouldStretch ? screenW : minTableW;
+
+                    Widget tableContent = SizedBox(
+                      width: tableW,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          //          Header row
+                          MouseRegion(
+                            onEnter: (_) =>
+                                setState(() => _hoveringHeaderRow = true),
+                            onExit: (_) => setState(() {
+                              _hoveringHeaderRow = false;
+                              _hoveredHeaderIndex = null;
+                            }),
+                            child: Container(
+                              height: 38,
+                              color: const Color(0xFFF9FAFB),
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 8),
+                                  // Columns picker icon
+                                  CompositedTransformTarget(
+                                    link: _colsLayerLink,
+                                    child: MouseRegion(
+                                      cursor: SystemMouseCursors.click,
+                                      child: GestureDetector(
+                                        onTap: () => _isColsOpen
+                                            ? _closeColsOverlay()
+                                            : _openColsOverlay(),
+                                        child: const Icon(
+                                          LucideIcons.sliders,
+                                          size: 14,
+                                          color: Color(0xFF2563EB),
+                                        ),
                                       ),
-                                      child: Row(children: [
-                                        const SizedBox(width: 8),
-                                        const SizedBox(width: 14),
-                                        const SizedBox(width: 8),
-                                        // Checkbox
-                                        SizedBox(
-                                          width: 36,
-                                          child: Center(
-                                            child: SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: Checkbox(
-                                            value: record.isSelected,
-                                            onChanged: (v) => _toggleRecordSelect(absoluteIndex, v),
-                                            activeColor: AppTheme.primaryBlue,
-                                            visualDensity: VisualDensity.compact,
-                                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                side: const BorderSide(color: AppTheme.borderColor, width: 1.4),
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
-                                              ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Select-all checkbox
+                                  SizedBox(
+                                    width: 36,
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: Checkbox(
+                                          value: _allSelected,
+                                          onChanged: _toggleSelectAll,
+                                          activeColor: AppTheme.primaryBlue,
+                                          visualDensity: VisualDensity.compact,
+                                          materialTapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                          side: const BorderSide(
+                                            color: AppTheme.borderColor,
+                                            width: 1.4,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              3,
                                             ),
                                           ),
                                         ),
-                                        // Row cells
-                                        Expanded(
-                                          child: GestureDetector(
-                                            behavior: HitTestBehavior.opaque,
-                                            onTap: () {
-                                              final orgId = GoRouterState.of(context).pathParameters['orgSystemId'] ?? '6000000000';
-                                              context.go('/$orgId/items/composite-items/${record.id}');
-                                            },
-                                            child: Row(children: [
-                                              ...visibleCols.map((col) {
-                                                final val = _cellValue(col, record);
-                                                final isName = col.id == 'name';
-                                                return SizedBox(
-                                                  width: col.width * scale,
-                                                  child: Padding(
-                                                    padding: const EdgeInsets.only(left: 6, right: 8),
-                                                    child: isName
-                                                        ? Row(
-                                                            children: [
-                                                              GestureDetector(
-                                                                onTap: () {
-                                                                  setState(() {
-                                                                    if (_expandedRecordIds.contains(record.id)) {
-                                                                      _expandedRecordIds.remove(record.id);
-                                                                    } else {
-                                                                      _expandedRecordIds.add(record.id);
-                                                                    }
-                                                                  });
-                                                                },
-                                                                child: MouseRegion(
-                                                                  cursor: SystemMouseCursors.click,
-                                                                  child: Icon(
-                                                                    _expandedRecordIds.contains(record.id)
-                                                                        ? LucideIcons.folderOpen
-                                                                        : LucideIcons.folder,
-                                                                    size: 16,
-                                                                    color: const Color(0xFF9CA3AF),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              const SizedBox(width: 12),
-                                                              Expanded(
-                                                                child: Text(
-                                                                  val,
-                                                                  overflow: _clipText ? TextOverflow.ellipsis : TextOverflow.visible,
-                                                                  maxLines: _clipText ? 1 : null,
-                                                                  softWrap: !_clipText,
-                                                                  style: TextStyle(
-                                                                    fontSize: 13,
-                                                                    color: AppTheme.primaryBlue,
-                                                                    fontWeight: FontWeight.w500,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          )
-                                                        : Text(
-                                                            val,
-                                                            overflow: _clipText ? TextOverflow.ellipsis : TextOverflow.visible,
-                                                            maxLines: _clipText ? 1 : null,
-                                                            softWrap: !_clipText,
-                                                            style: TextStyle(
-                                                              fontSize: 13,
-                                                              color: AppTheme.textPrimary,
-                                                              fontWeight: FontWeight.normal,
-                                                            ),
-                                                          ),
-                                                  ),
-                                                );
-                                              }),
-                                            ]),
-                                          ),
-                                        ),
-                                      ]),
+                                      ),
                                     ),
-                                    if (isExpanded && record.associateItems.isNotEmpty) ...[
-                                      ...List.generate(record.associateItems.length, (assocIdx) {
-                                        final item = record.associateItems[assocIdx];
-                                        final isLast = assocIdx == record.associateItems.length - 1;
-                                        return Container(
-                                          height: 36,
-                                          decoration: const BoxDecoration(
-                                            color: Colors.white,
-                                            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Column headers
+                                  ...List.generate(visibleCols.length, (vi) {
+                                    final col = visibleCols[vi];
+                                    final globalIdx = _columns.indexOf(col);
+                                    return _buildHeader(
+                                      col,
+                                      globalIdx,
+                                      vi,
+                                      col.width * scale,
+                                    );
+                                  }),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+
+                          //          Rows
+                          if (paginatedRecords.isEmpty)
+                            SizedBox(
+                              height: 300,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.box,
+                                      size: 48,
+                                      color: Colors.grey,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No Composite Items found',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      'Create a new composite item or adjust your filter.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: paginatedRecords.length,
+                              itemBuilder: (context, index) {
+                                final record = paginatedRecords[index];
+                                final absoluteIndex = startIndex + index;
+                                final isHovered = _hoveredRowIndex == index;
+                                final isExpanded = _expandedRecordIds.contains(
+                                  record.id,
+                                );
+
+                                String formatAssociateItem(String item) {
+                                  final regExp = RegExp(r'\s*\(x(\d+)\)');
+                                  final match = regExp.firstMatch(item);
+                                  if (match != null) {
+                                    final qty = match.group(1);
+                                    final nameWithoutQty = item.replaceAll(
+                                      regExp,
+                                      '',
+                                    );
+                                    return '${nameWithoutQty.toUpperCase()} ( $qty pcs )';
+                                  }
+                                  return '${item.toUpperCase()} ( 1 pcs )';
+                                }
+
+                                return MouseRegion(
+                                  onEnter: (_) =>
+                                      setState(() => _hoveredRowIndex = index),
+                                  onExit: (_) =>
+                                      setState(() => _hoveredRowIndex = null),
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      color: Colors.transparent,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Container(
+                                          height: _clipText ? 38 : null,
+                                          constraints: _clipText
+                                              ? null
+                                              : const BoxConstraints(
+                                                  minHeight: 38,
+                                                ),
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: _clipText ? 0 : 5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: record.isSelected
+                                                ? const Color(0xFFF8FAFF)
+                                                : (isHovered
+                                                      ? const Color(0xFFF0F4FF)
+                                                      : Colors.white),
+                                            border: const Border(
+                                              bottom: BorderSide(
+                                                color: Color(0xFFE5E7EB),
+                                              ),
+                                            ),
                                           ),
                                           child: Row(
                                             children: [
-                                              const SizedBox(width: 80),
+                                              const SizedBox(width: 8),
+                                              const SizedBox(width: 14),
+                                              const SizedBox(width: 8),
+                                              // Checkbox
                                               SizedBox(
-                                                width: 16,
-                                                height: 36,
-                                                child: CustomPaint(
-                                                  painter: _TreeLinePainter(isLast: isLast),
+                                                width: 36,
+                                                child: Center(
+                                                  child: SizedBox(
+                                                    width: 18,
+                                                    height: 18,
+                                                    child: Checkbox(
+                                                      value: record.isSelected,
+                                                      onChanged: (v) =>
+                                                          _toggleRecordSelect(
+                                                            absoluteIndex,
+                                                            v,
+                                                          ),
+                                                      activeColor:
+                                                          AppTheme.primaryBlue,
+                                                      visualDensity:
+                                                          VisualDensity.compact,
+                                                      materialTapTargetSize:
+                                                          MaterialTapTargetSize
+                                                              .shrinkWrap,
+                                                      side: const BorderSide(
+                                                        color: AppTheme
+                                                            .borderColor,
+                                                        width: 1.4,
+                                                      ),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              3,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
-                                              const SizedBox(width: 12),
+                                              // Row cells
                                               Expanded(
-                                                child: Text(
-                                                  formatAssociateItem(item),
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Color(0xFF4B5563),
-                                                    letterSpacing: 0.5,
+                                                child: GestureDetector(
+                                                  behavior:
+                                                      HitTestBehavior.opaque,
+                                                  onTap: () {
+                                                    final orgId =
+                                                        GoRouterState.of(
+                                                          context,
+                                                        ).pathParameters['orgSystemId'] ??
+                                                        '6000000000';
+                                                    context.go(
+                                                      '/$orgId/items/composite-items/${record.id}',
+                                                    );
+                                                  },
+                                                  child: Row(
+                                                    children: [
+                                                      ...visibleCols.map((col) {
+                                                        final val = _cellValue(
+                                                          col,
+                                                          record,
+                                                        );
+                                                        final isName =
+                                                            col.id == 'name';
+                                                        return SizedBox(
+                                                          width:
+                                                              col.width * scale,
+                                                          child: Padding(
+                                                            padding:
+                                                                const EdgeInsets.only(
+                                                                  left: 6,
+                                                                  right: 8,
+                                                                ),
+                                                            child: isName
+                                                                ? Row(
+                                                                    children: [
+                                                                      GestureDetector(
+                                                                        onTap: () {
+                                                                          setState(() {
+                                                                            if (_expandedRecordIds.contains(
+                                                                              record.id,
+                                                                            )) {
+                                                                              _expandedRecordIds.remove(
+                                                                                record.id,
+                                                                              );
+                                                                            } else {
+                                                                              _expandedRecordIds.add(
+                                                                                record.id,
+                                                                              );
+                                                                            }
+                                                                          });
+                                                                        },
+                                                                        child: MouseRegion(
+                                                                          cursor:
+                                                                              SystemMouseCursors.click,
+                                                                          child: Icon(
+                                                                            _expandedRecordIds.contains(
+                                                                                  record.id,
+                                                                                )
+                                                                                ? LucideIcons.folderOpen
+                                                                                : LucideIcons.folder,
+                                                                            size:
+                                                                                16,
+                                                                            color: const Color(
+                                                                              0xFF9CA3AF,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                      const SizedBox(
+                                                                        width:
+                                                                            12,
+                                                                      ),
+                                                                      Expanded(
+                                                                        child: Text(
+                                                                          val,
+                                                                          overflow:
+                                                                              _clipText
+                                                                              ? TextOverflow.ellipsis
+                                                                              : TextOverflow.visible,
+                                                                          maxLines:
+                                                                              _clipText
+                                                                              ? 1
+                                                                              : null,
+                                                                          softWrap:
+                                                                              !_clipText,
+                                                                          style: TextStyle(
+                                                                            fontSize:
+                                                                                13,
+                                                                            color:
+                                                                                AppTheme.primaryBlue,
+                                                                            fontWeight:
+                                                                                FontWeight.w500,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  )
+                                                                : Text(
+                                                                    val,
+                                                                    overflow:
+                                                                        _clipText
+                                                                        ? TextOverflow
+                                                                              .ellipsis
+                                                                        : TextOverflow
+                                                                              .visible,
+                                                                    maxLines:
+                                                                        _clipText
+                                                                        ? 1
+                                                                        : null,
+                                                                    softWrap:
+                                                                        !_clipText,
+                                                                    style: TextStyle(
+                                                                      fontSize:
+                                                                          13,
+                                                                      color: AppTheme
+                                                                          .textPrimary,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .normal,
+                                                                    ),
+                                                                  ),
+                                                          ),
+                                                        );
+                                                      }),
+                                                    ],
                                                   ),
                                                 ),
                                               ),
                                             ],
                                           ),
-                                        );
-                                      }),
-                                    ],
-                                  ],
+                                        ),
+                                        if (isExpanded &&
+                                            record
+                                                .associateItems
+                                                .isNotEmpty) ...[
+                                          ...List.generate(
+                                            record.associateItems.length,
+                                            (assocIdx) {
+                                              final item = record
+                                                  .associateItems[assocIdx];
+                                              final isLast =
+                                                  assocIdx ==
+                                                  record.associateItems.length -
+                                                      1;
+                                              return Container(
+                                                height: 36,
+                                                decoration: const BoxDecoration(
+                                                  color: Colors.white,
+                                                  border: Border(
+                                                    bottom: BorderSide(
+                                                      color: Color(0xFFE5E7EB),
+                                                    ),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const SizedBox(width: 80),
+                                                    SizedBox(
+                                                      width: 16,
+                                                      height: 36,
+                                                      child: CustomPaint(
+                                                        painter:
+                                                            _TreeLinePainter(
+                                                              isLast: isLast,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: Text(
+                                                        formatAssociateItem(
+                                                          item,
+                                                        ),
+                                                        style: const TextStyle(
+                                                          fontSize: 11,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Color(
+                                                            0xFF4B5563,
+                                                          ),
+                                                          letterSpacing: 0.5,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                        ],
+                      ),
+                    );
+
+                    return Stack(
+                      children: [
+                        SingleChildScrollView(
+                          scrollDirection: Axis.vertical,
+                          child: shouldStretch
+                              ? tableContent
+                              : SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: tableContent,
+                                ),
+                        ),
+                        if (_isLoading)
+                          Positioned.fill(
+                            child: Container(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color(0xFF2563EB),
+                                  ),
                                 ),
                               ),
-                            );
-                          },
-                        ),
-                    ],
-                  ),
-                );
-
-                return Stack(children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: shouldStretch
-                        ? tableContent
-                        : SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: tableContent,
+                            ),
                           ),
-                  ),
-                  if (_isLoading)
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.white.withValues(alpha: 0.65),
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                      ],
+                    );
+                  },
+                ),
+              ),
+
+              //          Pagination footer
+              Container(
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Text(
+                      'Total Count: ',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () =>
+                          setState(() => _showTotalCount = !_showTotalCount),
+                      child: Text(
+                        _showTotalCount ? '${records.length}' : 'View',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF2563EB),
+                          fontWeight: FontWeight.w500,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    // Rows per page picker
+                    PopupMenuButton<int>(
+                      tooltip: 'Rows per page',
+                      offset: const Offset(0, -120),
+                      color: Colors.white,
+                      surfaceTintColor: Colors.white,
+                      onSelected: (val) => setState(() {
+                        _rowsPerPage = val;
+                        _currentPage = 1;
+                        _allSelected = false;
+                        ref
+                            .read(compositeItemsProvider.notifier)
+                            .toggleSelectAll(false, 0, _allRecords.length);
+                      }),
+                      itemBuilder: (ctx) => [10, 25, 50, 100]
+                          .map(
+                            (val) => PopupMenuItem<int>(
+                              value: val,
+                              padding: EdgeInsets.zero,
+                              height: 36,
+                              child: _HoverPopupMenuItem(
+                                label: '$val per page',
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      child: MouseRegion(
+                        onEnter: (_) =>
+                            setState(() => _hoveringRowsPerPage = true),
+                        onExit: (_) =>
+                            setState(() => _hoveringRowsPerPage = false),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: _hoveringRowsPerPage
+                                  ? const Color(0xFF2563EB)
+                                  : const Color(0xFFE5E7EB),
+                            ),
+                            color: _hoveringRowsPerPage
+                                ? const Color(0xFFEFF6FF)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                size: 13,
+                                color: _hoveringRowsPerPage
+                                    ? const Color(0xFF2563EB)
+                                    : const Color(0xFF9CA3AF),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '$_rowsPerPage per page',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _hoveringRowsPerPage
+                                      ? const Color(0xFF2563EB)
+                                      : const Color(0xFF374151),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.arrow_drop_down,
+                                size: 14,
+                                color: _hoveringRowsPerPage
+                                    ? const Color(0xFF2563EB)
+                                    : const Color(0xFF6B7280),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                ]);
-              }),
-            ),
-
-            // â”€â”€ Pagination footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            Container(
-              height: 44,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(children: [
-                Text('Total Count: ', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
-                GestureDetector(
-                  onTap: () => setState(() => _showTotalCount = !_showTotalCount),
-                  child: Text(
-                    _showTotalCount ? '${records.length}' : 'View',
-                    style: const TextStyle(
-                      fontSize: 13, color: Color(0xFF2563EB),
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                // Rows per page picker
-                PopupMenuButton<int>(
-                  tooltip: 'Rows per page',
-                  offset: const Offset(0, -120),
-                  color: Colors.white,
-                  surfaceTintColor: Colors.white,
-                  onSelected: (val) => setState(() {
-                    _rowsPerPage = val;
-                    _currentPage = 1;
-                    _allSelected = false;
-                    ref.read(compositeItemsProvider.notifier).toggleSelectAll(false, 0, _allRecords.length);
-                  }),
-                  itemBuilder: (ctx) => [10, 25, 50, 100].map((val) => PopupMenuItem<int>(
-                    value: val,
-                    padding: EdgeInsets.zero,
-                    height: 36,
-                    child: _HoverPopupMenuItem(label: '$val per page'),
-                  )).toList(),
-                  child: MouseRegion(
-                    onEnter: (_) => setState(() => _hoveringRowsPerPage = true),
-                    onExit: (_) => setState(() => _hoveringRowsPerPage = false),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    const SizedBox(width: 12),
+                    // Prev / page info / Next
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
-                        border: Border.all(color: _hoveringRowsPerPage ? const Color(0xFF2563EB) : const Color(0xFFE5E7EB)),
-                        color: _hoveringRowsPerPage ? const Color(0xFFEFF6FF) : Colors.transparent,
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.access_time, size: 13,
-                            color: _hoveringRowsPerPage ? const Color(0xFF2563EB) : const Color(0xFF9CA3AF)),
-                        const SizedBox(width: 4),
-                        Text('$_rowsPerPage per page',
-                            style: TextStyle(fontSize: 12,
-                                color: _hoveringRowsPerPage ? const Color(0xFF2563EB) : const Color(0xFF374151))),
-                        const SizedBox(width: 4),
-                        Icon(Icons.arrow_drop_down, size: 14,
-                            color: _hoveringRowsPerPage ? const Color(0xFF2563EB) : const Color(0xFF6B7280)),
-                      ]),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Prev / page info / Next
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    MouseRegion(
-                      onEnter: (_) => setState(() => _hoveringPrevPage = true),
-                      onExit: (_) => setState(() => _hoveringPrevPage = false),
-                      cursor: _currentPage > 1 ? SystemMouseCursors.click : SystemMouseCursors.basic,
-                      child: GestureDetector(
-                        onTap: _currentPage > 1
-                            ? () => setState(() { _currentPage--; _updateAllSelectedState(); })
-                            : null,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: _hoveringPrevPage && _currentPage > 1 ? const Color(0xFFEFF6FF) : Colors.transparent,
-                            shape: BoxShape.circle,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          MouseRegion(
+                            onEnter: (_) =>
+                                setState(() => _hoveringPrevPage = true),
+                            onExit: (_) =>
+                                setState(() => _hoveringPrevPage = false),
+                            cursor: _currentPage > 1
+                                ? SystemMouseCursors.click
+                                : SystemMouseCursors.basic,
+                            child: GestureDetector(
+                              onTap: _currentPage > 1
+                                  ? () => setState(() {
+                                      _currentPage--;
+                                      _updateAllSelectedState();
+                                    })
+                                  : null,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: _hoveringPrevPage && _currentPage > 1
+                                      ? const Color(0xFFEFF6FF)
+                                      : Colors.transparent,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.chevron_left,
+                                  size: 16,
+                                  color: _currentPage > 1
+                                      ? (_hoveringPrevPage
+                                            ? const Color(0xFF2563EB)
+                                            : const Color(0xFF374151))
+                                      : const Color(0xFFD1D5DB),
+                                ),
+                              ),
+                            ),
                           ),
-                          child: Icon(Icons.chevron_left, size: 16,
-                              color: _currentPage > 1
-                                  ? (_hoveringPrevPage ? const Color(0xFF2563EB) : const Color(0xFF374151))
-                                  : const Color(0xFFD1D5DB)),
-                        ),
+                          const SizedBox(width: 8),
+                          Text(
+                            records.isEmpty
+                                ? '0 - 0'
+                                : '${startIndex + 1} - $endIndex',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF374151),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          MouseRegion(
+                            onEnter: (_) =>
+                                setState(() => _hoveringNextPage = true),
+                            onExit: (_) =>
+                                setState(() => _hoveringNextPage = false),
+                            cursor: endIndex < records.length
+                                ? SystemMouseCursors.click
+                                : SystemMouseCursors.basic,
+                            child: GestureDetector(
+                              onTap: endIndex < records.length
+                                  ? () => setState(() {
+                                      _currentPage++;
+                                      _updateAllSelectedState();
+                                    })
+                                  : null,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color:
+                                      _hoveringNextPage &&
+                                          endIndex < records.length
+                                      ? const Color(0xFFEFF6FF)
+                                      : Colors.transparent,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.chevron_right,
+                                  size: 16,
+                                  color: endIndex < records.length
+                                      ? (_hoveringNextPage
+                                            ? const Color(0xFF2563EB)
+                                            : const Color(0xFF374151))
+                                      : const Color(0xFFD1D5DB),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      records.isEmpty ? '0 - 0' : '${startIndex + 1} - $endIndex',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF374151)),
-                    ),
-                    const SizedBox(width: 8),
-                    MouseRegion(
-                      onEnter: (_) => setState(() => _hoveringNextPage = true),
-                      onExit: (_) => setState(() => _hoveringNextPage = false),
-                      cursor: endIndex < records.length ? SystemMouseCursors.click : SystemMouseCursors.basic,
-                      child: GestureDetector(
-                        onTap: endIndex < records.length
-                            ? () => setState(() { _currentPage++; _updateAllSelectedState(); })
-                            : null,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: _hoveringNextPage && endIndex < records.length ? const Color(0xFFEFF6FF) : Colors.transparent,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.chevron_right, size: 16,
-                              color: endIndex < records.length
-                                  ? (_hoveringNextPage ? const Color(0xFF2563EB) : const Color(0xFF374151))
-                                  : const Color(0xFFD1D5DB)),
-                        ),
-                      ),
-                    ),
-                  ]),
+                  ],
                 ),
-              ]),
-            ),
-          ],
+              ),
+            ],
           ),
         ),
       ),
@@ -1106,7 +1608,7 @@ class _CompositeItemsReportPageState
   }
 }
 
-// â”€â”€â”€ Helper widgets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//      Helper widgets
 
 class _BulkActionRibbon extends StatelessWidget {
   final int selectedCount;
@@ -1196,22 +1698,42 @@ class _BulkActionRibbon extends StatelessWidget {
                     ),
                   ),
                   SizedBox(width: 4),
-                  Icon(Icons.keyboard_arrow_down, size: 14, color: Color(0xFF6B7280)),
+                  Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 14,
+                    color: Color(0xFF6B7280),
+                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(width: 4),
           // ── Icon group: PDF, Print, Email ────────────
-          _RibbonIconButton(icon: LucideIcons.fileText, tooltip: 'PDF', onTap: () {}),
-          _RibbonIconButton(icon: LucideIcons.printer, tooltip: 'Print', onTap: () {}),
-          _RibbonIconButton(icon: LucideIcons.mail, tooltip: 'Email', onTap: () {}),
+          _RibbonIconButton(
+            icon: LucideIcons.fileText,
+            tooltip: 'PDF',
+            onTap: () {},
+          ),
+          _RibbonIconButton(
+            icon: LucideIcons.printer,
+            tooltip: 'Print',
+            onTap: () {},
+          ),
+          _RibbonIconButton(
+            icon: LucideIcons.mail,
+            tooltip: 'Email',
+            onTap: () {},
+          ),
           const SizedBox(width: 4),
           // Divider
           Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
           const SizedBox(width: 12),
           // ── Delete ───────────────────────────────────
-          _RibbonTextButton(label: 'Delete', onTap: onDelete, isDestructive: true),
+          _RibbonTextButton(
+            label: 'Delete',
+            onTap: onDelete,
+            isDestructive: true,
+          ),
           const SizedBox(width: 16),
           // Divider
           Container(width: 1, height: 20, color: const Color(0xFFE5E7EB)),
@@ -1301,9 +1823,7 @@ class _RibbonTextButtonState extends State<_RibbonTextButton> {
           duration: const Duration(milliseconds: 120),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: _hovered
-                ? const Color(0xFFF3F4F6)
-                : Colors.transparent,
+            color: _hovered ? const Color(0xFFF3F4F6) : Colors.transparent,
             borderRadius: BorderRadius.circular(5),
             border: Border.all(color: const Color(0xFFD1D5DB)),
           ),
@@ -1361,7 +1881,9 @@ class _RibbonIconButtonState extends State<_RibbonIconButton> {
             child: Icon(
               widget.icon,
               size: 16,
-              color: _hovered ? const Color(0xFF374151) : const Color(0xFF6B7280),
+              color: _hovered
+                  ? const Color(0xFF374151)
+                  : const Color(0xFF6B7280),
             ),
           ),
         ),
@@ -1478,10 +2000,7 @@ class _BulkUpdateDialog extends StatefulWidget {
   final List<String> fields;
   final Function(String field, String value) onUpdate;
 
-  const _BulkUpdateDialog({
-    required this.fields,
-    required this.onUpdate,
-  });
+  const _BulkUpdateDialog({required this.fields, required this.onUpdate});
 
   @override
   State<_BulkUpdateDialog> createState() => _BulkUpdateDialogState();
@@ -1499,13 +2018,11 @@ class _BulkUpdateDialogState extends State<_BulkUpdateDialog> {
 
   Widget _buildRightInput() {
     if (_selectedField == 'Category') {
-      final List<String> categories = [
-        'Assemblies',
-        'Kits',
-        'Safety',
-      ];
+      final List<String> categories = ['Assemblies', 'Kits', 'Safety'];
       return FormDropdown<String>(
-        value: categories.contains(_valController.text) ? _valController.text : null,
+        value: categories.contains(_valController.text)
+            ? _valController.text
+            : null,
         items: categories,
         placeholder: 'Select Category',
         height: 40,
@@ -1516,11 +2033,7 @@ class _BulkUpdateDialogState extends State<_BulkUpdateDialog> {
         },
       );
     } else if (_selectedField == 'Tax Preference') {
-      final List<String> taxes = [
-        'Taxable',
-        'Tax Exempt',
-        'Out of Scope',
-      ];
+      final List<String> taxes = ['Taxable', 'Tax Exempt', 'Out of Scope'];
       return FormDropdown<String>(
         value: taxes.contains(_valController.text) ? _valController.text : null,
         items: taxes,
@@ -1575,7 +2088,9 @@ class _BulkUpdateDialogState extends State<_BulkUpdateDialog> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isReturnableChecked ? const Color(0xFF2563EB) : const Color(0xFF9CA3AF),
+                        color: isReturnableChecked
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFF9CA3AF),
                         width: isReturnableChecked ? 5 : 1,
                       ),
                       color: Colors.white,
@@ -1607,7 +2122,9 @@ class _BulkUpdateDialogState extends State<_BulkUpdateDialog> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isNotReturnableChecked ? const Color(0xFF2563EB) : const Color(0xFF9CA3AF),
+                        color: isNotReturnableChecked
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFF9CA3AF),
                         width: isNotReturnableChecked ? 5 : 1,
                       ),
                       color: Colors.white,
@@ -1697,9 +2214,7 @@ class _BulkUpdateDialogState extends State<_BulkUpdateDialog> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
-                  child: _buildRightInput(),
-                ),
+                Expanded(child: _buildRightInput()),
               ],
             ),
             const SizedBox(height: 16),
@@ -1716,7 +2231,9 @@ class _BulkUpdateDialogState extends State<_BulkUpdateDialog> {
                         _valController.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Please select a field and enter a value.'),
+                          content: Text(
+                            'Please select a field and enter a value.',
+                          ),
                           backgroundColor: Colors.redAccent,
                         ),
                       );
@@ -1797,19 +2314,25 @@ class _MoreMenuItemState extends State<_MoreMenuItem> {
           height: 38,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           color: _hovered ? const Color(0xFF2563EB) : Colors.transparent,
-          child: Row(children: [
-            Icon(widget.icon, size: 14, color: _hovered ? Colors.white : const Color(0xFF374151)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: _hovered ? Colors.white : const Color(0xFF374151),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: 14,
+                color: _hovered ? Colors.white : const Color(0xFF374151),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _hovered ? Colors.white : const Color(0xFF374151),
+                  ),
                 ),
               ),
-            ),
-          ]),
+            ],
+          ),
         ),
       ),
     );
@@ -1820,7 +2343,11 @@ class _ColsMenuItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _ColsMenuItem({required this.icon, required this.label, required this.onTap});
+  const _ColsMenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   State<_ColsMenuItem> createState() => _ColsMenuItemState();
@@ -1840,12 +2367,23 @@ class _ColsMenuItemState extends State<_ColsMenuItem> {
           height: 38,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           color: _hovered ? const Color(0xFF2563EB) : Colors.transparent,
-          child: Row(children: [
-            Icon(widget.icon, size: 14, color: _hovered ? Colors.white : const Color(0xFF374151)),
-            const SizedBox(width: 10),
-            Text(widget.label,
-                style: TextStyle(fontSize: 13, color: _hovered ? Colors.white : const Color(0xFF374151))),
-          ]),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: 14,
+                color: _hovered ? Colors.white : const Color(0xFF374151),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: _hovered ? Colors.white : const Color(0xFF374151),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1856,7 +2394,11 @@ class _ColsMenuToggleItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final ValueChanged<bool> onChanged;
-  const _ColsMenuToggleItem({required this.icon, required this.label, required this.onChanged});
+  const _ColsMenuToggleItem({
+    required this.icon,
+    required this.label,
+    required this.onChanged,
+  });
 
   @override
   State<_ColsMenuToggleItem> createState() => _ColsMenuToggleItemState();
@@ -1876,12 +2418,23 @@ class _ColsMenuToggleItemState extends State<_ColsMenuToggleItem> {
           height: 38,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           color: _hovered ? const Color(0xFF2563EB) : Colors.transparent,
-          child: Row(children: [
-            Icon(widget.icon, size: 14, color: _hovered ? Colors.white : const Color(0xFF374151)),
-            const SizedBox(width: 10),
-            Text(widget.label,
-                style: TextStyle(fontSize: 13, color: _hovered ? Colors.white : const Color(0xFF374151))),
-          ]),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: 14,
+                color: _hovered ? Colors.white : const Color(0xFF374151),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: _hovered ? Colors.white : const Color(0xFF374151),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1910,7 +2463,10 @@ class _HoverPopupMenuItemState extends State<_HoverPopupMenuItem> {
         alignment: Alignment.centerLeft,
         child: Text(
           widget.label,
-          style: TextStyle(fontSize: 13, color: _hovered ? Colors.white : const Color(0xFF374151)),
+          style: TextStyle(
+            fontSize: 13,
+            color: _hovered ? Colors.white : const Color(0xFF374151),
+          ),
         ),
       ),
     );
@@ -1941,7 +2497,8 @@ class _MoreMenuDropdownContent extends StatefulWidget {
   });
 
   @override
-  State<_MoreMenuDropdownContent> createState() => _MoreMenuDropdownContentState();
+  State<_MoreMenuDropdownContent> createState() =>
+      _MoreMenuDropdownContentState();
 }
 
 class _MoreMenuDropdownContentState extends State<_MoreMenuDropdownContent> {
@@ -2022,7 +2579,10 @@ class _MoreMenuDropdownContentState extends State<_MoreMenuDropdownContent> {
                 _MoreMenuItemNew(
                   icon: LucideIcons.refreshCw,
                   label: 'Refresh List',
-                  onTap: () { widget.onClose(); widget.onRefresh(); },
+                  onTap: () {
+                    widget.onClose();
+                    widget.onRefresh();
+                  },
                 ),
                 const Divider(height: 1, color: Color(0xFFE5E7EB)),
                 _MoreMenuItemNew(
@@ -2042,16 +2602,26 @@ class _MoreMenuDropdownContentState extends State<_MoreMenuDropdownContent> {
   Widget _buildSubMenu() {
     switch (widget.activeSubMenu) {
       case _SubMenuType.sortBy:
-        return _SubMenuPanel(children: [
-          _buildSortItem('name',         'Name'),
-          _buildSortItem('sku',          'SKU'),
-          _buildSortItem('reorderLevel', 'Reorder Level'),
-        ]);
+        return _SubMenuPanel(
+          children: [
+            _buildSortItem('name', 'Name'),
+            _buildSortItem('sku', 'SKU'),
+            _buildSortItem('reorderLevel', 'Reorder Level'),
+          ],
+        );
       case _SubMenuType.import:
-        return _SubMenuPanel(children: [
-          _SubMenuItem(label: 'Import Composite Items',        onTap: widget.onClose),
-          _SubMenuItem(label: 'Import Composite Items Images', onTap: widget.onClose),
-        ]);
+        return _SubMenuPanel(
+          children: [
+            _SubMenuItem(
+              label: 'Import Composite Items',
+              onTap: widget.onClose,
+            ),
+            _SubMenuItem(
+              label: 'Import Composite Items Images',
+              onTap: widget.onClose,
+            ),
+          ],
+        );
       default:
         return const SizedBox.shrink();
     }
@@ -2141,25 +2711,28 @@ class _SubMenuItemState extends State<_SubMenuItem> {
         child: Container(
           color: _hovered ? const Color(0xFF2563EB) : Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(children: [
-            Expanded(
-              child: Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: _hovered
-                      ? Colors.white
-                      : (widget.isSelected
-                          ? const Color(0xFF2563EB)
-                          : const Color(0xFF374151)),
-                  fontWeight: widget.isSelected ? FontWeight.w500 : FontWeight.normal,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _hovered
+                        ? Colors.white
+                        : (widget.isSelected
+                              ? const Color(0xFF2563EB)
+                              : const Color(0xFF374151)),
+                    fontWeight: widget.isSelected
+                        ? FontWeight.w500
+                        : FontWeight.normal,
+                  ),
                 ),
               ),
-            ),
-            if (widget.rightIcon != null && _hovered)
-              Icon(widget.rightIcon, size: 14,
-                  color: Colors.white),
-          ]),
+              if (widget.rightIcon != null && _hovered)
+                Icon(widget.rightIcon, size: 14, color: Colors.white),
+            ],
+          ),
         ),
       ),
     );
@@ -2202,23 +2775,31 @@ class _MoreMenuItemNewState extends State<_MoreMenuItemNew> {
         child: Container(
           color: highlighted ? const Color(0xFF2563EB) : Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(children: [
-            Icon(widget.icon, size: 14,
-                color: highlighted ? Colors.white : const Color(0xFF374151)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: highlighted ? Colors.white : const Color(0xFF374151),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: 14,
+                color: highlighted ? Colors.white : const Color(0xFF374151),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: highlighted ? Colors.white : const Color(0xFF374151),
+                  ),
                 ),
               ),
-            ),
-            if (widget.hasChevron)
-              Icon(Icons.chevron_right, size: 14,
-                  color: highlighted ? Colors.white : const Color(0xFF9CA3AF)),
-          ]),
+              if (widget.hasChevron)
+                Icon(
+                  Icons.chevron_right,
+                  size: 14,
+                  color: highlighted ? Colors.white : const Color(0xFF9CA3AF),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -2232,7 +2813,8 @@ class _TreeLinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFD1D5DB) // Light gray line
+      ..color =
+          const Color(0xFFD1D5DB) // Light gray line
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
 
@@ -2260,4 +2842,3 @@ class _TreeLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

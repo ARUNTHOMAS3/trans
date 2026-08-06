@@ -1,4 +1,4 @@
-﻿# Zerpai ERP â€” Agent Architecture
+﻿# Zerpai ERP     ” Agent Architecture
 
 > Antigravity Kit customized for Zerpai ERP (Flutter Web + Android + NestJS + Supabase)
 
@@ -6,7 +6,7 @@
 
 | Layer          | Technology                     |
 | -------------- | ------------------------------ |
-| **Frontend**   | Flutter (Dart) â€” Web + Android |
+| **Frontend**   | Flutter (Dart)     ” Web + Android |
 | **State**      | Riverpod                       |
 | **Navigation** | GoRouter                       |
 | **HTTP**       | Dio                            |
@@ -45,13 +45,13 @@
 ## Tooltip Rule
 
 - Always use `ZTooltip` from `lib/shared/widgets/inputs/z_tooltip.dart`. Never use Flutter's built-in `Tooltip` widget.
-- `ZTooltip` enforces a 220 px max-width so text wraps compactly. Trigger icon is `LucideIcons.helpCircle` at 14â€“15 px. Copy must be â‰¤ 2 short sentences.
+- `ZTooltip` enforces a 220 px max-width so text wraps compactly. Trigger icon is `LucideIcons.helpCircle` at 14    “15 px. Copy must be   ‰¤ 2 short sentences.
 
 ## Deep-Linking Rule
 
 - Every screen, sub-screen, tab, and significant dialog state must be addressable via a named GoRouter route.
 - Routes must preserve path/query parameters so refresh, direct URL, and back-navigation restore full context.
-- Never use `Navigator.push` â€” always navigate through GoRouter (`context.go`, `context.push`, `context.goNamed`).
+- Never use `Navigator.push`     ” always navigate through GoRouter (`context.go`, `context.push`, `context.goNamed`).
 
 ## Global Settings Rules
 
@@ -76,7 +76,7 @@
 | Multi-domain tasks        | `orchestrator`       |
 | Task planning             | `project-planner`    |
 
-> âš ï¸ `frontend-specialist` redirects to `mobile-developer` for this project.
+>      `frontend-specialist` redirects to `mobile-developer` for this project.
 
 ---
 
@@ -94,12 +94,12 @@ Antigravity Kit is a modular system consisting of:
 
 ```plaintext
 .agent/
-â”œâ”€â”€ ARCHITECTURE.md          # This file
-â”œâ”€â”€ agents/                  # 20 Specialist Agents
-â”œâ”€â”€ skills/                  # 36 Skills
-â”œâ”€â”€ workflows/               # 11 Slash Commands
-â”œâ”€â”€ rules/                   # Global Rules
-â””â”€â”€ scripts/                 # Master Validation Scripts
+             ARCHITECTURE.md          # This file
+             agents/                  # 20 Specialist Agents
+             skills/                  # 36 Skills
+             workflows/               # 11 Slash Commands
+             rules/                   # Global Rules
+  ”         scripts/                 # Master Validation Scripts
 ```
 
 ---
@@ -115,7 +115,7 @@ Specialist AI personas for different domains.
 | `database-architect`    | Schema, Drizzle migrations     | Supabase PostgreSQL, Drizzle Kit, PRD schema snapshots  |
 | `orchestrator`          | Multi-agent coordination       | Parallel agents, synthesis                              |
 | `project-planner`       | Discovery, task planning       | Brainstorming, plan-writing, architecture               |
-| `frontend-specialist`   | âš ï¸ REDIRECT â†’ mobile-developer | Not for this Flutter project                            |
+| `frontend-specialist`   |      REDIRECT   †’ mobile-developer | Not for this Flutter project                            |
 | `debugger`              | Root cause analysis            | Systematic debugging for Flutter + NestJS               |
 | `security-auditor`      | Security compliance            | Vulnerability scanning, OWASP                           |
 | `test-engineer`         | Testing strategies             | Flutter tests, NestJS unit tests                        |
@@ -261,10 +261,10 @@ Slash command procedures. Invoke with `/command`.
 ## ðŸŽ¯ Skill Loading Protocol
 
 ```plaintext
-User Request â†’ Skill Description Match â†’ Load SKILL.md
-                                            â†“
+User Request   †’ Skill Description Match   †’ Load SKILL.md
+                                              †“
                                     Read references/
-                                            â†“
+                                              †“
                                     Read scripts/
 ```
 
@@ -272,10 +272,10 @@ User Request â†’ Skill Description Match â†’ Load SKILL.md
 
 ```plaintext
 skill-name/
-â”œâ”€â”€ SKILL.md           # (Required) Metadata & instructions
-â”œâ”€â”€ scripts/           # (Optional) Python/Bash scripts
-â”œâ”€â”€ references/        # (Optional) Templates, docs
-â””â”€â”€ assets/            # (Optional) Images, logos
+             SKILL.md           # (Required) Metadata & instructions
+             scripts/           # (Optional) Python/Bash scripts
+             references/        # (Optional) Templates, docs
+  ”         assets/            # (Optional) Images, logos
 ```
 
 ### Enhanced Skills (with scripts/references)

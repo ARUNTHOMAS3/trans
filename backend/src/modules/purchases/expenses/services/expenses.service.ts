@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from "uuid";
 import {
   BadRequestException,
   Injectable,
@@ -577,20 +578,75 @@ export class ExpensesService {
     tenant: TenantContext,
   ) {
     const sourceId = expense.id?.toString?.().trim();
-    if (sourceId) {
-      const { error: deleteError } = await this.client
+    if (!sourceId) return [];
+
+    // 1. Clear any existing lines for this expense only
+    await this.client
+      .from("journal_entry_lines")
+      .delete()
+      .eq("entity_id", tenant.entityId)
+      .eq("source_id", sourceId);
+
+    // 2. Find or create journal_entries header for EXPENSE only
+    const { data: existingJE } = await this.client
+      .from("journal_entries")
+      .select("id, created_by")
+      .eq("entity_id", tenant.entityId)
+      .eq("source_document_type", "EXPENSE")
+      .eq("source_document_id", sourceId)
+      .maybeSingle();
+
+    const journalEntryId = existingJE?.id || uuidv4();
+
+    if (existingJE?.id) {
+      await this.client
         .from("journal_entry_lines")
         .delete()
-        .eq("entity_id", tenant.entityId)
-        .eq("source_id", sourceId)
-        .eq("source_type", ExpensesService.accountTransactionSourceType);
-      if (deleteError) {
-        throw new BadRequestException(
-          `Failed to clear existing expense account transactions: ${deleteError.message}`,
-        );
-      }
+        .eq("journal_entry_id", existingJE.id);
     }
 
+    const expenseNumber = expense.expense_number?.toString?.().trim() || "EXP";
+    const expenseDate = expense.expense_date?.toString?.().trim() || new Date().toISOString().split("T")[0];
+    const defaultOrgId = tenant.orgId || "00000000-0000-0000-0000-000000000000";
+
+    // 3. Upsert header in journal_entries
+    const jeHeader = {
+      id: journalEntryId,
+      org_id: defaultOrgId,
+      entity_id: tenant.entityId,
+      fiscal_year_id: null,
+      journal_number: `JE-${expenseNumber}`,
+      journal_type: "EXPENSE",
+      journal_date: expenseDate,
+      posting_date: expenseDate,
+      reference_number: expense.reference_number || expenseNumber,
+      narration: expense.notes || `Expense ${expenseNumber}`,
+      source_module: "PURCHASES",
+      source_document_type: "EXPENSE",
+      source_document_id: sourceId,
+      currency_code: "INR",
+      exchange_rate: 1.0,
+      status: "POSTED",
+      created_by: (existingJE as any)?.created_by || tenant.userId || null,
+      updated_by: tenant.userId || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existingJE?.id) {
+      await this.client
+        .from("journal_entries")
+        .update(jeHeader)
+        .eq("id", journalEntryId);
+    } else {
+      await this.client
+        .from("journal_entries")
+        .insert({
+          ...jeHeader,
+          created_at: new Date().toISOString(),
+        });
+    }
+
+    // 4. Build double-entry lines
     const expenseAccountId = await this.resolvePostingExpenseAccountId(
       expense,
       tenant,
@@ -605,15 +661,41 @@ export class ExpensesService {
       return [];
     }
 
+    const linesToInsert = payload.map((row) => {
+      const { transaction_type, ...cleanRow } = row as any;
+      return {
+        id: uuidv4(),
+        journal_entry_id: journalEntryId,
+        ...cleanRow,
+        source_id: sourceId,
+        source_type: "EXPENSE",
+        contact_id: expense.vendor_id || null,
+        contact_type: expense.vendor_id ? "vendor" : null,
+      };
+    });
+
+    // 5. Insert double-entry lines into journal_entry_lines
     const { data, error } = await this.client
       .from("journal_entry_lines")
-      .insert(payload)
+      .insert(linesToInsert)
       .select("*");
+
     if (error) {
       throw new BadRequestException(
         `Failed to post expense account transactions: ${error.message}`,
       );
     }
+
+    // 6. Save journal_id backlink in expenses table
+    try {
+      await this.client
+        .from("expenses")
+        .update({ journal_id: journalEntryId })
+        .eq("id", sourceId);
+    } catch (backlinkErr) {
+      console.error("Error updating expenses journal_id:", backlinkErr);
+    }
+
     return data ?? [];
   }
 
@@ -2141,12 +2223,19 @@ export class ExpensesService {
 
   async journal(id: string, tenant: TenantContext) {
     const expense = await this.fetchExpenseRow(id, tenant);
-    const { data, error } = await this.client
+    const journalId = expense.journal_id?.toString?.().trim();
+    let query = this.client
       .from("journal_entry_lines")
       .select("*")
-      .eq("entity_id", tenant.entityId)
-      .eq("source_id", id)
-      .eq("source_type", "expense")
+      .eq("entity_id", tenant.entityId);
+
+    if (journalId) {
+      query = query.or(`source_id.eq.${id},journal_entry_id.eq.${journalId}`);
+    } else {
+      query = query.eq("source_id", id);
+    }
+
+    const { data, error } = await query
       .order("transaction_date", { ascending: true })
       .order("created_at", { ascending: true });
     if (error) {

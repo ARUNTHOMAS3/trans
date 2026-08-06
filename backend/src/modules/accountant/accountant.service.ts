@@ -657,7 +657,14 @@ export class AccountantService {
       .select("*")
       .eq("entity_id", tenant.entityId)
       .maybeSingle();
-    return data || { prefix: "MJ", next_number: 1 };
+    return (
+      data || {
+        prefix: "MJ",
+        next_number: 1,
+        auto_generate: true,
+        is_manual_override_allowed: true,
+      }
+    );
   }
 
   async updateJournalNumberSettings(dto: any, tenant: TenantContext) {
@@ -673,7 +680,18 @@ export class AccountantService {
 
   async getNextJournalNumber(tenant: TenantContext) {
     const s = await this.findJournalNumberSettings(tenant);
-    return { journal_number: `${s.prefix}-${s.next_number}` };
+    const prefix = s.prefix || "MJ";
+    const nextNumber = s.next_number ?? 1;
+    const autoGenerate = s.auto_generate !== false;
+    const isManualOverrideAllowed = s.is_manual_override_allowed !== false;
+    return {
+      ...s,
+      prefix,
+      next_number: nextNumber,
+      auto_generate: autoGenerate,
+      is_manual_override_allowed: isManualOverrideAllowed,
+      journal_number: `${prefix}-${nextNumber}`,
+    };
   }
 
   async findJournalTemplates(tenant: TenantContext) {

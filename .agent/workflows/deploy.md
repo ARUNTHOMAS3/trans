@@ -31,7 +31,7 @@ This command handles production deployment with pre-flight checks, deployment ex
 Before any deployment:
 
 ```markdown
-## ðŸš€ Pre-Deploy Checklist
+## ðŸš   Pre-Deploy Checklist
 
 ### Code Quality
 - [ ] No TypeScript errors (`npx tsc --noEmit`)
@@ -61,42 +61,42 @@ Before any deployment:
 ## Deployment Flow
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  /deploy        â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-         â”‚
-         â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  Pre-flight     â”‚
-â”‚  checks         â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-         â”‚
-    Pass? â”€â”€Noâ”€â”€â–º Fix issues
-         â”‚
+                          
+  ‚  /deploy          ‚
+  ”          ¬          ˜
+           ‚
+           –¼
+                          
+  ‚  Pre-flight       ‚
+  ‚  checks           ‚
+  ”          ¬          ˜
+           ‚
+    Pass?         No          –º Fix issues
+           ‚
         Yes
-         â”‚
-         â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  Build          â”‚
-â”‚  application    â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-         â”‚
-         â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  Deploy to      â”‚
-â”‚  platform       â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-         â”‚
-         â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  Health check   â”‚
-â”‚  & verify       â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-         â”‚
-         â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  âœ… Complete    â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+           ‚
+           –¼
+                          
+  ‚  Build            ‚
+  ‚  application      ‚
+  ”          ¬          ˜
+           ‚
+           –¼
+                          
+  ‚  Deploy to        ‚
+  ‚  platform         ‚
+  ”          ¬          ˜
+           ‚
+           –¼
+                          
+  ‚  Health check     ‚
+  ‚  & verify         ‚
+  ”          ¬          ˜
+           ‚
+           –¼
+                          
+  ‚       Complete      ‚
+  ”                      ˜
 ```
 
 ---
@@ -106,7 +106,7 @@ Before any deployment:
 ### Successful Deploy
 
 ```markdown
-## ðŸš€ Deployment Complete
+## ðŸš   Deployment Complete
 
 ### Summary
 - **Version:** v1.2.3
@@ -115,7 +115,7 @@ Before any deployment:
 - **Platform:** Railway/Cloudflare Pages
 
 ### URLs
-- ðŸŒ Production: https://app.example.com
+- ðŸ   Production: https://app.example.com
 - ðŸ“Š Dashboard: https://Railway/Cloudflare Pages.com/project
 
 ### What Changed
@@ -124,15 +124,15 @@ Before any deployment:
 - Updated dependencies
 
 ### Health Check
-âœ… API responding (200 OK)
-âœ… Database connected
-âœ… All services healthy
+     API responding (200 OK)
+     Database connected
+     All services healthy
 ```
 
 ### Failed Deploy
 
 ```markdown
-## âŒ Deployment Failed
+##      Deployment Failed
 
 ### Error
 Build failed at step: TypeScript compilation

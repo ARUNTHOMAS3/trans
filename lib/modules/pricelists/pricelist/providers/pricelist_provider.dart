@@ -7,7 +7,9 @@ import '../controllers/pricelist_controller.dart';
 export '../controllers/pricelist_controller.dart';
 import '../models/pricelist_model.dart';
 import '../models/pricelist_pagination.dart';
+import 'package:zerpai_erp/core/constants/api_endpoints.dart';
 import 'package:zerpai_erp/core/providers/entity_provider.dart';
+import 'package:zerpai_erp/shared/services/api_client.dart';
 
 /// Service Provider for Price Lists
 final priceListServiceProvider = Provider<PriceListService>((ref) {
@@ -53,6 +55,27 @@ final activeSalesPriceListsAsyncProvider =
             .toList(),
       );
     });
+
+/// Real price lists from Supabase via API
+final realPriceListsProvider = FutureProvider<List<PriceList>>((ref) async {
+  try {
+    final api = ref.watch(apiClientProvider);
+    final response = await api.get(ApiEndpoints.priceLists);
+    final payload = response.data;
+    final List<dynamic> rows = payload is List
+        ? payload
+        : (payload is Map<String, dynamic>
+            ? (payload['data'] as List<dynamic>? ?? const [])
+            : const []);
+    return rows
+        .whereType<Map<String, dynamic>>()
+        .map((json) => PriceList.fromJson(json))
+        .where((pl) => pl.status == 'active')
+        .toList();
+  } catch (_) {
+    return [];
+  }
+});
 
 /// Provider for a specific Price List by ID
 final priceListByIdProvider = Provider.family<PriceList?, String>((ref, id) {

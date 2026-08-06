@@ -29,44 +29,44 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 | `4-client-client-side-data-fetching.md` | ðŸŸ¡ **MEDIUM-HIGH** | 4 rules  | Client data management, SWR patterns, deduplication             |
 | `5-rerender-re-render-optimization.md`  | ðŸŸ¡ **MEDIUM**      | 12 rules | Excessive re-renders, React performance, memoization            |
 | `6-rendering-rendering-performance.md`  | ðŸŸ¡ **MEDIUM**      | 9 rules  | Rendering bottlenecks, virtualization, image optimization       |
-| `7-js-javascript-performance.md`        | âšª **LOW-MEDIUM**  | 12 rules | Micro-optimizations, caching, loop performance                  |
+| `7-js-javascript-performance.md`        |   šª **LOW-MEDIUM**  | 12 rules | Micro-optimizations, caching, loop performance                  |
 | `8-advanced-advanced-patterns.md`       | ðŸ”µ **VARIABLE**    | 3 rules  | Advanced React patterns, useLatest, init-once                   |
 
 **Total: 57 rules across 8 categories**
 
 ---
 
-## ðŸš€ Quick Decision Tree
+## ðŸš   Quick Decision Tree
 
 **What's your performance issue?**
 
 ```
-ðŸŒ Slow page loads / Long Time to Interactive
-  â†’ Read Section 1: Eliminating Waterfalls
-  â†’ Read Section 2: Bundle Size Optimization
+ðŸ   Slow page loads / Long Time to Interactive
+    †’ Read Section 1: Eliminating Waterfalls
+    †’ Read Section 2: Bundle Size Optimization
 
 ðŸ“¦ Large bundle size (> 200KB)
-  â†’ Read Section 2: Bundle Size Optimization
-  â†’ Check: Dynamic imports, barrel imports, tree-shaking
+    †’ Read Section 2: Bundle Size Optimization
+    †’ Check: Dynamic imports, barrel imports, tree-shaking
 
 ðŸ–¥ï¸ Slow Server-Side Rendering
-  â†’ Read Section 3: Server-Side Performance
-  â†’ Check: Parallel data fetching, streaming
+    †’ Read Section 3: Server-Side Performance
+    †’ Check: Parallel data fetching, streaming
 
 ðŸ”„ Too many re-renders / UI lag
-  â†’ Read Section 5: Re-render Optimization
-  â†’ Check: React.memo, useMemo, useCallback
+    †’ Read Section 5: Re-render Optimization
+    †’ Check: React.memo, useMemo, useCallback
 
 ðŸŽ¨ Rendering performance issues
-  â†’ Read Section 6: Rendering Performance
-  â†’ Check: Virtualization, layout thrashing
+    †’ Read Section 6: Rendering Performance
+    †’ Check: Virtualization, layout thrashing
 
-ðŸŒ Client-side data fetching problems
-  â†’ Read Section 4: Client-Side Data Fetching
-  â†’ Check: SWR deduplication, localStorage
+ðŸ   Client-side data fetching problems
+    †’ Read Section 4: Client-Side Data Fetching
+    †’ Check: SWR deduplication, localStorage
 
-âœ¨ Need advanced patterns
-  â†’ Read Section 8: Advanced Patterns
+    ¨ Need advanced patterns
+    †’ Read Section 8: Advanced Patterns
 ```
 
 ---
@@ -76,24 +76,24 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 **Use this order when doing comprehensive optimization:**
 
 ```
-1ï¸âƒ£ CRITICAL (Biggest Gains - Do First):
-   â”œâ”€ Section 1: Eliminating Waterfalls
-   â”‚  â””â”€ Each waterfall adds full network latency (100-500ms+)
-   â””â”€ Section 2: Bundle Size Optimization
-      â””â”€ Affects Time to Interactive and Largest Contentful Paint
+1ï¸  ƒ£ CRITICAL (Biggest Gains - Do First):
+            Section 1: Eliminating Waterfalls
+     ‚    ”     Each waterfall adds full network latency (100-500ms+)
+     ”     Section 2: Bundle Size Optimization
+        ”     Affects Time to Interactive and Largest Contentful Paint
 
-2ï¸âƒ£ HIGH (Significant Impact - Do Second):
-   â””â”€ Section 3: Server-Side Performance
-      â””â”€ Eliminates server-side waterfalls, faster response times
+2ï¸  ƒ£ HIGH (Significant Impact - Do Second):
+     ”     Section 3: Server-Side Performance
+        ”     Eliminates server-side waterfalls, faster response times
 
-3ï¸âƒ£ MEDIUM (Moderate Gains - Do Third):
-   â”œâ”€ Section 4: Client-Side Data Fetching
-   â”œâ”€ Section 5: Re-render Optimization
-   â””â”€ Section 6: Rendering Performance
+3ï¸  ƒ£ MEDIUM (Moderate Gains - Do Third):
+            Section 4: Client-Side Data Fetching
+            Section 5: Re-render Optimization
+     ”     Section 6: Rendering Performance
 
-4ï¸âƒ£ LOW (Polish - Do Last):
-   â”œâ”€ Section 7: JavaScript Performance
-   â””â”€ Section 8: Advanced Patterns
+4ï¸  ƒ£ LOW (Polish - Do Last):
+            Section 7: JavaScript Performance
+     ”     Section 8: Advanced Patterns
 ```
 
 ---
@@ -111,7 +111,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 ---
 
-## âœ… Performance Review Checklist
+##      Performance Review Checklist
 
 Before shipping to production:
 
@@ -145,27 +145,27 @@ Before shipping to production:
 
 ---
 
-## âŒ Anti-Patterns (Common Mistakes)
+##      Anti-Patterns (Common Mistakes)
 
 **DON'T:**
 
-- âŒ Use sequential `await` for independent operations
-- âŒ Import entire libraries when you need one function
-- âŒ Use barrel exports (`index.ts` re-exports) in app code
-- âŒ Skip dynamic imports for large components/libraries
-- âŒ Fetch data in useEffect without deduplication
-- âŒ Forget to memoize expensive computations
-- âŒ Use client components when server components work
+-      Use sequential `await` for independent operations
+-      Import entire libraries when you need one function
+-      Use barrel exports (`index.ts` re-exports) in app code
+-      Skip dynamic imports for large components/libraries
+-      Fetch data in useEffect without deduplication
+-      Forget to memoize expensive computations
+-      Use client components when server components work
 
 **DO:**
 
-- âœ… Fetch data in parallel with `Promise.all()`
-- âœ… Use dynamic imports: `const Comp = dynamic(() => import('./Heavy'))`
-- âœ… Import directly: `import { specific } from 'library/specific'`
-- âœ… Use Suspense boundaries for better UX
-- âœ… Leverage React Server Components
-- âœ… Measure performance before optimizing
-- âœ… Use Next.js built-in optimizations (next/image, next/font)
+-      Fetch data in parallel with `Promise.all()`
+-      Use dynamic imports: `const Comp = dynamic(() => import('./Heavy'))`
+-      Import directly: `import { specific } from 'library/specific'`
+-      Use Suspense boundaries for better UX
+-      Leverage React Server Components
+-      Measure performance before optimizing
+-      Use Next.js built-in optimizations (next/image, next/font)
 
 ---
 
@@ -196,15 +196,15 @@ Before shipping to production:
 ## ðŸ“š Learning Path
 
 **Beginner (Focus on Critical):**
-â†’ Section 1: Eliminating Waterfalls
-â†’ Section 2: Bundle Size Optimization
+  †’ Section 1: Eliminating Waterfalls
+  †’ Section 2: Bundle Size Optimization
 
 **Intermediate (Add High Priority):**
-â†’ Section 3: Server-Side Performance
-â†’ Section 5: Re-render Optimization
+  †’ Section 3: Server-Side Performance
+  †’ Section 5: Re-render Optimization
 
 **Advanced (Full Optimization):**
-â†’ All sections + Section 8: Advanced Patterns
+  †’ All sections + Section 8: Advanced Patterns
 
 ---
 
@@ -265,7 +265,7 @@ Before shipping to production:
 **Golden Rules:**
 
 1. **Measure first** - Use React DevTools Profiler, Chrome DevTools
-2. **Biggest impact first** - Waterfalls â†’ Bundle â†’ Server â†’ Micro
+2. **Biggest impact first** - Waterfalls   †’ Bundle   †’ Server   †’ Micro
 3. **Don't over-optimize** - Focus on real bottlenecks
 4. **Use platform features** - Next.js has optimizations built-in
 5. **Think about users** - Real-world conditions matter

@@ -10,7 +10,7 @@ skills: clean-code, deployment-procedures, server-management, powershell-windows
 
 You are an expert DevOps engineer specializing in deployment, server management, and production operations.
 
-âš ï¸ **CRITICAL NOTICE**: This agent handles production systems. Always follow safety procedures and confirm destructive operations.
+     **CRITICAL NOTICE**: This agent handles production systems. Always follow safety procedures and confirm destructive operations.
 
 ## Core Philosophy
 
@@ -32,22 +32,22 @@ You are an expert DevOps engineer specializing in deployment, server management,
 
 ```
 What are you deploying?
-â”‚
-â”œâ”€â”€ Static site / JAMstack
-â”‚   â””â”€â”€ Railway/Cloudflare Pages, Netlify, Cloudflare Pages
-â”‚
-â”œâ”€â”€ Simple Node.js / Python app
-â”‚   â”œâ”€â”€ Want managed? â†’ Railway, Render, Fly.io
-â”‚   â””â”€â”€ Want control? â†’ VPS + PM2/Docker
-â”‚
-â”œâ”€â”€ Complex application / Microservices
-â”‚   â””â”€â”€ Container orchestration (Docker Compose, Kubernetes)
-â”‚
-â”œâ”€â”€ Serverless functions
-â”‚   â””â”€â”€ Railway/Cloudflare Pages Functions, Cloudflare Workers, AWS Lambda
-â”‚
-â””â”€â”€ Full control / Legacy
-    â””â”€â”€ VPS with PM2 or systemd
+  ‚
+             Static site / JAMstack
+  ‚     ”         Railway/Cloudflare Pages, Netlify, Cloudflare Pages
+  ‚
+             Simple Node.js / Python app
+  ‚                Want managed?   †’ Railway, Render, Fly.io
+  ‚     ”         Want control?   †’ VPS + PM2/Docker
+  ‚
+             Complex application / Microservices
+  ‚     ”         Container orchestration (Docker Compose, Kubernetes)
+  ‚
+             Serverless functions
+  ‚     ”         Railway/Cloudflare Pages Functions, Cloudflare Workers, AWS Lambda
+  ‚
+  ”         Full control / Legacy
+      ”         VPS with PM2 or systemd
 ```
 
 ### Platform Comparison
@@ -69,19 +69,19 @@ What are you deploying?
 
 ```
 1. PREPARE
-   â””â”€â”€ Tests passing? Build working? Env vars set?
+     ”         Tests passing? Build working? Env vars set?
 
 2. BACKUP
-   â””â”€â”€ Current version saved? DB backup if needed?
+     ”         Current version saved? DB backup if needed?
 
 3. DEPLOY
-   â””â”€â”€ Execute deployment with monitoring ready
+     ”         Execute deployment with monitoring ready
 
 4. VERIFY
-   â””â”€â”€ Health check? Logs clean? Key features work?
+     ”         Health check? Logs clean? Key features work?
 
 5. CONFIRM or ROLLBACK
-   â””â”€â”€ All good â†’ Confirm. Issues â†’ Rollback immediately
+     ”         All good   †’ Confirm. Issues   †’ Rollback immediately
 ```
 
 ### Pre-Deployment Checklist
@@ -192,7 +192,7 @@ What are you deploying?
 
 ## Anti-Patterns (What NOT to Do)
 
-| âŒ Don't | âœ… Do |
+|      Don't |      Do |
 |----------|-------|
 | Deploy on Friday | Deploy early in the week |
 | Rush production changes | Take time, follow process |

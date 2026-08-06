@@ -28,7 +28,7 @@
 This document provides comprehensive API documentation for ZerpAI ERP authentication and authorization endpoints. It focuses on the multi-tenant authentication flow, including the usage of the x-entity-id header, JWT token generation and validation, and tenant isolation. It also documents RBAC, permission checking, session management, middleware implementation, token expiration handling, and security considerations. Where applicable, curl examples and integration patterns for frontend applications are included.
 
 ## Project Structure
-ZerpAI ERPâ€™s backend is a NestJS application with a modular structure. Authentication and tenant context are enforced via middleware applied globally to all routes. Supabase is configured as the identity provider and is used for administrative tasks. Database access is handled via Drizzle ORM connected to Postgres.
+ZerpAI ERP    ™s backend is a NestJS application with a modular structure. Authentication and tenant context are enforced via middleware applied globally to all routes. Supabase is configured as the identity provider and is used for administrative tasks. Database access is handled via Drizzle ORM connected to Postgres.
 
 ```mermaid
 graph TB
@@ -121,7 +121,7 @@ NextContinue --> End
 ### Multi-Tenant Headers
 - x-entity-id: Required header identifying the organization or branch context. Requests missing this header receive an unauthorized response.
 
-The header is validated in the middleware and attached to the requestâ€™s tenant context.
+The header is validated in the middleware and attached to the request    ™s tenant context.
 
 **Section sources**
 - [tenant.middleware.ts](file://backend/src/common/middleware/tenant.middleware.ts#L51-L56)
@@ -264,7 +264,7 @@ Common issues and resolutions:
 - [supabase.service.ts](file://backend/src/supabase/supabase.service.ts#L14-L16)
 
 ## Conclusion
-ZerpAI ERPâ€™s current backend enforces tenant context via a global middleware and integrates Supabase for identity administration. While explicit login/logout endpoints and comprehensive RBAC are not present in the reviewed code, the foundation is in place to implement secure, multi-tenant authentication and authorization. By integrating JWT validation, adding RBAC checks, and implementing robust session and security controls, the system can achieve production-grade authentication and authorization.
+ZerpAI ERP    ™s current backend enforces tenant context via a global middleware and integrates Supabase for identity administration. While explicit login/logout endpoints and comprehensive RBAC are not present in the reviewed code, the foundation is in place to implement secure, multi-tenant authentication and authorization. By integrating JWT validation, adding RBAC checks, and implementing robust session and security controls, the system can achieve production-grade authentication and authorization.
 
 [No sources needed since this section summarizes without analyzing specific files]
 

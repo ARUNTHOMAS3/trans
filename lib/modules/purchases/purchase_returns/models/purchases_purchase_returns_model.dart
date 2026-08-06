@@ -74,23 +74,23 @@ class PurchaseReturnItem {
   }
 
   Map<String, dynamic> toJson() => {
-    if (id != null) 'id': id,
-    if (itemId != null) 'item_id': itemId,
-    'item_name': itemName,
-    if (description != null) 'description': description,
-    if (unit != null) 'unit': unit,
-    'ordered_qty': orderedQty,
-    'return_qty': returnQty,
-    'rate': rate,
-    'amount': amount,
-    if (taxRateId != null) 'tax_rate_id': taxRateId,
-    if (taxRateName != null) 'tax_rate_name': taxRateName,
-    'tax_amount': taxAmount,
-    if (warehouseId != null) 'warehouse_id': warehouseId,
-    if (warehouseName != null) 'warehouse_name': warehouseName,
-    if (batchNumber != null) 'batch_number': batchNumber,
-    if (reason != null) 'reason': reason,
-  };
+        if (id != null) 'id': id,
+        if (itemId != null) 'item_id': itemId,
+        'item_name': itemName,
+        if (description != null) 'description': description,
+        if (unit != null) 'unit': unit,
+        'ordered_qty': orderedQty,
+        'return_qty': returnQty,
+        'rate': rate,
+        'amount': amount,
+        if (taxRateId != null) 'tax_rate_id': taxRateId,
+        if (taxRateName != null) 'tax_rate_name': taxRateName,
+        'tax_amount': taxAmount,
+        if (warehouseId != null) 'warehouse_id': warehouseId,
+        if (warehouseName != null) 'warehouse_name': warehouseName,
+        if (batchNumber != null) 'batch_number': batchNumber,
+        if (reason != null) 'reason': reason,
+      };
 
   factory PurchaseReturnItem.fromJson(Map<String, dynamic> json) {
     return PurchaseReturnItem(
@@ -139,7 +139,8 @@ class PurchaseReturn {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  double get totalReturnQty => items.fold(0.0, (sum, i) => sum + i.returnQty);
+  double get totalReturnQty =>
+      items.fold(0.0, (sum, i) => sum + i.returnQty);
 
   const PurchaseReturn({
     this.id,
@@ -215,28 +216,28 @@ class PurchaseReturn {
   }
 
   Map<String, dynamic> toJson() => {
-    if (id != null) 'id': id,
-    'return_number': returnNumber,
-    if (returnDate != null) 'return_date': returnDate!.toIso8601String(),
-    if (vendorId != null) 'vendor_id': vendorId,
-    if (vendorName != null) 'vendor_name': vendorName,
-    if (purchaseOrderId != null) 'purchase_order_id': purchaseOrderId,
-    if (purchaseOrderNumber != null)
-      'purchase_order_number': purchaseOrderNumber,
-    if (purchaseReceiveId != null) 'purchase_receive_id': purchaseReceiveId,
-    if (purchaseReceiveNumber != null)
-      'purchase_receive_number': purchaseReceiveNumber,
-    if (billId != null) 'bill_id': billId,
-    if (billNumber != null) 'bill_number': billNumber,
-    if (warehouseId != null) 'warehouse_id': warehouseId,
-    if (warehouseName != null) 'warehouse_name': warehouseName,
-    'status': status,
-    if (notes != null) 'notes': notes,
-    'subtotal': subtotal,
-    'tax_amount': taxAmount,
-    'total': total,
-    'items': items.map((i) => i.toJson()).toList(),
-  };
+        if (id != null) 'id': id,
+        'return_number': returnNumber,
+        if (returnDate != null) 'return_date': returnDate!.toIso8601String(),
+        if (vendorId != null) 'vendor_id': vendorId,
+        if (vendorName != null) 'vendor_name': vendorName,
+        if (purchaseOrderId != null) 'purchase_order_id': purchaseOrderId,
+        if (purchaseOrderNumber != null)
+          'purchase_order_number': purchaseOrderNumber,
+        if (purchaseReceiveId != null) 'purchase_receive_id': purchaseReceiveId,
+        if (purchaseReceiveNumber != null)
+          'purchase_receive_number': purchaseReceiveNumber,
+        if (billId != null) 'bill_id': billId,
+        if (billNumber != null) 'bill_number': billNumber,
+        if (warehouseId != null) 'warehouse_id': warehouseId,
+        if (warehouseName != null) 'warehouse_name': warehouseName,
+        'status': status,
+        if (notes != null) 'notes': notes,
+        'subtotal': subtotal,
+        'tax_amount': taxAmount,
+        'total': total,
+        'items': items.map((i) => i.toJson()).toList(),
+      };
 
   factory PurchaseReturn.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'] as List<dynamic>?;
@@ -261,8 +262,7 @@ class PurchaseReturn {
       subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0,
       taxAmount: (json['tax_amount'] as num?)?.toDouble() ?? 0,
       total: (json['total'] as num?)?.toDouble() ?? 0,
-      items:
-          rawItems
+      items: rawItems
               ?.whereType<Map<String, dynamic>>()
               .map(PurchaseReturnItem.fromJson)
               .toList() ??

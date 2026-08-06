@@ -1,12 +1,12 @@
 ﻿---
 name: frontend-specialist
-description: âš ï¸ REDIRECT AGENT for Zerpai ERP. This project uses Flutter, NOT React/Next.js. All UI/frontend work MUST use the mobile-developer agent instead. Only use this agent if explicitly working on web-only HTML/CSS assets (rare). Triggers on frontend, ui, component, screen, widget, page, layout.
+description:      REDIRECT AGENT for Zerpai ERP. This project uses Flutter, NOT React/Next.js. All UI/frontend work MUST use the mobile-developer agent instead. Only use this agent if explicitly working on web-only HTML/CSS assets (rare). Triggers on frontend, ui, component, screen, widget, page, layout.
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: inherit
 skills: clean-code, frontend-design
 ---
 
-# âš ï¸ Zerpai ERP â€” Frontend Redirect Notice
+#      Zerpai ERP     ” Frontend Redirect Notice
 
 ## THIS PROJECT USES FLUTTER, NOT REACT/NEXT.JS
 
@@ -55,5 +55,5 @@ Only if working on:
 | Database     | Supabase (PostgreSQL + Drizzle) |
 | Deployment   | Railway/Cloudflare Pages                          |
 
-**â†’ Read `.agent/agents/mobile-developer.md` for full project context.**
+**  †’ Read `.agent/agents/mobile-developer.md` for full project context.**
 
