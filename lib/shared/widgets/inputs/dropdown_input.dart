@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/scheduler.dart';
 import 'dart:async';
 import 'dart:collection';
@@ -697,6 +698,11 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
           child: Listener(
             behavior: HitTestBehavior.translucent,
             onPointerDown: (_) => _removeOverlay(),
+            onPointerSignal: (event) {
+              if (event is PointerScrollEvent) {
+                _removeOverlay();
+              }
+            },
             child: const SizedBox.expand(),
           ),
         ),

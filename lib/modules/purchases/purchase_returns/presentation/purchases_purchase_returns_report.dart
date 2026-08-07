@@ -12,6 +12,7 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/models/column_config.dart';
 import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_overview.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/providers/purchases_purchase_returns_provider.dart';
 
 // ── List row model ────────────────────────────────────────────────────────────
 
@@ -208,44 +209,24 @@ class _PurchaseReturnsReportPageState
     });
   }
 
-  final List<_PrListRow> _rows = const [
-    _PrListRow(
-      id: 'PR-00001',
-      returnNumber: 'PR-00001',
-      date: '20-04-2026',
-      vendorName: 'ZERPAI TESTING',
-      status: 'draft',
-      amount: 4838.00,
-      purchaseOrderNumber: 'PO-00042',
-    ),
-    _PrListRow(
-      id: 'PR-00002',
-      returnNumber: 'PR-00002',
-      date: '22-04-2026',
-      vendorName: 'ACME SUPPLIES',
-      status: 'confirmed',
-      amount: 12450.00,
-      purchaseOrderNumber: 'PO-00045',
-    ),
-    _PrListRow(
-      id: 'PR-00003',
-      returnNumber: 'PR-00003',
-      date: '25-04-2026',
-      vendorName: 'GLOBAL IMAGING',
-      status: 'vendor_received',
-      amount: 2300.00,
-      purchaseOrderNumber: 'PO-00047',
-    ),
-    _PrListRow(
-      id: 'PR-00004',
-      returnNumber: 'PR-00004',
-      date: '28-04-2026',
-      vendorName: 'TECH DISTRIBUTORS',
-      status: 'draft',
-      amount: 9800.00,
-      purchaseOrderNumber: 'PO-00049',
-    ),
-  ];
+  List<_PrListRow> get _rows {
+    final returnsAsync = ref.watch(purchaseReturnsProvider);
+    final returnsList = returnsAsync.valueOrNull?.returns ?? [];
+    return returnsList.map((r) {
+      final dateStr = r.returnDate != null
+          ? DateFormat('dd-MM-yyyy').format(r.returnDate!)
+          : '';
+      return _PrListRow(
+        id: r.id ?? r.returnNumber,
+        returnNumber: r.returnNumber,
+        date: dateStr,
+        vendorName: r.vendorName ?? '',
+        status: r.status,
+        amount: r.total,
+        purchaseOrderNumber: r.purchaseOrderNumber,
+      );
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -1043,6 +1024,9 @@ class _PurchaseReturnsReportPageState
     }
     final row = rows[idx];
     final returnDetail = ref.watch(purchaseReturnDetailProvider(row.id));
+    if (returnDetail == null) {
+      return const Center(child: Text('Return detail not found.'));
+    }
 
     return Container(
       color: AppTheme.backgroundColor,

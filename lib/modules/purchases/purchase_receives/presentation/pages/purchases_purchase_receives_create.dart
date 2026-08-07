@@ -2054,81 +2054,87 @@ class _PRCreateState
                         child: Row(
                           children: [
                             SizedBox(
-                              width: 550,
-                              child: FormDropdown<Vendor>(
-                                height: 32,
-                                itemHeight: 56.0,
-                                enabled: !_isEditMode,
-                                fillColor: _isEditMode
-                                    ? const Color(0xFFF1F5F9)
-                                    : Colors.white,
-                                value: hasDisplayName ? selectedVendor : null,
-                                textStyle: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: hasDisplayName
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  color: hasDisplayName
-                                      ? _textPrimary
-                                      : _hintColor,
-                                ),
-                                items: ref.watch(vendorProvider).vendors,
-                                hint: "Select or type to search",
-                                showSearch: true,
-                                allowClear: hasDisplayName && !_isEditMode,
-                                menuWidth: 550,
-                                onChanged: (vendor) {
-                                  if (vendor != null) {
-                                    setState(() {
-                                      _selectedVendorId = vendor.id;
-                                      _selectedVendorName = vendor.displayName;
-                                    });
-                                    _fetchPOsForVendor(vendor.id);
-                                  } else {
-                                    setState(() {
-                                      _selectedVendorId = null;
-                                      _selectedVendorName = null;
-                                    });
-                                  }
-                                },
-                                showSettings: false,
-                                displayStringForValue: (v) => v.displayName,
-                                itemBuilder: (v, isSelected, isHovered) =>
-                                    _buildVendorDropdownItem(
-                                      v,
-                                      isSelected,
-                                      isHovered,
+                              width: 450,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: FormDropdown<Vendor>(
+                                      height: 32,
+                                      itemHeight: 56.0,
+                                      enabled: !_isEditMode,
+                                      fillColor: _isEditMode
+                                          ? const Color(0xFFF1F5F9)
+                                          : Colors.white,
+                                      value: hasDisplayName ? selectedVendor : null,
+                                      textStyle: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: hasDisplayName
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: hasDisplayName
+                                            ? _textPrimary
+                                            : _hintColor,
+                                      ),
+                                      items: ref.watch(vendorProvider).vendors,
+                                      hint: "Select or type to search",
+                                      showSearch: true,
+                                      allowClear: hasDisplayName && !_isEditMode,
+                                      menuWidth: 450,
+                                      onChanged: (vendor) {
+                                        if (vendor != null) {
+                                          setState(() {
+                                            _selectedVendorId = vendor.id;
+                                            _selectedVendorName = vendor.displayName;
+                                          });
+                                          _fetchPOsForVendor(vendor.id);
+                                        } else {
+                                          setState(() {
+                                            _selectedVendorId = null;
+                                            _selectedVendorName = null;
+                                          });
+                                        }
+                                      },
+                                      showSettings: false,
+                                      displayStringForValue: (v) => v.displayName,
+                                      itemBuilder: (v, isSelected, isHovered) =>
+                                          _buildVendorDropdownItem(
+                                            v,
+                                            isSelected,
+                                            isHovered,
+                                          ),
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(4),
+                                        bottomLeft: Radius.circular(4),
+                                      ),
+                                      showRightBorder: true,
+                                      border: Border.all(color: _fieldBorder),
                                     ),
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(4),
-                                  bottomLeft: Radius.circular(4),
-                                ),
-                                showRightBorder: true,
-                                border: Border.all(color: _fieldBorder),
-                              ),
-                            ),
-                            Container(
-                              height: 32,
-                              width: 32,
-                              decoration: BoxDecoration(
-                                color: _isEditMode
-                                    ? const Color(0xFF94A3B8)
-                                    : const Color(0xFF10B981),
-                                borderRadius: const BorderRadius.only(
-                                  topRight: Radius.circular(4),
-                                  bottomRight: Radius.circular(4),
-                                ),
-                              ),
-                              child: IconButton(
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(
-                                  LucideIcons.search,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                                onPressed: () => _showAdvancedSearch(
-                                  ref.read(vendorProvider).vendors,
-                                ),
+                                  ),
+                                  Container(
+                                    height: 32,
+                                    width: 32,
+                                    decoration: BoxDecoration(
+                                      color: _isEditMode
+                                          ? const Color(0xFF94A3B8)
+                                          : const Color(0xFF10B981),
+                                      borderRadius: const BorderRadius.only(
+                                        topRight: Radius.circular(4),
+                                        bottomRight: Radius.circular(4),
+                                      ),
+                                    ),
+                                    child: IconButton(
+                                      padding: EdgeInsets.zero,
+                                      icon: const Icon(
+                                        LucideIcons.search,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                      onPressed: () => _showAdvancedSearch(
+                                        ref.read(vendorProvider).vendors,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             if (hasVendor) ...[
@@ -2180,14 +2186,14 @@ class _PRCreateState
                   label: "Purchase Order#",
                   labelColor: _dangerRed,
                   child: SizedBox(
-                    width: 550,
+                    width: 450,
                     child: FormDropdown<PurchaseOrder>(
                       height: 32,
                       enabled: !_isEditMode,
                       fillColor: _isEditMode
                           ? const Color(0xFFF1F5F9)
                           : Colors.white,
-                      menuWidth: 550,
+                      menuWidth: 450,
                       itemHeight: 60.0,
                       multiSelect: true,
                       selectedValues: _selectedPOs,

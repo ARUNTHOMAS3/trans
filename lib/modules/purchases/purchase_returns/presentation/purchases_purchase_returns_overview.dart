@@ -9,6 +9,7 @@ import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/providers/purchases_purchase_returns_provider.dart';
 
 // ── Display models ────────────────────────────────────────────────────────────
 
@@ -106,175 +107,51 @@ class ReceiveBatch {
 
 // ── Mock data provider ────────────────────────────────────────────────────────
 
+// ── Dynamic data provider ─────────────────────────────────────────────────────
+
 final purchaseReturnDetailProvider =
-    Provider.family<PurchaseReturnDetailData, String>((ref, id) {
-  final cleanId = id.contains('PR-') ? id : 'PR-00001';
+    Provider.family<PurchaseReturnDetailData?, String>((ref, id) {
+  final returnsAsync = ref.watch(purchaseReturnsProvider);
+  final returnsState = returnsAsync.valueOrNull;
+  final returnsList = returnsState?.returns ?? [];
 
-  if (cleanId == 'PR-00002') {
-    return PurchaseReturnDetailData(
-      id: 'PR-00002',
-      returnNumber: 'PR-00002',
-      date: DateTime(2026, 4, 22),
-      vendorName: 'ACME SUPPLIES',
-      vendorAddress:
-          '45, Industrial Area, Sector 4\nBengaluru, Karnataka - 560001\nGSTIN: 29AABCA9876E1Z2',
-      purchaseOrderNumber: 'PO-00045',
-      purchaseReceiveNumber: 'GRN-00032',
-      billNumber: 'B2B/25-26/00098',
-      warehouseName: 'Main Warehouse',
-      sourceOfSupply: '[KA] - Karnataka',
-      destinationOfSupply: '[KL] - Kerala',
-      status: 'confirmed',
-      subtotal: 10550.85,
-      taxAmount: 1899.15,
-      total: 12450.00,
-      balance: 12450.00,
-      items: const [
-        PurchaseReturnDetailItemData(
-          name: 'Office Chairs',
-          description: 'Ergonomic mesh office chair – damaged on delivery',
-          returnQty: 3,
-          unit: 'Nos',
-          rate: 3000.00,
-          taxRate: '18% GST',
-          amount: 9000.00,
-          reason: 'Damaged',
-        ),
-        PurchaseReturnDetailItemData(
-          name: 'Desk Organizer',
-          description: 'Wooden multi-compartment organizer – wrong model',
-          returnQty: 5,
-          unit: 'Nos',
-          rate: 310.17,
-          taxRate: '18% GST',
-          amount: 1550.85,
-          reason: 'Wrong item received',
-        ),
-      ],
-    );
-  }
+  final match = returnsList
+      .where((r) => r.id == id || r.returnNumber == id)
+      .firstOrNull;
 
-  if (cleanId == 'PR-00003') {
-    return PurchaseReturnDetailData(
-      id: 'PR-00003',
-      returnNumber: 'PR-00003',
-      date: DateTime(2026, 4, 25),
-      vendorName: 'GLOBAL IMAGING',
-      vendorAddress:
-          'Flat 102, Skyline Towers\nChennai, Tamil Nadu - 600002\nGSTIN: 33AAACG4321F2Z9',
-      purchaseOrderNumber: 'PO-00047',
-      purchaseReceiveNumber: 'GRN-00034',
-      billNumber: 'B2B/25-26/00101',
-      warehouseName: 'South Warehouse',
-      sourceOfSupply: '[TN] - Tamil Nadu',
-      destinationOfSupply: '[KL] - Kerala',
-      status: 'vendor_received',
-      subtotal: 1949.15,
-      taxAmount: 350.85,
-      total: 2300.00,
-      balance: 0.00,
-      items: const [
-        PurchaseReturnDetailItemData(
-          name: 'Ink Cartridge HP 680',
-          description: 'HP 680 Black Original – expired batch',
-          returnQty: 2,
-          unit: 'Pcs',
-          rate: 974.58,
-          taxRate: '18% GST',
-          amount: 1949.15,
-          reason: 'Expired',
-        ),
-      ],
-      receiveHistory: [
-        ReceiveBatch(
-          receiveNumber: 'RCV-00001',
-          date: DateTime(2026, 4, 27),
-          items: const [
-            ReceiveBatchLine(
-              itemName: 'Ink Cartridge HP 680',
-              qty: 2,
-              unit: 'Pcs',
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  if (cleanId == 'PR-00004') {
-    return PurchaseReturnDetailData(
-      id: 'PR-00004',
-      returnNumber: 'PR-00004',
-      date: DateTime(2026, 4, 28),
-      vendorName: 'TECH DISTRIBUTORS',
-      vendorAddress:
-          'Shop 12, Electronics Plaza\nKochi, Kerala - 682025\nGSTIN: 32AABBD4321C1Z4',
-      purchaseOrderNumber: 'PO-00049',
-      purchaseReceiveNumber: null,
-      billNumber: null,
-      warehouseName: 'Main Warehouse',
-      sourceOfSupply: '[KL] - Kerala',
-      destinationOfSupply: '[KL] - Kerala',
-      status: 'draft',
-      subtotal: 8305.08,
-      taxAmount: 1494.92,
-      total: 9800.00,
-      balance: 9800.00,
-      items: const [
-        PurchaseReturnDetailItemData(
-          name: 'Wireless Router AC1200',
-          description: 'Dual-band gigabit router – defective units',
-          returnQty: 4,
-          unit: 'Nos',
-          rate: 2076.27,
-          taxRate: '18% GST',
-          amount: 8305.08,
-          reason: 'Defective',
-        ),
-      ],
-    );
-  }
+  if (match == null) return null;
 
   return PurchaseReturnDetailData(
-    id: 'PR-00001',
-    returnNumber: 'PR-00001',
-    date: DateTime(2026, 4, 20),
-    vendorName: 'ZERPAI TESTING',
-    vendorAddress:
-        '32/4, MG Road, Landmark Building\nKochi, Kerala - 682016\nGSTIN: 32AABBC1234D1Z5',
-    purchaseOrderNumber: 'PO-00042',
-    purchaseReceiveNumber: 'GRN-00028',
-    billNumber: 'B2B/25-26/00089',
-    warehouseName: 'Main Warehouse',
-    sourceOfSupply: '[KL] - Kerala',
-    destinationOfSupply: '[KL] - Kerala',
-    status: 'draft',
-    subtotal: 4100.00,
-    taxAmount: 738.00,
-    total: 4838.00,
-    balance: 4838.00,
-    items: const [
-      PurchaseReturnDetailItemData(
-        name: 'Computer Keyboard',
-        description: 'Standard USB mechanical keyboard – keys not responsive',
-        returnQty: 2,
-        unit: 'Nos',
-        rate: 800.00,
-        taxRate: '18% GST',
-        amount: 1600.00,
-        reason: 'Defective',
-      ),
-      PurchaseReturnDetailItemData(
-        name: 'USB Optical Mouse',
-        description: 'High-precision optical wired mouse – scroll wheel broken',
-        returnQty: 10,
-        unit: 'Nos',
-        rate: 250.00,
-        taxRate: '18% GST',
-        amount: 2500.00,
-        reason: 'Defective',
-      ),
-    ],
+    id: match.id ?? match.returnNumber,
+    returnNumber: match.returnNumber,
+    date: match.returnDate ?? DateTime.now(),
+    vendorName: match.vendorName ?? '',
+    vendorAddress: '',
+    purchaseOrderNumber: match.purchaseOrderNumber,
+    purchaseReceiveNumber: match.purchaseReceiveNumber,
+    billNumber: match.billNumber,
+    warehouseName: match.warehouseName ?? '',
+    sourceOfSupply: '',
+    destinationOfSupply: '',
+    status: match.status,
+    subtotal: match.subtotal,
+    taxAmount: match.taxAmount,
+    total: match.total,
+    balance: match.total,
+    items: match.items
+        .map(
+          (i) => PurchaseReturnDetailItemData(
+            name: i.itemName,
+            description: i.description ?? '',
+            returnQty: i.returnQty,
+            unit: i.unit ?? 'Pcs',
+            rate: i.rate,
+            taxRate: i.taxRateName ?? '0%',
+            amount: i.amount,
+            reason: i.reason,
+          ),
+        )
+        .toList(),
   );
 });
 
@@ -516,6 +393,18 @@ class _PurchaseReturnDetailPageState
       purchaseReturnDetailProvider(widget.purchaseReturnId),
     );
     final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
+
+    if (returnDetail == null) {
+      return const ZerpaiLayout(
+        pageTitle: 'Purchase Return Detail',
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(40),
+            child: Text('Purchase return not found.'),
+          ),
+        ),
+      );
+    }
 
     return ZerpaiLayout(
       pageTitle: returnDetail.returnNumber,

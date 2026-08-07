@@ -35,6 +35,7 @@ import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accounta
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/tax_preferences_popover.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
@@ -3561,55 +3562,61 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             child: Row(
               children: [
                 SizedBox(
-                  width: 550,
-                  child: FormDropdown<Vendor>(
-                    height: 32,
-                    enabled: !_isEditMode,
-                    value: selectedVendor.id.isEmpty ? null : selectedVendor,
-                    textStyle: TextStyle(
-                      fontSize: 13,
-                      fontWeight: selectedVendor.id.isNotEmpty ? FontWeight.bold : FontWeight.normal,
-                      color: selectedVendor.id.isNotEmpty ? _textPrimary : _hintColor,
-                    ),
-                    items: vendors,
-                    hint: 'Select a Vendor',
-                    showSearch: true,
-                    allowClear: hasVendor && !_isEditMode,
-                    menuWidth: 550,
-                    onChanged: (v) => _selectVendor(v, notifier),
-                    showSettings: !_isEditMode,
-                    settingsLabel: 'New Vendor',
-                    settingsIcon: LucideIcons.plus,
-                    onSettingsTap: _showNewVendorDialog,
-                    displayStringForValue: (v) => v.displayName,
-                    itemBuilder: (v, isSelected, isHovered) =>
-                        _buildVendorDropdownItem(v, isSelected, isHovered),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(4),
-                      bottomLeft: Radius.circular(4),
-                    ),
-                    showRightBorder: true,
-                    border: Border.all(color: _fieldBorder),
-                  ),
-                ),
-                Container(
-                  height: 32,
-                  width: 32,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF10B981),
-                    borderRadius: BorderRadius.only(
-                      topRight: Radius.circular(4),
-                      bottomRight: Radius.circular(4),
-                    ),
-                  ),
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(
-                      LucideIcons.search,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    onPressed: () => _showAdvancedSearch(vendors, notifier),
+                  width: 450,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: FormDropdown<Vendor>(
+                          height: 32,
+                          enabled: !_isEditMode,
+                          value: selectedVendor.id.isEmpty ? null : selectedVendor,
+                          textStyle: TextStyle(
+                            fontSize: 13,
+                            fontWeight: selectedVendor.id.isNotEmpty ? FontWeight.bold : FontWeight.normal,
+                            color: selectedVendor.id.isNotEmpty ? _textPrimary : _hintColor,
+                          ),
+                          items: vendors,
+                          hint: 'Select a Vendor',
+                          showSearch: true,
+                          allowClear: hasVendor && !_isEditMode,
+                          menuWidth: 450,
+                          onChanged: (v) => _selectVendor(v, notifier),
+                          showSettings: !_isEditMode,
+                          settingsLabel: 'New Vendor',
+                          settingsIcon: LucideIcons.plus,
+                          onSettingsTap: _showNewVendorDialog,
+                          displayStringForValue: (v) => v.displayName,
+                          itemBuilder: (v, isSelected, isHovered) =>
+                              _buildVendorDropdownItem(v, isSelected, isHovered),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(4),
+                            bottomLeft: Radius.circular(4),
+                          ),
+                          showRightBorder: true,
+                          border: Border.all(color: _fieldBorder),
+                        ),
+                      ),
+                      Container(
+                        height: 32,
+                        width: 32,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF10B981),
+                          borderRadius: BorderRadius.only(
+                            topRight: Radius.circular(4),
+                            bottomRight: Radius.circular(4),
+                          ),
+                        ),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(
+                            LucideIcons.search,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          onPressed: () => _showAdvancedSearch(vendors, notifier),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 if (hasVendor) ...[
@@ -3817,7 +3824,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
             offset: const Offset(-360, 18), // Adjust to align arrow with pencil
             child: Material(
               color: Colors.transparent,
-              child: _ConfigureTaxPreferencesDialog(
+              child: ConfigureTaxPreferencesDialog(
                 initialTreatment:
                     vendor.gstTreatment ?? 'Unregistered Business',
                 initialGstin: vendor.gstin ?? '',
@@ -4044,59 +4051,67 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               _zFormRow(
                 label: 'Source of Supply',
                 isRequired: true,
-                child: SizedBox(
-                  width: 320,
-                  child: FormDropdown<String>(
-                                    height: 32,
-                                    value:
-                        vendor.sourceOfSupply != null &&
-                            vendor.sourceOfSupply!.isNotEmpty
-                        ? vendor.sourceOfSupply!
-                        : (_sourceOfSupplyList.isNotEmpty
-                              ? _sourceOfSupplyList.first
-                              : ''),
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: _textPrimary,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 330,
+                      child: FormDropdown<String>(
+                                        height: 32,
+                                        value:
+                            vendor.sourceOfSupply != null &&
+                                vendor.sourceOfSupply!.isNotEmpty
+                            ? vendor.sourceOfSupply!
+                            : (_sourceOfSupplyList.isNotEmpty
+                                  ? _sourceOfSupplyList.first
+                                  : ''),
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: _textPrimary,
+                        ),
+                        items: _sourceOfSupplyList,
+                        showSearch: true,
+                        onChanged: (val) {
+                          if (val == null) return;
+                          final updatedVendor = vendor.copyWith(
+                            sourceOfSupply: val,
+                          );
+                          ref
+                              .read(vendorProvider.notifier)
+                              .updateVendor(vendor.id, updatedVendor);
+                        },
+                      ),
                     ),
-                    items: _sourceOfSupplyList,
-                    showSearch: true,
-                    onChanged: (val) {
-                      if (val == null) return;
-                      final updatedVendor = vendor.copyWith(
-                        sourceOfSupply: val,
-                      );
-                      ref
-                          .read(vendorProvider.notifier)
-                          .updateVendor(vendor.id, updatedVendor);
-                    },
-                  ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
               _zFormRow(
                 label: 'Destination of Supply',
                 isRequired: true,
-                child: SizedBox(
-                  width: 320,
-                  child: FormDropdown<String>(
-                    height: 32,
-                    value: poState.destinationOfSupply.isNotEmpty
-                        ? poState.destinationOfSupply
-                        : '[KL] - Kerala',
-                    textStyle: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: _textPrimary,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 330,
+                      child: FormDropdown<String>(
+                        height: 32,
+                        value: poState.destinationOfSupply.isNotEmpty
+                            ? poState.destinationOfSupply
+                            : '[KL] - Kerala',
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: _textPrimary,
+                        ),
+                        items: _sourceOfSupplyList,
+                        showSearch: true,
+                        onChanged: (val) =>
+                            notifier.updateField(destinationOfSupply: val ?? ''),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: _fieldBorder),
+                      ),
                     ),
-                    items: _sourceOfSupplyList,
-                    showSearch: true,
-                    onChanged: (val) =>
-                        notifier.updateField(destinationOfSupply: val ?? ''),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: _fieldBorder),
-                  ),
+                  ],
                 ),
               ),
             ],
@@ -11350,337 +11365,6 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-
-
-
-
-class _ConfigureTaxPreferencesDialog extends StatefulWidget {
-  final String initialTreatment;
-  final String initialGstin;
-  final Function(String, String, bool) onUpdate;
-  final VoidCallback onCancel;
-
-  const _ConfigureTaxPreferencesDialog({
-    required this.initialTreatment,
-    required this.initialGstin,
-    required this.onUpdate,
-    required this.onCancel,
-  });
-
-  @override
-  State<_ConfigureTaxPreferencesDialog> createState() =>
-      _ConfigureTaxPreferencesDialogState();
-}
-
-class _ConfigureTaxPreferencesDialogState
-    extends State<_ConfigureTaxPreferencesDialog> {
-  late String _selectedTreatment;
-  late TextEditingController _gstinCtrl;
-  bool _makePermanent = false;
-
-  final List<Map<String, String>> _treatments = [
-    {
-      'label': 'Registered Business - Regular',
-      'desc': 'Business that is registered under GST',
-    },
-    {
-      'label': 'Registered Business - Composition',
-      'desc': 'Business that is registered under the Composition Scheme in GST',
-    },
-    {
-      'label': 'Unregistered Business',
-      'desc': 'Business that has not been registered under GST',
-    },
-    {
-      'label': 'Consumer',
-      'desc':
-          'Individual or business that is not registered and consumes goods/services',
-    },
-    {'label': 'Overseas', 'desc': 'Business located outside India'},
-    {
-      'label': 'Special Economic Zone (SEZ)',
-      'desc': 'Business located in a SEZ unit or developer',
-    },
-    {
-      'label': 'Deemed Export',
-      'desc':
-          'Business involved in supply of goods to certain notified purposes',
-    },
-  ];
-
-  bool get _isRegistered {
-    return _selectedTreatment == 'Registered Business - Regular' ||
-        _selectedTreatment == 'Registered Business - Composition' ||
-        _selectedTreatment == 'Special Economic Zone (SEZ)' ||
-        _selectedTreatment == 'Deemed Export';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedTreatment = widget.initialTreatment;
-    _gstinCtrl = TextEditingController(text: widget.initialGstin);
-  }
-
-  @override
-  void dispose() {
-    _gstinCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(right: 14),
-          child: CustomPaint(
-            size: const Size(14, 8),
-            painter: _TrianglePainter(
-              color: Colors.white,
-              isUp: true,
-              hasBorder: true,
-            ),
-          ),
-        ),
-        Container(
-          width: 380,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFDDDDDD)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Configure Tax Preferences',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: widget.onCancel,
-                      child: const Icon(
-                        Icons.close,
-                        size: 18,
-                        color: Colors.redAccent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'GST Treatment',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF555555)),
-                    ),
-                    const SizedBox(height: 8),
-                    FormDropdown<Map<String, String>>(
-                      height: 32,
-                      value: _treatments.firstWhere(
-                        (t) => t['label'] == _selectedTreatment,
-                        orElse: () => _treatments[2],
-                      ),
-                      items: _treatments,
-                      showSearch: false,
-                      fillColor: Colors.white,
-                      displayStringForValue: (v) => v['label']!,
-                      itemBuilder: (item, isSelected, isHovered) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          color: isHovered
-                              ? const Color(0xFF3B82F6)
-                              : (isSelected
-                                    ? const Color(0xFFF3F4F6)
-                                    : Colors.transparent),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item['label']!,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: isHovered
-                                      ? Colors.white
-                                      : const Color(0xFF111827),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                item['desc']!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isHovered
-                                      ? Colors.white.withValues(alpha: 0.8)
-                                      : const Color(0xFF6B7280),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            _selectedTreatment = val['label']!;
-                          });
-                        }
-                      },
-                    ),
-                    if (_isRegistered) ...[
-                      const SizedBox(height: 20),
-                      const Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: 'GSTIN',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.redAccent,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                            TextSpan(
-                              text: '*',
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 32,
-                        child: CustomTextField(
-                          controller: _gstinCtrl,
-                          hintText: 'Enter GSTIN',
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: () {},
-                        child: const Text(
-                          'Get Taxpayer details',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF2563EB),
-                            fontWeight: FontWeight.w500,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Make it permanent?',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF555555)),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: Checkbox(
-                            value: _makePermanent,
-                            onChanged: (val) =>
-                                setState(() => _makePermanent = val!),
-                            activeColor: const Color(0xFF22C55E),
-                            side: const BorderSide(color: Color(0xFFCCCCCC)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Use these settings for all future transactions of this vendor.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    ElevatedButton(
-                      onPressed: () =>
-                          widget.onUpdate(_selectedTreatment, _gstinCtrl.text.trim(), _makePermanent),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF19A05E),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      child: const Text(
-                        'Update',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    OutlinedButton(
-                      onPressed: widget.onCancel,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFDDDDDD)),
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(color: Color(0xFF333333)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

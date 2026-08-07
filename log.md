@@ -1,4 +1,4 @@
-﻿### Dev- Arun
+### Dev- Arun
 
 <!-- LOG RULES START -->
 
@@ -9318,3 +9318,517 @@ ecurring_invoices_provider.dart) against handoff snapshot and confirmed 100% par
 Timestamp of Log Update: July 28, 2026 - 04:07 PM (IST)
 
 - Verified zero errors with flutter analyze on lib/modules/purchases/payments_made.
+
+
+## Purchase Returns Items Table Columns & Batch Modal Refactor (August 6, 2026)
+
+### Summary
+1. Refactored items table column structure in `purchases_purchase_returns_create.dart`.
+2. Renamed column header `RETURN QTY` -> `RETURNED QTY` and made `BILLED QTY` and `RETURNED QTY` display values readonly (plain text labels, no text boxes).
+3. Summed `BILLED QTY` dynamically per product from `bill_items` joined with `bills` for the active vendor via Supabase RPC/query (`_fetchBilledQuantitiesForVendor`).
+4. Inserted new editable `QTY TO RETURN` column with `CustomTextField`.
+5. Displayed `⚠️ Select Batch` button (red alert icon + blue underlined text matching Screenshot 2) below `QTY TO RETURN` when quantity > 0.
+6. Implemented modal dialog `_AddBatchDialog` matching Screenshot 3 layout (`Location`, `BATCH DETAILS`, line item overwrite checkbox, batch rows with Bin location, Batch No, Pack size, MRP, P rate, Expiry date picker, Quantity, Delete row, `+ New Row`, `Save`, `Cancel`).
+
+### Detailed Engineering Changes
+- [purchases_purchase_returns_create.dart](file:///c:/Users/HP/Documents/zerpai/zerpai-new/lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart):
+  - Updated `_PRLineItem` model with `returnedQty` and `batches`.
+  - Added `_billedQtyMap`, `_fetchBilledQuantitiesForVendor`, and `_showBatchModal` to `_PurchaseReturnsCreatePageState`.
+  - Updated `_PRItemsGrid` and `_PRItemRow` column flex ratios (`ITEM DETAILS`: flex 10, `BILLED QTY`: flex 3, `RETURNED QTY`: flex 3, `QTY TO RETURN`: flex 4, `RATE`: flex 4, `TAX`: flex 4, `AMOUNT`: flex 4).
+  - Added `_AddBatchDialog` and `_BatchRowData` modal dialog widgets.
+
+### Verification Gate
+- `dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart` $\rightarrow$ **Exit Code: 0 (No issues found!)**.
+
+Timestamp of Log Update: August 6, 2026 - 01:40 PM (IST)
+
+
+## Purchase Returns Billing Address Popover, UUID Resolution & Currency Badge Refactor (August 6, 2026)
+
+### Summary
+1. Implemented vendor billing address pencil click popover dropdown overlay (`_showAddressDropdownList`) in `purchases_purchase_returns_create.dart`, featuring active item selection styling (blue border and light blue background) and `+ Add New Address` action opening `AddressDialog` matching Screenshot 2.
+2. Resolved raw State ID and Country ID UUIDs rendered under vendor billing address (e.g. `f521da88-6df4-44e6-9c96-ab419fde4562` and `cf2c3b6a-0131-4862-b3f0-66950fc6116c`) into human-readable State Name (e.g., `Kerala`) and Country Name (e.g., `India`) via `_resolveNameIfUuid`.
+3. Updated vendor currency pill container `_PRCurrencyBadge` to display `(₹) INR - Indian Rupee` with grey background (`#F3F4F6`), border (`#E5E7EB`), and rounded pill geometry matching PO creation page.
+4. Converted hardcoded `_prStateOptions` into dynamic state list loaded via `ref.watch(statesProvider('IN'))`, formatted as `'[<code>] - <name>'`.
+
+### Detailed Engineering Changes
+- [purchases_purchase_returns_create.dart](file:///c:/Users/HP/Documents/zerpai/zerpai-new/lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart):
+  - Added `_billingAddressLink` (`LayerLink`), `_addressDropdownOverlay` (`OverlayEntry`), `_showAddressDropdownList`, `_buildAddressDropdownItem`, `_showAddressModal`, `_normalizeAddress`, `_areAddressesEqual`, `_getAllVendorAddresses`, and `_updateVendorAddressesDefaultFlags`.
+  - Added `_resolveNameIfUuid` helper to dynamically match UUID strings against `statesProvider` and `countriesProvider` data.
+  - Updated `_PRVendorAddressPanel` to target `billingAddressLink` on pencil click and display resolved state/country names.
+  - Refactored `_PRCurrencyBadge` to resolve currency symbols and labels dynamically with PO-styled pill container.
+  - Replaced `_prStateOptions` constant with `dynamicStateOptions` from `statesProvider('IN')`.
+
+### Verification Gate
+- `dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart` $\rightarrow$ **Exit Code: 0 (No issues found!)**.
+
+Timestamp of Log Update: August 6, 2026 - 02:25 PM (IST)
+
+
+
+## Purchase Returns Vendor Row Overflow, Dynamic Taxes & Item Details UI Parity (August 6, 2026)
+
+### Summary
+1. Fixed RenderFlex 73px right overflow error on Vendor Name form row in purchases_purchase_returns_create.dart by adjusting _vendorFieldWidth to 450.0 and row ieldWidth to 750.
+2. Removed hardcoded static GST tax options (GST0, GST5, GST12, GST18, GST28) and implemented dynamic tax resolution (_buildTaxOptions) using itemsControllerProvider tax rates and tax groups, dynamically adapting tax options for Intra-State (GST) vs Inter-State (IGST) supply contexts.
+3. Implemented full PO-parity UI for the Item Details column in purchases_purchase_returns_create.dart:
+   - Empty state: 32x32 image placeholder icon box + item search dropdown.
+   - Selected state: 32x32 image thumbnail/icon + item title text with bold styling, ... action popup menu (Edit Item, View Item Details), x close button to clear item selection, styled multi-line description text box (Add a description to your item), blue GOODS / orange SERVICE badge, and editable HSN Code / SAC Code display.
+
+### Detailed Engineering Changes
+- [purchases_purchase_returns_create.dart](file:///c:/Users/HP/Documents/zerpai/zerpai-new/lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart):
+  - Updated _CompactFormRow for Vendor Name with ieldWidth: 750 and width: _vendorFieldWidth (450.0).
+  - Added selectedTaxRate and selectedTaxId fields to _PRLineItem.
+  - Updated _PRTaxOption model and added dynamic _buildTaxOptions builder function.
+  - Converted _PRItemRow to ConsumerStatefulWidget and implemented rich selected item details layout and dynamic tax options dropdown.
+  - Passed sourceOfSupply and destinationOfSupply through _PRItemsGrid to _PRItemRow.
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> **Exit Code: 0 (No issues found!)**.
+
+Timestamp of Log Update: August 6, 2026 - 02:40 PM (IST)
+
+
+## Purchase Returns Open PO Link Removal, Header Label Unwrapping & Vendor Billed Quantity Aggregation (August 6, 2026)
+
+### Summary
+1. Removed Open Purchase Orders section and its layout spacing from _PRVendorAddressPanel under the Vendor Name block in purchases_purchase_returns_create.dart.
+2. Fixed RETURNED QTY table column header text wrapping onto multiple lines by updating _TH with maxLines: 1 and softWrap: false, and adjusting header cell horizontal padding to 6.0px.
+3. Verified and refined _fetchBilledQuantitiesForVendor to calculate the BILLED QTY column values by querying ill_items joined with ills for the selected vendor (excluding void and deleted bills) and summing quantity grouped by product_id.
+
+### Detailed Engineering Changes
+- [purchases_purchase_returns_create.dart](file:///c:/Users/HP/Documents/zerpai/zerpai-new/lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart):
+  - Removed Open Purchase Orders row and SizedBox(height: 12) from _PRVendorAddressPanel.
+  - Added maxLines: 1 and softWrap: false to _TH widget text style.
+  - Adjusted BILLED QTY and RETURNED QTY table header cell horizontal padding to 6.0px.
+  - Enforced is_delete = false and status != void filters in _fetchBilledQuantitiesForVendor query on ill_items and ills.
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> **Exit Code: 0 (No issues found!)**.
+
+Timestamp of Log Update: August 6, 2026 - 03:00 PM (IST)
+
+
+## Purchase Returns Vendor Selection Data Source Fix (August 6, 2026)
+
+### Summary
+1. Replaced incorrect salesCustomersProvider customer data mapping in purchases_purchase_returns_create.dart with real vendor data source endorProvider.
+2. Vendor Name dropdown now displays actual vendors from the endors database table instead of customers.
+3. Automatically triggers loadVendors() on endorProvider during initState post-frame callback.
+
+### Detailed Engineering Changes
+- [purchases_purchase_returns_create.dart](file:///c:/Users/HP/Documents/zerpai/zerpai-new/lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart):
+  - In initState, added ef.read(vendorProvider.notifier).loadVendors().
+  - In uild(BuildContext context), replaced ef.watch(salesCustomersProvider) with ef.watch(vendorProvider).
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> **Exit Code: 0 (No issues found!)**.
+
+Timestamp of Log Update: August 6, 2026 - 03:02 PM (IST)
+
+
+## Purchase Returns Add Batch Modal Top Inset & Pack Size Display Refactor (August 6, 2026)
+
+### Summary
+1. Removed top gap above Add Batch modal dialog by setting insetPadding to EdgeInsets.fromLTRB(40, 0, 40, 24).
+2. Expanded PACK SIZE column flex from 3 to 4 and updated default string to Pack of 10 Items, preventing text truncation.
+3. Aligned AddBatchDialog layout with shared batch modal structure while omitting Manufacture Details, FOC, and Damage checkboxes.
+
+### Detailed Engineering Changes
+- purchases_purchase_returns_create.dart: Set top insetPadding to 0, increased PACK SIZE flex to 4, updated packSize default string.
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> Exit Code: 0 (No issues found!).
+
+Timestamp of Log Update: August 6, 2026 - 03:12 PM (IST)
+
+## Purchase Returns Add Batch Warehouse Bins & Interactive Batch Lookup (August 6, 2026)
+
+### Summary
+1. BIN LOCATION dropdown in Add Batch modal now displays real warehouse bins dynamically retrieved via binsLookupProvider(warehouseId).
+2. BATCH NO dropdown is enabled only after selecting a bin location, filtering batches under that specific bin.
+3. BATCH NO dropdown item display matches 2nd screenshot: batch_no | Bal: balance | Exp: expiry_date | MRP: mrp | prate: ptr.
+4. Selecting a batch auto-populates MRP, P RATE, and EXPIRY DATE from the selected batch object.
+
+### Detailed Engineering Changes
+- purchases_purchase_returns_create.dart: Refactored _AddBatchDialog to ConsumerStatefulWidget, wired binsLookupProvider & batchLookupProvider, added batch selection auto-population.
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> Exit Code: 0 (No issues found!).
+
+Timestamp of Log Update: August 6, 2026 - 03:30 PM (IST)
+
+## Purchase Returns Tax Preferences Popover, Qty to Return & Tax Resolution Refactor (August 6, 2026)
+
+### Summary
+1. Implemented Tax Preferences Popover box (Configure Tax Preferences) triggered by pencil icon next to GST Treatment label in billing address panel.
+2. Updated QTY TO RETURN column layout to top-aligned (mainAxisAlignment: MainAxisAlignment.start), set default startup text to 0, and added FilteringTextInputFormatter.digitsOnly to reject decimal input.
+3. Implemented intra-state vs inter-state tax resolution based on supply locations, mapping product.intraStateTaxId vs product.interStateTaxId to tax group dropdown options.
+4. Redesigned bottom table action buttons (+ Add New Row split button and + Add Items in Bulk button) matching 3rd screenshot UI styling.
+
+### Detailed Engineering Changes
+- purchases_purchase_returns_create.dart: Added _showTaxPreferencesPopover dialog, wired pencil icon InkWell, updated returnQtyController default to 0, added digitsOnly input formatter, top-aligned QTY TO RETURN cell, added intra/inter state tax resolution, and updated bottom button styling.
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> Exit Code: 0 (No issues found!).
+
+Timestamp of Log Update: August 6, 2026 - 04:15 PM (IST)
+
+
+## Purchase Returns Tax Column Auto-Load Refactor (August 6, 2026)
+
+### Summary
+1. Fixed tax column auto-selection when selecting an item in purchase returns create page.
+2. Implemented _resolveTaxOptionForProduct which matches item tax preferences (intraStateTaxId / interStateTaxId, tax preference 
+on-taxable, exempt, or numeric rate) against active tax rates and tax groups.
+3. Prevented non-taxable fallback override for taxable items by defaulting fallback matching to standard taxable GST rates (GST 18%, GST 12%, etc.).
+4. Added loadItems() call to initState post-frame callback to pre-fetch tax rates and tax groups from API/DB.
+
+### Detailed Engineering Changes
+- purchases_purchase_returns_create.dart: Added IDs to fallback tax options, introduced _resolveTaxOptionForProduct helper, updated _onItemSelected and _PRItemRowState build method, added loadItems() to post frame callback.
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> Exit Code: 0 (No issues found!).
+
+Timestamp of Log Update: August 6, 2026 - 04:35 PM (IST)
+
+
+## Purchase Returns Hint Text, Batch Summary Link & Tax Group Type Error Fix (August 6, 2026)
+
+### Summary
+1. Set initial QTY TO RETURN text field to start empty so hint text 0 is displayed.
+2. Rendered blue batch summary link (e.g., 12 pcs taken from 1 batch.) under QTY TO RETURN when batches are selected and saved, matching 2nd screenshot.
+3. Updated _showBatchModal onSave callback to auto-update returnQtyController text with total batch quantity.
+4. Resolved NoSuchMethodError: groupName method not found by safely handling both TaxRate instances and Map structures in _buildTaxOptions taxGroups iteration.
+
+### Detailed Engineering Changes
+- purchases_purchase_returns_create.dart: Updated returnQtyController initialization, added _getBatchSummaryText, rendered blue batch link on item.batches.isNotEmpty, and fixed taxGroups type casting in _buildTaxOptions.
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> Exit Code: 0 (No issues found!).
+
+Timestamp of Log Update: August 6, 2026 - 04:52 PM (IST)
+
+
+## Purchase Returns Notes & Attach Files UI Alignment with Bills Create Page (August 7, 2026)
+
+### Summary
+1. Replaced old Notes & Attach Files UI in purchases_purchase_returns_create.dart with exact 1st screenshot design from purchases_bills_create.dart.
+2. Formatted full-width background band (Color(0xFFF3F4F6)) with horizontal blue borders (Color(0xFFDBEAFE)).
+3. Updated Notes field decoration (white background, hint text " Enter any notes for this purchase return\, subtitle \It will not be shown in PDF\).
+4. Added vertical separator line between Notes and Attach File(s) sections.
+5. Removed old bordered box around Attach File(s) section and updated upload limit text to \You can upload a maximum of 10 files 5242880 each\.
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> Exit Code: 0 (No issues found!).
+
+Timestamp of Log Update: August 7, 2026 - 08:16 AM (IST)
+
+
+## Purchase Returns Full-Bleed Notes & Attachments Container (August 7, 2026)
+
+### Summary
+1. Extended the Notes & Attachments grey background band (Color(0xFFF3F4F6)) edge-to-edge full bleed across the page by applying negative horizontal margins (margin: const EdgeInsets.symmetric(horizontal: -40)).
+2. Removed left and right white margin whitespace outside the band while maintaining 40px internal horizontal padding for content alignment.
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> Exit Code: 0 (No issues found!).
+
+Timestamp of Log Update: August 7, 2026 - 08:21 AM (IST)
+
+
+## Purchase Returns Full-Bleed Container Assert Error Fix (August 7, 2026)
+
+### Summary
+1. Replaced container negative margin with LayoutBuilder + Transform.translate(offset: Offset(-40, 0)) to avoid Flutter Container assertion error (margin.isNonNegative is not true).
+2. Extended Notes & Attachments grey background band edge-to-edge full bleed while maintaining 40px internal horizontal padding for content alignment.
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> Exit Code: 0 (No issues found!).
+
+Timestamp of Log Update: August 7, 2026 - 08:26 AM (IST)
+
+
+## Purchase Returns Full-Bleed Right-Side Whitespace Fix (August 7, 2026)
+
+### Summary
+1. Created _PRNotesAndAttachmentsBand helper widget using dynamic ightBleed calculations (ight: -rightBleed, left: -hPad) to match _HeaderBackgroundBand.
+2. Guaranteed the Notes & Attachments grey background band (#F3F4F6) and blue borders (#DBEAFE) stretch edge-to-edge across the screen, completely removing the right-side whitespace box marked in the screenshot.
+
+### Verification Gate
+- dart analyze lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart -> Exit Code: 0 (No issues found!).
+
+Timestamp of Log Update: August 7, 2026 - 08:32 AM (IST)
+
+
+## Purchase Returns Formatting & Hardcoded Data Removal (August 7, 2026)
+
+### Summary
+1. Removed () around currency symbol in _PRCurrencyBadge so it displays ? INR - Indian Rupee cleanly without parenthesis.
+2. Aligned Reason for Return field width to 330 matching Purchase Order#, Receive#, and Purchase Return Date along the red vertical guide.
+3. Cleaned up hardcoded mock datasets across:
+   - purchases_purchase_returns_create.dart: Removed hardcoded Central Logistics Hub fallback string.
+   - purchases_purchase_returns_overview.dart: Wired purchaseReturnDetailProvider to read DB-backed records from purchaseReturnsProvider.
+   - purchases_purchase_returns_report.dart: Replaced hardcoded static rows array with dynamic getter derived from purchaseReturnsProvider.
+
+### Verification Gate
+- flutter analyze -> 0 errors across all 3 modified files!
+
+Timestamp of Log Update: August 7, 2026 - 08:44 AM (IST)
+
+
+## Purchase Returns Clean-up & Shipping Address Code Removal (August 7, 2026)
+
+### Summary
+1. Removed hardcoded mock vendor details (id: v-mock, gstin: 29AABCA9876E1Z2) in purchases_purchase_returns_create.dart. Vendor initialization now dynamically matches real Vendor objects from endorProvider.vendors.
+2. Removed hardcoded GST Treatment strings and inline shipping address fallback branches.
+3. Completely removed all unnecessary Shipping Address code (is_default_shipping, isDefaultShipping, shippingAddress, isBilling parameters) since Purchase Returns only deal with Billing Address.
+4. Simplified address normalization, comparison, overlay rendering, and address modal save handlers.
+
+### Verification Gate
+- flutter analyze -> 0 errors!
+
+Timestamp of Log Update: August 7, 2026 - 08:55 AM (IST)
+
+
+## Purchase Returns Address Helper Simplification (August 7, 2026)
+
+### Summary
+1. Simplified _normalizeAddress, _areAddressesEqual, _getAllVendorAddresses, and _updateVendorAddressesDefaultFlags into clean, direct helper functions.
+2. Removed redundant alias key mappings, fax lookups, shipping address fallback branches, and duplicate loop routines.
+
+### Verification Gate
+- flutter analyze -> No issues found! (Exit Code: 0).
+
+Timestamp of Log Update: August 7, 2026 - 09:02 AM (IST)
+
+
+## Purchase Returns Address Item Builder Optimization (August 7, 2026)
+
+### Summary
+1. Streamlined _buildAddressDropdownItem in purchases_purchase_returns_create.dart.
+2. Combined city, state, zip formatting and eliminated 10+ lines of redundant key fallback checks.
+
+### Verification Gate
+- flutter analyze -> No issues found! (Exit Code: 0).
+
+Timestamp of Log Update: August 7, 2026 - 09:07 AM (IST)
+
+
+## Purchase Returns UI Enhancements & Address Overlay Edit Button (August 7, 2026)
+
+### Summary
+1. Implemented New Address blue clickable link under BILLING ADDRESS when selected vendor has no billing address stored (matching 1st Screenshot).
+2. Added ontWeight: FontWeight.w600 bold text style to Vendor Name, Source of Supply, and Destination of Supply dropdown fields (matching 2nd Screenshot).
+3. Added top-right Edit Pencil icon button on popover address items in _buildAddressDropdownItem which triggers _showAddressModal(initialAddress: address) (matching 3rd Screenshot).
+
+### Verification Gate
+- flutter analyze -> No issues found! (Exit Code: 0).
+
+Timestamp of Log Update: August 7, 2026 - 09:18 AM (IST)
+
+
+## FormDropdown Hint Text Formatting & Tax Preferences Popover Polish (August 7, 2026)
+
+### Summary
+1. Updated FormDropdown in lib/shared/widgets/inputs/dropdown_input.dart so 	extStyle bold formatting is ONLY applied when a value is selected (hasValue == true). Hint placeholder text when alue == null now reliably renders with FontWeight.normal and AppTheme.textMuted (fixes hint text being bold).
+2. Cleaned up _showTaxPreferencesPopover in purchases_purchase_returns_create.dart to match purchases_purchase_orders_create.dart and 3rd screenshot layout.
+3. Confirmed TaxPreferencesPopover is a reusable widget pattern across lib/shared/ and purchases modules.
+
+### Verification Gate
+- flutter analyze -> No issues found! (Exit Code: 0).
+
+Timestamp of Log Update: August 7, 2026 - 09:30 AM (IST)
+
+
+## Purchase Returns Hint Text Weight Fix & Tax Preferences Popover Parity (August 7, 2026)
+
+### Summary
+1. Fixed hint text bold issue: FormDropdown hint text (Select or type a vendor, Select source of supply, Select destination of supply) now renders in normal weight, and ONLY selected values render with bold ontWeight: FontWeight.w600.
+2. Updated Configure Tax Preferences popover in purchases_purchase_returns_create.dart to match exact 3rd Screenshot styling: green #10B981 Update button, white Cancel button, green checkbox active color, and red X close icon.
+3. Confirmed Tax Preferences Popover reusability across Purchase Orders, Purchase Returns, Payments Made, and Bills.
+
+### Verification Gate
+- flutter analyze -> No issues found! (Exit Code: 0).
+
+Timestamp of Log Update: August 7, 2026 - 09:33 AM (IST)
+
+
+## Purchase Returns Anchored Tax Popover Conversion (August 7, 2026)
+
+### Summary
+1. Replaced center AlertDialog with an anchored overlay popover (OverlayEntry + CompositedTransformFollower + _TrianglePainter arrow tip pointing directly under GST Treatment) matching purchases_purchase_orders_create.dart.
+2. Removed center dialog backdrop overlay and integrated inline tax preference options with description strings and GSTIN inputs.
+
+### Verification Gate
+- flutter analyze -> No issues found! (Exit Code: 0).
+
+Timestamp of Log Update: August 7, 2026 - 09:42 AM (IST)
+
+
+## Shared TaxPreferencesPopover Promotion (August 7, 2026)
+
+### Summary
+1. Created canonical shared widget lib/shared/widgets/inputs/tax_preferences_popover.dart combining top triangle arrow (_PopoverTrianglePainter), GST Treatment dropdown with descriptions, dynamic GSTIN text field input for registered treatments, permanent setting checkbox, and green/outlined action buttons.
+2. Replaced lib/modules/purchases/payments_made/presentation/widgets/tax_preferences_popover.dart with backward-compatible export shim.
+3. Registered TaxPreferencesPopover in REUSABLES.md.
+
+### Verification Gate
+- flutter analyze -> No issues found! (Exit Code: 0).
+
+Timestamp of Log Update: August 7, 2026 - 09:56 AM (IST)
+
+
+## Legacy Local TaxPreferencesPopover Shim Removal (August 7, 2026)
+
+### Summary
+1. Deleted legacy file lib/modules/purchases/payments_made/presentation/widgets/tax_preferences_popover.dart.
+2. Updated purchases_payments_made_create.dart to directly import package:zerpai_erp/shared/widgets/inputs/tax_preferences_popover.dart.
+3. Verified clean Flutter Web module resolution without web hot-reload library initialization errors.
+
+### Verification Gate
+- flutter analyze -> No issues found! (Exit Code: 0).
+
+Timestamp of Log Update: August 7, 2026 - 10:12 AM (IST)
+
+
+## Tax Preferences Popover Placement & Arrow Alignment Fix (August 7, 2026)
+
+### Summary
+1. Updated TaxPreferencesPopover default offset to Offset(-359, 18) to precisely align top triangle arrow tip right below the pencil edit icon.
+2. In purchases_payments_made_create.dart, restricted TaxPreferencesPopover anchor scope to wrap only Icon(LucideIcons.edit3) instead of the entire text row, preventing popover leftward displacement.
+3. In purchases_purchase_returns_create.dart, updated follower offset to Offset(-359, 18).
+
+### Verification Gate
+- flutter analyze -> No issues found! (Exit Code: 0).
+
+Timestamp of Log Update: August 7, 2026 - 10:17 AM (IST)
+
+
+## TaxPreferencesPopover Placement Alignment (August 7, 2026)
+
+### Summary
+1. Updated popover anchor placement in purchases_payments_made_create.dart to anchor directly to the pencil edit icon instead of the whole text row.
+2. Adjusted popover follower offset calculation to Offset(-354, 4) in 	ax_preferences_popover.dart and purchases_purchase_returns_create.dart.
+3. Aligned the white triangle arrow tip dead-center directly below the edit pencil icon on both pages.
+
+### Verification Gate
+- flutter analyze -> No issues found! (Exit Code: 0).
+
+Timestamp of Log Update: August 7, 2026 - 10:21 AM (IST)
+
+
+## TaxPreferencesPopover Vertical Offset Adjustment (August 7, 2026)
+
+### Summary
+1. Updated popover Y offset from 4 to 16 in 	ax_preferences_popover.dart and purchases_purchase_returns_create.dart.
+2. Ensured the white triangle arrow tip sits 3px directly below the bottom edge of the pencil edit icon without overlapping it.
+
+### Verification Gate
+- flutter analyze -> No issues found! (Exit Code: 0).
+
+Timestamp of Log Update: August 7, 2026 - 10:30 AM (IST)
+
+
+## ConfigureTaxPreferencesDialog Shared Reusable Refactoring (August 7, 2026)
+
+### Summary
+1. Exported ConfigureTaxPreferencesDialog from lib/shared/widgets/inputs/tax_preferences_popover.dart as the canonical shared tax preferences popover/dialog reusable.
+2. Refactored all create pages containing hardcoded private _ConfigureTaxPreferencesDialog implementations to consume the shared ConfigureTaxPreferencesDialog:
+   - purchases_purchase_orders_create.dart
+   - purchases_bills_create.dart
+   - sales_invoice_create.dart
+   - sales_order_create.dart
+   - purchases_purchase_returns_create.dart
+3. Documented ConfigureTaxPreferencesDialog in REUSABLES.md.
+
+### Verification Gate
+- flutter analyze on all 6 touched files -> No issues found! (ran in 4.3s).
+
+Timestamp of Log Update: August 7, 2026 - 10:46 AM (IST)
+
+
+## Form Field Width Standardization (August 7, 2026)
+
+### Summary
+Standardized the widths of Vendor/Customer Name (450px), Source of Supply (330px), and Destination/Place of Supply (330px) form fields across purchase and sales create pages to match `purchases_purchase_returns_create.dart`:
+- `purchases_purchase_orders_create.dart`
+- `purchases_purchase_receives_create.dart`
+- `purchases_bills_create.dart`
+- `sales_invoice_create.dart`
+- `sales_order_create.dart`
+
+### Affected Files
+- Frontend Files:
+  - `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart`
+  - `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`
+  - `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`
+  - `lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart`
+  - `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`
+
+### Verification Gate
+- `dart analyze` across all touched files -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 11:10 AM (IST)
+
+
+## Form Field Width & Combined Outer Row Standardization (August 7, 2026)
+
+### Summary
+Aligned the outer combined input structure of Vendor Name / Customer Name fields with `purchases_purchase_returns_create.dart`:
+1. Wrapped both the `FormDropdown` and the 32px green search icon button inside `SizedBox(width: 450)` across all purchase and sales create forms. This ensures the total outer width of the (Vendor/Customer Dropdown + Search Button) block is exactly `450px` (with `FormDropdown` expanding to fill `418px`).
+2. Enforced `330px` width on all Source of Supply, Destination of Supply, and Place of Supply dropdown fields across all 5 pages.
+
+### Affected Files
+- Frontend Files:
+  - `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart`
+  - `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`
+  - `lib/modules/purchases/bills/presentation/pages/purchases_bills_create.dart`
+  - `lib/modules/sales/invoices/presentation/pages/sales_invoice_create.dart`
+  - `lib/modules/sales/sales_orders/presentation/pages/sales_order_create.dart`
+
+### Verification Gate
+- `dart analyze` across all touched files -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 11:34 AM (IST)
+
+## 685. Vendor Dropdown Item & List Standardization (August 7, 2026)
+
+### Summary
+Standardized the Vendor Name dropdown list overlay across Purchase Orders, Purchase Returns, and Payments Made pages. Implemented the avatar circle, vendor number, and company name item layout with blue hover state across all pages, while omitting the "+ New Vendor" action on pages where it is not required.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_orders/presentation/pages/purchases_purchase_orders_create.dart`:
+  - Enforced `menuWidth: 450` on `FormDropdown<Vendor>` to align overlay popup menu width with the full vendor input field.
+- `lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart`:
+  - Added `_buildVendorDropdownItem` rendering avatar circle initial, display name with vendor number, company name subtext, and blue hover highlight (`0xFF3B82F6`).
+  - Configured `FormDropdown<Vendor>` with `showSearch: true`, `menuWidth: 450`, and `showSettings: false` (excluding "+ New Vendor").
+- `lib/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create.dart`:
+  - Standardized `FormDropdown<Vendor>` item builder to use `_buildVendorDropdownItem` with avatar circle initial, display name with vendor number, company name subtext, and blue hover highlight (`0xFF3B82F6`).
+  - Configured `showSearch: true`, `menuWidth: 450`, and `showSettings: false`.
+
+### Verification Gate
+- `dart analyze` across touched files -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 12:22 PM (IST)
+
+## 686. Purchase Receive Purchase Order Dropdown Width Standardization (August 7, 2026)
+
+### Summary
+Aligned the `Purchase Order#` dropdown field container width and menu overlay width on the Purchase Receive creation page (`purchases_purchase_receives_create.dart`) to 450px, ensuring exact visual parity with the `Vendor Name` dropdown box above it.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_create.dart`:
+  - Updated `SizedBox` width around `Purchase Order#` `FormDropdown<PurchaseOrder>` from `550px` to `450px`.
+  - Updated `menuWidth` property on `FormDropdown<PurchaseOrder>` from `550` to `450`.
+
+### Verification Gate
+- `dart analyze` on `purchases_purchase_receives_create.dart` -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 12:38 PM (IST)
+
+

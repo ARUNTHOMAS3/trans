@@ -14,6 +14,7 @@ import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/tax_preferences_popover.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
@@ -1580,119 +1581,125 @@ class _SalesOrderCreateScreenState
                           children: [
                             // Search dropdown
                             SizedBox(
-                              width: 550,
-                              child: FormDropdown<SalesCustomer>(
-                                key: const ValueKey('so_customer_name'),
-                                enabled: !_isEditMode,
-                                value: selectedCustomerFromList,
-                                height: _kDropdownHeight,
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(4),
-                                  bottomLeft: Radius.circular(4),
-                                ),
-                                showRightBorder: true,
-                                items: customers,
-                                allowClear: !_isEditMode,
-                                hint: 'Select or add a customer',
-                                displayStringForValue: (c) => c.displayName,
-                                itemHeight: 56,
-                                showSettings: true,
-                                settingsLabel: 'New Customer',
-                                settingsIcon: LucideIcons.plus,
-                                onSettingsTap: _isEditMode
-                                    ? null
-                                    : _showNewCustomerDialog,
-                                itemBuilder:
-                                    (customer, isSelected, isHovered) =>
-                                        _buildCustomerDropdownItem(
-                                          customer,
-                                          isSelected,
-                                          isHovered,
-                                        ),
-                                onChanged: (val) {
-                                  if (val == null) {
-                                    setState(() {
-                                      _customerDetailsSidebarOverlay?.remove();
-                                      _customerDetailsSidebarOverlay = null;
-                                      _selectedCustomer = null;
-                                      _selectedCustomerId = null;
-                                    });
-                                    _calculateTotals();
-                                    return;
-                                  }
-                                  setState(() {
-                                    _customerDetailsSidebarOverlay?.remove();
-                                    _customerDetailsSidebarOverlay = null;
-                                    _selectedCustomer = val;
-                                    _selectedCustomerId = val.id;
-                                    final priceLists =
-                                        priceListsAsync.asData?.value ?? [];
-
-                                    if (val.paymentTerms != null && val.paymentTerms!.isNotEmpty) {
-                                      final matchingTerm = _paymentTermsList.firstWhere(
-                                        (t) => t['term_name'] == val.paymentTerms || t['id'] == val.paymentTerms,
-                                        orElse: () => <String, dynamic>{},
-                                      );
-                                      if (matchingTerm.isNotEmpty) {
-                                        paymentTerms = matchingTerm['id']?.toString();
-                                      } else {
-                                        paymentTerms = _defaultPaymentTermId;
-                                      }
-                                    } else {
-                                      paymentTerms = _defaultPaymentTermId;
-                                    }
-                                    if (paymentTerms == null && _paymentTermsList.isNotEmpty) {
-                                      final net30 = _paymentTermsList.firstWhere(
-                                        (t) => t['term_name'] == 'Net 30',
-                                        orElse: () => _paymentTermsList.first,
-                                      );
-                                      paymentTerms = net30['id']?.toString();
-                                    }
-
-                                    for (var row in rows) {
-                                      if (row.itemId.isNotEmpty &&
-                                          row.item != null) {
-                                        _updateRowRate(
-                                          row,
-                                          val.priceList,
-                                          priceLists,
-                                        );
-                                      }
-                                    }
-                                  });
-                                  _calculateTotals();
-                                },
-                              ),
-                            ),
-                            Container(
-                              height: 32,
-                              width: 32,
-                              decoration: BoxDecoration(
-                                color: _isEditMode
-                                    ? const Color(0xFFD1D5DB)
-                                    : const Color(
-                                        0xFF10B981,
-                                      ), // Emerald-500 vs Gray-300
-                                borderRadius: const BorderRadius.only(
-                                  topRight: Radius.circular(4),
-                                  bottomRight: Radius.circular(4),
-                                ),
-                              ),
-                              child: IconButton(
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(
-                                  LucideIcons.search,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                                onPressed: _isEditMode
-                                    ? null
-                                    : () => customersAsync.whenData(
-                                        (customers) =>
-                                            _showAdvancedCustomerSearch(
-                                              customers,
-                                            ),
+                              width: 450,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: FormDropdown<SalesCustomer>(
+                                      key: const ValueKey('so_customer_name'),
+                                      enabled: !_isEditMode,
+                                      value: selectedCustomerFromList,
+                                      height: _kDropdownHeight,
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(4),
+                                        bottomLeft: Radius.circular(4),
                                       ),
+                                      showRightBorder: true,
+                                      items: customers,
+                                      allowClear: !_isEditMode,
+                                      hint: 'Select or add a customer',
+                                      displayStringForValue: (c) => c.displayName,
+                                      itemHeight: 56,
+                                      showSettings: true,
+                                      settingsLabel: 'New Customer',
+                                      settingsIcon: LucideIcons.plus,
+                                      onSettingsTap: _isEditMode
+                                          ? null
+                                          : _showNewCustomerDialog,
+                                      itemBuilder:
+                                          (customer, isSelected, isHovered) =>
+                                              _buildCustomerDropdownItem(
+                                                customer,
+                                                isSelected,
+                                                isHovered,
+                                              ),
+                                      onChanged: (val) {
+                                        if (val == null) {
+                                          setState(() {
+                                            _customerDetailsSidebarOverlay?.remove();
+                                            _customerDetailsSidebarOverlay = null;
+                                            _selectedCustomer = null;
+                                            _selectedCustomerId = null;
+                                          });
+                                          _calculateTotals();
+                                          return;
+                                        }
+                                        setState(() {
+                                          _customerDetailsSidebarOverlay?.remove();
+                                          _customerDetailsSidebarOverlay = null;
+                                          _selectedCustomer = val;
+                                          _selectedCustomerId = val.id;
+                                          final priceLists =
+                                              priceListsAsync.asData?.value ?? [];
+
+                                          if (val.paymentTerms != null && val.paymentTerms!.isNotEmpty) {
+                                            final matchingTerm = _paymentTermsList.firstWhere(
+                                              (t) => t['term_name'] == val.paymentTerms || t['id'] == val.paymentTerms,
+                                              orElse: () => <String, dynamic>{},
+                                            );
+                                            if (matchingTerm.isNotEmpty) {
+                                              paymentTerms = matchingTerm['id']?.toString();
+                                            } else {
+                                              paymentTerms = _defaultPaymentTermId;
+                                            }
+                                          } else {
+                                            paymentTerms = _defaultPaymentTermId;
+                                          }
+                                          if (paymentTerms == null && _paymentTermsList.isNotEmpty) {
+                                            final net30 = _paymentTermsList.firstWhere(
+                                              (t) => t['term_name'] == 'Net 30',
+                                              orElse: () => _paymentTermsList.first,
+                                            );
+                                            paymentTerms = net30['id']?.toString();
+                                          }
+
+                                          for (var row in rows) {
+                                            if (row.itemId.isNotEmpty &&
+                                                row.item != null) {
+                                              _updateRowRate(
+                                                row,
+                                                val.priceList,
+                                                priceLists,
+                                              );
+                                            }
+                                          }
+                                        });
+                                        _calculateTotals();
+                                      },
+                                    ),
+                                  ),
+                                  Container(
+                                    height: 32,
+                                    width: 32,
+                                    decoration: BoxDecoration(
+                                      color: _isEditMode
+                                          ? const Color(0xFFD1D5DB)
+                                          : const Color(
+                                              0xFF10B981,
+                                            ), // Emerald-500 vs Gray-300
+                                      borderRadius: const BorderRadius.only(
+                                        topRight: Radius.circular(4),
+                                        bottomRight: Radius.circular(4),
+                                      ),
+                                    ),
+                                    child: IconButton(
+                                      padding: EdgeInsets.zero,
+                                      icon: const Icon(
+                                        LucideIcons.search,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                      onPressed: _isEditMode
+                                          ? null
+                                          : () => customersAsync.whenData(
+                                              (customers) =>
+                                                  _showAdvancedCustomerSearch(
+                                                    customers,
+                                                  ),
+                                            ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -1817,31 +1824,37 @@ class _SalesOrderCreateScreenState
                           label: 'Place of Supply',
                           required: true,
                           labelWidth: 180,
-                          maxWidth: 450,
-                          child: FormDropdown<String>(
-                            key: const ValueKey('so_place_of_supply'),
-                            enabled: !_isEditMode,
-                            height: _kDropdownHeight,
-                            value: _normalizePlaceOfSupply(
-                              placeOfSupply ??
-                              selectedCustomerFromList.placeOfSupply,
-                              statesList,
-                            ),
-                            items: statesList.isEmpty 
-                                ? const ['[KL] - Kerala', '[TN] - Tamil Nadu', '[KA] - Karnataka'] 
-                                : statesList,
-                            itemBuilder: (item, isSelected, isHovered) =>
-                                _dropdownItemBuilder(
-                                  item,
-                                  isSelected,
-                                  isHovered,
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 330,
+                                child: FormDropdown<String>(
+                                  key: const ValueKey('so_place_of_supply'),
+                                  enabled: !_isEditMode,
+                                  height: _kDropdownHeight,
+                                  value: _normalizePlaceOfSupply(
+                                    placeOfSupply ??
+                                    selectedCustomerFromList.placeOfSupply,
+                                    statesList,
+                                  ),
+                                  items: statesList.isEmpty 
+                                      ? const ['[KL] - Kerala', '[TN] - Tamil Nadu', '[KA] - Karnataka'] 
+                                      : statesList,
+                                  itemBuilder: (item, isSelected, isHovered) =>
+                                      _dropdownItemBuilder(
+                                        item,
+                                        isSelected,
+                                        isHovered,
+                                      ),
+                                  onChanged: (v) {
+                                    setState(() {
+                                      placeOfSupply = v;
+                                    });
+                                    _calculateTotals();
+                                  },
                                 ),
-                            onChanged: (v) {
-                              setState(() {
-                                placeOfSupply = v;
-                              });
-                              _calculateTotals();
-                            },
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -7631,7 +7644,7 @@ class _SalesOrderCreateScreenState
             offset: const Offset(-333, 20),
             child: Material(
               color: Colors.transparent,
-              child: _ConfigureTaxPreferencesDialog(
+              child: ConfigureTaxPreferencesDialog(
                 initialGst: initialGst,
                 initialGstin: _selectedCustomer?.gstin ?? '',
                 onUpdate: (newGst, newGstin, isPermanent) async {
@@ -9963,388 +9976,7 @@ class _TdsPopoverListItemState extends State<_TdsPopoverListItem> {
   }
 }
 
-class _ConfigureTaxPreferencesDialog extends StatefulWidget {
-  final String initialGst;
-  final String initialGstin;
-  final Function(String, String, bool) onUpdate;
-  final VoidCallback onCancel;
 
-  const _ConfigureTaxPreferencesDialog({
-    required this.initialGst,
-    required this.initialGstin,
-    required this.onUpdate,
-    required this.onCancel,
-  });
-
-  @override
-  State<_ConfigureTaxPreferencesDialog> createState() =>
-      _ConfigureTaxPreferencesDialogState();
-}
-
-class _ConfigureTaxPreferencesDialogState
-    extends State<_ConfigureTaxPreferencesDialog> {
-  late String _selectedTreatment;
-  late TextEditingController _gstinCtrl;
-  bool _makePermanent = false;
-
-  final List<Map<String, String>> _treatments = [
-    {
-      'label': 'Registered Business - Regular',
-      'desc': 'Business that is registered under GST',
-    },
-    {
-      'label': 'Registered Business - Composition',
-      'desc': 'Business that is registered under the Composition Scheme in GST',
-    },
-    {
-      'label': 'Unregistered Business',
-      'desc': 'Business that has not been registered under GST',
-    },
-    {
-      'label': 'Consumer',
-      'desc':
-          'Individual or business that is not registered and consumes goods/services',
-    },
-    {'label': 'Overseas', 'desc': 'Business located outside India'},
-    {
-      'label': 'Special Economic Zone (SEZ)',
-      'desc': 'Business located in a SEZ unit or developer',
-    },
-    {
-      'label': 'Deemed Export',
-      'desc':
-          'Business involved in supply of goods to certain notified purposes',
-    },
-  ];
-
-  bool get _isRegistered {
-    return _selectedTreatment == 'Registered Business - Regular' ||
-        _selectedTreatment == 'Registered Business - Composition' ||
-        _selectedTreatment == 'Special Economic Zone (SEZ)' ||
-        _selectedTreatment == 'Deemed Export';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    final normalized = widget.initialGst.trim();
-    if (normalized == 'registered_business_regular') {
-      _selectedTreatment = 'Registered Business - Regular';
-    } else if (normalized == 'registered_business_composition') {
-      _selectedTreatment = 'Registered Business - Composition';
-    } else if (normalized == 'unregistered_business') {
-      _selectedTreatment = 'Unregistered Business';
-    } else if (normalized == 'consumer') {
-      _selectedTreatment = 'Consumer';
-    } else if (normalized == 'overseas') {
-      _selectedTreatment = 'Overseas';
-    } else if (normalized == 'special_economic_zone' || normalized == 'sez') {
-      _selectedTreatment = 'Special Economic Zone (SEZ)';
-    } else if (normalized == 'deemed_export') {
-      _selectedTreatment = 'Deemed Export';
-    } else {
-      _selectedTreatment = widget.initialGst;
-    }
-    _gstinCtrl = TextEditingController(text: widget.initialGstin);
-  }
-
-  String _mapGstLabelToDbValue(String label) {
-    switch (label) {
-      case 'Registered Business - Regular':
-        return 'registered_business_regular';
-      case 'Registered Business - Composition':
-        return 'registered_business_composition';
-      case 'Unregistered Business':
-        return 'unregistered_business';
-      case 'Consumer':
-        return 'consumer';
-      case 'Overseas':
-        return 'overseas';
-      case 'Special Economic Zone (SEZ)':
-        return 'special_economic_zone';
-      case 'Deemed Export':
-        return 'deemed_export';
-      default:
-        return label;
-    }
-  }
-
-  @override
-  void dispose() {
-    _gstinCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(right: 34),
-          child: CustomPaint(
-            size: const Size(14, 8),
-            painter: _TrianglePainter(
-              color: Colors.white,
-              isUp: true,
-              hasBorder: true,
-            ),
-          ),
-        ),
-        Container(
-          width: 380,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFDDDDDD)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Configure Tax Preferences',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: widget.onCancel,
-                      child: const Icon(
-                        Icons.close,
-                        size: 18,
-                        color: Colors.redAccent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'GST Treatment',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF555555),
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    FormDropdown<Map<String, String>>(
-                      height: 32,
-                      value: _treatments.firstWhere(
-                        (t) => t['label'] == _selectedTreatment,
-                        orElse: () => _treatments[2],
-                      ),
-                      items: _treatments,
-                      showSearch: false,
-                      fillColor: Colors.white,
-                      displayStringForValue: (v) => v['label']!,
-                      itemBuilder: (item, isSelected, isHovered) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          color: isHovered
-                              ? const Color(0xFF3B82F6)
-                              : (isSelected
-                                  ? const Color(0xFFF3F4F6)
-                                  : Colors.transparent),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item['label']!,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: isHovered
-                                      ? Colors.white
-                                      : const Color(0xFF111827),
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                item['desc']!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isHovered
-                                      ? Colors.white.withValues(alpha: 0.8)
-                                      : const Color(0xFF6B7280),
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            _selectedTreatment = val['label']!;
-                          });
-                        }
-                      },
-                    ),
-                    if (_isRegistered) ...[
-                      const SizedBox(height: 20),
-                      const Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: 'GSTIN',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.redAccent,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                            TextSpan(
-                              text: '*',
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 32,
-                        child: CustomTextField(
-                          controller: _gstinCtrl,
-                          hintText: 'Enter GSTIN',
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: () {},
-                        child: const Text(
-                          'Get Taxpayer details',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF2563EB),
-                            fontWeight: FontWeight.w500,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Make it permanent?',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF555555),
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: Checkbox(
-                            value: _makePermanent,
-                            onChanged: (val) =>
-                                setState(() => _makePermanent = val!),
-                            activeColor: AppTheme.primaryBlue,
-                            side: const BorderSide(color: Color(0xFFCCCCCC)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Use these settings for all future transactions of this customer.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF6B7280),
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    ElevatedButton(
-                      onPressed: () =>
-                          widget.onUpdate(_mapGstLabelToDbValue(_selectedTreatment), _gstinCtrl.text.trim(), _makePermanent),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF19A05E),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      child: const Text(
-                        'Update',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    OutlinedButton(
-                      onPressed: widget.onCancel,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFDDDDDD)),
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: Color(0xFF333333),
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class _GstinPopover extends StatefulWidget {
   final String gstin;

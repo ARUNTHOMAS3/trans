@@ -20,6 +20,7 @@ import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.d
 import 'package:zerpai_erp/modules/purchases/vendors/repositories/vendor_repository_impl.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/tax_preferences_popover.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_state.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart'
@@ -4676,8 +4677,15 @@ class _PurchasesBillCreateScreenState
             maxWidth: 850,
             child: Row(
               children: [
-                _buildVendorDropdown(vendorState),
-                _buildVendorSearchButton(),
+                SizedBox(
+                  width: 450,
+                  child: Row(
+                    children: [
+                      Expanded(child: _buildVendorDropdown(vendorState)),
+                      _buildVendorSearchButton(),
+                    ],
+                  ),
+                ),
                 if (hasVendor) ...[
                   const SizedBox(width: 8),
                   // INR badge
@@ -4835,36 +4843,33 @@ class _PurchasesBillCreateScreenState
   Widget _buildVendorDropdown(VendorState vendorState) {
     final vendors = vendorState.vendors;
     final hasVendor = _selectedVendor != null;
-    return SizedBox(
-      width: 550,
-      child: FormDropdown<Vendor>(
-        height: 32,
-        itemHeight: 56.0,
-        value: _selectedVendor,
-        textStyle: TextStyle(
-          fontSize: 13,
-          fontWeight: hasVendor ? FontWeight.bold : FontWeight.normal,
-          color: hasVendor ? _textPrimary : _hintColor,
-        ),
-        items: vendors,
-        hint: 'Select a Vendor',
-        showSearch: true,
-        allowClear: hasVendor,
-        menuWidth: 550,
-        onChanged: (v) => _selectVendor(v),
-        showSettings: true,
-        settingsLabel: 'New Vendor',
-        settingsIcon: LucideIcons.plus,
-        onSettingsTap: _showNewVendorDialog,
-        displayStringForValue: (v) => v.displayName,
-        itemBuilder: (v, isSelected, isHovered) =>
-            _buildVendorDropdownItem(v, isSelected, isHovered),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(4),
-          bottomLeft: Radius.circular(4),
-        ),
-        showRightBorder: true,
+    return FormDropdown<Vendor>(
+      height: 32,
+      itemHeight: 56.0,
+      value: _selectedVendor,
+      textStyle: TextStyle(
+        fontSize: 13,
+        fontWeight: hasVendor ? FontWeight.bold : FontWeight.normal,
+        color: hasVendor ? _textPrimary : _hintColor,
       ),
+      items: vendors,
+      hint: 'Select a Vendor',
+      showSearch: true,
+      allowClear: hasVendor,
+      menuWidth: 450,
+      onChanged: (v) => _selectVendor(v),
+      showSettings: true,
+      settingsLabel: 'New Vendor',
+      settingsIcon: LucideIcons.plus,
+      onSettingsTap: _showNewVendorDialog,
+      displayStringForValue: (v) => v.displayName,
+      itemBuilder: (v, isSelected, isHovered) =>
+          _buildVendorDropdownItem(v, isSelected, isHovered),
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(4),
+        bottomLeft: Radius.circular(4),
+      ),
+      showRightBorder: true,
     );
   }
 
@@ -5135,7 +5140,7 @@ class _PurchasesBillCreateScreenState
             offset: const Offset(-30, 20),
             child: Material(
               color: Colors.transparent,
-              child: _ConfigureTaxPreferencesDialog(
+              child: ConfigureTaxPreferencesDialog(
                 initialTreatment: currentTreatment,
                 initialGstin: _selectedVendor?.gstin ?? '',
                 onUpdate: (val, gstin, isPermanent) async {
@@ -5870,12 +5875,16 @@ class _PurchasesBillCreateScreenState
           label: 'Source of Supply',
           isRequired: true,
           maxWidth: 760,
-          child: SizedBox(
-            width: 400,
-            child: _buildStatesDropdown(
-              _sourceOfSupply,
-              (val) => setState(() => _sourceOfSupply = val),
-            ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 330,
+                child: _buildStatesDropdown(
+                  _sourceOfSupply,
+                  (val) => setState(() => _sourceOfSupply = val),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -5883,12 +5892,16 @@ class _PurchasesBillCreateScreenState
           label: 'Destination of Supply',
           isRequired: true,
           maxWidth: 760,
-          child: SizedBox(
-            width: 400,
-            child: _buildStatesDropdown(
-              _destinationOfSupply,
-              (val) => setState(() => _destinationOfSupply = val),
-            ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 330,
+                child: _buildStatesDropdown(
+                  _destinationOfSupply,
+                  (val) => setState(() => _destinationOfSupply = val),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -16776,7 +16789,6 @@ class _DashedBorderPainter extends CustomPainter {
     );
 
     if (isFocused) {
-      // Draw glow
       final glowPaint = Paint()
         ..color = color.withValues(alpha: 0.15)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
@@ -16784,7 +16796,6 @@ class _DashedBorderPainter extends CustomPainter {
         ..strokeWidth = 3;
       canvas.drawRRect(rrect, glowPaint);
 
-      // Draw solid border
       final solidPaint = Paint()
         ..color = color
         ..strokeWidth = 1.2
@@ -16817,352 +16828,6 @@ class _DashedBorderPainter extends CustomPainter {
       oldDelegate.color != color ||
       oldDelegate.isFocused != isFocused ||
       oldDelegate.isHovered != isHovered;
-}
-
-class _ConfigureTaxPreferencesDialog extends StatefulWidget {
-  final String initialTreatment;
-  final String initialGstin;
-  final Function(String, String, bool) onUpdate;
-  final VoidCallback onCancel;
-
-  const _ConfigureTaxPreferencesDialog({
-    required this.initialTreatment,
-    required this.initialGstin,
-    required this.onUpdate,
-    required this.onCancel,
-  });
-
-  @override
-  State<_ConfigureTaxPreferencesDialog> createState() =>
-      _ConfigureTaxPreferencesDialogState();
-}
-
-class _ConfigureTaxPreferencesDialogState
-    extends State<_ConfigureTaxPreferencesDialog> {
-  late String _selectedTreatment;
-  late TextEditingController _gstinCtrl;
-  bool _makePermanent = false;
-
-  final List<Map<String, String>> _treatments = [
-    {
-      'label': 'Registered Business - Regular',
-      'desc': 'Business that is registered under GST',
-    },
-    {
-      'label': 'Registered Business - Composition',
-      'desc': 'Business that is registered under the Composition Scheme in GST',
-    },
-    {
-      'label': 'Unregistered Business',
-      'desc': 'Business that has not been registered under GST',
-    },
-    {
-      'label': 'Consumer',
-      'desc':
-          'Individual or business that is not registered and consumes goods/services',
-    },
-    {'label': 'Overseas', 'desc': 'Business located outside India'},
-    {
-      'label': 'Special Economic Zone (SEZ)',
-      'desc': 'Business located in a SEZ unit or developer',
-    },
-    {
-      'label': 'Deemed Export',
-      'desc':
-          'Business involved in supply of goods to certain notified purposes',
-    },
-  ];
-
-  bool get _isRegistered {
-    return _selectedTreatment == 'Registered Business - Regular' ||
-        _selectedTreatment == 'Registered Business - Composition' ||
-        _selectedTreatment == 'Special Economic Zone (SEZ)' ||
-        _selectedTreatment == 'Deemed Export';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedTreatment = widget.initialTreatment;
-    _gstinCtrl = TextEditingController(text: widget.initialGstin);
-  }
-
-  @override
-  void dispose() {
-    _gstinCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 30),
-          child: CustomPaint(
-            size: const Size(14, 8),
-            painter: _TrianglePainter(
-              color: Colors.white,
-              isUp: true,
-              hasBorder: true,
-            ),
-          ),
-        ),
-        Container(
-          width: 380,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFDDDDDD)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Configure Tax Preferences',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: widget.onCancel,
-                      child: const Icon(
-                        Icons.close,
-                        size: 18,
-                        color: Colors.redAccent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'GST Treatment',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF555555),
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    FormDropdown<Map<String, String>>(
-                      height: 32,
-                      value: _treatments.firstWhere(
-                        (t) => t['label'] == _selectedTreatment,
-                        orElse: () => _treatments[2],
-                      ),
-                      items: _treatments,
-                      showSearch: false,
-                      fillColor: Colors.white,
-                      displayStringForValue: (v) => v['label']!,
-                      itemBuilder: (item, isSelected, isHovered) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          color: isHovered
-                              ? const Color(0xFF3B82F6)
-                              : (isSelected
-                                    ? const Color(0xFFF3F4F6)
-                                    : Colors.transparent),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item['label']!,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: isHovered
-                                      ? Colors.white
-                                      : const Color(0xFF111827),
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                item['desc']!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isHovered
-                                      ? Colors.white.withValues(alpha: 0.8)
-                                      : const Color(0xFF6B7280),
-                                  fontFamily: 'Inter',
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            _selectedTreatment = val['label']!;
-                          });
-                        }
-                      },
-                    ),
-                    if (_isRegistered) ...[
-                      const SizedBox(height: 20),
-                      const Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: 'GSTIN',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.redAccent,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                            TextSpan(
-                              text: '*',
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 32,
-                        child: CustomTextField(
-                          controller: _gstinCtrl,
-                          hintText: 'Enter GSTIN',
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: () {},
-                        child: const Text(
-                          'Get Taxpayer details',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF2563EB),
-                            fontWeight: FontWeight.w500,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Make it permanent?',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF555555),
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: Checkbox(
-                            value: _makePermanent,
-                            onChanged: (val) =>
-                                setState(() => _makePermanent = val!),
-                            activeColor: AppTheme.primaryBlue,
-                            side: const BorderSide(color: Color(0xFFCCCCCC)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Use these settings for all future transactions of this vendor.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF6B7280),
-                              fontFamily: 'Inter',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    ElevatedButton(
-                      onPressed: () =>
-                          widget.onUpdate(_selectedTreatment, _gstinCtrl.text.trim(), _makePermanent),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF19A05E),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      child: const Text(
-                        'Update',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    OutlinedButton(
-                      onPressed: widget.onCancel,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFDDDDDD)),
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: Color(0xFF333333),
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
 }
 
 class _GstinPopover extends StatefulWidget {

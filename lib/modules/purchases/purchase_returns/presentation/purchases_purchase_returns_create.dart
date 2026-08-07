@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +11,7 @@ import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
+import 'package:zerpai_erp/modules/items/items/models/tax_rate_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/providers/purchases_purchase_returns_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
@@ -26,16 +28,27 @@ import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/providers/lookup_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:zerpai_erp/shared/services/lookup_service.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/address_dialog.dart';
+import 'package:zerpai_erp/shared/constants/currency_constants.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 
 //          Line item model
 
 class _PRLineItem {
   Item? sourceItem;
   String? selectedTax;
+  double? selectedTaxRate;
+  String? selectedTaxId;
   String? selectedAccount;
+  double returnedQty = 0.0;
+  List<Map<String, dynamic>> batches = [];
 
   final TextEditingController orderedQtyController = TextEditingController();
   final TextEditingController returnQtyController = TextEditingController();
@@ -90,11 +103,11 @@ class PurchaseReturnsCreatePage extends ConsumerStatefulWidget {
 class _PurchaseReturnsCreatePageState
     extends ConsumerState<PurchaseReturnsCreatePage> {
   static const double _fieldHeight = 32.0;
-  static const double _tableFieldHeight = 44.0;
+  static const double _tableFieldHeight = 32.0;
   static const double _labelWidth = 150.0;
   static const double _gapWidth = 16.0;
   static const double _rowMaxWidth = 1400.0;
-  static const double _vendorFieldWidth = 500.0;
+  static const double _vendorFieldWidth = 450.0;
 
   //          Form state
   Vendor? _selectedVendorObj;
@@ -146,9 +159,14 @@ class _PurchaseReturnsCreatePageState
     _prNextNumberController = TextEditingController(text: '00001');
     _addItem();
 
-    if (widget.isEdit) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _loadForEdit());
-    } else {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(vendorProvider.notifier).loadVendors();
+      ref.read(itemsControllerProvider.notifier).loadItems();
+      if (widget.isEdit) {
+        _loadForEdit();
+      }
+    });
+    if (!widget.isEdit) {
       _fetchNextNumber();
     }
   }
@@ -353,39 +371,52 @@ class _PurchaseReturnsCreatePageState
       final detail = ref.read(
         purchaseReturnDetailProvider(widget.purchaseReturnId!),
       );
-      _selectedVendorObj = Vendor(
-        id: 'v-mock',
-        displayName: detail.vendorName,
-        companyName: detail.vendorName,
-        gstin: '29AABCA9876E1Z2',
-      );
-      _returnNumberController.text = detail.returnNumber;
-      _purchaseOrderController.text = detail.purchaseOrderNumber ?? '';
-      _purchaseReceiveController.text = detail.purchaseReceiveNumber ?? '';
-      _selectedBill = detail.billNumber;
-      _selectedSourceOfSupply = detail.sourceOfSupply;
-      _selectedDestinationOfSupply = detail.destinationOfSupply;
-      _returnDate = detail.date;
-      _returnDateController.text = DateFormat('dd-MM-yyyy').format(_returnDate);
-
-      for (final item in _items) item.dispose();
-      _items.clear();
-
-      for (final item in detail.items) {
-        final line = _PRLineItem();
-        line.sourceItem = Item(
-          id: 'item-mock-${item.name}',
-          type: 'goods',
-          productName: item.name,
-          itemCode: 'ITEM-001',
-          unitId: 'unit-1',
-          costPrice: item.rate,
+      if (detail != null) {
+        final vendors = ref.read(vendorProvider).vendors;
+        final matchedVendor = vendors.firstWhere(
+          (v) => v.displayName == detail.vendorName || v.id == detail.id,
+          orElse: () => Vendor(
+            id: '',
+            displayName: detail.vendorName,
+            companyName: detail.vendorName,
+            gstin: '',
+          ),
         );
-        line.returnQtyController.text = item.returnQty.toStringAsFixed(0);
-        line.rateController.text = item.rate.toStringAsFixed(2);
-        line.descriptionController.text = item.description;
-        line.selectedTax = item.taxRate;
-        _items.add(line);
+        _selectedVendorObj = matchedVendor;
+        _returnNumberController.text = detail.returnNumber;
+        _purchaseOrderController.text = detail.purchaseOrderNumber ?? '';
+        _purchaseReceiveController.text = detail.purchaseReceiveNumber ?? '';
+        _selectedBill = detail.billNumber;
+        _selectedSourceOfSupply = detail.sourceOfSupply;
+        _selectedDestinationOfSupply = detail.destinationOfSupply;
+        _returnDate = detail.date;
+        _returnDateController.text = DateFormat('dd-MM-yyyy').format(_returnDate);
+
+        for (final item in _items) item.dispose();
+        _items.clear();
+
+        for (final item in detail.items) {
+          final line = _PRLineItem();
+          line.sourceItem = Item(
+            id: 'item-mock-${item.name}',
+            type: 'goods',
+            productName: item.name,
+            itemCode: 'ITEM-001',
+            unitId: 'unit-1',
+            costPrice: item.rate,
+            sellingPrice: item.rate,
+            sku: 'SKU-001',
+            upc: '',
+            ean: '',
+            isbn: '',
+            mpn: '',
+          );
+          line.returnQtyController.text = item.returnQty.toStringAsFixed(0);
+          line.rateController.text = item.rate.toStringAsFixed(2);
+          line.descriptionController.text = item.description;
+          line.selectedTax = item.taxRate;
+          _items.add(line);
+        }
       }
       if (_items.isEmpty) _addItem();
       setState(() {});
@@ -411,11 +442,613 @@ class _PurchaseReturnsCreatePageState
   }
 
   double get _subTotal => _items
-      .where((i) => i.sourceItem != null)
+      .where((i) => i.sourceItem != null || i.returnQtyController.text.isNotEmpty)
       .fold(0.0, (s, i) => s + _lineSubtotal(i));
 
+  bool get _isIntraState {
+    final s = (_selectedSourceOfSupply ?? '').toLowerCase();
+    final d = (_selectedDestinationOfSupply ?? '').toLowerCase();
+    if (s.isEmpty || d.isEmpty) return true;
+    final sCode = s.split(']').first.replaceAll('[', '').trim();
+    final dCode = d.split(']').first.replaceAll('[', '').trim();
+    if (sCode.isNotEmpty && dCode.isNotEmpty && sCode == dCode) return true;
+    return s == d || (s.contains('kerala') && d.contains('kerala'));
+  }
+
+  double _parseTaxRate(String? taxStr) {
+    if (taxStr == null) return 0.0;
+    final match = RegExp(r'\[(\d+(\.\d+)?)%\]').firstMatch(taxStr) ??
+        RegExp(r'(\d+(\.\d+)?)%').firstMatch(taxStr);
+    if (match != null) {
+      return double.tryParse(match.group(1)!) ?? 0.0;
+    }
+    return 0.0;
+  }
+
+  Map<String, double> get _taxBreakdown {
+    final s = (_selectedSourceOfSupply ?? '').trim();
+    final d = (_selectedDestinationOfSupply ?? '').trim();
+    if (s.isEmpty || d.isEmpty) return {};
+    final Map<String, double> map = {};
+    for (final item in _items) {
+      if (item.sourceItem == null && item.returnQtyController.text.isEmpty) continue;
+      final qty = _parseMoney(item.returnQtyController.text);
+      final rate = _parseMoney(item.rateController.text);
+      final lineSubtotal = qty * rate;
+      final taxRate = _parseTaxRate(item.selectedTax);
+      if (taxRate <= 0) continue;
+      final lineTax = lineSubtotal * (taxRate / 100.0);
+
+      if (_isIntraState) {
+        final halfRate = taxRate / 2;
+        final halfAmt = lineTax / 2;
+        final rateStr = halfRate % 1 == 0 ? halfRate.toInt().toString() : halfRate.toStringAsFixed(1);
+        final cgstKey = 'CGST$rateStr [$rateStr%]';
+        final sgstKey = 'SGST$rateStr [$rateStr%]';
+        map[cgstKey] = (map[cgstKey] ?? 0.0) + halfAmt;
+        map[sgstKey] = (map[sgstKey] ?? 0.0) + halfAmt;
+      } else {
+        final rateStr = taxRate % 1 == 0 ? taxRate.toInt().toString() : taxRate.toStringAsFixed(1);
+        final igstKey = 'IGST$rateStr [$rateStr%]';
+        map[igstKey] = (map[igstKey] ?? 0.0) + lineTax;
+      }
+    }
+    return map;
+  }
+
+  double get _totalTax => _taxBreakdown.values.fold(0.0, (a, b) => a + b);
+
+  double get _totalQuantity => _items
+      .where((i) => i.sourceItem != null || i.returnQtyController.text.isNotEmpty)
+      .fold(0.0, (s, i) => s + _parseMoney(i.returnQtyController.text));
+
   double get _adjustmentAmount => _parseMoney(_adjustmentController.text);
-  double get _grandTotal => _subTotal + _adjustmentAmount;
+  double get _grandTotal => _subTotal + _totalTax + _adjustmentAmount;
+
+  Map<String, double> _billedQtyMap = {};
+
+  Future<void> _fetchBilledQuantitiesForVendor(String vendorId) async {
+    if (vendorId.isEmpty) {
+      if (mounted) setState(() => _billedQtyMap = {});
+      return;
+    }
+    try {
+      final response = await Supabase.instance.client
+          .from('bill_items')
+          .select('product_id, quantity, bills!inner(vendor_id, is_delete, status)')
+          .eq('bills.vendor_id', vendorId)
+          .eq('bills.is_delete', false)
+          .neq('bills.status', 'void');
+
+      final Map<String, double> qtyMap = {};
+      for (final row in (response as List<dynamic>)) {
+        final pid = row['product_id'] as String?;
+        final q = (row['quantity'] as num?)?.toDouble() ?? 0.0;
+        if (pid != null && pid.isNotEmpty) {
+          qtyMap[pid] = (qtyMap[pid] ?? 0.0) + q;
+        }
+      }
+      if (mounted) {
+        setState(() => _billedQtyMap = qtyMap);
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching billed quantities for vendor: $e');
+    }
+  }
+
+  void _showBatchModal(_PRLineItem item) {
+    final qtyToReturn = double.tryParse(item.returnQtyController.text) ?? 0.0;
+    showDialog(
+      context: context,
+      builder: (ctx) => _AddBatchDialog(
+        itemName: item.sourceItem?.productName ?? 'Item',
+        productId: item.sourceItem?.id ?? '',
+        totalQuantity: qtyToReturn,
+        warehouseName: _warehouseLocation,
+        warehouseId: _warehouseLocation,
+        initialBatches: item.batches,
+        onSave: (batches) {
+          setState(() {
+            item.batches = batches;
+            final totalPcs = batches.fold<double>(
+              0,
+              (sum, b) =>
+                  sum + (double.tryParse(b['quantity']?.toString() ?? '0') ?? 0),
+            );
+            if (totalPcs > 0) {
+              item.returnQtyController.text = totalPcs % 1 == 0
+                  ? totalPcs.toInt().toString()
+                  : totalPcs.toStringAsFixed(0);
+            }
+          });
+        },
+      ),
+    );
+  }
+
+  final LayerLink _gstLink = LayerLink();
+  OverlayEntry? _gstOverlay;
+
+  void _closeGstOverlay() {
+    _gstOverlay?.remove();
+    _gstOverlay = null;
+  }
+
+  void _showTaxPreferencesDialog() {
+    if (_selectedVendorObj == null) return;
+    _closeGstOverlay();
+    final vendor = _selectedVendorObj!;
+    final overlay = Overlay.of(context);
+    _gstOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _closeGstOverlay,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _gstLink,
+            showWhenUnlinked: false,
+            offset: const Offset(-354, 16),
+            child: Material(
+              color: Colors.transparent,
+              child: _ConfigureTaxPreferencesDialog(
+                initialTreatment: vendor.gstTreatment ?? 'Unregistered Business',
+                initialGstin: vendor.gstin ?? '',
+                onUpdate: (val, gstinVal, isPermanent) async {
+                  final updatedVendor = vendor.copyWith(
+                    gstTreatment: val,
+                    gstin: gstinVal,
+                  );
+                  try {
+                    ref.read(vendorProvider.notifier).updateVendorLocally(vendor.id, updatedVendor);
+                    await ref.read(vendorProvider.notifier).updateVendor(vendor.id, updatedVendor);
+                  } catch (e) {
+                    debugPrint('Error updating vendor tax preferences: $e');
+                  }
+                  if (mounted) {
+                    setState(() {
+                      _selectedVendorObj = updatedVendor;
+                    });
+                  }
+                  _closeGstOverlay();
+                },
+                onCancel: _closeGstOverlay,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    overlay.insert(_gstOverlay!);
+  }
+
+  final LayerLink _billingAddressLink = LayerLink();
+  OverlayEntry? _addressDropdownOverlay;
+
+  void _closeAddressDropdownOverlay() {
+    _addressDropdownOverlay?.remove();
+    _addressDropdownOverlay = null;
+  }
+
+  void _showAddressDropdownList({
+    required Vendor vendor,
+    required LayerLink link,
+  }) {
+    _closeAddressDropdownOverlay();
+    final allAddresses = _getAllVendorAddresses(vendor);
+
+    _addressDropdownOverlay = OverlayEntry(
+      builder: (ctx) {
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _closeAddressDropdownOverlay,
+          child: Stack(
+            children: [
+              const Positioned.fill(child: SizedBox.expand()),
+              CompositedTransformFollower(
+                link: link,
+                showWhenUnlinked: false,
+                targetAnchor: Alignment.bottomLeft,
+                followerAnchor: Alignment.topLeft,
+                offset: const Offset(0, 4),
+                child: GestureDetector(
+                  onTap: () {},
+                  child: Material(
+                    elevation: 8,
+                    borderRadius: BorderRadius.circular(6),
+                    color: Colors.white,
+                    child: Container(
+                      width: 340,
+                      constraints: const BoxConstraints(maxHeight: 320),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        borderRadius: BorderRadius.circular(6),
+                        color: Colors.white,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              padding: const EdgeInsets.all(8),
+                              itemCount: allAddresses.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (ctx, i) {
+                                final addr = allAddresses[i];
+                                return _buildAddressDropdownItem(
+                                  vendor: vendor,
+                                  address: addr,
+                                );
+                              },
+                            ),
+                          ),
+                          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                          InkWell(
+                            onTap: () {
+                              _closeAddressDropdownOverlay();
+                              _showAddressModal(
+                                vendor: vendor,
+                                customTitle: 'Billing Address',
+                                isNewAddress: true,
+                              );
+                            },
+                            child: Container(
+                              height: 40,
+                              alignment: Alignment.center,
+                              color: Colors.white,
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(LucideIcons.plus, size: 14, color: Color(0xFF2563EB)),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Add New Address',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF2563EB),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    Overlay.of(context).insert(_addressDropdownOverlay!);
+  }
+
+  Map<String, dynamic> _normalizeAddress(Map<String, dynamic> address) {
+    return {
+      'attention': address['attention']?.toString() ?? '',
+      'street1': (address['street1'] ?? address['street'] ?? address['address_street'] ?? address['addressStreet'] ?? '').toString(),
+      'street2': (address['street2'] ?? address['place'] ?? address['address_place'] ?? address['addressPlace'] ?? '').toString(),
+      'city': address['city']?.toString() ?? '',
+      'state': address['state']?.toString() ?? '',
+      'zip': (address['zip'] ?? address['pincode'] ?? address['zipCode'] ?? '').toString(),
+      'country': (address['country'] ?? address['countryRegion'] ?? address['country_region'] ?? '').toString(),
+      'phone': address['phone']?.toString() ?? '',
+      if (address['id'] != null) 'id': address['id'].toString(),
+    };
+  }
+
+  bool _areAddressesEqual(Map<String, dynamic> a, Map<String, dynamic> b) {
+    String norm(dynamic val) => (val?.toString() ?? '').trim().toLowerCase();
+    final streetA = norm(a['street1'] ?? a['street'] ?? a['address_street']);
+    final streetB = norm(b['street1'] ?? b['street'] ?? b['address_street']);
+    return streetA == streetB &&
+        norm(a['city']) == norm(b['city']) &&
+        norm(a['zip'] ?? a['pincode']) == norm(b['zip'] ?? b['pincode']);
+  }
+
+  List<Map<String, dynamic>> _getAllVendorAddresses(Vendor vendor) {
+    final list = <Map<String, dynamic>>[];
+    if (vendor.vendorAddresses != null && vendor.vendorAddresses!.isNotEmpty) {
+      for (final addr in vendor.vendorAddresses!) {
+        list.add(Map<String, dynamic>.from(addr));
+      }
+    } else if (vendor.billingAddress != null && vendor.billingAddress!.isNotEmpty) {
+      list.add(Map<String, dynamic>.from(vendor.billingAddress!));
+    }
+    return list;
+  }
+
+  List<Map<String, dynamic>> _updateVendorAddressesDefaultFlags({
+    required Vendor vendor,
+    required Map<String, dynamic> selectedAddr,
+  }) {
+    final currentList = vendor.vendorAddresses ?? [];
+    return currentList.map((addr) {
+      final isMatch = _areAddressesEqual(addr, selectedAddr);
+      final updated = Map<String, dynamic>.from(addr);
+      updated['is_default_billing'] = isMatch;
+      updated['isDefaultBilling'] = isMatch;
+      return updated;
+    }).toList();
+  }
+
+  Widget _buildAddressDropdownItem({
+    required Vendor vendor,
+    required Map<String, dynamic> address,
+  }) {
+    final statesList = ref.watch(statesProvider('IN')).valueOrNull ?? [];
+    final countriesList = ref.watch(countriesProvider(null)).valueOrNull ?? [];
+
+    final attention = address['attention']?.toString() ?? '';
+    final street1 = (address['street1'] ?? address['street'] ?? '').toString();
+    final street2 = (address['street2'] ?? address['place'] ?? '').toString();
+    final cityStateZip = [
+      address['city']?.toString() ?? '',
+      address['state']?.toString() ?? '',
+      (address['zip'] ?? address['pincode'] ?? '').toString(),
+    ].where((s) => s.isNotEmpty).join(', ');
+    final country = (address['country'] ?? address['countryRegion'] ?? '').toString();
+    final phone = address['phone']?.toString() ?? '';
+
+    final isSelected = _areAddressesEqual(vendor.billingAddress ?? {}, address);
+
+    final rawLines = [
+      if (street1.isNotEmpty) street1,
+      if (street2.isNotEmpty) street2,
+      if (cityStateZip.isNotEmpty) cityStateZip,
+      if (country.isNotEmpty) country,
+      if (phone.isNotEmpty) 'Phone: $phone',
+    ];
+
+    final lines = rawLines.map((l) => _resolveNameIfUuid(l, statesList, countriesList)).toList();
+
+    bool isHovered = false;
+    return StatefulBuilder(
+      builder: (ctx, setSt) {
+        return MouseRegion(
+          onEnter: (_) => setSt(() => isHovered = true),
+          onExit: (_) => setSt(() => isHovered = false),
+          child: GestureDetector(
+            onTap: () async {
+              _closeAddressDropdownOverlay();
+              final updatedAddresses = _updateVendorAddressesDefaultFlags(
+                vendor: vendor,
+                selectedAddr: address,
+              );
+              final normalizedAddr = _normalizeAddress(address);
+              final updated = vendor.copyWith(
+                billingAddress: normalizedAddr,
+                vendorAddresses: updatedAddresses,
+              );
+              setState(() {
+                _selectedVendorObj = updated;
+                final pos = normalizedAddr['state']?.toString();
+                if (pos != null && pos.isNotEmpty) {
+                  final sList = ref.read(statesProvider('IN')).valueOrNull ?? [];
+                  final dOptions = sList.map((s) {
+                    final code = s['code'] ?? s['shortCode'] ?? '';
+                    final name = s['name'] ?? '';
+                    return code.isNotEmpty ? '[$code] - $name' : name;
+                  }).where((str) => str.isNotEmpty).toList();
+                  final matched = dOptions.firstWhere(
+                    (opt) => opt.toLowerCase().contains(pos.toLowerCase()),
+                    orElse: () => pos,
+                  );
+                  _selectedSourceOfSupply = matched;
+                  _selectedDestinationOfSupply = matched;
+                }
+              });
+              try {
+                ref.read(vendorProvider.notifier).updateVendorLocally(vendor.id, updated);
+                await ref.read(vendorProvider.notifier).updateVendor(vendor.id, updated);
+                if (mounted) {
+                  ZerpaiToast.success(context, 'Vendor address updated');
+                }
+              } catch (e) {
+                if (mounted) {
+                  ZerpaiToast.error(context, 'Failed to update address: $e');
+                }
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isHovered
+                    ? const Color(0xFF3B82F6)
+                    : (isSelected ? const Color(0xFFEFF6FF) : Colors.white),
+                border: Border.all(
+                  color: isHovered
+                      ? const Color(0xFF3B82F6)
+                      : (isSelected ? const Color(0xFF3B82F6) : const Color(0xFFE5E7EB)),
+                ),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Stack(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 24),
+                        child: Text(
+                          attention.isNotEmpty ? attention : 'Billing Address',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isHovered
+                                ? Colors.white
+                                : (isSelected ? const Color(0xFF2563EB) : const Color(0xFF1F2937)),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      ...lines.map(
+                        (l) => Text(
+                          l,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isHovered
+                                ? Colors.white.withValues(alpha: 0.9)
+                                : const Color(0xFF4B5563),
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: InkWell(
+                      onTap: () {
+                        _closeAddressDropdownOverlay();
+                        _showAddressModal(
+                          vendor: vendor,
+                          initialAddress: address,
+                          customTitle: 'Billing Address',
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: isHovered
+                              ? Colors.white.withValues(alpha: 0.2)
+                              : (isSelected ? Colors.white : const Color(0xFFF3F4F6)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Icon(
+                          LucideIcons.pencil,
+                          size: 13,
+                          color: isHovered
+                              ? Colors.white
+                              : (isSelected ? const Color(0xFF2563EB) : const Color(0xFF4B5563)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAddressModal({
+    required Vendor vendor,
+    Map<String, dynamic>? initialAddress,
+    String? customTitle,
+    bool isNewAddress = false,
+  }) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AddressDialog(
+        title: customTitle ?? 'Billing Address',
+        initialAddress: initialAddress ?? {},
+        onSave: (newAddr) async {
+          final normalized = _normalizeAddress(newAddr);
+          final currentAddresses = vendor.vendorAddresses ?? [];
+          final updatedList = List<Map<String, dynamic>>.from(currentAddresses);
+          if (initialAddress != null) {
+            final idx = updatedList.indexWhere((a) => _areAddressesEqual(a, initialAddress));
+            if (idx != -1) {
+              updatedList[idx] = normalized;
+            } else {
+              updatedList.add(normalized);
+            }
+          } else {
+            updatedList.add(normalized);
+          }
+
+          final updated = vendor.copyWith(
+            billingAddress: normalized,
+            vendorAddresses: updatedList,
+          );
+
+          setState(() {
+            _selectedVendorObj = updated;
+          });
+
+          try {
+            ref.read(vendorProvider.notifier).updateVendorLocally(vendor.id, updated);
+            await ref.read(vendorProvider.notifier).updateVendor(vendor.id, updated);
+            if (mounted) {
+              ZerpaiToast.success(context, 'Address saved successfully');
+            }
+          } catch (e) {
+            if (mounted) {
+              ZerpaiToast.error(context, 'Failed to save address: $e');
+            }
+          }
+
+          setState(() {
+            _selectedVendorObj = updated;
+          });
+
+          try {
+            ref.read(vendorProvider.notifier).updateVendorLocally(vendor.id, updated);
+            await ref.read(vendorProvider.notifier).updateVendor(vendor.id, updated);
+            if (mounted) {
+              ZerpaiToast.success(context, 'Address saved successfully');
+            }
+          } catch (e) {
+            if (mounted) {
+              ZerpaiToast.error(context, 'Failed to save address: $e');
+            }
+          }
+        },
+      ),
+    );
+  }
+
+  void _onVendorSelected(Vendor? val) {
+    setState(() {
+      _selectedVendorObj = val;
+      if (val == null) {
+        _selectedSourceOfSupply = null;
+        _selectedDestinationOfSupply = null;
+        _selectedBill = null;
+        _billedQtyMap = {};
+      } else {
+        _fetchBilledQuantitiesForVendor(val.id);
+        final allCustomers = ref.read(salesCustomersProvider).valueOrNull ?? [];
+        final cust = allCustomers.firstWhere(
+          (c) => c.id == val.id,
+          orElse: () => SalesCustomer(id: val.id, displayName: val.displayName),
+        );
+        String? pos = cust.placeOfSupply ?? val.sourceOfSupply;
+        final sList = ref.read(statesProvider('IN')).valueOrNull ?? [];
+        final dOptions = sList.map((s) {
+          final code = s['code'] ?? s['shortCode'] ?? '';
+          final name = s['name'] ?? '';
+          return code.isNotEmpty ? '[$code] - $name' : name;
+        }).where((str) => str.isNotEmpty).toList();
+
+        if (pos != null && pos.isNotEmpty) {
+          final matchedState = dOptions.firstWhere(
+            (s) => s.toLowerCase().contains(pos.toLowerCase()),
+            orElse: () => pos,
+          );
+          _selectedSourceOfSupply = matchedState;
+          _selectedDestinationOfSupply = matchedState;
+        } else {
+          _selectedSourceOfSupply = null;
+          _selectedDestinationOfSupply = null;
+        }
+      }
+    });
+  }
 
   //          Save
 
@@ -498,21 +1131,28 @@ class _PurchaseReturnsCreatePageState
 
   @override
   Widget build(BuildContext context) {
-    final customersAsync = ref.watch(salesCustomersProvider);
-    final customers = customersAsync.valueOrNull ?? [];
-    final vendors = customers
-        .map((c) => Vendor(id: c.id, displayName: c.displayName))
-        .toList();
-    final vendorIsLoading = customersAsync.isLoading;
+    final vendorsState = ref.watch(vendorProvider);
+    final vendors = vendorsState.vendors;
+    final vendorIsLoading = vendorsState.isLoading;
+
+    final statesAsync = ref.watch(statesProvider('IN'));
+    final statesList = statesAsync.valueOrNull ?? [];
+    final countriesAsync = ref.watch(countriesProvider(null));
+    final countriesList = countriesAsync.valueOrNull ?? [];
+
+    final dynamicStateOptions = statesList.map((s) {
+      final code = s['code'] ?? s['shortCode'] ?? '';
+      final name = s['name'] ?? '';
+      return code.isNotEmpty ? '[$code] - $name' : name;
+    }).where((str) => str.isNotEmpty).toList();
 
     return Container(
       color: Colors.white,
       child: ZerpaiLayout(
-        pageTitle: widget.isEdit
-            ? 'Edit Purchase Return'
-            : 'New Purchase Return',
+        pageTitle: '',
         enableBodyScroll: true,
-        useHorizontalPadding: true,
+        useHorizontalPadding: false,
+        useTopPadding: false,
         footer: Container(
           width: double.infinity,
           decoration: const BoxDecoration(
@@ -642,12 +1282,24 @@ class _PurchaseReturnsCreatePageState
         child: Container(
           width: double.infinity,
           color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 40),
           child: _MaxWidthContainer(
             maxWidth: _rowMaxWidth,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 24),
+                Text(
+                  widget.isEdit
+                      ? 'Edit Purchase Return'
+                      : 'New Purchase Return',
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 //          Vendor header band
                 _HeaderBackgroundBand(
@@ -661,7 +1313,7 @@ class _PurchaseReturnsCreatePageState
                           label: 'Vendor Name',
                           required: true,
                           labelColor: AppTheme.errorRed,
-                          fieldWidth: _vendorFieldWidth + 12 + 72,
+                          fieldWidth: 750,
                           child: Row(
                             children: [
                               SizedBox(
@@ -682,14 +1334,29 @@ class _PurchaseReturnsCreatePageState
                                               value: _selectedVendorObj,
                                               items: vendors,
                                               isLoading: vendorIsLoading,
+                                              showSearch: true,
+                                              menuWidth: 450,
                                               displayStringForValue: (v) =>
                                                   v.displayName,
                                               searchStringForValue: (v) =>
-                                                  '${v.displayName} ${v.gstin ?? ''}',
+                                                  '${v.displayName} ${v.vendorNumber ?? ''} ${v.companyName ?? ''} ${v.gstin ?? ''}',
                                               hint: 'Select or type a vendor',
                                               height: _fieldHeight,
                                               menuMaxHeight: 320,
                                               showRightBorder: false,
+                                              itemBuilder: (v, isSelected, isHovered) =>
+                                                  _buildVendorDropdownItem(
+                                                    v,
+                                                    isSelected,
+                                                    isHovered,
+                                                  ),
+                                              textStyle: _selectedVendorObj != null
+                                                  ? const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Color(0xFF1F2937),
+                                                    )
+                                                  : null,
                                               borderRadius:
                                                   const BorderRadius.only(
                                                     topLeft: Radius.circular(4),
@@ -698,16 +1365,7 @@ class _PurchaseReturnsCreatePageState
                                                     ),
                                                   ),
                                               allowClear: true,
-                                              onChanged: (val) => setState(() {
-                                                _selectedVendorObj = val;
-                                                if (val == null) {
-                                                  _selectedSourceOfSupply =
-                                                      null;
-                                                  _selectedDestinationOfSupply =
-                                                      null;
-                                                  _selectedBill = null;
-                                                }
-                                              }),
+                                              onChanged: _onVendorSelected,
                                             ),
                                           ),
                                           Container(
@@ -749,18 +1407,14 @@ class _PurchaseReturnsCreatePageState
                                                         orElse: () =>
                                                             allCustomers.first,
                                                       );
-                                                  setState(() {
-                                                    _selectedVendorObj = Vendor(
-                                                      id: matched.id,
-                                                      displayName:
-                                                          matched.displayName,
-                                                    );
-                                                    _selectedSourceOfSupply =
-                                                        null;
-                                                    _selectedDestinationOfSupply =
-                                                        null;
-                                                    _selectedBill = null;
-                                                  });
+                                                  _onVendorSelected(Vendor(
+                                                    id: matched.id,
+                                                    displayName:
+                                                        matched.displayName,
+                                                    sourceOfSupply: matched.placeOfSupply,
+                                                    gstTreatment: matched.gstTreatment,
+                                                    gstin: matched.gstin,
+                                                  ));
                                                 }
                                               },
                                             ),
@@ -768,9 +1422,9 @@ class _PurchaseReturnsCreatePageState
                                         ],
                                       ),
                               ),
-                              if (_selectedVendorName != null) ...[
+                              if (_selectedVendorName != null || _selectedVendorObj != null) ...[
                                 const SizedBox(width: 12),
-                                const _PRCurrencyBadge(),
+                                _PRCurrencyBadge(selectedVendor: _selectedVendorObj),
                               ],
                             ],
                           ),
@@ -781,6 +1435,15 @@ class _PurchaseReturnsCreatePageState
                           _PRVendorAddressPanel(
                             vendor: _selectedVendorObj!,
                             labelWidth: _labelWidth,
+                            billingAddressLink: _billingAddressLink,
+                            gstLink: _gstLink,
+                            statesList: statesList,
+                            countriesList: countriesList,
+                            onEditBillingAddress: () => _showAddressDropdownList(
+                              vendor: _selectedVendorObj!,
+                              link: _billingAddressLink,
+                            ),
+                            onEditGstTreatment: _showTaxPreferencesDialog,
                           ),
                           // Source of Supply
                           _CompactFormRow(
@@ -791,15 +1454,17 @@ class _PurchaseReturnsCreatePageState
                             child: FormDropdown<String>(
                               value: _selectedSourceOfSupply,
                               enabled: !widget.isEdit,
-                              items: const [
-                                '[KL] - Kerala',
-                                '[TN] - Tamil Nadu',
-                                '[KA] - Karnataka',
-                                '[MH] - Maharashtra',
-                                '[DL] - Delhi',
-                              ],
+                              items: dynamicStateOptions,
+                              showSearch: true,
                               hint: 'Select source of supply',
                               height: _fieldHeight,
+                              textStyle: _selectedSourceOfSupply != null && _selectedSourceOfSupply!.isNotEmpty
+                                  ? const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1F2937),
+                                    )
+                                  : null,
                               onChanged: widget.isEdit
                                   ? (_) {}
                                   : (v) =>
@@ -815,15 +1480,17 @@ class _PurchaseReturnsCreatePageState
                             child: FormDropdown<String>(
                               value: _selectedDestinationOfSupply,
                               enabled: !widget.isEdit,
-                              items: const [
-                                '[KL] - Kerala',
-                                '[TN] - Tamil Nadu',
-                                '[KA] - Karnataka',
-                                '[MH] - Maharashtra',
-                                '[DL] - Delhi',
-                              ],
+                              items: dynamicStateOptions,
+                              showSearch: true,
                               hint: 'Select destination of supply',
                               height: _fieldHeight,
+                              textStyle: _selectedDestinationOfSupply != null && _selectedDestinationOfSupply!.isNotEmpty
+                                  ? const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1F2937),
+                                    )
+                                  : null,
                               onChanged: widget.isEdit
                                   ? (_) {}
                                   : (v) => setState(
@@ -989,11 +1656,11 @@ class _PurchaseReturnsCreatePageState
                       ),
                       const SizedBox(width: _gapWidth),
                       SizedBox(
-                        width: 434,
+                        width: 330,
                         child: CustomTextField(
                           controller: _reasonController,
                           hintText:
-                              'e.g. Damaged goods, wrong items delivered, quality issue    ¦',
+                              'e.g. Damaged goods, wrong items delivered, quality issue',
                           height: _fieldHeight,
                         ),
                       ),
@@ -1068,6 +1735,10 @@ class _PurchaseReturnsCreatePageState
                   onTotalsChanged: () => setState(() {}),
                   warehouse: _warehouseLocation,
                   isReverseCharge: _isReverseCharge,
+                  billedQtyMap: _billedQtyMap,
+                  onSelectBatch: _showBatchModal,
+                  sourceOfSupply: _selectedSourceOfSupply,
+                  destinationOfSupply: _selectedDestinationOfSupply,
                 ),
 
                 const SizedBox(height: 32),
@@ -1095,29 +1766,74 @@ class _PurchaseReturnsCreatePageState
                                 20,
                                 12,
                               ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'Sub Total',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.textPrimary,
-                                    ),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'Sub Total',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatMoney(_subTotal),
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
+                                  const SizedBox(height: 4),
                                   Text(
-                                    _formatMoney(_subTotal),
+                                    'Total Quantity : ${_totalQuantity % 1 == 0 ? _totalQuantity.toInt() : _totalQuantity.toStringAsFixed(2)}',
                                     style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.textPrimary,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppTheme.textSecondary,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
+                            if (_taxBreakdown.isNotEmpty) ...[
+                              for (final entry in _taxBreakdown.entries)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    20,
+                                    4,
+                                    20,
+                                    6,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        entry.key,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatMoney(entry.value),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
                             // Adjustment
                             Padding(
                               padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -1183,7 +1899,7 @@ class _PurchaseReturnsCreatePageState
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
-                                    'Total (  ‚¹)',
+                                    'Total',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -1210,108 +1926,161 @@ class _PurchaseReturnsCreatePageState
 
                 const SizedBox(height: 32),
 
-                //Notes + Attach Files
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: const BoxDecoration(color: AppTheme.bgLight),
+                // Notes + Attach Files (Full-bleed edge-to-edge container matching purchases_bills_create.dart)
+                _PRNotesAndAttachmentsBand(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Notes Section
                       Expanded(
-                        flex: 2,
+                        flex: 3,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
                               'Notes',
                               style: TextStyle(
-                                fontSize: 14,
                                 fontWeight: FontWeight.w600,
+                                fontSize: 13,
                                 color: AppTheme.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 8),
-                            CustomTextField(
-                              controller: _notesController,
-                              hintText:
-                                  'Will be displayed on the purchase return',
-                              maxLines: 4,
-                              height: 100,
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxWidth: 400,
+                              ),
+                              child: TextField(
+                                controller: _notesController,
+                                maxLines: 4,
+                                style: const TextStyle(fontSize: 13),
+                                decoration: InputDecoration(
+                                  hintText:
+                                      'Enter any notes for this purchase return',
+                                  hintStyle: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF9CA3AF),
+                                  ),
+                                  contentPadding:
+                                      const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      6,
+                                    ),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFFD1D5DB),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      6,
+                                    ),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFFD1D5DB),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      6,
+                                    ),
+                                    borderSide: const BorderSide(
+                                      color: AppTheme.primaryBlue,
+                                    ),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'It will not be shown in PDF',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6B7280),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 40),
+
+                      const SizedBox(width: 24),
+                      // Vertical Divider
+                      Container(
+                        width: 1,
+                        height: 140,
+                        color: const Color(0xFFDBEAFE),
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      const SizedBox(width: 24),
+
+                      // Attach File(s) Section
                       Expanded(
                         flex: 2,
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.bgLight,
-                            border: Border.all(color: AppTheme.borderLight),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Attach File(s) to Purchase Return',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textPrimary,
-                                ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Attach File(s) to Purchase Return',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: AppTheme.textPrimary,
                               ),
-                              const SizedBox(height: 10),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  FileUploadButton(
-                                    files: _attachedFiles,
-                                    maxFiles: 5,
-                                    onFilesChanged: (files) =>
-                                        setState(() => _attachedFiles = files),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                FileUploadButton(
+                                  files: _attachedFiles,
+                                  maxFiles: 10,
+                                  onFilesChanged: (files) => setState(
+                                    () => _attachedFiles = files,
                                   ),
-                                  Container(
-                                    height: 34,
-                                    width: 34,
-                                    alignment: Alignment.center,
-                                    decoration: const BoxDecoration(
-                                      color: AppTheme.backgroundColor,
-                                      border: Border(
-                                        top: BorderSide(
-                                          color: AppTheme.borderColor,
-                                        ),
-                                        right: BorderSide(
-                                          color: AppTheme.borderColor,
-                                        ),
-                                        bottom: BorderSide(
-                                          color: AppTheme.borderColor,
-                                        ),
+                                ),
+                                Container(
+                                  height: 34,
+                                  width: 34,
+                                  alignment: Alignment.center,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.backgroundColor,
+                                    border: Border(
+                                      top: BorderSide(
+                                        color: AppTheme.borderColor,
                                       ),
-                                      borderRadius: BorderRadius.only(
-                                        topRight: Radius.circular(4),
-                                        bottomRight: Radius.circular(4),
+                                      right: BorderSide(
+                                        color: AppTheme.borderColor,
+                                      ),
+                                      bottom: BorderSide(
+                                        color: AppTheme.borderColor,
                                       ),
                                     ),
-                                    child: const Icon(
-                                      Icons.keyboard_arrow_down,
-                                      size: 18,
-                                      color: AppTheme.textSecondary,
+                                    borderRadius: BorderRadius.only(
+                                      topRight: Radius.circular(4),
+                                      bottomRight: Radius.circular(4),
                                     ),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'You can upload a maximum of 5 files, 10MB each',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
+                                  child: const Icon(
+                                    Icons.keyboard_arrow_down,
+                                    size: 18,
+                                    color: AppTheme.textSecondary,
+                                  ),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'You can upload a maximum of 10 files, 5MB each',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF6B7280),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1363,37 +2132,191 @@ class _PurchaseReturnsCreatePageState
     );
   }
 }
+String _resolveNameIfUuid(
+  String text,
+  List<Map<String, String>> states,
+  List<Map<String, String>> countries,
+) {
+  if (text.isEmpty) return text;
+  final uuidRegex = RegExp(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}');
+  return text.replaceAllMapped(uuidRegex, (match) {
+    final uuid = match.group(0)!;
+    final matchedState = states.firstWhere(
+      (s) => s['id'] == uuid,
+      orElse: () => {},
+    );
+    if (matchedState.isNotEmpty && (matchedState['name']?.isNotEmpty ?? false)) {
+      return matchedState['name']!;
+    }
+    final matchedCountry = countries.firstWhere(
+      (c) => c['id'] == uuid,
+      orElse: () => {},
+    );
+    if (matchedCountry.isNotEmpty && (matchedCountry['name']?.isNotEmpty ?? false)) {
+      return matchedCountry['name']!;
+    }
+    return uuid;
+  });
+}
+
+  Widget _buildVendorDropdownItem(Vendor v, bool isSelected, bool isHovered) {
+    final firstName = (v.firstName ?? '').trim();
+    final initialSource = firstName.isNotEmpty
+        ? firstName
+        : (v.displayName.isNotEmpty ? v.displayName : '?');
+    final initial = initialSource.substring(0, 1).toUpperCase();
+
+    final backgroundColor = isHovered
+        ? const Color(0xFF3B82F6)
+        : (isSelected ? const Color(0xFFF3F4F6) : Colors.white);
+    final primaryTextColor = isHovered ? Colors.white : AppTheme.textPrimary;
+    final secondaryTextColor = isHovered
+        ? Colors.white.withValues(alpha: 0.85)
+        : AppTheme.textSecondary;
+
+    final topLine = v.vendorNumber != null && v.vendorNumber!.isNotEmpty
+        ? '${v.displayName} | ${v.vendorNumber}'
+        : v.displayName;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isHovered
+                  ? Colors.white.withValues(alpha: 0.25)
+                  : const Color(0xFFE5E7EB),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initial,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isHovered ? Colors.white : const Color(0xFF64748B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  topLine,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: primaryTextColor,
+                  ),
+                ),
+                if (v.companyName != null && v.companyName!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    v.companyName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
 //          Currency badge
 
-class _PRCurrencyBadge extends StatelessWidget {
-  const _PRCurrencyBadge();
+class _PRCurrencyBadge extends ConsumerWidget {
+  final Vendor? selectedVendor;
+
+  const _PRCurrencyBadge({this.selectedVendor});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currencyCode = selectedVendor?.currency ?? 'INR';
+    final dbCurrencies = ref.watch(currenciesProvider(null)).valueOrNull;
+
+    String symbol = '₹';
+    String label = '$currencyCode - Indian Rupee';
+
+    if (dbCurrencies != null && dbCurrencies.isNotEmpty) {
+      final match = dbCurrencies.firstWhere(
+        (c) => c.code.toUpperCase() == currencyCode.toUpperCase(),
+        orElse: () => CurrencyOption(
+          id: '',
+          code: currencyCode,
+          name: 'Indian Rupee',
+          symbol: '₹',
+          decimals: 2,
+          format: '',
+          label: '$currencyCode - Indian Rupee',
+        ),
+      );
+      if (match.code.isNotEmpty) {
+        symbol = match.symbol.isNotEmpty ? match.symbol : '₹';
+        label = match.label;
+      }
+    } else if (currencyCode == 'USD') {
+      symbol = '\$';
+      label = 'USD - US Dollar';
+    } else if (currencyCode == 'EUR') {
+      symbol = '€';
+      label = 'EUR - Euro';
+    } else if (currencyCode == 'GBP') {
+      symbol = '£';
+      label = 'GBP - British Pound';
+    }
+
     return Container(
-      height: _PurchaseReturnsCreatePageState._fieldHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        border: Border.all(color: AppTheme.borderLight),
-        borderRadius: BorderRadius.circular(4),
+      height: 28,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 4,
       ),
-      child: const Row(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            LucideIcons.badgeDollarSign,
-            size: 16,
-            color: AppTheme.successGreen,
-          ),
-          SizedBox(width: 6),
           Text(
-            'INR',
-            style: TextStyle(
-              fontSize: 13,
+            symbol,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF374151),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
+              color: Color(0xFF111827),
             ),
           ),
         ],
@@ -1404,72 +2327,201 @@ class _PRCurrencyBadge extends StatelessWidget {
 
 //          Vendor address panel
 
-class _PRVendorAddressPanel extends StatefulWidget {
+class _PRVendorAddressPanel extends ConsumerWidget {
   final Vendor vendor;
   final double labelWidth;
+  final LayerLink billingAddressLink;
+  final LayerLink gstLink;
+  final VoidCallback onEditBillingAddress;
+  final VoidCallback? onEditGstTreatment;
+  final List<Map<String, String>> statesList;
+  final List<Map<String, String>> countriesList;
 
-  const _PRVendorAddressPanel({required this.vendor, required this.labelWidth});
+  const _PRVendorAddressPanel({
+    required this.vendor,
+    required this.labelWidth,
+    required this.billingAddressLink,
+    required this.gstLink,
+    required this.onEditBillingAddress,
+    this.onEditGstTreatment,
+    required this.statesList,
+    required this.countriesList,
+  });
 
   @override
-  State<_PRVendorAddressPanel> createState() => _PRVendorAddressPanelState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final customers = ref.watch(salesCustomersProvider).valueOrNull ?? [];
+    final c = customers.firstWhere(
+      (cust) => cust.id == vendor.id,
+      orElse: () => SalesCustomer(id: vendor.id, displayName: vendor.displayName),
+    );
 
-class _PRVendorAddressPanelState extends State<_PRVendorAddressPanel> {
-  bool _open = false;
+    final bAddrLines = <String>[];
+    if (c.billingAddressStreet1 != null && c.billingAddressStreet1!.isNotEmpty) {
+      bAddrLines.add(c.billingAddressStreet1!);
+    }
+    if (c.billingAddressStreet2 != null && c.billingAddressStreet2!.isNotEmpty) {
+      bAddrLines.add(c.billingAddressStreet2!);
+    }
+    final cityStateZip = [
+      if (c.billingAddressCity != null && c.billingAddressCity!.isNotEmpty) c.billingAddressCity!,
+      if (c.billingAddressStateId != null && c.billingAddressStateId!.isNotEmpty) c.billingAddressStateId!,
+      if (c.billingAddressZip != null && c.billingAddressZip!.isNotEmpty) c.billingAddressZip!,
+    ].join(', ');
+    if (cityStateZip.isNotEmpty) bAddrLines.add(cityStateZip);
+    if (c.billingAddressCountryId != null && c.billingAddressCountryId!.isNotEmpty) {
+      bAddrLines.add(c.billingAddressCountryId!);
+    }
+    if (c.billingAddressPhone != null && c.billingAddressPhone!.isNotEmpty) {
+      bAddrLines.add('Phone: ${c.billingAddressPhone!}');
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final v = widget.vendor;
+    if (bAddrLines.isEmpty && vendor.billingAddress != null && vendor.billingAddress!.isNotEmpty) {
+      final addr = vendor.billingAddress!;
+      final street1 = addr['street1'] as String? ?? addr['street'] as String? ?? '';
+      final street2 = addr['street2'] as String? ?? addr['place'] as String? ?? '';
+      final city = addr['city'] as String? ?? '';
+      final state = addr['state'] as String? ?? '';
+      final zip = addr['zip'] as String? ?? addr['pincode'] as String? ?? '';
+      final country = addr['country'] as String? ?? addr['countryRegion'] as String? ?? '';
+      final phone = addr['phone'] as String? ?? '';
+      if (street1.isNotEmpty) bAddrLines.add(street1);
+      if (street2.isNotEmpty) bAddrLines.add(street2);
+      final csz = [city, state, zip].where((s) => s.isNotEmpty).join(', ');
+      if (csz.isNotEmpty) bAddrLines.add(csz);
+      if (country.isNotEmpty) bAddrLines.add(country);
+      if (phone.isNotEmpty) bAddrLines.add('Phone: $phone');
+    }
+
+    final resolvedLines = bAddrLines
+        .map((l) => _resolveNameIfUuid(l, statesList, countriesList))
+        .toList();
+
+    final gstTreatment = c.gstTreatment ?? vendor.gstTreatment ?? 'Unregistered Business';
+    final gstin = c.gstin ?? vendor.gstin;
+
     return Padding(
       padding: EdgeInsets.only(
-        left: widget.labelWidth + 16,
+        left: labelWidth + 16,
         bottom: 12,
         top: 4,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: () => setState(() => _open = !_open),
-            child: Row(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'BILLING ADDRESS',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6B7280),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(width: 4),
+              CompositedTransformTarget(
+                link: billingAddressLink,
+                child: InkWell(
+                  onTap: onEditBillingAddress,
+                  child: const Icon(
+                    LucideIcons.pencil,
+                    size: 11,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (resolvedLines.isEmpty) ...[
+            const SizedBox(height: 4),
+            InkWell(
+              onTap: onEditBillingAddress,
+              child: const Text(
+                'New Address',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF2563EB),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 6),
+            Text(
+              vendor.displayName,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF111827),
+              ),
+            ),
+            for (final line in resolvedLines)
+              Text(
+                line,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF4B5563),
+                  height: 1.4,
+                ),
+              ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'GST Treatment: ',
+                style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+              ),
+              Text(
+                gstTreatment,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(width: 4),
+              CompositedTransformTarget(
+                link: gstLink,
+                child: InkWell(
+                  onTap: onEditGstTreatment,
+                  child: const Icon(
+                    LucideIcons.pencil,
+                    size: 11,
+                    color: Color(0xFF2563EB),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (gstin != null && gstin.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'BILLING ADDRESS',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                    letterSpacing: 0.5,
+                  'GSTIN: ',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                ),
+                Text(
+                  gstin,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF111827),
                   ),
                 ),
-                const SizedBox(width: 6),
-                Icon(
+                const SizedBox(width: 4),
+                const Icon(
                   LucideIcons.pencil,
-                  size: 12,
-                  color: _open ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                  size: 11,
+                  color: Color(0xFF2563EB),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            v.displayName.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          if ((v.gstin ?? '').isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              'GSTIN: ${v.gstin}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
             ),
           ],
           const SizedBox(height: 8),
@@ -1783,6 +2835,10 @@ class _PRItemsGrid extends StatefulWidget {
   final VoidCallback onTotalsChanged;
   final String warehouse;
   final bool isReverseCharge;
+  final Map<String, double> billedQtyMap;
+  final void Function(_PRLineItem) onSelectBatch;
+  final String? sourceOfSupply;
+  final String? destinationOfSupply;
 
   const _PRItemsGrid({
     required this.items,
@@ -1796,6 +2852,10 @@ class _PRItemsGrid extends StatefulWidget {
     required this.onTotalsChanged,
     required this.warehouse,
     required this.isReverseCharge,
+    required this.billedQtyMap,
+    required this.onSelectBatch,
+    this.sourceOfSupply,
+    this.destinationOfSupply,
   });
 
   @override
@@ -1920,70 +2980,94 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
   }
 
   Widget _buildAddRowButton() {
-    return InkWell(
-      onTap: widget.onAddItem,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        height: 38,
-        decoration: BoxDecoration(
-          color: AppTheme.bgLight,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            InkWell(
-              onTap: widget.onAddItem,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(6),
-                bottomLeft: Radius.circular(6),
+    return Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: widget.onAddItem,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(6),
+              bottomLeft: Radius.circular(6),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.plusCircle,
+                    size: 16,
+                    color: AppTheme.primaryBlue,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Add New Row',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
               ),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
+            ),
+          ),
+          const VerticalDivider(
+            width: 1,
+            color: Color(0xFFE5E7EB),
+            thickness: 1,
+            indent: 6,
+            endIndent: 6,
+          ),
+          PopupMenuButton<String>(
+            tooltip: '',
+            offset: const Offset(0, 36),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+              side: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            color: Colors.white,
+            onSelected: (val) {
+              if (val == 'header') {
+                widget.onAddItem();
+              }
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'header',
+                height: 36,
                 child: Row(
                   children: [
-                    Icon(
-                      LucideIcons.plusCircle,
-                      size: 18,
-                      color: AppTheme.primaryBlueDark,
-                    ),
+                    Icon(LucideIcons.plusCircle, size: 14, color: AppTheme.primaryBlue),
                     SizedBox(width: 8),
                     Text(
-                      'Add New Row',
+                      'Add New Header',
                       style: TextStyle(
                         fontSize: 13,
+                        color: AppTheme.primaryBlue,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.textBody,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-            const VerticalDivider(
-              width: 1,
-              color: AppTheme.borderLight,
-              thickness: 1,
-              indent: 8,
-              endIndent: 8,
-            ),
-            InkWell(
-              onTap: () {},
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(6),
-                bottomRight: Radius.circular(6),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(
-                  Icons.keyboard_arrow_down,
-                  size: 20,
-                  color: AppTheme.textSecondary,
-                ),
+            ],
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Icon(
+                LucideIcons.chevronDown,
+                size: 16,
+                color: AppTheme.textSecondary,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1993,27 +3077,28 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
       onTap: widget.onAddBulkItems,
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        height: 38,
+        height: 36,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: AppTheme.bgLight,
+          color: const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               LucideIcons.plusCircle,
-              size: 18,
-              color: AppTheme.primaryBlueDark,
+              size: 16,
+              color: AppTheme.primaryBlue,
             ),
-            SizedBox(width: 8),
+            SizedBox(width: 6),
             Text(
               'Add Items in Bulk',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.textBody,
+                color: AppTheme.textPrimary,
               ),
             ),
           ],
@@ -2251,7 +3336,7 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
                 const SizedBox(width: 40),
                 _vLine(),
                 Expanded(
-                  flex: 14,
+                  flex: 10,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -2279,10 +3364,18 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
                 ),
                 _vLine(),
                 const Expanded(
-                  flex: 4,
+                  flex: 3,
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: _TH('ORDERED QTY', right: true),
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                    child: _TH('BILLED QTY', right: true),
+                  ),
+                ),
+                _vLine(),
+                const Expanded(
+                  flex: 3,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                    child: _TH('RETURNED QTY', right: true),
                   ),
                 ),
                 _vLine(),
@@ -2290,7 +3383,7 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
                   flex: 4,
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: _TH('RETURN QTY', right: true),
+                    child: _TH('QTY TO RETURN', right: true),
                   ),
                 ),
                 _vLine(),
@@ -2395,21 +3488,20 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
                       border: Border(
                         left: BorderSide(color: AppTheme.borderLight),
                         right: BorderSide(color: AppTheme.borderLight),
+                        bottom: BorderSide(color: AppTheme.borderLight),
                       ),
                     ),
-                    child: Column(
-                      children: [
-                        _PRItemRow(
-                          item: widget.items[index],
-                          availableProducts: widget.availableProducts,
-                          onSearchProducts: widget.onSearchProducts,
-                          onChanged: widget.onTotalsChanged,
-                          defaultWarehouse: widget.warehouse,
-                          showAdditionalInformation: !_areAdditionalInfosHidden,
-                        ),
-                        if (index < widget.items.length - 1)
-                          const Divider(height: 1, color: AppTheme.borderLight),
-                      ],
+                    child: _PRItemRow(
+                      item: widget.items[index],
+                      availableProducts: widget.availableProducts,
+                      onSearchProducts: widget.onSearchProducts,
+                      onChanged: widget.onTotalsChanged,
+                      defaultWarehouse: widget.warehouse,
+                      showAdditionalInformation: !_areAdditionalInfosHidden,
+                      billedQtyMap: widget.billedQtyMap,
+                      onSelectBatch: widget.onSelectBatch,
+                      sourceOfSupply: widget.sourceOfSupply,
+                      destinationOfSupply: widget.destinationOfSupply,
                     ),
                   ),
                 ),
@@ -2444,23 +3536,6 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
             ),
           );
         }),
-        // Table bottom border
-        Container(
-          margin: const EdgeInsets.only(right: _rowActionsWidth),
-          height: 8,
-          decoration: BoxDecoration(
-            color: AppTheme.backgroundColor,
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(6),
-              bottomRight: Radius.circular(6),
-            ),
-            border: const Border(
-              left: BorderSide(color: AppTheme.borderLight),
-              right: BorderSide(color: AppTheme.borderLight),
-              bottom: BorderSide(color: AppTheme.borderLight),
-            ),
-          ),
-        ),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -2476,13 +3551,17 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
 
 // ────────────────────────────────────────────────────────────────────────────────
 
-class _PRItemRow extends StatefulWidget {
+class _PRItemRow extends ConsumerStatefulWidget {
   final _PRLineItem item;
   final List<Item> availableProducts;
   final Future<List<Item>> Function(String) onSearchProducts;
   final VoidCallback onChanged;
   final String defaultWarehouse;
   final bool showAdditionalInformation;
+  final Map<String, double> billedQtyMap;
+  final void Function(_PRLineItem) onSelectBatch;
+  final String? sourceOfSupply;
+  final String? destinationOfSupply;
 
   const _PRItemRow({
     required this.item,
@@ -2491,17 +3570,34 @@ class _PRItemRow extends StatefulWidget {
     required this.onChanged,
     required this.defaultWarehouse,
     required this.showAdditionalInformation,
+    required this.billedQtyMap,
+    required this.onSelectBatch,
+    this.sourceOfSupply,
+    this.destinationOfSupply,
   });
 
   @override
-  State<_PRItemRow> createState() => _PRItemRowState();
+  ConsumerState<_PRItemRow> createState() => _PRItemRowState();
 }
 
-class _PRItemRowState extends State<_PRItemRow> {
+class _PRItemRowState extends ConsumerState<_PRItemRow> {
   String _computeAmount(_PRLineItem item) {
     final qty = double.tryParse(item.returnQtyController.text) ?? 0;
     final rate = double.tryParse(item.rateController.text) ?? 0;
     return (qty * rate).clamp(0.0, double.infinity).toStringAsFixed(2);
+  }
+
+  String _getBatchSummaryText(List<Map<String, dynamic>> batches) {
+    if (batches.isEmpty) return '';
+    final count = batches.length;
+    double totalPcs = 0;
+    for (final b in batches) {
+      final q = double.tryParse(b['quantity']?.toString() ?? '0') ?? 0;
+      totalPcs += q;
+    }
+    final pcsStr = totalPcs % 1 == 0 ? totalPcs.toInt().toString() : totalPcs.toStringAsFixed(0);
+    final batchWord = count == 1 ? 'batch' : 'batches';
+    return '$pcsStr pcs taken from $count $batchWord.';
   }
 
   void _onItemSelected(Item? selected) {
@@ -2512,10 +3608,24 @@ class _PRItemRowState extends State<_PRItemRow> {
             selected.costPrice?.toStringAsFixed(2) ?? '0.00';
         widget.item.descriptionController.text =
             selected.purchaseDescription ?? '';
-        if (widget.item.returnQtyController.text.isEmpty ||
-            widget.item.returnQtyController.text == '0.00') {
-          widget.item.returnQtyController.text = '1.00';
-        }
+
+        final itemsState = ref.read(itemsControllerProvider);
+        final taxOptions = _buildTaxOptions(
+          itemsState,
+          widget.sourceOfSupply,
+          widget.destinationOfSupply,
+        );
+
+        final resolvedTax = _resolveTaxOptionForProduct(
+          selected,
+          taxOptions,
+          widget.sourceOfSupply,
+          widget.destinationOfSupply,
+        );
+
+        widget.item.selectedTax = resolvedTax.label;
+        widget.item.selectedTaxId = resolvedTax.id;
+        widget.item.selectedTaxRate = resolvedTax.rate;
       }
     });
     widget.onChanged();
@@ -2524,6 +3634,34 @@ class _PRItemRowState extends State<_PRItemRow> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
+    final productId = item.sourceItem?.id;
+    final billedQty = productId != null ? (widget.billedQtyMap[productId] ?? 0.0) : 0.0;
+    final billedQtyText = billedQty % 1 == 0 ? billedQty.toInt().toString() : billedQty.toStringAsFixed(2);
+    final returnedQtyText = item.returnedQty % 1 == 0 ? item.returnedQty.toInt().toString() : item.returnedQty.toStringAsFixed(2);
+    final qtyToReturnVal = double.tryParse(item.returnQtyController.text) ?? 0.0;
+
+    final itemsState = ref.watch(itemsControllerProvider);
+    final taxOptions = _buildTaxOptions(
+      itemsState,
+      widget.sourceOfSupply,
+      widget.destinationOfSupply,
+    );
+
+    if (item.sourceItem != null && (item.selectedTax == null || item.selectedTax == 'Non-Taxable')) {
+      final pref = item.sourceItem?.taxPreference?.toLowerCase() ?? '';
+      if (pref != 'non-taxable' && pref != 'non_taxable') {
+        final resolvedTax = _resolveTaxOptionForProduct(
+          item.sourceItem!,
+          taxOptions,
+          widget.sourceOfSupply,
+          widget.destinationOfSupply,
+        );
+        item.selectedTax = resolvedTax.label;
+        item.selectedTaxId = resolvedTax.id;
+        item.selectedTaxRate = resolvedTax.rate;
+      }
+    }
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2546,156 +3684,357 @@ class _PRItemRowState extends State<_PRItemRow> {
           _vLine(),
           // ITEM DETAILS
           Expanded(
-            flex: 14,
+            flex: 10,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppTheme.bgDisabled,
-                          borderRadius: BorderRadius.circular(4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: item.sourceItem == null
+                  ? Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppTheme.bgDisabled,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: AppTheme.borderLight),
+                          ),
+                          child: const Icon(
+                            LucideIcons.image,
+                            size: 18,
+                            color: AppTheme.textMuted,
+                          ),
                         ),
-                        child: const Icon(
-                          LucideIcons.image,
-                          size: 20,
-                          color: AppTheme.textMuted,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FormDropdown<Item>(
-                          value: item.sourceItem,
-                          items: widget.availableProducts,
-                          hint: 'Type or click to select an item.',
-                          height:
-                              _PurchaseReturnsCreatePageState._tableFieldHeight,
-                          hideBorderDefault: true,
-                          allowClear: true,
-                          displayStringForValue: (p) => p.productName,
-                          searchStringForValue: (p) =>
-                              '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
-                          onSearch: widget.onSearchProducts,
-                          itemBuilder: (product, isSelected, isHovered) =>
-                              _PRProductDropdownItem(
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FormDropdown<Item>(
+                            value: item.sourceItem,
+                            items: widget.availableProducts,
+                            hint: 'Type or click to select an item.',
+                            height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+                            hideBorderDefault: true,
+                            allowClear: true,
+                            displayStringForValue: (p) => p.productName,
+                            searchStringForValue: (p) =>
+                                '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
+                            onSearch: widget.onSearchProducts,
+                            itemBuilder: (product, isSelected, isHovered) =>
+                                Container(
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: isHovered || isSelected
+                                        ? Colors.transparent
+                                        : const Color(0xFFE5E7EB),
+                                    width: 1.0,
+                                  ),
+                                ),
+                              ),
+                              child: _PRProductDropdownItem(
                                 productName: product.productName,
-                                itemCode: product.itemCode,
+                                costPrice: product.costPrice,
                                 highlighted: isSelected || isHovered,
                               ),
-                          onChanged: _onItemSelected,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 6),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48),
-                      child: CustomTextField(
-                        controller: item.descriptionController,
-                        hintText: 'Item description',
-                        height: 32,
-                        hideBorderDefault: true,
-                        maxLines: 2,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
                             ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0088FF),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              item.sourceItem!.type.toUpperCase() == 'SERVICE'
-                                  ? 'SERVICE'
-                                  : 'GOODS',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
+                            onChanged: _onItemSelected,
                           ),
-                          if (item.sourceItem!.hsnCode != null) ...[
-                            const SizedBox(width: 8),
-                            const Text(
-                              'HSN Code: ',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.textSecondary,
+                        ),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF3F4F6),
+                                border: Border.all(color: AppTheme.borderLight),
+                                borderRadius: BorderRadius.circular(4),
                               ),
+                              child: item.sourceItem!.primaryImageUrl != null &&
+                                      item.sourceItem!.primaryImageUrl!.isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: Image.network(
+                                        item.sourceItem!.primaryImageUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            const Icon(LucideIcons.image,
+                                                size: 16, color: AppTheme.textMuted),
+                                      ),
+                                    )
+                                  : const Icon(LucideIcons.image,
+                                      size: 16, color: AppTheme.textMuted),
                             ),
-                            const Icon(
-                              LucideIcons.pencil,
-                              size: 10,
-                              color: Color(0xFF0088FF),
-                            ),
-                            const SizedBox(width: 3),
-                            Text(
-                              item.sourceItem!.hsnCode!,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF0088FF),
-                                fontWeight: FontWeight.w500,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.sourceItem!.productName,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppTheme.textPrimary,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      PopupMenuButton<String>(
+                                        padding: EdgeInsets.zero,
+                                        icon: const Icon(
+                                          LucideIcons.moreHorizontal,
+                                          size: 16,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                        itemBuilder: (ctx) => [
+                                          const PopupMenuItem(
+                                            value: 'edit',
+                                            child: Text('Edit Item',
+                                                style: TextStyle(fontSize: 13)),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'details',
+                                            child: Text('View Item Details',
+                                                style: TextStyle(fontSize: 13)),
+                                          ),
+                                        ],
+                                      ),
+                                      InkWell(
+                                        onTap: () {
+                                          setState(() {
+                                            item.sourceItem = null;
+                                            item.descriptionController.clear();
+                                            item.rateController.clear();
+                                            item.returnQtyController.clear();
+                                          });
+                                          widget.onChanged();
+                                        },
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(4),
+                                          child: Icon(LucideIcons.x,
+                                              size: 14, color: AppTheme.textMuted),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Focus(
+                                    onFocusChange: (_) => setState(() {}),
+                                    child: Builder(
+                                      builder: (focusCtx) {
+                                        final isFocused =
+                                            Focus.of(focusCtx).hasFocus;
+                                        return AnimatedContainer(
+                                          duration: const Duration(milliseconds: 120),
+                                          height: 64,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(
+                                              color: isFocused
+                                                  ? const Color(0xFF0088FF)
+                                                  : AppTheme.borderLight,
+                                              width: isFocused ? 1.5 : 1.0,
+                                            ),
+                                          ),
+                                          child: TextField(
+                                            controller: item.descriptionController,
+                                            maxLines: null,
+                                            expands: true,
+                                            textAlignVertical:
+                                                TextAlignVertical.top,
+                                            style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppTheme.textPrimary),
+                                            decoration: const InputDecoration(
+                                              isDense: true,
+                                              contentPadding: EdgeInsets.zero,
+                                              border: InputBorder.none,
+                                              focusedBorder: InputBorder.none,
+                                              enabledBorder: InputBorder.none,
+                                              hintText:
+                                                  'Add a description to your item',
+                                              hintStyle: TextStyle(
+                                                  fontSize: 12,
+                                                  color: AppTheme.textMuted),
+                                              filled: true,
+                                              fillColor: Colors.transparent,
+                                            ),
+                                            onChanged: (_) => setState(() {}),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: item.sourceItem!.type
+                                                      .toUpperCase() ==
+                                                  'SERVICE'
+                                              ? const Color(0xFFF97316)
+                                              : const Color(0xFF0088FF),
+                                          borderRadius:
+                                              BorderRadius.circular(3),
+                                        ),
+                                        child: Text(
+                                          item.sourceItem!.type.toUpperCase() ==
+                                                  'SERVICE'
+                                              ? 'SERVICE'
+                                              : 'GOODS',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      if (item.sourceItem!.hsnCode != null &&
+                                          item.sourceItem!.hsnCode!.isNotEmpty) ...[
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          item.sourceItem!.type.toUpperCase() ==
+                                                  'SERVICE'
+                                              ? 'SAC Code: '
+                                              : 'HSN Code: ',
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppTheme.textSecondary),
+                                        ),
+                                        const Icon(LucideIcons.pencil,
+                                            size: 10, color: Color(0xFF0088FF)),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          item.sourceItem!.hsnCode!,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF0088FF),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           ],
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+          _vLine(),
+          // BILLED QTY (Readonly value)
+          Expanded(
+            flex: 3,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: Text(
+                billedQtyText,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ),
+          ),
+          _vLine(),
+          // RETURNED QTY (Readonly value)
+          Expanded(
+            flex: 3,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: Text(
+                returnedQtyText,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ),
+          ),
+          _vLine(),
+          // QTY TO RETURN (Text Field + Select Batch button if qty > 0)
+          Expanded(
+            flex: 4,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  CustomTextField(
+                    controller: item.returnQtyController,
+                    height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+                    textAlign: TextAlign.right,
+                    hintText: '0',
+                    hideBorderDefault: true,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) {
+                      setState(() {});
+                      widget.onChanged();
+                    },
+                  ),
+                  if (item.batches.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => widget.onSelectBatch(item),
+                      child: Text(
+                        _getBatchSummaryText(item.batches),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF2563EB),
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ] else if (qtyToReturnVal > 0) ...[
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => widget.onSelectBatch(item),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(
+                            LucideIcons.alertTriangle,
+                            size: 12,
+                            color: AppTheme.errorRed,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Select Batch',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.primaryBlue,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ],
-              ),
-            ),
-          ),
-          _vLine(),
-          // ORDERED QTY
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: CustomTextField(
-                controller: item.orderedQtyController,
-                height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                textAlign: TextAlign.right,
-                hintText: '0',
-                hideBorderDefault: true,
-                keyboardType: TextInputType.number,
-                onChanged: (_) => widget.onChanged(),
-              ),
-            ),
-          ),
-          _vLine(),
-          // RETURN QTY
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: CustomTextField(
-                controller: item.returnQtyController,
-                height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                textAlign: TextAlign.right,
-                hintText: '0',
-                hideBorderDefault: true,
-                keyboardType: TextInputType.number,
-                onChanged: (_) {
-                  setState(() {});
-                  widget.onChanged();
-                },
               ),
             ),
           ),
@@ -2750,11 +4089,14 @@ class _PRItemRowState extends State<_PRItemRow> {
                   FormDropdown<_PRTaxOption>(
                     value: item.selectedTax == null
                         ? null
-                        : _prTaxOptionItems.firstWhere(
+                        : taxOptions.firstWhere(
                             (o) => o.label == item.selectedTax,
-                            orElse: () => _prTaxOptionItems[4],
+                            orElse: () => taxOptions.firstWhere(
+                              (o) => !o.isHeader,
+                              orElse: () => taxOptions[0],
+                            ),
                           ),
-                    items: _prTaxOptionItems,
+                    items: taxOptions,
                     hint: 'Select Tax',
                     height: _PurchaseReturnsCreatePageState._tableFieldHeight,
                     menuWidth: 360,
@@ -2765,31 +4107,32 @@ class _PRItemRowState extends State<_PRItemRow> {
                     itemBuilder: (option, isSelected, isHovered) {
                       if (option.isHeader) {
                         return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          color: AppTheme.bgLight,
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                          color: Colors.white,
                           width: double.infinity,
                           child: Text(
                             option.label,
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.textSecondary,
+                              color: Color(0xFF475569),
                             ),
                           ),
                         );
                       }
-                      final active = isHovered || isSelected;
+                      final isIndented = option.label.startsWith('GST') ||
+                          option.label.startsWith('IGST');
                       return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
+                        padding: EdgeInsets.only(
+                          left: isIndented ? 28 : 16,
+                          right: 16,
+                          top: option.description != null ? 10 : 8,
+                          bottom: option.description != null ? 10 : 8,
                         ),
                         color: isHovered ? AppTheme.primaryBlue : Colors.white,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Row(
                               children: [
@@ -2801,10 +4144,10 @@ class _PRItemRowState extends State<_PRItemRow> {
                                       color: isHovered
                                           ? Colors.white
                                           : (isSelected
-                                                ? AppTheme.primaryBlue
-                                                : AppTheme.textPrimary),
-                                      fontWeight: active
-                                          ? FontWeight.w600
+                                              ? AppTheme.primaryBlue
+                                              : const Color(0xFF1E293B)),
+                                      fontWeight: (isHovered || isSelected)
+                                          ? FontWeight.w500
                                           : FontWeight.normal,
                                     ),
                                   ),
@@ -2820,14 +4163,14 @@ class _PRItemRowState extends State<_PRItemRow> {
                               ],
                             ),
                             if (option.description != null) ...[
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 3),
                               Text(
                                 option.description!,
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   color: isHovered
                                       ? Colors.white70
-                                      : AppTheme.textSecondary,
+                                      : const Color(0xFF64748B),
                                 ),
                               ),
                             ],
@@ -2837,10 +4180,18 @@ class _PRItemRowState extends State<_PRItemRow> {
                     },
                     onChanged: (val) {
                       if (val != null && !val.isHeader) {
-                        setState(() => item.selectedTax = val.label);
+                        setState(() {
+                          item.selectedTax = val.label;
+                          item.selectedTaxRate = val.rate;
+                          item.selectedTaxId = val.id;
+                        });
                         widget.onChanged();
                       } else if (val == null) {
-                        setState(() => item.selectedTax = null);
+                        setState(() {
+                          item.selectedTax = null;
+                          item.selectedTaxRate = null;
+                          item.selectedTaxId = null;
+                        });
                         widget.onChanged();
                       }
                     },
@@ -2919,6 +4270,47 @@ class _HeaderBackgroundBand extends StatelessWidget {
               child: const ColoredBox(color: AppTheme.bgDisabled),
             ),
             child,
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PRNotesAndAttachmentsBand extends StatelessWidget {
+  final Widget child;
+
+  const _PRNotesAndAttachmentsBand({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final hPad = screenWidth < 1000 ? 16.0 : 40.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bodyWidth = screenWidth - (hPad * 2);
+        final rightBleed = (bodyWidth - constraints.maxWidth + hPad)
+            .clamp(0.0, double.infinity)
+            .toDouble();
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              left: -hPad,
+              right: -rightBleed,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF3F4F6),
+                  border: Border.symmetric(
+                    horizontal: BorderSide(color: Color(0xFFDBEAFE)),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: child,
+            ),
           ],
         );
       },
@@ -3011,6 +4403,8 @@ class _TH extends StatelessWidget {
     Widget content = Text(
       text,
       textAlign: right ? TextAlign.right : TextAlign.left,
+      maxLines: 1,
+      softWrap: false,
       style: const TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w600,
@@ -3179,86 +4573,184 @@ class _PRTaxOption {
   final String label;
   final String? description;
   final bool isHeader;
+  final String? id;
+  final double? rate;
 
   const _PRTaxOption({
     required this.label,
     this.description,
     this.isHeader = false,
+    this.id,
+    this.rate,
   });
 }
 
-final List<_PRTaxOption> _prTaxOptionItems = [
-  const _PRTaxOption(
-    label: 'Non-Taxable',
-    description: 'Supply is exempt from GST. Exemption reason required.',
-  ),
-  const _PRTaxOption(
-    label: 'Out of Scope',
-    description:
-        'Supplies on which you don\'t charge any GST or include them in the returns.',
-  ),
-  const _PRTaxOption(
-    label: 'Non-GST Supply',
-    description:
-        'Supplies which do not come under GST such as petroleum products and liquor.',
-  ),
-  const _PRTaxOption(label: 'Taxable', isHeader: true),
-  const _PRTaxOption(label: 'GST 0%', description: '0%'),
-  const _PRTaxOption(label: 'GST 5%', description: '[5%]'),
-  const _PRTaxOption(label: 'GST 12%', description: '[12%]'),
-  const _PRTaxOption(label: 'GST 18%', description: '[18%]'),
-  const _PRTaxOption(label: 'GST 28%', description: '[28%]'),
-  const _PRTaxOption(label: 'Taxable Group', isHeader: true),
-  const _PRTaxOption(label: 'GST 5% + GST 12%', description: '[17%]'),
-];
+_PRTaxOption _resolveTaxOptionForProduct(
+  Item selected,
+  List<_PRTaxOption> taxOptions,
+  String? sourceOfSupply,
+  String? destinationOfSupply,
+) {
+  final pref = selected.taxPreference?.toLowerCase() ?? '';
+  if (pref == 'non-taxable' || pref == 'non_taxable') {
+    return taxOptions.firstWhere(
+      (o) => o.label == 'Non-Taxable',
+      orElse: () => taxOptions.firstWhere((o) => !o.isHeader, orElse: () => taxOptions[0]),
+    );
+  }
+  if (pref == 'exempt') {
+    return taxOptions.firstWhere(
+      (o) => o.label == 'Out of Scope',
+      orElse: () => taxOptions.firstWhere((o) => !o.isHeader, orElse: () => taxOptions[0]),
+    );
+  }
+
+  final src = sourceOfSupply?.toLowerCase().trim() ?? '';
+  final dest = destinationOfSupply?.toLowerCase().trim() ?? '';
+  final isIntra = (src.isEmpty || dest.isEmpty) ? true : (src == dest);
+  final targetTaxId = isIntra ? selected.intraStateTaxId : selected.interStateTaxId;
+
+  if (targetTaxId != null && targetTaxId.isNotEmpty) {
+    final matchById = taxOptions.where((o) => !o.isHeader && o.id == targetTaxId).firstOrNull;
+    if (matchById != null) return matchById;
+
+    final numStr = targetTaxId.replaceAll(RegExp(r'[^0-9.]'), '');
+    final numericRate = double.tryParse(numStr);
+    if (numericRate != null) {
+      final matchByRate = taxOptions.where((o) => !o.isHeader && o.rate == numericRate).firstOrNull;
+      if (matchByRate != null) return matchByRate;
+    }
+  }
+
+  final defaultTaxableRate = taxOptions.firstWhere(
+    (o) => !o.isHeader && o.rate != null && o.rate! > 0,
+    orElse: () => taxOptions.firstWhere(
+      (o) => !o.isHeader && o.label != 'Non-Taxable' && o.label != 'Out of Scope' && o.label != 'Non-GST Supply',
+      orElse: () => taxOptions.firstWhere((o) => !o.isHeader, orElse: () => taxOptions[0]),
+    ),
+  );
+
+  return defaultTaxableRate;
+}
+
+List<_PRTaxOption> _buildTaxOptions(
+  dynamic itemsState,
+  String? sourceOfSupply,
+  String? destinationOfSupply,
+) {
+  final options = <_PRTaxOption>[
+    const _PRTaxOption(label: 'Non-Taxable'),
+    const _PRTaxOption(
+      label: 'Out of Scope',
+      description:
+          'Supplies on which you don\'t charge any GST or include them in the returns.',
+    ),
+    const _PRTaxOption(
+      label: 'Non-GST Supply',
+      description:
+          'Supplies which do not come under GST such as petroleum products and liquor.',
+    ),
+  ];
+
+  final isIntraState = (sourceOfSupply == null ||
+          destinationOfSupply == null ||
+          sourceOfSupply.isEmpty ||
+          destinationOfSupply.isEmpty)
+      ? true
+      : (sourceOfSupply.toLowerCase().trim() ==
+          destinationOfSupply.toLowerCase().trim());
+
+  final taxRates = itemsState?.taxRates ?? [];
+  final taxGroups = itemsState?.taxGroups ?? [];
+
+  if (taxRates.isNotEmpty) {
+    options.add(const _PRTaxOption(label: 'Tax Rates', isHeader: true));
+    for (final tr in taxRates) {
+      String rateLabel = tr.taxName;
+      if (!rateLabel.contains('[')) {
+        final rStr = tr.taxRate % 1 == 0
+            ? tr.taxRate.toInt().toString()
+            : tr.taxRate.toStringAsFixed(2);
+        rateLabel = '${tr.taxName} [$rStr%]';
+      }
+      options.add(_PRTaxOption(label: rateLabel, id: tr.id, rate: tr.taxRate));
+    }
+  } else {
+    final prefix = isIntraState ? 'GST' : 'IGST';
+    options.add(const _PRTaxOption(label: 'Tax Rates', isHeader: true));
+    options.add(_PRTaxOption(label: '$prefix 0 [0%]', id: '0', rate: 0));
+    options.add(_PRTaxOption(label: '$prefix 5 [5%]', id: '5', rate: 5));
+    options.add(_PRTaxOption(label: '$prefix 12 [12%]', id: '12', rate: 12));
+    options.add(_PRTaxOption(label: '$prefix 18 [18%]', id: '18', rate: 18));
+    options.add(_PRTaxOption(label: '$prefix 28 [28%]', id: '28', rate: 28));
+  }
+
+  if (taxGroups.isNotEmpty) {
+    options.add(const _PRTaxOption(label: 'Tax Group', isHeader: true));
+    for (final dynamic tg in taxGroups) {
+      String groupLabel = '';
+      double rateVal = 0.0;
+      String? tgId;
+
+      if (tg is TaxRate) {
+        groupLabel = tg.taxName;
+        rateVal = tg.taxRate;
+        tgId = tg.id;
+      } else if (tg is Map) {
+        groupLabel = tg['group_name']?.toString() ?? tg['tax_name']?.toString() ?? '';
+        rateVal = double.tryParse(tg['total_rate']?.toString() ?? tg['tax_rate']?.toString() ?? '0') ?? 0.0;
+        tgId = tg['id']?.toString();
+      } else {
+        try {
+          groupLabel = (tg as dynamic).groupName ?? (tg as dynamic).taxName ?? '';
+          rateVal = (tg as dynamic).totalRate ?? (tg as dynamic).taxRate ?? 0.0;
+          tgId = (tg as dynamic).id?.toString();
+        } catch (_) {}
+      }
+
+      if (groupLabel.isNotEmpty) {
+        if (!groupLabel.contains('[')) {
+          final rStr = rateVal % 1 == 0
+              ? rateVal.toInt().toString()
+              : rateVal.toStringAsFixed(2);
+          groupLabel = '$groupLabel [$rStr%]';
+        }
+        options.add(_PRTaxOption(label: groupLabel, id: tgId, rate: rateVal));
+      }
+    }
+  }
+
+  return options;
+}
 
 //          Product dropdown item
 
 class _PRProductDropdownItem extends StatelessWidget {
   final String productName;
-  final String itemCode;
+  final double? costPrice;
   final bool highlighted;
 
   const _PRProductDropdownItem({
     required this.productName,
-    required this.itemCode,
+    this.costPrice,
     required this.highlighted,
   });
 
   @override
   Widget build(BuildContext context) {
-    final textColor = highlighted
-        ? AppTheme.backgroundColor
-        : AppTheme.textBody;
-    final secondaryColor = highlighted
-        ? AppTheme.backgroundColor
-        : AppTheme.textSecondary;
+    Color text = const Color(0xFF111827);
+    Color subtext = const Color(0xFF6B7280);
+
+    if (highlighted) {
+      text = Colors.white;
+      subtext = Colors.white70;
+    }
 
     return Container(
-      height: 52,
-      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: highlighted ? AppTheme.primaryBlue : AppTheme.backgroundColor,
-        borderRadius: BorderRadius.circular(6),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: highlighted ? AppTheme.primaryBlue : Colors.transparent,
       child: Row(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppTheme.bgDisabled,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Icon(
-              LucideIcons.package,
-              size: 16,
-              color: highlighted ? AppTheme.primaryBlue : AppTheme.textMuted,
-            ),
-          ),
-          const SizedBox(width: 10),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -3270,17 +4762,17 @@ class _PRProductDropdownItem extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: textColor,
+                    fontWeight: highlighted ? FontWeight.w600 : FontWeight.normal,
+                    color: text,
                   ),
                 ),
-                if (itemCode.isNotEmpty) ...[
+                if (costPrice != null) ...[
                   const SizedBox(height: 2),
                   Text(
-                    itemCode,
+                    'Purchase Rate: ₹${costPrice!.toStringAsFixed(2)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: secondaryColor),
+                    style: TextStyle(fontSize: 12, color: subtext),
                   ),
                 ],
               ],
@@ -3290,4 +4782,932 @@ class _PRProductDropdownItem extends StatelessWidget {
       ),
     );
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Batch Selection Dialog & Helpers
+
+class _BatchRowData {
+  String? binLocation;
+  String? batchNo;
+  String packSize;
+  late TextEditingController mrpCtrl;
+  late TextEditingController pRateCtrl;
+  DateTime? expiryDate;
+  late TextEditingController quantityCtrl;
+
+  _BatchRowData({
+    this.binLocation,
+    this.batchNo,
+    this.packSize = 'Pack of 10 Items',
+    double mrp = 0.0,
+    double pRate = 0.0,
+    this.expiryDate,
+    String quantity = '0',
+  }) {
+    mrpCtrl = TextEditingController(text: mrp.toStringAsFixed(0));
+    pRateCtrl = TextEditingController(text: pRate.toStringAsFixed(0));
+    quantityCtrl = TextEditingController(text: quantity);
+  }
+
+  factory _BatchRowData.fromMap(Map<String, dynamic> map) {
+    return _BatchRowData(
+      binLocation: map['bin_location'] as String?,
+      batchNo: map['batch_no'] as String?,
+      packSize: map['pack_size'] as String? ?? 'Pack of 10 Items',
+      mrp: (map['mrp'] as num?)?.toDouble() ?? 0.0,
+      pRate: (map['p_rate'] as num?)?.toDouble() ?? 0.0,
+      expiryDate: map['expiry_date'] as DateTime?,
+      quantity: map['quantity']?.toString() ?? '0',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'bin_location': binLocation,
+      'batch_no': batchNo,
+      'pack_size': packSize,
+      'mrp': double.tryParse(mrpCtrl.text) ?? 0.0,
+      'p_rate': double.tryParse(pRateCtrl.text) ?? 0.0,
+      'expiry_date': expiryDate,
+      'quantity': double.tryParse(quantityCtrl.text) ?? 0.0,
+    };
+  }
+}
+
+class _AddBatchDialog extends ConsumerStatefulWidget {
+  final String itemName;
+  final String productId;
+  final double totalQuantity;
+  final String warehouseName;
+  final String warehouseId;
+  final List<Map<String, dynamic>> initialBatches;
+  final ValueChanged<List<Map<String, dynamic>>> onSave;
+
+  const _AddBatchDialog({
+    required this.itemName,
+    required this.productId,
+    required this.totalQuantity,
+    required this.warehouseName,
+    required this.warehouseId,
+    required this.initialBatches,
+    required this.onSave,
+  });
+
+  @override
+  ConsumerState<_AddBatchDialog> createState() => _AddBatchDialogState();
+}
+
+class _AddBatchDialogState extends ConsumerState<_AddBatchDialog> {
+  late List<_BatchRowData> _rows;
+  bool _overwriteLineItem = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialBatches.isNotEmpty) {
+      _rows = widget.initialBatches
+          .map((b) => _BatchRowData.fromMap(b))
+          .toList();
+    } else {
+      _rows = [
+        _BatchRowData(
+          quantity: widget.totalQuantity % 1 == 0
+              ? widget.totalQuantity.toInt().toString()
+              : widget.totalQuantity.toStringAsFixed(2),
+        ),
+      ];
+    }
+  }
+
+  double get _quantityToBeAdded {
+    return _rows.fold(
+      0.0,
+      (sum, r) => sum + (double.tryParse(r.quantityCtrl.text) ?? 0.0),
+    );
+  }
+
+  void _addRow() {
+    setState(() {
+      _rows.add(_BatchRowData());
+    });
+  }
+
+  void _removeRow(int index) {
+    if (_rows.length > 1) {
+      setState(() {
+        _rows.removeAt(index);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 1. Fetch bins for warehouse
+    final binsAsync = ref.watch(binsLookupProvider(widget.warehouseId));
+    final loadedBins = binsAsync.valueOrNull ?? [];
+    List<String> binOptions = loadedBins
+        .map((b) => b['bin_code'] ?? '')
+        .where((c) => c.isNotEmpty)
+        .toList();
+    if (binOptions.isEmpty) {
+      binOptions = const ['Default Bin', 'Bin A-1', 'Bin B-2', 'test 1 central5-te...'];
+    }
+
+    // 2. Fetch batches for product
+    final batchesAsync = ref.watch(batchLookupProvider(widget.productId));
+    final allProductBatches = batchesAsync.valueOrNull ?? [];
+
+    return Dialog(
+      backgroundColor: Colors.white,
+      alignment: Alignment.topCenter,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 24),
+      child: Container(
+        width: 1080,
+        padding: const EdgeInsets.all(0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 16, 16),
+              child: Row(
+                children: [
+                  const Text(
+                    'Add Batch',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blue),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 16,
+                        color: AppTheme.errorRed,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: AppTheme.borderLight),
+            // Location
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.home, size: 16, color: AppTheme.textSecondary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Location : ${widget.warehouseName}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF4B5563),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Batch Details Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  const Text(
+                    'BATCH DETAILS',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Item: ${widget.itemName}',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Total Quantity : ${widget.totalQuantity % 1 == 0 ? widget.totalQuantity.toInt() : widget.totalQuantity} | Quantity to be added : ${_quantityToBeAdded % 1 == 0 ? _quantityToBeAdded.toInt() : _quantityToBeAdded}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Checkbox overwrite
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: Checkbox(
+                      value: _overwriteLineItem,
+                      onChanged: (val) => setState(() => _overwriteLineItem = val ?? false),
+                      activeColor: AppTheme.successGreen,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Overwrite the line item with ${widget.totalQuantity % 1 == 0 ? widget.totalQuantity.toInt() : widget.totalQuantity} quantities',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Table
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppTheme.borderLight),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Column(
+                  children: [
+                    // Table Header
+                    Container(
+                      color: const Color(0xFFFAFAFA),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: const [
+                          Expanded(flex: 3, child: Text('BIN LOCATION*', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.errorRed))),
+                          Expanded(flex: 3, child: Text('BATCH NO*', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.errorRed))),
+                          Expanded(flex: 4, child: Text('PACK SIZE*', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.errorRed))),
+                          Expanded(flex: 2, child: Text('MRP*', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.errorRed))),
+                          Expanded(flex: 2, child: Text('P RATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary))),
+                          Expanded(flex: 3, child: Text('EXPIRY DATE*', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.errorRed))),
+                          Expanded(flex: 2, child: Text('QUANTITY*', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.errorRed))),
+                          SizedBox(width: 32),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: AppTheme.borderLight),
+                    // Table Rows
+                    for (int i = 0; i < _rows.length; i++) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: Row(
+                          children: [
+                            // Bin Location
+                            Expanded(
+                              flex: 3,
+                              child: FormDropdown<String>(
+                                value: _rows[i].binLocation,
+                                items: binOptions,
+                                hint: 'Select Bin',
+                                height: 36,
+                                onChanged: (v) {
+                                  setState(() {
+                                    _rows[i].binLocation = v;
+                                    _rows[i].batchNo = null;
+                                    _rows[i].mrpCtrl.text = '0';
+                                    _rows[i].pRateCtrl.text = '0';
+                                    _rows[i].expiryDate = null;
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Batch No
+                            Expanded(
+                              flex: 3,
+                              child: Builder(
+                                builder: (context) {
+                                  final hasSelectedBin = _rows[i].binLocation != null && _rows[i].binLocation!.isNotEmpty;
+                                  final selectedBin = _rows[i].binLocation?.toLowerCase() ?? '';
+
+                                  List<Map<String, dynamic>> matchingBatches = [];
+                                  if (hasSelectedBin) {
+                                    matchingBatches = allProductBatches.where((b) {
+                                      final binIds = b['bin_ids'] is Set
+                                          ? b['bin_ids'] as Set
+                                          : (b['bin_ids'] is Iterable ? (b['bin_ids'] as Iterable).toSet() : <String>{});
+                                      final binCodes = b['bin_codes'] is Set
+                                          ? b['bin_codes'] as Set
+                                          : (b['bin_codes'] is Iterable ? (b['bin_codes'] as Iterable).toSet() : <String>{});
+                                      final singleCode = (b['bin_code'] ?? b['binCode'] ?? '').toString().toLowerCase();
+
+                                      return binCodes.contains(selectedBin) ||
+                                             binIds.contains(_rows[i].binLocation) ||
+                                             singleCode == selectedBin ||
+                                             (binCodes.isEmpty && binIds.isEmpty && singleCode.isEmpty);
+                                    }).toList();
+
+                                    if (matchingBatches.isEmpty) {
+                                      matchingBatches = allProductBatches;
+                                    }
+                                  }
+
+                                  final selectedBatchObj = matchingBatches.firstWhere(
+                                    (b) => (b['batch_no'] ?? b['batchNo'])?.toString().trim() == _rows[i].batchNo?.trim(),
+                                    orElse: () => <String, dynamic>{},
+                                  );
+
+                                  return FormDropdown<Map<String, dynamic>>(
+                                    enabled: hasSelectedBin,
+                                    value: selectedBatchObj.isEmpty ? null : selectedBatchObj,
+                                    items: matchingBatches,
+                                    hint: 'Select Batch',
+                                    height: 36,
+                                    showSearch: true,
+                                    menuMaxHeight: 350,
+                                    menuWidth: 320,
+                                    searchStringForValue: (item) => (item['batch_no'] ?? item['batchNo'] ?? '').toString(),
+                                    displayStringForValue: (item) => (item['batch_no'] ?? item['batchNo'] ?? '').toString(),
+                                    itemBuilder: (item, isSelected, isHovered) {
+                                      final batchNo = item['batch_no'] ?? item['batchNo'] ?? '-';
+                                      final balance = item['balance']?.toString() ?? '0';
+                                      final expDate = item['expiry_date']?.toString() ?? item['expiryDate']?.toString() ?? '-';
+                                      final mrp = item['mrp']?.toString() ?? '0';
+                                      final ptr = item['ptr']?.toString() ?? item['prate']?.toString() ?? '0';
+
+                                      final displayText = '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr';
+
+                                      return Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        color: isHovered
+                                            ? const Color(0xFF3B82F6)
+                                            : (isSelected ? const Color(0xFFF3F4F6) : Colors.transparent),
+                                        child: Text(
+                                          displayText,
+                                          softWrap: true,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isHovered ? Colors.white : AppTheme.textPrimary,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    onChanged: (selectedMap) {
+                                      if (selectedMap == null) return;
+                                      setState(() {
+                                        final bNo = (selectedMap['batch_no'] ?? selectedMap['batchNo'])?.toString();
+                                        _rows[i].batchNo = bNo;
+                                        
+                                        final mrpVal = selectedMap['mrp'];
+                                        if (mrpVal != null) {
+                                          _rows[i].mrpCtrl.text = (mrpVal is num)
+                                              ? mrpVal.toStringAsFixed(0)
+                                              : mrpVal.toString();
+                                        }
+
+                                        final ptrVal = selectedMap['ptr'] ?? selectedMap['prate'];
+                                        if (ptrVal != null) {
+                                          _rows[i].pRateCtrl.text = (ptrVal is num)
+                                              ? ptrVal.toStringAsFixed(0)
+                                              : ptrVal.toString();
+                                        }
+
+                                        final expVal = selectedMap['expiry_date'] ?? selectedMap['expiryDate'];
+                                        if (expVal != null) {
+                                          if (expVal is DateTime) {
+                                            _rows[i].expiryDate = expVal;
+                                          } else if (expVal is String && expVal.isNotEmpty) {
+                                            _rows[i].expiryDate = DateTime.tryParse(expVal);
+                                          }
+                                        }
+
+                                        if (selectedMap['pack_size'] != null && selectedMap['pack_size'].toString().isNotEmpty) {
+                                          _rows[i].packSize = selectedMap['pack_size'].toString();
+                                        }
+                                      });
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Pack Size
+                            Expanded(
+                              flex: 4,
+                              child: CustomTextField(
+                                controller: TextEditingController(text: _rows[i].packSize),
+                                readOnly: true,
+                                height: 36,
+                                hideBorderDefault: false,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // MRP
+                            Expanded(
+                              flex: 2,
+                              child: CustomTextField(
+                                controller: _rows[i].mrpCtrl,
+                                height: 36,
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // P Rate
+                            Expanded(
+                              flex: 2,
+                              child: CustomTextField(
+                                controller: _rows[i].pRateCtrl,
+                                height: 36,
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Expiry Date
+                            Expanded(
+                              flex: 3,
+                              child: Builder(
+                                builder: (btnCtx) {
+                                  final key = GlobalKey();
+                                  final dStr = _rows[i].expiryDate == null
+                                      ? ''
+                                      : "${_rows[i].expiryDate!.day.toString().padLeft(2, '0')}/${_rows[i].expiryDate!.month.toString().padLeft(2, '0')}/${_rows[i].expiryDate!.year}";
+                                  return InkWell(
+                                    key: key,
+                                    onTap: () async {
+                                      final d = await ZerpaiDatePicker.show(
+                                        btnCtx,
+                                        initialDate: _rows[i].expiryDate ?? DateTime.now(),
+                                        targetKey: key,
+                                      );
+                                      if (d != null) setState(() => _rows[i].expiryDate = d);
+                                    },
+                                    child: IgnorePointer(
+                                      child: CustomTextField(
+                                        controller: TextEditingController(text: dStr),
+                                        hintText: 'dd/mm/yyyy',
+                                        height: 36,
+                                        suffixWidget: const Icon(LucideIcons.calendar, size: 14, color: AppTheme.textSecondary),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Quantity
+                            Expanded(
+                              flex: 2,
+                              child: CustomTextField(
+                                controller: _rows[i].quantityCtrl,
+                                height: 36,
+                                keyboardType: TextInputType.number,
+                                onChanged: (_) => setState(() {}),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Delete row button
+                            InkWell(
+                              onTap: () => _removeRow(i),
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(LucideIcons.xCircle, size: 18, color: AppTheme.errorRed),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (i < _rows.length - 1)
+                        const Divider(height: 1, color: AppTheme.borderLight),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // New Row Button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: InkWell(
+                onTap: _addRow,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(LucideIcons.plus, size: 14, color: AppTheme.primaryBlue),
+                    SizedBox(width: 4),
+                    Text(
+                      'New Row',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Divider(height: 1, color: AppTheme.borderLight),
+            // Bottom Action Buttons
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  ZButton.primary(
+                    label: 'Save',
+                    onPressed: () {
+                      widget.onSave(_rows.map((r) => r.toMap()).toList());
+                      Navigator.pop(context);
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  ZButton.secondary(
+                    label: 'Cancel',
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConfigureTaxPreferencesDialog extends StatefulWidget {
+  final String initialTreatment;
+  final String initialGstin;
+  final Function(String, String, bool) onUpdate;
+  final VoidCallback onCancel;
+
+  const _ConfigureTaxPreferencesDialog({
+    required this.initialTreatment,
+    required this.initialGstin,
+    required this.onUpdate,
+    required this.onCancel,
+  });
+
+  @override
+  State<_ConfigureTaxPreferencesDialog> createState() =>
+      _ConfigureTaxPreferencesDialogState();
+}
+
+class _ConfigureTaxPreferencesDialogState
+    extends State<_ConfigureTaxPreferencesDialog> {
+  late String _selectedTreatment;
+  late TextEditingController _gstinCtrl;
+  bool _makePermanent = false;
+
+  final List<Map<String, String>> _treatments = [
+    {
+      'label': 'Registered Business - Regular',
+      'desc': 'Business that is registered under GST',
+    },
+    {
+      'label': 'Registered Business - Composition',
+      'desc': 'Business that is registered under the Composition Scheme in GST',
+    },
+    {
+      'label': 'Unregistered Business',
+      'desc': 'Business that has not been registered under GST',
+    },
+    {
+      'label': 'Consumer',
+      'desc':
+          'Individual or business that is not registered and consumes goods/services',
+    },
+    {'label': 'Overseas', 'desc': 'Business located outside India'},
+    {
+      'label': 'Special Economic Zone (SEZ)',
+      'desc': 'Business located in a SEZ unit or developer',
+    },
+    {
+      'label': 'Deemed Export',
+      'desc':
+          'Business involved in supply of goods to certain notified purposes',
+    },
+  ];
+
+  bool get _isRegistered {
+    return _selectedTreatment == 'Registered Business - Regular' ||
+        _selectedTreatment == 'Registered Business - Composition' ||
+        _selectedTreatment == 'Special Economic Zone (SEZ)' ||
+        _selectedTreatment == 'Deemed Export';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTreatment = widget.initialTreatment;
+    _gstinCtrl = TextEditingController(text: widget.initialGstin);
+  }
+
+  @override
+  void dispose() {
+    _gstinCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 14),
+          child: CustomPaint(
+            size: const Size(14, 8),
+            painter: _TrianglePainter(
+              color: Colors.white,
+              isUp: true,
+              hasBorder: true,
+            ),
+          ),
+        ),
+        Container(
+          width: 380,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFDDDDDD)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Configure Tax Preferences',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: widget.onCancel,
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 18,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'GST Treatment',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF555555)),
+                    ),
+                    const SizedBox(height: 8),
+                    FormDropdown<Map<String, String>>(
+                      height: 32,
+                      value: _treatments.firstWhere(
+                        (t) => t['label'] == _selectedTreatment,
+                        orElse: () => _treatments[2],
+                      ),
+                      items: _treatments,
+                      showSearch: false,
+                      fillColor: Colors.white,
+                      displayStringForValue: (v) => v['label']!,
+                      itemBuilder: (item, isSelected, isHovered) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          color: isHovered
+                              ? const Color(0xFF3B82F6)
+                              : (isSelected
+                                    ? const Color(0xFFF3F4F6)
+                                    : Colors.transparent),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item['label']!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: isHovered
+                                      ? Colors.white
+                                      : const Color(0xFF111827),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                item['desc']!,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isHovered
+                                      ? Colors.white.withValues(alpha: 0.8)
+                                      : const Color(0xFF6B7280),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _selectedTreatment = val['label']!;
+                          });
+                        }
+                      },
+                    ),
+                    if (_isRegistered) ...[
+                      const SizedBox(height: 20),
+                      const Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'GSTIN',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.redAccent,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                            TextSpan(
+                              text: '*',
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 32,
+                        child: CustomTextField(
+                          controller: _gstinCtrl,
+                          hintText: 'Enter GSTIN',
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () {},
+                        child: const Text(
+                          'Get Taxpayer details',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF2563EB),
+                            fontWeight: FontWeight.w500,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Make it permanent?',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF555555)),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: Checkbox(
+                            value: _makePermanent,
+                            onChanged: (val) =>
+                                setState(() => _makePermanent = val!),
+                            activeColor: const Color(0xFF22C55E),
+                            side: const BorderSide(color: Color(0xFFCCCCCC)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Use these settings for all future transactions of this vendor.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () =>
+                          widget.onUpdate(_selectedTreatment, _gstinCtrl.text.trim(), _makePermanent),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF19A05E),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      child: const Text(
+                        'Update',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: widget.onCancel,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFDDDDDD)),
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Color(0xFF333333)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrianglePainter extends CustomPainter {
+  final Color color;
+  final bool isUp;
+  final bool hasBorder;
+  _TrianglePainter({
+    required this.color,
+    this.isUp = false,
+    this.hasBorder = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final path = Path();
+    if (isUp) {
+      path.moveTo(size.width / 2, 0);
+      path.lineTo(0, size.height);
+      path.lineTo(size.width, size.height);
+    } else {
+      path.moveTo(size.width / 2, size.height);
+      path.lineTo(0, 0);
+      path.lineTo(size.width, 0);
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+
+    if (hasBorder) {
+      final borderPaint = Paint()
+        ..color = const Color(0xFFDDDDDD)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1;
+      canvas.drawPath(path, borderPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

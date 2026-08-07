@@ -13,7 +13,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/transaction_series_dropdown.dar
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart' as shared_account;
-import 'package:zerpai_erp/modules/purchases/payments_made/presentation/widgets/tax_preferences_popover.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/tax_preferences_popover.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_list.dart'
@@ -1827,219 +1827,64 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
                       },
                       displayStringForValue: (v) => v.displayName,
                       searchStringForValue: (v) =>
-                          '${v.displayName} ${v.vendorNumber ?? ''} ${v.email ?? ''}',
+                          '${v.displayName} ${v.vendorNumber ?? ''} ${v.companyName ?? ''} ${v.email ?? ''}',
                       hint: 'Select Vendor',
                       height: 36,
                       showSearch: true,
-                      itemBuilder: (vendor, isSelected, isHovered) {
-                        final Color textColor = isHovered
-                            ? Colors.white
-                            : (isSelected
-                                  ? const Color(0xFF111827)
-                                  : AppTheme.textPrimary);
-                        final Color subTextColor = isHovered
-                            ? Colors.white70
-                            : AppTheme.textSecondary;
-                        final Color avatarBgColor = isHovered
-                            ? Colors.white.withValues(alpha: 0.2)
-                            : const Color(0xFFE5E7EB);
-                        final Color avatarTextColor = isHovered
-                            ? Colors.white
-                            : AppTheme.textSecondary;
-                        final initials = vendor.displayName.isNotEmpty
-                            ? vendor.displayName[0].toUpperCase()
-                            : '';
-                        final List<Widget> subtextItems = [];
-                        if (vendor.email != null && vendor.email!.isNotEmpty) {
-                          subtextItems.add(
-                            Icon(
-                              Icons.mail_outline,
-                              size: 13,
-                              color: subTextColor,
-                            ),
-                          );
-                          subtextItems.add(const SizedBox(width: 4));
-                          subtextItems.add(
-                            Text(
-                              vendor.email!,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: subTextColor,
-                              ),
-                            ),
-                          );
-                        }
-                        if (vendor.email != null &&
-                            vendor.email!.isNotEmpty &&
-                            vendor.companyName != null &&
-                            vendor.companyName!.isNotEmpty) {
-                          subtextItems.add(const SizedBox(width: 8));
-                          subtextItems.add(
-                            Text(
-                              '|',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: subTextColor,
-                              ),
-                            ),
-                          );
-                          subtextItems.add(const SizedBox(width: 8));
-                        }
-                        if (vendor.companyName != null &&
-                            vendor.companyName!.isNotEmpty) {
-                          subtextItems.add(
-                            Icon(
-                              Icons.description_outlined,
-                              size: 13,
-                              color: subTextColor,
-                            ),
-                          );
-                          subtextItems.add(const SizedBox(width: 4));
-                          subtextItems.add(
-                            Flexible(
-                              child: Text(
-                                vendor.companyName!,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: subTextColor,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        return Container(
-                          height: 56,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          color: Colors.transparent,
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: avatarBgColor,
-                                  shape: BoxShape.circle,
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  initials,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: avatarTextColor,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            vendor.displayName,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              color: textColor,
-                                            ),
-                                          ),
-                                        ),
-                                        if (vendor.vendorNumber != null &&
-                                            vendor
-                                                .vendorNumber!
-                                                .isNotEmpty) ...[
-                                          Text(
-                                            ' | ',
-                                            style: TextStyle(
-                                              fontSize: 13,
-                                              color: textColor.withValues(
-                                                alpha: 0.5,
-                                              ),
-                                            ),
-                                          ),
-                                          Text(
-                                            vendor.vendorNumber!,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: subTextColor,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Row(children: subtextItems),
-                                  ],
-                                ),
-                              ),
-                              if (isSelected)
-                                Icon(
-                                  Icons.check,
-                                  size: 16,
-                                  color: isHovered
-                                      ? Colors.white
-                                      : const Color(0xFF1D4ED8),
-                                ),
-                            ],
-                          ),
-                        );
-                      },
+                      menuWidth: 450,
+                      showSettings: false,
+                      itemBuilder: (v, isSelected, isHovered) =>
+                          _buildVendorDropdownItem(v, isSelected, isHovered),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AppTheme.borderLight),
                     ),
                     if (!_isBillPayment && _selectedVendor != null) ...[
                       const SizedBox(height: 8),
-                      IgnorePointer(
-                        ignoring: _isEditMode,
-                        child: TaxPreferencesPopover(
-                          initialGstTreatment:
-                              _selectedVendor!.gstTreatment ??
-                              'Unregistered Business',
-                          onUpdate: (val) {
-                            setState(() {
-                              try {
-                                _selectedVendor = _selectedVendor!.copyWith(
-                                  gstTreatment: val,
-                                );
-                              } catch (_) {}
-                            });
-                          },
-                          child: Row(
-                            children: [
-                              const Text(
-                                'GST Treatment: ',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                              Text(
-                                _selectedVendor!.gstTreatment ??
-                                    'Unregistered Business',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textPrimary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              if (!_isEditMode) ...[
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  LucideIcons.edit3,
-                                  size: 13,
-                                  color: AppTheme.primaryBlue,
-                                ),
-                              ],
-                            ],
+                      Row(
+                        children: [
+                          const Text(
+                            'GST Treatment: ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
                           ),
-                        ),
+                          Text(
+                            _selectedVendor!.gstTreatment ??
+                                'Unregistered Business',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (!_isEditMode) ...[
+                            const SizedBox(width: 4),
+                            TaxPreferencesPopover(
+                              initialGstTreatment:
+                                  _selectedVendor!.gstTreatment ??
+                                  'Unregistered Business',
+                              initialGstin: _selectedVendor!.gstin ?? '',
+                              onUpdate: (val, gstinVal, isPermanent) {
+                                setState(() {
+                                  try {
+                                    _selectedVendor = _selectedVendor!.copyWith(
+                                      gstTreatment: val,
+                                      gstin: gstinVal.isNotEmpty
+                                          ? gstinVal
+                                          : _selectedVendor!.gstin,
+                                    );
+                                  } catch (_) {}
+                                });
+                              },
+                              child: const Icon(
+                                LucideIcons.edit3,
+                                size: 13,
+                                color: AppTheme.primaryBlue,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ],
@@ -3158,6 +3003,92 @@ class _CreatePaymentMadePageState extends ConsumerState<CreatePaymentMadePage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVendorDropdownItem(Vendor v, bool isSelected, bool isHovered) {
+    final firstName = (v.firstName ?? '').trim();
+    final initialSource = firstName.isNotEmpty
+        ? firstName
+        : (v.displayName.isNotEmpty ? v.displayName : '?');
+    final initial = initialSource.substring(0, 1).toUpperCase();
+
+    final backgroundColor = isHovered
+        ? const Color(0xFF3B82F6)
+        : (isSelected ? const Color(0xFFF3F4F6) : Colors.white);
+    final primaryTextColor = isHovered ? Colors.white : AppTheme.textPrimary;
+    final secondaryTextColor = isHovered
+        ? Colors.white.withValues(alpha: 0.85)
+        : AppTheme.textSecondary;
+
+    final topLine = v.vendorNumber != null && v.vendorNumber!.isNotEmpty
+        ? '${v.displayName} | ${v.vendorNumber}'
+        : v.displayName;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isHovered
+                  ? Colors.white.withValues(alpha: 0.25)
+                  : const Color(0xFFE5E7EB),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initial,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isHovered ? Colors.white : const Color(0xFF64748B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  topLine,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: primaryTextColor,
+                  ),
+                ),
+                if (v.companyName != null && v.companyName!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    v.companyName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

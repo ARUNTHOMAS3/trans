@@ -21,6 +21,8 @@
 | `SettingsPageHeader` | `settings_page_header.dart` | Shared settings header with organization label and searchable settings navigation |
 | `KeyboardScrollable` | `keyboard_scrollable.dart` | Enables arrow keys, Page Up/Down, Home/End for scroll on nested ScrollViews |
 | `PlaceholderScreen` | `placeholder_screen.dart` | Under-construction screen for unimplemented modules |
+| `KeyboardScrollable` | `keyboard_scrollable.dart` | Enables arrow keys, Page Up/Down, Home/End for scroll on nested ScrollViews |
+| `PlaceholderScreen` | `placeholder_screen.dart` | Under-construction screen for unimplemented modules |
 | `UnsavedChangesGuard` | `unsaved_changes_guard.dart` | PopScope wrapper that prompts before leaving dirty forms |
 | `ShortcutHandler` | `shortcut_handler.dart` | Keyboard shortcuts: Ctrl+S (save), Ctrl+Enter (publish), Esc (cancel), / (search focus) |
 | `ZerpaiReportShell` | `reports/zerpai_report_shell.dart` | Report frame with sticky toolbar (date range, basis toggle, actions) and org/report header |
@@ -35,6 +37,8 @@
 | `ZSearchField` | `inputs/z_search_field.dart` | Standard ERP search input bar with border animation and its variants |
 | `FormDropdown<T>` | `inputs/dropdown_input.dart` | Generic searchable dropdown — **always use instead of `DropdownButtonFormField`**; supports multi-select, settings footer, custom items |
 | `ZerpaiDatePicker` | `inputs/zerpai_date_picker.dart` | Standard date picker — anchored calendar popup below target field — **use for all ERP date inputs** |
+| `TaxPreferencesPopover` | `inputs/tax_preferences_popover.dart` | Anchored tax preferences popover wrapper with triangle pointer, GST Treatment selection, GSTIN field, and permanent setting checkbox |
+| `ConfigureTaxPreferencesDialog` | `inputs/tax_preferences_popover.dart` | Reusable Tax Preferences content dialog with GST treatment dropdown, descriptions, GSTIN input, taxpayer details lookup, and permanent setting checkbox |
 | `ZerpaiCalendar` | `inputs/zerpai_calendar.dart` | Reusable calendar with day/month/year selector modes and date range constraints |
 | `ZTooltip` | `inputs/z_tooltip.dart` | 220px-max-width tooltip with arrow — **always use instead of Flutter's `Tooltip`**; trigger icon `LucideIcons.helpCircle` size 14-15 |
 | `FileUploadButton` | `inputs/file_upload_button.dart` | File picker button with badge count and overlay listing selected files |
@@ -44,9 +48,6 @@
 | `ZerpaiRadioGroup<T>` | `inputs/zerpai_radio_group.dart` | Generic radio group (horizontal / vertical) |
 | `AccountTreeDropdown` | `inputs/account_tree_dropdown.dart` | Hierarchical account selector with search and keyboard navigation |
 | `FontFamilyDropdown` | `inputs/font_family_dropdown.dart` | Small shared typography selector used by settings customization forms |
-| `CategoryDropdown` | `inputs/category_dropdown.dart` | Recursive category tree dropdown with optional manage footer and search |
-| `TransactionSeriesDropdown` | `inputs/transaction_series_dropdown.dart` | Transaction series selector (Default always highlighted, optional add button) |
-| `ResizableBox` | `inputs/resizable_box.dart` | Container with draggable bottom resize handle |
 | `HsnSacSearchModal` | `hsn_sac_search_modal.dart` | Modal for searching HSN/SAC codes with debounced API lookup |
 | `PhoneInputField` | `inputs/phone_input_field.dart` | Compound phone-number input: 90 px country-code `FormDropdown` + digits-only `CustomTextField` with per-country max-digit enforcement. Params: `selectedPrefix`, `controller`, `onPrefixChanged`, `hintText`, `enabled`. |
 | `WarehouseHoverPopover` | `inputs/warehouse_popover.dart` | Overlay popover showing warehouse stock breakdown (Accounting/Physical) with location selector. Wraps any child widget; opens on tap. Params: `child`, `warehouseName`, `selectedView`, `onWarehouseChanged`, `onViewChanged`. |
