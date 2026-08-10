@@ -47,6 +47,7 @@ class AppTheme {
   static const Color bgLight = Color(0xFFF9FAFB); // Light background
   static const Color bgDisabled = Color(0xFFF3F4F6); // Disabled states
   static const Color bgHover = Color(0xFFF3F4F6); // Hover states
+  static const Color transparent = Colors.transparent;
 
   // Additional text hierarchy
   static const Color textBody = Color(0xFF374151); // Body text (gray-700)

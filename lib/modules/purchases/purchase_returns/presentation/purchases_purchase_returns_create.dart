@@ -38,15 +38,30 @@ import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/address_dialog.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
+import 'package:zerpai_erp/modules/purchases/bills/providers/purchases_bills_provider.dart';
+import 'package:zerpai_erp/modules/purchases/bills/models/purchases_bills_bill_model.dart';
+import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:zerpai_erp/shared/widgets/z_adaptive_menu.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/reporting_tags_popover.dart';
+import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart';
+import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accountant_chart_of_accounts_provider.dart';
 
 //          Line item model
 
 class _PRLineItem {
   Item? sourceItem;
+  String? billItemId;
   String? selectedTax;
   double? selectedTaxRate;
   String? selectedTaxId;
   String? selectedAccount;
+  String? accountId;
+  String? accountName;
+  final LayerLink accountsLink = LayerLink();
+  final LayerLink reportingTagsLink = LayerLink();
+  Map<String, String> selectedReportingTags = {};
   double returnedQty = 0.0;
   List<Map<String, dynamic>> batches = [];
 
@@ -64,18 +79,53 @@ class _PRLineItem {
     descriptionController.dispose();
   }
 
-  PurchaseReturnItem toModel() {
+  PurchaseReturnItem toModel({String? defaultWarehouseId}) {
+    final ordered = double.tryParse(orderedQtyController.text.trim()) ?? 0;
+    final retQty = double.tryParse(returnQtyController.text.trim()) ?? 0;
+    final rateVal = double.tryParse(rateController.text.trim()) ?? 0;
+    final lineTot = _amount;
+
+    final batchModels = batches.map((b) {
+      return PurchaseReturnItemBatch(
+        batchId: b['batch_id']?.toString() ?? b['id']?.toString() ?? '',
+        layerId: b['layer_id']?.toString() ?? b['batch_id']?.toString() ?? b['id']?.toString() ?? '',
+        warehouseId: b['warehouse_id']?.toString() ?? defaultWarehouseId ?? '',
+        binId: b['bin_id']?.toString() ?? b['bin_location']?.toString() ?? b['binId']?.toString(),
+        quantityOut: (b['quantity'] as num?)?.toDouble() ?? retQty,
+        focQty: (b['foc_qty'] as num?)?.toDouble() ?? 0,
+        damageQty: (b['damage_qty'] as num?)?.toDouble() ?? 0,
+        unitPack: b['unit_pack']?.toString(),
+        mrp: (b['mrp'] as num?)?.toDouble(),
+        purchaseRate: (b['purchase_rate'] as num?)?.toDouble() ?? rateVal,
+        expiryDate: b['expiry_date'] != null
+            ? DateTime.tryParse(b['expiry_date'].toString())
+            : null,
+        manufactureDate: b['manufacture_date'] != null
+            ? DateTime.tryParse(b['manufacture_date'].toString())
+            : null,
+        manufactureBatchNo: b['batch_number']?.toString() ?? b['manufacture_batch_no']?.toString(),
+        remarks: b['remarks']?.toString(),
+      );
+    }).toList();
+
     return PurchaseReturnItem(
       itemId: sourceItem?.id,
+      billItemId: billItemId,
       itemName: sourceItem?.productName ?? '',
       description: descriptionController.text.trim().isEmpty
           ? null
           : descriptionController.text.trim(),
-      orderedQty: double.tryParse(orderedQtyController.text.trim()) ?? 0,
-      returnQty: double.tryParse(returnQtyController.text.trim()) ?? 0,
-      rate: double.tryParse(rateController.text.trim()) ?? 0,
-      amount: _amount,
+      orderedQty: ordered,
+      returnQty: retQty,
+      billedQty: ordered,
+      quantityToReturnQty: retQty,
+      rate: rateVal,
+      amount: lineTot,
+      lineTotal: lineTot,
+      taxRateId: selectedTaxId,
       taxRateName: selectedTax,
+      accountId: selectedAccount,
+      batches: batchModels,
     );
   }
 
@@ -113,7 +163,10 @@ class _PurchaseReturnsCreatePageState
   Vendor? _selectedVendorObj;
   String? get _selectedVendorName => _selectedVendorObj?.displayName;
 
-  String? _selectedBill;
+  List<String> _selectedBills = [];
+  String? get _selectedBill =>
+      _selectedBills.isNotEmpty ? _selectedBills.first : null;
+  List<String> _vendorBillNumbers = [];
   String? _selectedSourceOfSupply;
   String? _selectedDestinationOfSupply;
   String? _selectedTransactionSeries = 'Default Transaction Series';
@@ -162,6 +215,10 @@ class _PurchaseReturnsCreatePageState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(vendorProvider.notifier).loadVendors();
       ref.read(itemsControllerProvider.notifier).loadItems();
+      ref.read(billsProvider.notifier).loadBills();
+      if (_selectedVendorObj != null && _selectedVendorObj!.id.isNotEmpty) {
+        _fetchBillsForVendor(_selectedVendorObj!.id);
+      }
       if (widget.isEdit) {
         _loadForEdit();
       }
@@ -319,15 +376,55 @@ class _PurchaseReturnsCreatePageState
       } catch (_) {}
 
       if (ret != null) {
-        _selectedVendorObj = Vendor(
-          id: ret.vendorId ?? '',
-          displayName: ret.vendorName ?? '',
-          companyName: ret.vendorName ?? '',
-          gstin: '29AABCA9876E1Z2',
+        final vId = ret.vendorId;
+        final vName = ret.vendorName;
+        final vendors = ref.read(vendorProvider).vendors;
+        final matchedVendor = vendors.firstWhere(
+          (v) => (vId != null && v.id == vId) || (vName != null && v.displayName == vName),
+          orElse: () => Vendor(
+            id: vId ?? '',
+            displayName: vName ?? '',
+            companyName: vName ?? '',
+            gstin: '',
+          ),
         );
-        _selectedBill = 'B2B/25-26/00098';
-        _selectedSourceOfSupply = '[KA] - Karnataka';
-        _selectedDestinationOfSupply = '[KL] - Kerala';
+        _selectedVendorObj = matchedVendor;
+        if (matchedVendor.id.isNotEmpty) {
+          _fetchBillsForVendor(matchedVendor.id);
+        }
+        _selectedBills = (ret.billNumber != null && ret.billNumber!.isNotEmpty)
+            ? [ret.billNumber!]
+            : [];
+
+        final pos = matchedVendor.sourceOfSupply;
+        final sList = ref.read(statesProvider('IN')).valueOrNull ?? [];
+        final dOptions = sList.map((s) {
+          final code = s['code'] ?? s['shortCode'] ?? '';
+          final name = s['name'] ?? '';
+          return code.isNotEmpty ? '[$code] - $name' : name;
+        }).where((str) => str.isNotEmpty).toList();
+
+        if (pos != null && pos.isNotEmpty) {
+          final matchedState = dOptions.firstWhere(
+            (s) => s.toLowerCase().contains(pos.toLowerCase()),
+            orElse: () => pos,
+          );
+          _selectedSourceOfSupply = matchedState;
+          _selectedDestinationOfSupply = matchedState;
+        }
+
+        final retWhId = ret.warehouseId;
+        if (ret.warehouseName != null && ret.warehouseName!.isNotEmpty) {
+          _warehouseLocation = ret.warehouseName!;
+        } else if (retWhId != null && retWhId.isNotEmpty) {
+          final warehouses = ref.read(warehousesProvider).valueOrNull ?? [];
+          final matchedWh = warehouses.firstWhere(
+            (w) => w.id == retWhId,
+            orElse: () => Warehouse(id: retWhId, name: retWhId),
+          );
+          _warehouseLocation = matchedWh.name.isNotEmpty ? matchedWh.name : retWhId;
+        }
+
         _returnNumberController.text = ret.returnNumber;
         _purchaseOrderController.text = ret.purchaseOrderNumber ?? '';
         _purchaseReceiveController.text = ret.purchaseReceiveNumber ?? '';
@@ -342,25 +439,55 @@ class _PurchaseReturnsCreatePageState
 
         for (final item in ret.items) {
           final line = _PRLineItem();
-          line.sourceItem = Item(
-            id: item.itemId ?? '',
-            type: 'goods',
-            productName: item.itemName,
-            itemCode: 'ITEM-001',
-            unitId: 'unit-1',
-            costPrice: item.rate,
+          final allProds = ref.read(itemsControllerProvider).items;
+          final matchedItem = allProds.firstWhere(
+            (p) => (item.itemId != null && item.itemId!.isNotEmpty && p.id == item.itemId) ||
+                   (item.itemName.isNotEmpty && p.productName.toLowerCase() == item.itemName.toLowerCase()),
+            orElse: () => Item(
+              id: item.itemId ?? '',
+              type: 'goods',
+              productName: item.itemName,
+              itemCode: '',
+              unitId: '',
+              costPrice: item.rate,
+            ),
           );
+          line.sourceItem = matchedItem;
+          line.billItemId = item.billItemId;
           line.orderedQtyController.text = item.orderedQty > 0
               ? item.orderedQty.toStringAsFixed(0)
-              : '';
+              : (item.quantityToReturnQty > 0 ? item.quantityToReturnQty.toStringAsFixed(0) : '');
           line.returnQtyController.text = item.returnQty > 0
               ? item.returnQty.toStringAsFixed(0)
-              : '';
+              : (item.quantityToReturnQty > 0 ? item.quantityToReturnQty.toStringAsFixed(0) : '');
           line.rateController.text = item.rate > 0
               ? item.rate.toStringAsFixed(2)
               : '';
           line.descriptionController.text = item.description ?? '';
           line.selectedTax = item.taxRateName;
+          line.selectedTaxId = item.taxRateId;
+          line.batches = item.batches
+              .map((b) => {
+                    'id': b.batchId,
+                    'batch_id': b.batchId,
+                    'layer_id': b.layerId,
+                    'warehouse_id': b.warehouseId,
+                    'bin_id': b.binId,
+                    'bin_location': b.binId,
+                    'quantity': b.quantityOut,
+                    'foc_qty': b.focQty,
+                    'damage_qty': b.damageQty,
+                    'mrp': b.mrp ?? 0,
+                    'purchase_rate': b.purchaseRate ?? item.rate,
+                    'expiry_date': b.expiryDate?.toIso8601String(),
+                    'manufacture_date': b.manufactureDate?.toIso8601String(),
+                    'batch_number': b.manufactureBatchNo ?? '',
+                    'manufacture_batch_no': b.manufactureBatchNo ?? '',
+                    'unit_pack': b.unitPack ?? '',
+                    'remarks': b.remarks,
+                  })
+              .toList();
+
           _items.add(line);
         }
         if (_items.isEmpty) _addItem();
@@ -386,7 +513,7 @@ class _PurchaseReturnsCreatePageState
         _returnNumberController.text = detail.returnNumber;
         _purchaseOrderController.text = detail.purchaseOrderNumber ?? '';
         _purchaseReceiveController.text = detail.purchaseReceiveNumber ?? '';
-        _selectedBill = detail.billNumber;
+        _selectedBills = detail.billNumber != null ? [detail.billNumber!] : [];
         _selectedSourceOfSupply = detail.sourceOfSupply;
         _selectedDestinationOfSupply = detail.destinationOfSupply;
         _returnDate = detail.date;
@@ -397,20 +524,20 @@ class _PurchaseReturnsCreatePageState
 
         for (final item in detail.items) {
           final line = _PRLineItem();
-          line.sourceItem = Item(
-            id: 'item-mock-${item.name}',
-            type: 'goods',
-            productName: item.name,
-            itemCode: 'ITEM-001',
-            unitId: 'unit-1',
-            costPrice: item.rate,
-            sellingPrice: item.rate,
-            sku: 'SKU-001',
-            upc: '',
-            ean: '',
-            isbn: '',
-            mpn: '',
+          final allProds = ref.read(itemsControllerProvider).items;
+          final matchedProduct = allProds.firstWhere(
+            (p) => p.productName.toLowerCase() == item.name.toLowerCase(),
+            orElse: () => Item(
+              id: '',
+              type: 'goods',
+              productName: item.name,
+              itemCode: '',
+              unitId: '',
+              costPrice: item.rate,
+              sellingPrice: item.rate,
+            ),
           );
+          line.sourceItem = matchedProduct;
           line.returnQtyController.text = item.returnQty.toStringAsFixed(0);
           line.rateController.text = item.rate.toStringAsFixed(2);
           line.descriptionController.text = item.description;
@@ -536,16 +663,68 @@ class _PurchaseReturnsCreatePageState
     }
   }
 
+  Future<void> _fetchBillsForVendor(String vendorId) async {
+    if (vendorId.isEmpty) {
+      if (mounted) setState(() => _vendorBillNumbers = []);
+      return;
+    }
+    try {
+      final List<String> bNums = [];
+
+      final providerBills = ref.read(billsProvider).bills;
+      for (final b in providerBills) {
+        if (b.vendorId == vendorId &&
+            b.billNumber != null &&
+            b.billNumber!.isNotEmpty) {
+          if (!bNums.contains(b.billNumber!)) {
+            bNums.add(b.billNumber!);
+          }
+        }
+      }
+
+      final response = await Supabase.instance.client
+          .from('bills')
+          .select('bill_number')
+          .eq('vendor_id', vendorId)
+          .eq('is_delete', false)
+          .neq('status', 'void')
+          .order('created_at', ascending: false);
+
+      for (final row in (response as List<dynamic>)) {
+        final bNo = row['bill_number']?.toString();
+        if (bNo != null && bNo.isNotEmpty && !bNums.contains(bNo)) {
+          bNums.add(bNo);
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _vendorBillNumbers = bNums;
+        });
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching bills for vendor: $e');
+    }
+  }
+
   void _showBatchModal(_PRLineItem item) {
     final qtyToReturn = double.tryParse(item.returnQtyController.text) ?? 0.0;
+    final warehouses = ref.read(warehousesProvider).valueOrNull ?? [];
+    final matchedWarehouse = warehouses.firstWhere(
+      (w) => w.name.toLowerCase() == _warehouseLocation.toLowerCase() || w.id == _warehouseLocation,
+      orElse: () => Warehouse(id: _warehouseLocation, name: _warehouseLocation),
+    );
+    final resolvedWarehouseId = matchedWarehouse.id.isNotEmpty ? matchedWarehouse.id : _warehouseLocation;
+    final resolvedWarehouseName = matchedWarehouse.name.isNotEmpty ? matchedWarehouse.name : _warehouseLocation;
+
     showDialog(
       context: context,
       builder: (ctx) => _AddBatchDialog(
         itemName: item.sourceItem?.productName ?? 'Item',
         productId: item.sourceItem?.id ?? '',
         totalQuantity: qtyToReturn,
-        warehouseName: _warehouseLocation,
-        warehouseId: _warehouseLocation,
+        warehouseName: resolvedWarehouseName,
+        warehouseId: resolvedWarehouseId,
         initialBatches: item.batches,
         onSave: (batches) {
           setState(() {
@@ -627,6 +806,76 @@ class _PurchaseReturnsCreatePageState
 
   final LayerLink _billingAddressLink = LayerLink();
   OverlayEntry? _addressDropdownOverlay;
+  OverlayEntry? _reportingTagsOverlay;
+  OverlayEntry? _accountsOverlay;
+
+  void _toggleAccountsOverlay(
+    _PRLineItem item,
+    List<AccountNode> availableAccounts,
+  ) {
+    if (_accountsOverlay != null) {
+      _accountsOverlay?.remove();
+      _accountsOverlay = null;
+      setState(() {});
+      return;
+    }
+
+    _accountsOverlay = ZAdaptiveMenu.show(
+      context: context,
+      link: item.accountsLink,
+      width: 320,
+      maxHeight: 280,
+      alignLeft: true,
+      padding: EdgeInsets.zero,
+      borderRadius: 8,
+      onClose: () {
+        _accountsOverlay?.remove();
+        _accountsOverlay = null;
+        setState(() {});
+      },
+      builder: (context) => _AccountSelectionPopover(
+        accounts: availableAccounts,
+        selectedAccountId: item.accountId,
+        onSelected: (acc) {
+          setState(() {
+            item.accountId = acc.id;
+            item.accountName = acc.systemAccountName.isNotEmpty
+                ? acc.systemAccountName
+                : acc.userAccountName;
+          });
+          _accountsOverlay?.remove();
+          _accountsOverlay = null;
+          setState(() {});
+        },
+      ),
+    );
+    setState(() {});
+  }
+
+  void _toggleReportingTagsOverlay(_PRLineItem item) {
+    if (_reportingTagsOverlay != null) {
+      _reportingTagsOverlay?.remove();
+      _reportingTagsOverlay = null;
+      setState(() {});
+      return;
+    }
+
+    _reportingTagsOverlay = showReportingTagsPopover(
+      context: context,
+      link: item.reportingTagsLink,
+      selectedTags: item.selectedReportingTags,
+      onSave: (updatedTags) {
+        setState(() {
+          item.selectedReportingTags = updatedTags;
+        });
+      },
+      onClose: () {
+        _reportingTagsOverlay = null;
+        setState(() {});
+      },
+    );
+    setState(() {});
+  }
 
   void _closeAddressDropdownOverlay() {
     _addressDropdownOverlay?.remove();
@@ -1012,16 +1261,329 @@ class _PurchaseReturnsCreatePageState
     );
   }
 
+  Future<void> _onBillsSelected(List<String> selectedBillNumbers) async {
+    if (selectedBillNumbers.isEmpty) return;
+    try {
+      final rawBillNums = selectedBillNumbers
+          .map((s) => s.split('(').first.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      final filterNums = {...selectedBillNumbers, ...rawBillNums}.toList();
+
+      var query = Supabase.instance.client
+          .from('bills')
+          .select(
+            'id, bill_number, order_number, source_type, source_id, warehouse_id, warehouses(id, name), bill_items(id, product_id, purchase_receive_item_id, quantity, description, rate, tax_id, tax_amount, products(id, product_name, item_code, unit_id, cost_price, selling_price, sku), bill_item_batches(*, batch:batch_master(*)))',
+          )
+          .inFilter('bill_number', filterNums)
+          .eq('is_delete', false);
+
+      if (_selectedVendorObj != null && _selectedVendorObj!.id.isNotEmpty) {
+        query = query.eq('vendor_id', _selectedVendorObj!.id);
+      }
+
+      final response = await query;
+
+      String? billWarehouseId;
+      String? billWarehouseName;
+      String? billPoNumber;
+      String? billReceiveNumber;
+
+      for (final bill in (response as List<dynamic>)) {
+        if (bill['warehouse_id'] != null &&
+            bill['warehouse_id'].toString().isNotEmpty) {
+          billWarehouseId = bill['warehouse_id'].toString();
+        }
+        if (bill['warehouses'] != null && bill['warehouses'] is Map) {
+          final wMap = bill['warehouses'] as Map<String, dynamic>;
+          if (wMap['name'] != null && wMap['name'].toString().isNotEmpty) {
+            billWarehouseName = wMap['name'].toString();
+          }
+        }
+        if (bill['order_number'] != null && bill['order_number'].toString().trim().isNotEmpty) {
+          billPoNumber = bill['order_number'].toString().trim();
+        }
+        final srcId = bill['source_id']?.toString();
+        final billId = bill['id']?.toString();
+        final bNo = bill['bill_number']?.toString().trim();
+
+        // Strategy 1: Resolve via bill.source_id -> purchase_receives / purchase_orders
+        if (srcId != null && isUuid(srcId)) {
+          try {
+            final rxRes = await Supabase.instance.client
+                .from('purchase_receives')
+                .select('purchase_receive_number, purchase_order_number, purchase_order_id')
+                .eq('id', srcId)
+                .maybeSingle();
+            if (rxRes != null) {
+              if (rxRes['purchase_receive_number'] != null) {
+                billReceiveNumber = rxRes['purchase_receive_number'].toString().trim();
+              }
+              if ((billPoNumber == null || billPoNumber.isEmpty) && rxRes['purchase_order_number'] != null) {
+                billPoNumber = rxRes['purchase_order_number'].toString().trim();
+              }
+              if ((billPoNumber == null || billPoNumber.isEmpty) && rxRes['purchase_order_id'] != null) {
+                final poRes = await Supabase.instance.client
+                    .from('purchase_orders')
+                    .select('purchase_order_number, order_number')
+                    .eq('id', rxRes['purchase_order_id'].toString())
+                    .maybeSingle();
+                if (poRes != null) {
+                  billPoNumber = (poRes['purchase_order_number'] ?? poRes['order_number'])?.toString().trim();
+                }
+              }
+            }
+          } catch (_) {}
+        }
+
+        // Strategy 2: Resolve via bill_no or bill_id in purchase_receives
+        if (billReceiveNumber == null || billReceiveNumber.isEmpty) {
+          try {
+            var rxQuery = Supabase.instance.client
+                .from('purchase_receives')
+                .select('purchase_receive_number, purchase_order_number, purchase_order_id');
+            if (billId != null && isUuid(billId)) {
+              rxQuery = rxQuery.or('bill_id.eq.$billId${bNo != null && bNo.isNotEmpty ? ",bill_no.eq.$bNo" : ""}');
+            } else if (bNo != null && bNo.isNotEmpty) {
+              rxQuery = rxQuery.eq('bill_no', bNo);
+            }
+            final rxRes = await rxQuery.limit(1).maybeSingle();
+            if (rxRes != null) {
+              if (rxRes['purchase_receive_number'] != null) {
+                billReceiveNumber = rxRes['purchase_receive_number'].toString().trim();
+              }
+              if ((billPoNumber == null || billPoNumber.isEmpty) && rxRes['purchase_order_number'] != null) {
+                billPoNumber = rxRes['purchase_order_number'].toString().trim();
+              }
+              if ((billPoNumber == null || billPoNumber.isEmpty) && rxRes['purchase_order_id'] != null) {
+                final poRes = await Supabase.instance.client
+                    .from('purchase_orders')
+                    .select('purchase_order_number, order_number')
+                    .eq('id', rxRes['purchase_order_id'].toString())
+                    .maybeSingle();
+                if (poRes != null) {
+                  billPoNumber = (poRes['purchase_order_number'] ?? poRes['order_number'])?.toString().trim();
+                }
+              }
+            }
+          } catch (_) {}
+        }
+
+        // Strategy 3: Resolve via bill_items -> purchase_receive_item_id -> purchase_receives
+        if (billReceiveNumber == null || billReceiveNumber.isEmpty) {
+          final bItems = bill['bill_items'] as List<dynamic>? ?? [];
+          for (final bi in bItems) {
+            final rxItemId = bi['purchase_receive_item_id']?.toString();
+            if (rxItemId != null && isUuid(rxItemId)) {
+              try {
+                final rxiRes = await Supabase.instance.client
+                    .from('purchase_receive_items')
+                    .select('purchase_receive_id')
+                    .eq('id', rxItemId)
+                    .maybeSingle();
+                if (rxiRes != null && rxiRes['purchase_receive_id'] != null) {
+                  final prId = rxiRes['purchase_receive_id'].toString();
+                  final rxRes = await Supabase.instance.client
+                      .from('purchase_receives')
+                      .select('purchase_receive_number, purchase_order_number, purchase_order_id')
+                      .eq('id', prId)
+                      .maybeSingle();
+                  if (rxRes != null) {
+                    if (rxRes['purchase_receive_number'] != null) {
+                      billReceiveNumber = rxRes['purchase_receive_number'].toString().trim();
+                    }
+                    if ((billPoNumber == null || billPoNumber.isEmpty) && rxRes['purchase_order_number'] != null) {
+                      billPoNumber = rxRes['purchase_order_number'].toString().trim();
+                    }
+                    if ((billPoNumber == null || billPoNumber.isEmpty) && rxRes['purchase_order_id'] != null) {
+                      final poRes = await Supabase.instance.client
+                          .from('purchase_orders')
+                          .select('purchase_order_number, order_number')
+                          .eq('id', rxRes['purchase_order_id'].toString())
+                          .maybeSingle();
+                      if (poRes != null) {
+                        billPoNumber = (poRes['purchase_order_number'] ?? poRes['order_number'])?.toString().trim();
+                      }
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+            if (billReceiveNumber != null && billReceiveNumber.isNotEmpty) break;
+          }
+        }
+      }
+
+      if (billWarehouseId == null && billWarehouseName == null) {
+        final providerBills = ref.read(billsProvider).bills;
+        for (final bNum in selectedBillNumbers) {
+          final rawB = bNum.split('(').first.trim();
+          final matched = providerBills.firstWhere(
+            (b) => b.billNumber == bNum || b.billNumber == rawB,
+            orElse: () => PurchasesBill(id: '', vendorId: '', vendorName: ''),
+          );
+          if (matched.id.isNotEmpty) {
+            if (matched.warehouseId != null &&
+                matched.warehouseId!.isNotEmpty) {
+              billWarehouseId = matched.warehouseId;
+            }
+            if (matched.warehouseName != null &&
+                matched.warehouseName!.isNotEmpty) {
+              billWarehouseName = matched.warehouseName;
+            }
+            if ((billPoNumber == null || billPoNumber.isEmpty) &&
+                matched.orderNumber != null &&
+                matched.orderNumber!.isNotEmpty) {
+              billPoNumber = matched.orderNumber;
+            }
+            if (billWarehouseId != null || billWarehouseName != null) break;
+          }
+        }
+      }
+
+      String? targetWarehouse;
+      final warehouses = ref.read(warehousesProvider).valueOrNull ?? [];
+      for (final w in warehouses) {
+        if ((billWarehouseId != null && w.id == billWarehouseId) ||
+            (billWarehouseName != null &&
+                w.name.toLowerCase() == billWarehouseName.toLowerCase())) {
+          targetWarehouse = w.name;
+          break;
+        }
+      }
+      targetWarehouse ??= billWarehouseName;
+
+      final newLines = <_PRLineItem>[];
+      final seenItemKeys = <String>{};
+
+      for (final bill in (response as List<dynamic>)) {
+        final billItems = bill['bill_items'] as List<dynamic>? ?? [];
+        for (final bi in billItems) {
+          final billItemId = bi['id'] as String?;
+          final productMap = bi['products'] as Map<String, dynamic>?;
+          final productId =
+              bi['product_id'] as String? ?? productMap?['id'] as String? ?? '';
+          final productName =
+              productMap?['product_name'] as String? ?? 'Item';
+          final productKey = productId.isNotEmpty
+              ? productId
+              : productName.toLowerCase();
+          if (productKey.isNotEmpty && seenItemKeys.contains(productKey)) {
+            continue;
+          }
+          if (productKey.isNotEmpty) {
+            seenItemKeys.add(productKey);
+          }
+          final itemCode = productMap?['item_code'] as String? ?? '';
+          final unitId = productMap?['unit_id'] as String? ?? '';
+          final costPrice = (bi['rate'] as num?)?.toDouble() ??
+              (productMap?['cost_price'] as num?)?.toDouble() ??
+              0.0;
+          final qty = (bi['quantity'] as num?)?.toDouble() ?? 0.0;
+          final description = bi['description'] as String? ?? '';
+
+          final item = Item(
+            id: productId,
+            type: 'goods',
+            productName: productName,
+            itemCode: itemCode,
+            unitId: unitId,
+            costPrice: costPrice,
+            sellingPrice:
+                (productMap?['selling_price'] as num?)?.toDouble() ?? costPrice,
+            sku: productMap?['sku'] as String? ?? '',
+          );
+
+          final line = _PRLineItem();
+          line.sourceItem = item;
+          line.orderedQtyController.text =
+              qty > 0 ? qty.toStringAsFixed(0) : '';
+          line.rateController.text =
+              costPrice > 0 ? costPrice.toStringAsFixed(2) : '';
+          line.descriptionController.text = description;
+          line.billItemId = billItemId;
+
+          final rawBatches = bi['bill_item_batches'] as List<dynamic>? ?? [];
+          final batchesList = <Map<String, dynamic>>[];
+          for (final b in rawBatches) {
+            final batchMaster = b['batch'] as Map<String, dynamic>?;
+            final bNo = batchMaster?['batch_number'] ?? b['batch_number'] ?? b['batch_no'] ?? '';
+            final binLoc = b['bin_location'] ?? b['bin_code'] ?? b['bin_id'] ?? batchMaster?['bin_location'] ?? batchMaster?['bin_code'];
+            batchesList.add({
+              'id': b['batch_id'] ?? b['id'],
+              'batch_id': b['batch_id'] ?? b['id'],
+              'layer_id': b['layer_id'] ?? b['batch_id'] ?? b['id'],
+              'batch_no': bNo,
+              'batch_number': bNo,
+              'quantity': (b['quantity'] as num?)?.toDouble() ?? qty,
+              'purchase_rate':
+                  (b['purchase_rate'] as num?)?.toDouble() ?? costPrice,
+              'p_rate': (b['purchase_rate'] as num?)?.toDouble() ?? costPrice,
+              'mrp': (b['mrp'] as num?)?.toDouble(),
+              'expiry_date': batchMaster?['expiry_date'] ?? b['expiry_date'],
+              'manufacture_date':
+                  batchMaster?['manufacture_date'] ?? b['manufacture_date'],
+              'bin_location': binLoc,
+              'bin_id': b['bin_id'],
+            });
+          }
+          line.batches = batchesList;
+          final totalBatchQty = batchesList.fold<double>(
+            0.0,
+            (sum, b) => sum + ((b['quantity'] as num?)?.toDouble() ?? 0.0),
+          );
+          if (totalBatchQty > 0) {
+            line.returnQtyController.text = totalBatchQty % 1 == 0
+                ? totalBatchQty.toInt().toString()
+                : totalBatchQty.toStringAsFixed(0);
+          } else {
+            line.returnQtyController.text = qty > 0 ? qty.toStringAsFixed(0) : '';
+          }
+
+          newLines.add(line);
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          if (newLines.isNotEmpty) {
+            for (final item in _items) {
+              item.dispose();
+            }
+            _items.clear();
+            _items.addAll(newLines);
+          }
+          if (targetWarehouse != null && targetWarehouse.isNotEmpty) {
+            _warehouseLocation = targetWarehouse;
+          }
+          if (billPoNumber != null && billPoNumber.isNotEmpty) {
+            _purchaseOrderController.text = billPoNumber;
+          }
+          if (billReceiveNumber != null && billReceiveNumber.isNotEmpty) {
+            _purchaseReceiveController.text = billReceiveNumber;
+          }
+        });
+      }
+    } catch (e) {
+      AppLogger.error(
+        'Error fetching items for selected bills: $e',
+        module: 'purchases',
+      );
+    }
+  }
+
   void _onVendorSelected(Vendor? val) {
     setState(() {
       _selectedVendorObj = val;
+      _selectedBills = [];
       if (val == null) {
         _selectedSourceOfSupply = null;
         _selectedDestinationOfSupply = null;
-        _selectedBill = null;
         _billedQtyMap = {};
+        _vendorBillNumbers = [];
       } else {
         _fetchBilledQuantitiesForVendor(val.id);
+        _fetchBillsForVendor(val.id);
         final allCustomers = ref.read(salesCustomersProvider).valueOrNull ?? [];
         final cust = allCustomers.firstWhere(
           (c) => c.id == val.id,
@@ -1053,6 +1615,10 @@ class _PurchaseReturnsCreatePageState
   //          Save
 
   Future<void> _save({bool draft = true}) async {
+    if (_warehouseLocation.trim().isEmpty) {
+      ZerpaiToast.error(context, 'Please select a warehouse.');
+      return;
+    }
     final validItems = _items
         .where(
           (i) => i.sourceItem != null || i.returnQtyController.text.isNotEmpty,
@@ -1062,27 +1628,82 @@ class _PurchaseReturnsCreatePageState
       ZerpaiToast.error(context, 'Add at least one item to the return.');
       return;
     }
+    for (final item in validItems) {
+      final accId = item.accountId ?? item.selectedAccount;
+      if (accId == null || accId.trim().isEmpty) {
+        final name = item.sourceItem?.productName ?? 'Item';
+        ZerpaiToast.error(context, 'Please select an account for $name.');
+        return;
+      }
+    }
     setState(() => _saving = true);
+
+    String? resolvedBillId;
+    if (_selectedBill != null && _selectedBill!.isNotEmpty) {
+      if (isUuid(_selectedBill)) {
+        resolvedBillId = _selectedBill;
+      } else {
+        try {
+          final rawBillNo = _selectedBill!.split('(').first.trim();
+          var bQuery = Supabase.instance.client
+              .from('bills')
+              .select('id')
+              .or('bill_number.eq.${_selectedBill!},bill_number.eq.$rawBillNo')
+              .eq('is_delete', false);
+          if (_selectedVendorObj?.id != null && _selectedVendorObj!.id.isNotEmpty) {
+            bQuery = bQuery.eq('vendor_id', _selectedVendorObj!.id);
+          }
+          final bRes = await bQuery.limit(1).maybeSingle();
+          if (bRes != null && bRes['id'] != null) {
+            resolvedBillId = bRes['id'] as String;
+          }
+        } catch (e) {
+          AppLogger.error('Error resolving bill_id: $e', module: 'purchases');
+        }
+      }
+    }
+
+    final entityId = ref.read(entityProvider).entityId;
+
+    final warehouses = ref.read(warehousesProvider).valueOrNull ?? [];
+    final matchedWh = warehouses.firstWhere(
+      (w) => w.name.toLowerCase() == _warehouseLocation.toLowerCase() || w.id == _warehouseLocation,
+      orElse: () => Warehouse(id: _warehouseLocation, name: _warehouseLocation),
+    );
+    final targetWhId = matchedWh.id.isNotEmpty ? matchedWh.id : _warehouseLocation;
+    final targetWhName = matchedWh.name.isNotEmpty ? matchedWh.name : _warehouseLocation;
 
     final ret = PurchaseReturn(
       id: widget.purchaseReturnId,
+      entityId: entityId,
       returnNumber: _returnNumberController.text.trim(),
       returnDate: _returnDate,
       vendorId: _selectedVendorObj?.id,
       vendorName: _selectedVendorObj?.displayName,
+      billId: resolvedBillId,
+      billNumber: _selectedBill,
+      warehouseId: targetWhId,
+      warehouseName: targetWhName,
       purchaseOrderNumber: _purchaseOrderController.text.trim().isEmpty
           ? null
           : _purchaseOrderController.text.trim(),
       purchaseReceiveNumber: _purchaseReceiveController.text.trim().isEmpty
           ? null
           : _purchaseReceiveController.text.trim(),
-      status: draft ? 'draft' : 'confirmed',
+      reason: _reasonController.text.trim().isEmpty
+          ? null
+          : _reasonController.text.trim(),
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
+      status: draft ? 'draft' : 'confirmed',
       subtotal: _subTotal,
+      taxAmount: _totalTax,
+      adjustmentAmount: _adjustmentAmount,
       total: _grandTotal,
-      items: validItems.map((i) => i.toModel()).toList(),
+      items: validItems
+          .map((i) => i.toModel(defaultWarehouseId: targetWhId))
+          .toList(),
     );
 
     try {
@@ -1131,6 +1752,16 @@ class _PurchaseReturnsCreatePageState
 
   @override
   Widget build(BuildContext context) {
+    final accountsState = ref.watch(chartOfAccountsProvider);
+    final List<AccountNode> availableAccounts = [];
+    void collect(List<AccountNode> nodes) {
+      for (final node in nodes) {
+        availableAccounts.add(node);
+        collect(node.children);
+      }
+    }
+    collect(accountsState.roots);
+
     final vendorsState = ref.watch(vendorProvider);
     final vendors = vendorsState.vendors;
     final vendorIsLoading = vendorsState.isLoading;
@@ -1509,22 +2140,37 @@ class _PurchaseReturnsCreatePageState
                                 FormDropdown<String>(
                                   value: _selectedBill,
                                   enabled: !widget.isEdit,
-                                  items: const [
-                                    'BILL-001',
-                                    'BILL-002',
-                                    'B2B/25-26/00089',
-                                    'B2B/25-26/00098',
-                                    'B2B/25-26/00101',
-                                  ],
+                                  items: () {
+                                    final list = List<String>.from(_vendorBillNumbers);
+                                    if (_selectedBill != null &&
+                                        _selectedBill!.isNotEmpty &&
+                                        !list.contains(_selectedBill!)) {
+                                      list.insert(0, _selectedBill!);
+                                    }
+                                    return list;
+                                  }(),
                                   hint: 'Select linked bill',
+                                  showSearch: true,
                                   height: _fieldHeight,
                                   allowClear: !widget.isEdit,
                                   onChanged: widget.isEdit
                                       ? (_) {}
-                                      : (v) =>
-                                          setState(() => _selectedBill = v),
+                                      : (val) {
+                                          setState(() {
+                                            _selectedBills = (val != null && val.isNotEmpty)
+                                                ? [val]
+                                                : [];
+                                            if (val == null || val.isEmpty) {
+                                              _purchaseOrderController.clear();
+                                              _purchaseReceiveController.clear();
+                                            }
+                                          });
+                                          if (val != null && val.isNotEmpty) {
+                                            _onBillsSelected([val]);
+                                          }
+                                        },
                                 ),
-                                if (_selectedBill != null) ...[
+                                if (_selectedBills.isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Text(
                                     'Bill Date: ${DateFormat('dd-MM-yyyy').format(_returnDate)}',
@@ -1739,6 +2385,9 @@ class _PurchaseReturnsCreatePageState
                   onSelectBatch: _showBatchModal,
                   sourceOfSupply: _selectedSourceOfSupply,
                   destinationOfSupply: _selectedDestinationOfSupply,
+                  availableAccounts: availableAccounts,
+                  onToggleAccounts: _toggleAccountsOverlay,
+                  onToggleReportingTags: _toggleReportingTagsOverlay,
                 ),
 
                 const SizedBox(height: 32),
@@ -2721,7 +3370,7 @@ class _PRItemTableToolbar extends ConsumerWidget {
                       hideBorderDefault: true,
                       allowClear: true,
                       onChanged: (v) {
-                        if (v != null) onWarehouseChanged(v);
+                        onWarehouseChanged(v ?? '');
                       },
                     ),
             ),
@@ -2839,6 +3488,9 @@ class _PRItemsGrid extends StatefulWidget {
   final void Function(_PRLineItem) onSelectBatch;
   final String? sourceOfSupply;
   final String? destinationOfSupply;
+  final List<AccountNode> availableAccounts;
+  final void Function(_PRLineItem, List<AccountNode>) onToggleAccounts;
+  final void Function(_PRLineItem) onToggleReportingTags;
 
   const _PRItemsGrid({
     required this.items,
@@ -2856,6 +3508,9 @@ class _PRItemsGrid extends StatefulWidget {
     required this.onSelectBatch,
     this.sourceOfSupply,
     this.destinationOfSupply,
+    required this.availableAccounts,
+    required this.onToggleAccounts,
+    required this.onToggleReportingTags,
   });
 
   @override
@@ -3502,6 +4157,9 @@ class _PRItemsGridState extends State<_PRItemsGrid> {
                       onSelectBatch: widget.onSelectBatch,
                       sourceOfSupply: widget.sourceOfSupply,
                       destinationOfSupply: widget.destinationOfSupply,
+                      availableAccounts: widget.availableAccounts,
+                      onToggleAccounts: widget.onToggleAccounts,
+                      onToggleReportingTags: widget.onToggleReportingTags,
                     ),
                   ),
                 ),
@@ -3562,6 +4220,9 @@ class _PRItemRow extends ConsumerStatefulWidget {
   final void Function(_PRLineItem) onSelectBatch;
   final String? sourceOfSupply;
   final String? destinationOfSupply;
+  final List<AccountNode> availableAccounts;
+  final void Function(_PRLineItem, List<AccountNode>) onToggleAccounts;
+  final void Function(_PRLineItem) onToggleReportingTags;
 
   const _PRItemRow({
     required this.item,
@@ -3574,6 +4235,9 @@ class _PRItemRow extends ConsumerStatefulWidget {
     required this.onSelectBatch,
     this.sourceOfSupply,
     this.destinationOfSupply,
+    required this.availableAccounts,
+    required this.onToggleAccounts,
+    required this.onToggleReportingTags,
   });
 
   @override
@@ -3631,6 +4295,109 @@ class _PRItemRowState extends ConsumerState<_PRItemRow> {
     widget.onChanged();
   }
 
+  Widget _buildReportingTags(
+    _PRLineItem item,
+    List<AccountNode> availableAccounts,
+  ) {
+    String? accountName = item.accountName;
+    if (accountName == null && item.accountId != null) {
+      final acc = availableAccounts
+          .where((a) => a.id == item.accountId)
+          .firstOrNull;
+      if (acc != null) {
+        accountName = acc.systemAccountName.isNotEmpty
+            ? acc.systemAccountName
+            : acc.userAccountName;
+        item.accountName = accountName;
+      }
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CompositedTransformTarget(
+          link: item.accountsLink,
+          child: InkWell(
+            onTap: () => widget.onToggleAccounts(item, availableAccounts),
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: 4,
+                horizontal: 8,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    LucideIcons.building,
+                    size: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    accountName ?? 'Select an account',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Text('|', style: TextStyle(color: Color(0xFFD1D5DB))),
+        const SizedBox(width: 8),
+        CompositedTransformTarget(
+          link: item.reportingTagsLink,
+          child: InkWell(
+            onTap: () => widget.onToggleReportingTags(item),
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                vertical: 4,
+                horizontal: 2,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SvgPicture.string(
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z"/><path d="M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193"/><circle cx="10.5" cy="6.5" r=".5" fill="#22C55E"/></svg>',
+                    width: 14,
+                    height: 14,
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Reporting Tags',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF374151),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 14,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
@@ -3662,567 +4429,585 @@ class _PRItemRowState extends ConsumerState<_PRItemRow> {
       }
     }
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Grip handle
-          const SizedBox(
-            width: 40,
-            child: Padding(
-              padding: EdgeInsets.only(top: 14),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Icon(
-                  LucideIcons.gripVertical,
-                  size: 16,
-                  color: AppTheme.borderLight,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Grip handle
+              const SizedBox(
+                width: 40,
+                child: Padding(
+                  padding: EdgeInsets.only(top: 14),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Icon(
+                      LucideIcons.gripVertical,
+                      size: 16,
+                      color: AppTheme.borderLight,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          _vLine(),
-          // ITEM DETAILS
-          Expanded(
-            flex: 10,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: item.sourceItem == null
-                  ? Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: AppTheme.bgDisabled,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AppTheme.borderLight),
-                          ),
-                          child: const Icon(
-                            LucideIcons.image,
-                            size: 18,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FormDropdown<Item>(
-                            value: item.sourceItem,
-                            items: widget.availableProducts,
-                            hint: 'Type or click to select an item.',
-                            height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                            hideBorderDefault: true,
-                            allowClear: true,
-                            displayStringForValue: (p) => p.productName,
-                            searchStringForValue: (p) =>
-                                '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
-                            onSearch: widget.onSearchProducts,
-                            itemBuilder: (product, isSelected, isHovered) =>
-                                Container(
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  bottom: BorderSide(
-                                    color: isHovered || isSelected
-                                        ? Colors.transparent
-                                        : const Color(0xFFE5E7EB),
-                                    width: 1.0,
-                                  ),
-                                ),
-                              ),
-                              child: _PRProductDropdownItem(
-                                productName: product.productName,
-                                costPrice: product.costPrice,
-                                highlighted: isSelected || isHovered,
-                              ),
-                            ),
-                            onChanged: _onItemSelected,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+              _vLine(),
+              // ITEM DETAILS
+              Expanded(
+                flex: 10,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: item.sourceItem == null
+                      ? Row(
                           children: [
                             Container(
                               width: 32,
                               height: 32,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF3F4F6),
-                                border: Border.all(color: AppTheme.borderLight),
+                                color: AppTheme.bgDisabled,
                                 borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppTheme.borderLight),
                               ),
-                              child: item.sourceItem!.primaryImageUrl != null &&
-                                      item.sourceItem!.primaryImageUrl!.isNotEmpty
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: Image.network(
-                                        item.sourceItem!.primaryImageUrl!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            const Icon(LucideIcons.image,
-                                                size: 16, color: AppTheme.textMuted),
-                                      ),
-                                    )
-                                  : const Icon(LucideIcons.image,
-                                      size: 16, color: AppTheme.textMuted),
+                              child: const Icon(
+                                LucideIcons.image,
+                                size: 18,
+                                color: AppTheme.textMuted,
+                              ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 12),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          item.sourceItem!.productName,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppTheme.textPrimary,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                              child: FormDropdown<Item>(
+                                value: item.sourceItem,
+                                items: widget.availableProducts,
+                                hint: 'Type or click to select an item.',
+                                height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+                                hideBorderDefault: true,
+                                allowClear: true,
+                                displayStringForValue: (p) => p.productName,
+                                searchStringForValue: (p) =>
+                                    '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
+                                onSearch: widget.onSearchProducts,
+                                itemBuilder: (product, isSelected, isHovered) =>
+                                    Container(
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(
+                                        color: isHovered || isSelected
+                                            ? Colors.transparent
+                                            : const Color(0xFFE5E7EB),
+                                        width: 1.0,
                                       ),
-                                      PopupMenuButton<String>(
-                                        padding: EdgeInsets.zero,
-                                        icon: const Icon(
-                                          LucideIcons.moreHorizontal,
-                                          size: 16,
-                                          color: AppTheme.textSecondary,
-                                        ),
-                                        itemBuilder: (ctx) => [
-                                          const PopupMenuItem(
-                                            value: 'edit',
-                                            child: Text('Edit Item',
-                                                style: TextStyle(fontSize: 13)),
+                                    ),
+                                  ),
+                                  child: _PRProductDropdownItem(
+                                    productName: product.productName,
+                                    costPrice: product.costPrice,
+                                    highlighted: isSelected || isHovered,
+                                  ),
+                                ),
+                                onChanged: _onItemSelected,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3F4F6),
+                                    border: Border.all(color: AppTheme.borderLight),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: item.sourceItem!.primaryImageUrl != null &&
+                                          item.sourceItem!.primaryImageUrl!.isNotEmpty
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: Image.network(
+                                            item.sourceItem!.primaryImageUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) =>
+                                                const Icon(LucideIcons.image,
+                                                    size: 16, color: AppTheme.textMuted),
                                           ),
-                                          const PopupMenuItem(
-                                            value: 'details',
-                                            child: Text('View Item Details',
-                                                style: TextStyle(fontSize: 13)),
+                                        )
+                                      : const Icon(LucideIcons.image,
+                                          size: 16, color: AppTheme.textMuted),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              item.sourceItem!.productName,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppTheme.textPrimary,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          PopupMenuButton<String>(
+                                            padding: EdgeInsets.zero,
+                                            icon: const Icon(
+                                              LucideIcons.moreHorizontal,
+                                              size: 16,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                            itemBuilder: (ctx) => [
+                                              const PopupMenuItem(
+                                                value: 'edit',
+                                                child: Text('Edit Item',
+                                                    style: TextStyle(fontSize: 13)),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'details',
+                                                child: Text('View Item Details',
+                                                    style: TextStyle(fontSize: 13)),
+                                              ),
+                                            ],
+                                          ),
+                                          InkWell(
+                                            onTap: () {
+                                              setState(() {
+                                                item.sourceItem = null;
+                                                item.descriptionController.clear();
+                                                item.rateController.clear();
+                                                item.returnQtyController.clear();
+                                              });
+                                              widget.onChanged();
+                                            },
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(4),
+                                              child: Icon(LucideIcons.x,
+                                                  size: 14, color: AppTheme.textMuted),
+                                            ),
                                           ),
                                         ],
                                       ),
-                                      InkWell(
-                                        onTap: () {
-                                          setState(() {
-                                            item.sourceItem = null;
-                                            item.descriptionController.clear();
-                                            item.rateController.clear();
-                                            item.returnQtyController.clear();
-                                          });
-                                          widget.onChanged();
-                                        },
-                                        child: const Padding(
-                                          padding: EdgeInsets.all(4),
-                                          child: Icon(LucideIcons.x,
-                                              size: 14, color: AppTheme.textMuted),
+                                      const SizedBox(height: 4),
+                                      Focus(
+                                        onFocusChange: (_) => setState(() {}),
+                                        child: Builder(
+                                          builder: (focusCtx) {
+                                            final isFocused =
+                                                Focus.of(focusCtx).hasFocus;
+                                            return AnimatedContainer(
+                                              duration: const Duration(milliseconds: 120),
+                                              height: 64,
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(
+                                                  color: isFocused
+                                                      ? const Color(0xFF0088FF)
+                                                      : AppTheme.borderLight,
+                                                  width: isFocused ? 1.5 : 1.0,
+                                                ),
+                                              ),
+                                              child: TextField(
+                                                controller: item.descriptionController,
+                                                maxLines: null,
+                                                expands: true,
+                                                textAlignVertical:
+                                                    TextAlignVertical.top,
+                                                style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppTheme.textPrimary),
+                                                decoration: const InputDecoration(
+                                                  isDense: true,
+                                                  contentPadding: EdgeInsets.zero,
+                                                  border: InputBorder.none,
+                                                  focusedBorder: InputBorder.none,
+                                                  enabledBorder: InputBorder.none,
+                                                  hintText:
+                                                      'Add a description to your item',
+                                                  hintStyle: TextStyle(
+                                                      fontSize: 12,
+                                                      color: AppTheme.textMuted),
+                                                  filled: true,
+                                                  fillColor: Colors.transparent,
+                                                ),
+                                                onChanged: (_) => setState(() {}),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Focus(
-                                    onFocusChange: (_) => setState(() {}),
-                                    child: Builder(
-                                      builder: (focusCtx) {
-                                        final isFocused =
-                                            Focus.of(focusCtx).hasFocus;
-                                        return AnimatedContainer(
-                                          duration: const Duration(milliseconds: 120),
-                                          height: 64,
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(4),
-                                            border: Border.all(
-                                              color: isFocused
-                                                  ? const Color(0xFF0088FF)
-                                                  : AppTheme.borderLight,
-                                              width: isFocused ? 1.5 : 1.0,
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: item.sourceItem!.type
+                                                          .toUpperCase() ==
+                                                      'SERVICE'
+                                                  ? const Color(0xFFF97316)
+                                                  : const Color(0xFF0088FF),
+                                              borderRadius:
+                                                  BorderRadius.circular(3),
+                                            ),
+                                            child: Text(
+                                              item.sourceItem!.type.toUpperCase() ==
+                                                      'SERVICE'
+                                                  ? 'SERVICE'
+                                                  : 'GOODS',
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.white,
+                                              ),
                                             ),
                                           ),
-                                          child: TextField(
-                                            controller: item.descriptionController,
-                                            maxLines: null,
-                                            expands: true,
-                                            textAlignVertical:
-                                                TextAlignVertical.top,
-                                            style: const TextStyle(
-                                                fontSize: 12,
-                                                color: AppTheme.textPrimary),
-                                            decoration: const InputDecoration(
-                                              isDense: true,
-                                              contentPadding: EdgeInsets.zero,
-                                              border: InputBorder.none,
-                                              focusedBorder: InputBorder.none,
-                                              enabledBorder: InputBorder.none,
-                                              hintText:
-                                                  'Add a description to your item',
-                                              hintStyle: TextStyle(
-                                                  fontSize: 12,
-                                                  color: AppTheme.textMuted),
-                                              filled: true,
-                                              fillColor: Colors.transparent,
+                                          if (item.sourceItem!.hsnCode != null &&
+                                              item.sourceItem!.hsnCode!.isNotEmpty) ...[
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              item.sourceItem!.type.toUpperCase() ==
+                                                      'SERVICE'
+                                                  ? 'SAC Code: '
+                                                  : 'HSN Code: ',
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppTheme.textSecondary),
                                             ),
-                                            onChanged: (_) => setState(() {}),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: item.sourceItem!.type
-                                                      .toUpperCase() ==
-                                                  'SERVICE'
-                                              ? const Color(0xFFF97316)
-                                              : const Color(0xFF0088FF),
-                                          borderRadius:
-                                              BorderRadius.circular(3),
-                                        ),
-                                        child: Text(
-                                          item.sourceItem!.type.toUpperCase() ==
-                                                  'SERVICE'
-                                              ? 'SERVICE'
-                                              : 'GOODS',
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.white,
-                                          ),
-                                        ),
+                                            const Icon(LucideIcons.pencil,
+                                                size: 10, color: Color(0xFF0088FF)),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              item.sourceItem!.hsnCode!,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF0088FF),
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
-                                      if (item.sourceItem!.hsnCode != null &&
-                                          item.sourceItem!.hsnCode!.isNotEmpty) ...[
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          item.sourceItem!.type.toUpperCase() ==
-                                                  'SERVICE'
-                                              ? 'SAC Code: '
-                                              : 'HSN Code: ',
-                                          style: const TextStyle(
-                                              fontSize: 11,
-                                              color: AppTheme.textSecondary),
-                                        ),
-                                        const Icon(LucideIcons.pencil,
-                                            size: 10, color: Color(0xFF0088FF)),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          item.sourceItem!.hsnCode!,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Color(0xFF0088FF),
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
                                     ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-          _vLine(),
-          // BILLED QTY (Readonly value)
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Text(
-                billedQtyText,
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-            ),
-          ),
-          _vLine(),
-          // RETURNED QTY (Readonly value)
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Text(
-                returnedQtyText,
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-            ),
-          ),
-          _vLine(),
-          // QTY TO RETURN (Text Field + Select Batch button if qty > 0)
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  CustomTextField(
-                    controller: item.returnQtyController,
-                    height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                    textAlign: TextAlign.right,
-                    hintText: '0',
-                    hideBorderDefault: true,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    onChanged: (_) {
-                      setState(() {});
-                      widget.onChanged();
-                    },
-                  ),
-                  if (item.batches.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    InkWell(
-                      onTap: () => widget.onSelectBatch(item),
-                      child: Text(
-                        _getBatchSummaryText(item.batches),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF2563EB),
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ] else if (qtyToReturnVal > 0) ...[
-                    const SizedBox(height: 4),
-                    InkWell(
-                      onTap: () => widget.onSelectBatch(item),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(
-                            LucideIcons.alertTriangle,
-                            size: 12,
-                            color: AppTheme.errorRed,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Select Batch',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.primaryBlue,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          _vLine(),
-          // RATE
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  CustomTextField(
-                    controller: item.rateController,
-                    height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                    textAlign: TextAlign.right,
-                    hintText: '0.00',
-                    hideBorderDefault: true,
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) {
-                      setState(() {});
-                      widget.onChanged();
-                    },
-                  ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 4),
-                    InkWell(
-                      onTap: () {},
-                      child: const Text(
-                        'Recent Transactions',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.primaryBlue,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          _vLine(),
-          // TAX
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FormDropdown<_PRTaxOption>(
-                    value: item.selectedTax == null
-                        ? null
-                        : taxOptions.firstWhere(
-                            (o) => o.label == item.selectedTax,
-                            orElse: () => taxOptions.firstWhere(
-                              (o) => !o.isHeader,
-                              orElse: () => taxOptions[0],
-                            ),
-                          ),
-                    items: taxOptions,
-                    hint: 'Select Tax',
-                    height: _PurchaseReturnsCreatePageState._tableFieldHeight,
-                    menuWidth: 360,
-                    hideBorderDefault: true,
-                    allowClear: true,
-                    displayStringForValue: (o) => o.label,
-                    isItemEnabled: (o) => !o.isHeader,
-                    itemBuilder: (option, isSelected, isHovered) {
-                      if (option.isHeader) {
-                        return Container(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                          color: Colors.white,
-                          width: double.infinity,
-                          child: Text(
-                            option.label,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF475569),
-                            ),
-                          ),
-                        );
-                      }
-                      final isIndented = option.label.startsWith('GST') ||
-                          option.label.startsWith('IGST');
-                      return Container(
-                        padding: EdgeInsets.only(
-                          left: isIndented ? 28 : 16,
-                          right: 16,
-                          top: option.description != null ? 10 : 8,
-                          bottom: option.description != null ? 10 : 8,
-                        ),
-                        color: isHovered ? AppTheme.primaryBlue : Colors.white,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    option.label,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: isHovered
-                                          ? Colors.white
-                                          : (isSelected
-                                              ? AppTheme.primaryBlue
-                                              : const Color(0xFF1E293B)),
-                                      fontWeight: (isHovered || isSelected)
-                                          ? FontWeight.w500
-                                          : FontWeight.normal,
-                                    ),
                                   ),
                                 ),
-                                if (isSelected)
-                                  Icon(
-                                    Icons.check,
-                                    size: 16,
-                                    color: isHovered
-                                        ? Colors.white
-                                        : AppTheme.primaryBlue,
-                                  ),
                               ],
                             ),
-                            if (option.description != null) ...[
-                              const SizedBox(height: 3),
-                              Text(
-                                option.description!,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isHovered
-                                      ? Colors.white70
-                                      : const Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
                           ],
                         ),
-                      );
-                    },
-                    onChanged: (val) {
-                      if (val != null && !val.isHeader) {
-                        setState(() {
-                          item.selectedTax = val.label;
-                          item.selectedTaxRate = val.rate;
-                          item.selectedTaxId = val.id;
-                        });
-                        widget.onChanged();
-                      } else if (val == null) {
-                        setState(() {
-                          item.selectedTax = null;
-                          item.selectedTaxRate = null;
-                          item.selectedTaxId = null;
-                        });
-                        widget.onChanged();
-                      }
-                    },
-                  ),
-                ],
               ),
             ),
-          ),
-          _vLine(),
-          // AMOUNT
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-              child: Align(
-                alignment: Alignment.centerRight,
+            _vLine(),
+            // BILLED QTY (Readonly value)
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 child: Text(
-                  '₹${_computeAmount(item)}',
+                  billedQtyText,
                   textAlign: TextAlign.right,
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
                     color: AppTheme.textPrimary,
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+            _vLine(),
+            // RETURNED QTY (Readonly value)
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                child: Text(
+                  returnedQtyText,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+            _vLine(),
+            // QTY TO RETURN (Text Field + Select Batch button if qty > 0)
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    CustomTextField(
+                      controller: item.returnQtyController,
+                      height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+                      textAlign: TextAlign.right,
+                      hintText: '0',
+                      hideBorderDefault: true,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onChanged: (_) {
+                        setState(() {});
+                        widget.onChanged();
+                      },
+                    ),
+                    if (item.batches.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      InkWell(
+                        onTap: () => widget.onSelectBatch(item),
+                        child: Text(
+                          _getBatchSummaryText(item.batches),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF2563EB),
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ] else if (qtyToReturnVal > 0) ...[
+                      const SizedBox(height: 4),
+                      InkWell(
+                        onTap: () => widget.onSelectBatch(item),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(
+                              LucideIcons.alertTriangle,
+                              size: 12,
+                              color: AppTheme.errorRed,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Select Batch',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.primaryBlue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            _vLine(),
+            // RATE
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    CustomTextField(
+                      controller: item.rateController,
+                      height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+                      textAlign: TextAlign.right,
+                      hintText: '0.00',
+                      hideBorderDefault: true,
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) {
+                        setState(() {});
+                        widget.onChanged();
+                      },
+                    ),
+                    if (item.sourceItem != null) ...[
+                      const SizedBox(height: 4),
+                      InkWell(
+                        onTap: () {},
+                        child: const Text(
+                          'Recent Transactions',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.primaryBlue,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            _vLine(),
+            // TAX
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FormDropdown<_PRTaxOption>(
+                      value: item.selectedTax == null
+                          ? null
+                          : taxOptions.firstWhere(
+                              (o) => o.label == item.selectedTax,
+                              orElse: () => taxOptions.firstWhere(
+                                (o) => !o.isHeader,
+                                orElse: () => taxOptions[0],
+                              ),
+                            ),
+                      items: taxOptions,
+                      hint: 'Select Tax',
+                      height: _PurchaseReturnsCreatePageState._tableFieldHeight,
+                      menuWidth: 360,
+                      hideBorderDefault: true,
+                      allowClear: true,
+                      displayStringForValue: (o) => o.label,
+                      isItemEnabled: (o) => !o.isHeader,
+                      itemBuilder: (option, isSelected, isHovered) {
+                        if (option.isHeader) {
+                          return Container(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                            color: Colors.white,
+                            width: double.infinity,
+                            child: Text(
+                              option.label,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                          );
+                        }
+                        final isIndented = option.label.startsWith('GST') ||
+                            option.label.startsWith('IGST');
+                        return Container(
+                          padding: EdgeInsets.only(
+                            left: isIndented ? 28 : 16,
+                            right: 16,
+                            top: option.description != null ? 10 : 8,
+                            bottom: option.description != null ? 10 : 8,
+                          ),
+                          color: isHovered ? AppTheme.primaryBlue : Colors.white,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      option.label,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isHovered
+                                            ? Colors.white
+                                            : (isSelected
+                                                ? AppTheme.primaryBlue
+                                                : const Color(0xFF1E293B)),
+                                        fontWeight: (isHovered || isSelected)
+                                            ? FontWeight.w500
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    Icon(
+                                      Icons.check,
+                                      size: 16,
+                                      color: isHovered
+                                          ? Colors.white
+                                          : AppTheme.primaryBlue,
+                                    ),
+                                ],
+                              ),
+                              if (option.description != null) ...[
+                                const SizedBox(height: 3),
+                                Text(
+                                  option.description!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isHovered
+                                        ? Colors.white70
+                                        : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      },
+                      onChanged: (val) {
+                        if (val != null && !val.isHeader) {
+                          setState(() {
+                            item.selectedTax = val.label;
+                            item.selectedTaxRate = val.rate;
+                            item.selectedTaxId = val.id;
+                          });
+                          widget.onChanged();
+                        } else if (val == null) {
+                          setState(() {
+                            item.selectedTax = null;
+                            item.selectedTaxRate = null;
+                            item.selectedTaxId = null;
+                          });
+                          widget.onChanged();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            _vLine(),
+            // AMOUNT
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '₹${_computeAmount(item)}',
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-    );
+      if (widget.showAdditionalInformation)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF8FAFC),
+            border: Border(
+              top: BorderSide(color: AppTheme.borderLight),
+            ),
+          ),
+          child: _buildReportingTags(item, widget.availableAccounts),
+        ),
+    ],
+  );
   }
 }
 
@@ -4790,7 +5575,10 @@ class _PRProductDropdownItem extends StatelessWidget {
 class _BatchRowData {
   String? binLocation;
   String? batchNo;
-  String packSize;
+  String? batchId;
+  String? layerId;
+  String? warehouseId;
+  late TextEditingController packSizeCtrl;
   late TextEditingController mrpCtrl;
   late TextEditingController pRateCtrl;
   DateTime? expiryDate;
@@ -4799,25 +5587,39 @@ class _BatchRowData {
   _BatchRowData({
     this.binLocation,
     this.batchNo,
-    this.packSize = 'Pack of 10 Items',
+    this.batchId,
+    this.layerId,
+    this.warehouseId,
+    String packSize = '',
     double mrp = 0.0,
     double pRate = 0.0,
     this.expiryDate,
     String quantity = '0',
   }) {
+    packSizeCtrl = TextEditingController(text: packSize);
     mrpCtrl = TextEditingController(text: mrp.toStringAsFixed(0));
     pRateCtrl = TextEditingController(text: pRate.toStringAsFixed(0));
     quantityCtrl = TextEditingController(text: quantity);
   }
 
   factory _BatchRowData.fromMap(Map<String, dynamic> map) {
+    DateTime? parsedExpiry;
+    if (map['expiry_date'] is DateTime) {
+      parsedExpiry = map['expiry_date'] as DateTime;
+    } else if (map['expiry_date'] != null && map['expiry_date'].toString().isNotEmpty) {
+      parsedExpiry = DateTime.tryParse(map['expiry_date'].toString());
+    }
+
     return _BatchRowData(
-      binLocation: map['bin_location'] as String?,
-      batchNo: map['batch_no'] as String?,
-      packSize: map['pack_size'] as String? ?? 'Pack of 10 Items',
+      binLocation: map['bin_location']?.toString(),
+      batchNo: map['batch_no']?.toString() ?? map['batch_number']?.toString() ?? map['manufacture_batch_no']?.toString(),
+      batchId: map['batch_id']?.toString() ?? map['id']?.toString(),
+      layerId: map['layer_id']?.toString() ?? map['batch_id']?.toString() ?? map['id']?.toString(),
+      warehouseId: map['warehouse_id']?.toString(),
+      packSize: map['pack_size']?.toString() ?? map['unit_pack']?.toString() ?? '',
       mrp: (map['mrp'] as num?)?.toDouble() ?? 0.0,
-      pRate: (map['p_rate'] as num?)?.toDouble() ?? 0.0,
-      expiryDate: map['expiry_date'] as DateTime?,
+      pRate: (map['p_rate'] as num?)?.toDouble() ?? (map['purchase_rate'] as num?)?.toDouble() ?? 0.0,
+      expiryDate: parsedExpiry,
       quantity: map['quantity']?.toString() ?? '0',
     );
   }
@@ -4826,10 +5628,16 @@ class _BatchRowData {
     return {
       'bin_location': binLocation,
       'batch_no': batchNo,
-      'pack_size': packSize,
+      'batch_number': batchNo,
+      'batch_id': batchId,
+      'layer_id': layerId,
+      'warehouse_id': warehouseId,
+      'pack_size': packSizeCtrl.text,
+      'unit_pack': packSizeCtrl.text,
       'mrp': double.tryParse(mrpCtrl.text) ?? 0.0,
       'p_rate': double.tryParse(pRateCtrl.text) ?? 0.0,
-      'expiry_date': expiryDate,
+      'purchase_rate': double.tryParse(pRateCtrl.text) ?? 0.0,
+      'expiry_date': expiryDate?.toIso8601String(),
       'quantity': double.tryParse(quantityCtrl.text) ?? 0.0,
     };
   }
@@ -4861,6 +5669,7 @@ class _AddBatchDialog extends ConsumerStatefulWidget {
 class _AddBatchDialogState extends ConsumerState<_AddBatchDialog> {
   late List<_BatchRowData> _rows;
   bool _overwriteLineItem = false;
+  String? _productPackSizeName;
 
   @override
   void initState() {
@@ -4878,6 +5687,47 @@ class _AddBatchDialogState extends ConsumerState<_AddBatchDialog> {
         ),
       ];
     }
+    _fetchProductUnitPack();
+  }
+
+  Future<void> _fetchProductUnitPack() async {
+    if (widget.productId.isEmpty) return;
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('products')
+          .select('unit_pack_id')
+          .eq('id', widget.productId)
+          .maybeSingle();
+
+      if (response != null && mounted) {
+        final unitPackId = response['unit_pack_id']?.toString();
+        if (unitPackId != null && unitPackId.isNotEmpty) {
+          final packResponse = await supabase
+              .from('product_pack_sizes')
+              .select('pack_name, unit_pack')
+              .eq('id', unitPackId)
+              .maybeSingle();
+
+          final resolvedName = packResponse?['pack_name']?.toString() ??
+              packResponse?['unit_pack']?.toString() ??
+              unitPackId;
+
+          if (resolvedName.isNotEmpty && mounted) {
+            setState(() {
+              _productPackSizeName = resolvedName;
+              for (final r in _rows) {
+                if (r.packSizeCtrl.text.isEmpty) {
+                  r.packSizeCtrl.text = resolvedName;
+                }
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching product unit_pack_id: $e', module: 'purchases');
+    }
   }
 
   double get _quantityToBeAdded {
@@ -4889,7 +5739,11 @@ class _AddBatchDialogState extends ConsumerState<_AddBatchDialog> {
 
   void _addRow() {
     setState(() {
-      _rows.add(_BatchRowData());
+      final row = _BatchRowData();
+      if (_productPackSizeName != null && _productPackSizeName!.isNotEmpty) {
+        row.packSizeCtrl.text = _productPackSizeName!;
+      }
+      _rows.add(row);
     });
   }
 
@@ -4904,15 +5758,19 @@ class _AddBatchDialogState extends ConsumerState<_AddBatchDialog> {
   @override
   Widget build(BuildContext context) {
     // 1. Fetch bins for warehouse
-    final binsAsync = ref.watch(binsLookupProvider(widget.warehouseId));
+    final warehouses = ref.watch(warehousesProvider).valueOrNull ?? [];
+    final matchedWh = warehouses.firstWhere(
+      (w) => w.id == widget.warehouseId || w.name.toLowerCase() == widget.warehouseId.toLowerCase(),
+      orElse: () => Warehouse(id: widget.warehouseId, name: widget.warehouseName),
+    );
+    final targetWhId = matchedWh.id.isNotEmpty ? matchedWh.id : widget.warehouseId;
+
+    final binsAsync = ref.watch(binsLookupProvider(targetWhId));
     final loadedBins = binsAsync.valueOrNull ?? [];
     List<String> binOptions = loadedBins
         .map((b) => b['bin_code'] ?? '')
         .where((c) => c.isNotEmpty)
         .toList();
-    if (binOptions.isEmpty) {
-      binOptions = const ['Default Bin', 'Bin A-1', 'Bin B-2', 'test 1 central5-te...'];
-    }
 
     // 2. Fetch batches for product
     final batchesAsync = ref.watch(batchLookupProvider(widget.productId));
@@ -5066,67 +5924,100 @@ class _AddBatchDialogState extends ConsumerState<_AddBatchDialog> {
                     const Divider(height: 1, color: AppTheme.borderLight),
                     // Table Rows
                     for (int i = 0; i < _rows.length; i++) ...[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: Row(
-                          children: [
-                            // Bin Location
-                            Expanded(
-                              flex: 3,
-                              child: FormDropdown<String>(
-                                value: _rows[i].binLocation,
-                                items: binOptions,
-                                hint: 'Select Bin',
-                                height: 36,
-                                onChanged: (v) {
-                                  setState(() {
-                                    _rows[i].binLocation = v;
-                                    _rows[i].batchNo = null;
-                                    _rows[i].mrpCtrl.text = '0';
-                                    _rows[i].pRateCtrl.text = '0';
-                                    _rows[i].expiryDate = null;
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Batch No
-                            Expanded(
-                              flex: 3,
-                              child: Builder(
-                                builder: (context) {
-                                  final hasSelectedBin = _rows[i].binLocation != null && _rows[i].binLocation!.isNotEmpty;
-                                  final selectedBin = _rows[i].binLocation?.toLowerCase() ?? '';
+                      Builder(
+                        builder: (context) {
+                          // Auto-resolve UUID binLocation to bin_code
+                          if (_rows[i].binLocation != null && _rows[i].binLocation!.isNotEmpty) {
+                            if (!binOptions.contains(_rows[i].binLocation)) {
+                              final matchedBin = loadedBins.firstWhere(
+                                (b) => b['id'] == _rows[i].binLocation || b['bin_code'] == _rows[i].binLocation,
+                                orElse: () => <String, String>{},
+                              );
+                              if (matchedBin.isNotEmpty && matchedBin['bin_code'] != null) {
+                                _rows[i].binLocation = matchedBin['bin_code'].toString();
+                              }
+                            }
+                          }
 
-                                  List<Map<String, dynamic>> matchingBatches = [];
-                                  if (hasSelectedBin) {
-                                    matchingBatches = allProductBatches.where((b) {
-                                      final binIds = b['bin_ids'] is Set
-                                          ? b['bin_ids'] as Set
-                                          : (b['bin_ids'] is Iterable ? (b['bin_ids'] as Iterable).toSet() : <String>{});
-                                      final binCodes = b['bin_codes'] is Set
-                                          ? b['bin_codes'] as Set
-                                          : (b['bin_codes'] is Iterable ? (b['bin_codes'] as Iterable).toSet() : <String>{});
-                                      final singleCode = (b['bin_code'] ?? b['binCode'] ?? '').toString().toLowerCase();
+                          // Auto-resolve binLocation from batchNo if binLocation is missing
+                          if ((_rows[i].binLocation == null || _rows[i].binLocation!.isEmpty) &&
+                              _rows[i].batchNo != null &&
+                              _rows[i].batchNo!.isNotEmpty &&
+                              allProductBatches.isNotEmpty) {
+                            final matchBatch = allProductBatches.firstWhere(
+                              (b) => (b['batch_no'] ?? b['batchNo'])?.toString().trim() == _rows[i].batchNo?.trim(),
+                              orElse: () => <String, dynamic>{},
+                            );
+                            if (matchBatch.isNotEmpty) {
+                              final binCodes = matchBatch['bin_codes'] is Iterable
+                                  ? (matchBatch['bin_codes'] as Iterable).toList()
+                                  : [];
+                              if (binCodes.isNotEmpty && binOptions.contains(binCodes.first.toString())) {
+                                _rows[i].binLocation = binCodes.first.toString();
+                              } else if (binOptions.isNotEmpty) {
+                                _rows[i].binLocation = binOptions.first;
+                              }
+                            }
+                          }
 
-                                      return binCodes.contains(selectedBin) ||
-                                             binIds.contains(_rows[i].binLocation) ||
-                                             singleCode == selectedBin ||
-                                             (binCodes.isEmpty && binIds.isEmpty && singleCode.isEmpty);
-                                    }).toList();
+                          final hasSelectedBin = _rows[i].binLocation != null && _rows[i].binLocation!.isNotEmpty;
+                          final selectedBin = _rows[i].binLocation?.toLowerCase() ?? '';
 
-                                    if (matchingBatches.isEmpty) {
-                                      matchingBatches = allProductBatches;
-                                    }
-                                  }
+                          List<Map<String, dynamic>> matchingBatches = [];
+                          if (hasSelectedBin) {
+                            matchingBatches = allProductBatches.where((b) {
+                              final binIds = b['bin_ids'] is Set
+                                  ? b['bin_ids'] as Set
+                                  : (b['bin_ids'] is Iterable ? (b['bin_ids'] as Iterable).toSet() : <String>{});
+                              final binCodes = b['bin_codes'] is Set
+                                  ? b['bin_codes'] as Set
+                                  : (b['bin_codes'] is Iterable ? (b['bin_codes'] as Iterable).toSet() : <String>{});
+                              final singleCode = (b['bin_code'] ?? b['binCode'] ?? '').toString().toLowerCase();
 
-                                  final selectedBatchObj = matchingBatches.firstWhere(
-                                    (b) => (b['batch_no'] ?? b['batchNo'])?.toString().trim() == _rows[i].batchNo?.trim(),
-                                    orElse: () => <String, dynamic>{},
-                                  );
+                              return binCodes.contains(selectedBin) ||
+                                     binIds.contains(_rows[i].binLocation) ||
+                                     singleCode == selectedBin ||
+                                     (binCodes.isEmpty && binIds.isEmpty && singleCode.isEmpty);
+                            }).toList();
+                          }
+                          if (matchingBatches.isEmpty) {
+                            matchingBatches = allProductBatches;
+                          }
 
-                                  return FormDropdown<Map<String, dynamic>>(
-                                    enabled: hasSelectedBin,
+                          final selectedBatchObj = matchingBatches.firstWhere(
+                            (b) => (b['batch_no'] ?? b['batchNo'])?.toString().trim() == _rows[i].batchNo?.trim(),
+                            orElse: () => <String, dynamic>{},
+                          );
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            child: Row(
+                              children: [
+                                // Bin Location
+                                Expanded(
+                                  flex: 3,
+                                  child: FormDropdown<String>(
+                                    value: binOptions.contains(_rows[i].binLocation) ? _rows[i].binLocation : null,
+                                    items: binOptions,
+                                    hint: 'Select Bin',
+                                    height: 36,
+                                    onChanged: (v) {
+                                      setState(() {
+                                        _rows[i].binLocation = v;
+                                        _rows[i].batchNo = null;
+                                        _rows[i].mrpCtrl.text = '0';
+                                        _rows[i].pRateCtrl.text = '0';
+                                        _rows[i].expiryDate = null;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Batch No
+                                Expanded(
+                                  flex: 3,
+                                  child: FormDropdown<Map<String, dynamic>>(
+                                    enabled: matchingBatches.isNotEmpty || allProductBatches.isNotEmpty,
                                     value: selectedBatchObj.isEmpty ? null : selectedBatchObj,
                                     items: matchingBatches,
                                     hint: 'Select Batch',
@@ -5166,7 +6057,21 @@ class _AddBatchDialogState extends ConsumerState<_AddBatchDialog> {
                                       setState(() {
                                         final bNo = (selectedMap['batch_no'] ?? selectedMap['batchNo'])?.toString();
                                         _rows[i].batchNo = bNo;
+                                        _rows[i].batchId = selectedMap['id']?.toString() ?? selectedMap['batch_id']?.toString();
+                                        _rows[i].layerId = selectedMap['layer_id']?.toString() ?? selectedMap['id']?.toString();
+                                        _rows[i].warehouseId = selectedMap['warehouse_id']?.toString();
                                         
+                                        if (_rows[i].binLocation == null || _rows[i].binLocation!.isEmpty) {
+                                          final bCodes = selectedMap['bin_codes'] is Iterable
+                                              ? (selectedMap['bin_codes'] as Iterable).toList()
+                                              : [];
+                                          if (bCodes.isNotEmpty && binOptions.contains(bCodes.first.toString())) {
+                                            _rows[i].binLocation = bCodes.first.toString();
+                                          } else if (binOptions.isNotEmpty) {
+                                            _rows[i].binLocation = binOptions.first;
+                                          }
+                                        }
+
                                         final mrpVal = selectedMap['mrp'];
                                         if (mrpVal != null) {
                                           _rows[i].mrpCtrl.text = (mrpVal is num)
@@ -5191,20 +6096,17 @@ class _AddBatchDialogState extends ConsumerState<_AddBatchDialog> {
                                         }
 
                                         if (selectedMap['pack_size'] != null && selectedMap['pack_size'].toString().isNotEmpty) {
-                                          _rows[i].packSize = selectedMap['pack_size'].toString();
+                                          _rows[i].packSizeCtrl.text = selectedMap['pack_size'].toString();
                                         }
                                       });
                                     },
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
+                                  ),
+                                ),
                             // Pack Size
                             Expanded(
                               flex: 4,
                               child: CustomTextField(
-                                controller: TextEditingController(text: _rows[i].packSize),
+                                controller: _rows[i].packSizeCtrl,
                                 readOnly: true,
                                 height: 36,
                                 hideBorderDefault: false,
@@ -5284,9 +6186,11 @@ class _AddBatchDialogState extends ConsumerState<_AddBatchDialog> {
                             ),
                           ],
                         ),
-                      ),
-                      if (i < _rows.length - 1)
-                        const Divider(height: 1, color: AppTheme.borderLight),
+                      );
+                    },
+                  ),
+                  if (i < _rows.length - 1)
+                    const Divider(height: 1, color: AppTheme.borderLight),
                     ],
                   ],
                 ),
@@ -5710,4 +6614,243 @@ class _TrianglePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ────────────────────────────────────────────────────────────────────────────────
+// Account Selection Popover Widget
+// ────────────────────────────────────────────────────────────────────────────────
+
+class _AccountSelectionPopover extends StatefulWidget {
+  final List<AccountNode> accounts;
+  final String? selectedAccountId;
+  final ValueChanged<AccountNode> onSelected;
+
+  const _AccountSelectionPopover({
+    required this.accounts,
+    this.selectedAccountId,
+    required this.onSelected,
+  });
+
+  @override
+  State<_AccountSelectionPopover> createState() =>
+      _AccountSelectionPopoverState();
+}
+
+class _AccountSelectionPopoverState extends State<_AccountSelectionPopover> {
+  String _search = '';
+  final _searchCtrl = TextEditingController();
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Map<String, List<AccountNode>> get _grouped {
+    final Map<String, List<AccountNode>> grouped = {};
+    for (var acc in widget.accounts) {
+      final name = acc.systemAccountName.isNotEmpty
+          ? acc.systemAccountName
+          : acc.userAccountName;
+      if (_search.isNotEmpty &&
+          !name.toLowerCase().contains(_search.toLowerCase())) {
+        continue;
+      }
+      final type = acc.accountType;
+      grouped.putIfAbsent(type, () => []).add(acc);
+    }
+    return grouped;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = _grouped;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: SizedBox(
+            height: 36,
+            child: TextField(
+              controller: _searchCtrl,
+              autofocus: true,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Select an account',
+                hintStyle: const TextStyle(
+                  color: Color(0xFF6B7280),
+                  fontSize: 13,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  size: 16,
+                  color: Color(0xFF6B7280),
+                ),
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 32,
+                  minHeight: 36,
+                ),
+                contentPadding: EdgeInsets.zero,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(
+                    color: Color(0xFFD1D5DB),
+                    width: 1,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(
+                    color: Color(0xFFD1D5DB),
+                    width: 1,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF3B82F6),
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              onChanged: (v) => setState(() => _search = v),
+            ),
+          ),
+        ),
+        const Divider(height: 1),
+        Flexible(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 220),
+            child: Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              child: ListView(
+                controller: _scrollController,
+                shrinkWrap: true,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                children: groups.entries.expand((entry) {
+                  return [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        entry.key,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF6B7280),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    ...() {
+                      final List<Widget> items = [];
+                      final groupAccounts = entry.value;
+                      final accountMap = {for (var a in groupAccounts) a.id: a};
+                      final rootNodes = groupAccounts
+                          .where((a) =>
+                              a.parentId == null ||
+                              !accountMap.containsKey(a.parentId))
+                          .toList();
+
+                      void addNode(AccountNode node, int depth) {
+                        final isSelected = node.id == widget.selectedAccountId;
+                        final name = node.systemAccountName.isNotEmpty
+                            ? node.systemAccountName
+                            : node.userAccountName;
+                        items.add(
+                          _PopoverListItem(
+                            label: name,
+                            indent: depth,
+                            isSelected: isSelected,
+                            onTap: () => widget.onSelected(node),
+                          ),
+                        );
+                        final children = groupAccounts
+                            .where((a) => a.parentId == node.id)
+                            .toList();
+                        for (var child in children) {
+                          addNode(child, depth + 1);
+                        }
+                      }
+
+                      for (var root in rootNodes) {
+                        addNode(root, 0);
+                      }
+                      return items;
+                    }(),
+                  ];
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+        const Divider(height: 1),
+      ],
+    );
+  }
+}
+
+class _PopoverListItem extends StatefulWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final int indent;
+
+  const _PopoverListItem({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    this.indent = 0,
+  });
+
+  @override
+  State<_PopoverListItem> createState() => _PopoverListItemState();
+}
+
+class _PopoverListItemState extends State<_PopoverListItem> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        child: Container(
+          color: _hovered
+              ? const Color(0xFF0088FF)
+              : (widget.isSelected ? const Color(0xFFEFF6FF) : Colors.white),
+          padding: EdgeInsets.only(
+            left: 16.0 + (widget.indent * 16.0),
+            right: 16.0,
+            top: 8.0,
+            bottom: 8.0,
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 13,
+              color: _hovered
+                  ? Colors.white
+                  : (widget.isSelected
+                      ? const Color(0xFF2563EB)
+                      : const Color(0xFF374151)),
+              fontWeight:
+                  widget.isSelected ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

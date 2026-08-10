@@ -5,7 +5,7 @@ import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/page
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_update_screen.dart';
 import 'package:zerpai_erp/modules/accountant/presentation/pages/accountant_settings_screen.dart';
 import 'package:zerpai_erp/modules/accountant/transaction_locking/presentation/pages/accountant_transaction_locking_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_account_transactions.dart';
+import 'package:zerpai_erp/modules/reports/accountant/presentation/pages/reports_account_transactions.dart';
 
 List<RouteBase> buildAccountantStandaloneRoutes({
   required bool Function(String moduleKey, {String action})

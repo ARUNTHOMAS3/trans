@@ -228,6 +228,8 @@ class _PurchaseReturnsReportPageState
     }).toList();
   }
 
+  String? _pendingInitialId;
+
   @override
   void initState() {
     super.initState();
@@ -240,8 +242,7 @@ class _PurchaseReturnsReportPageState
       _searchController.text = widget.initialSearch!;
     }
     if (widget.initialId != null) {
-      final idx = _filteredRows.indexWhere((r) => r.id == widget.initialId);
-      if (idx >= 0) _detailIndex = idx;
+      _pendingInitialId = widget.initialId;
     }
   }
 
@@ -273,9 +274,9 @@ class _PurchaseReturnsReportPageState
     if (widget.initialId != oldWidget.initialId) {
       if (widget.initialId == null) {
         _detailIndex = null;
+        _pendingInitialId = null;
       } else {
-        final idx = _filteredRows.indexWhere((r) => r.id == widget.initialId);
-        _detailIndex = idx >= 0 ? idx : null;
+        _pendingInitialId = widget.initialId;
       }
       changed = true;
     }
@@ -438,6 +439,20 @@ class _PurchaseReturnsReportPageState
   @override
   Widget build(BuildContext context) {
     final rows = _filteredRows;
+
+    if (_pendingInitialId != null) {
+      final targetId = _pendingInitialId;
+      _pendingInitialId = null;
+      final idx = rows.indexWhere((r) => r.id == targetId);
+      if (idx >= 0) {
+        _detailIndex = idx;
+      }
+    } else if (widget.initialId != null && _detailIndex == null) {
+      final idx = rows.indexWhere((r) => r.id == widget.initialId);
+      if (idx >= 0) {
+        _detailIndex = idx;
+      }
+    }
 
     return CallbackShortcuts(
       bindings: {
@@ -1463,7 +1478,9 @@ class _CompactListItemState extends State<_CompactListItem> {
                       children: [
                         Expanded(
                           child: Text(
-                            widget.row.vendorName,
+                            widget.row.vendorName.trim().isNotEmpty
+                                ? widget.row.vendorName
+                                : 'Vendor',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -1629,7 +1646,10 @@ class _PrPdfPreview extends StatelessWidget {
                     children: [
                       const Text('Vendor', style: TextStyle(fontSize: 13, color: Color(0xFF444444))),
                       const SizedBox(height: 4),
-                      Text(returnDetail.vendorName,
+                      Text(
+                          returnDetail.vendorName.trim().isNotEmpty
+                              ? returnDetail.vendorName
+                              : '—',
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryBlue)),
                       const SizedBox(height: 2),
                       ...returnDetail.vendorAddress.split('\n').map(
@@ -1675,6 +1695,9 @@ class _PrPdfPreview extends StatelessWidget {
               ...returnDetail.items.asMap().entries.map((entry) {
                 final idx = entry.key;
                 final item = entry.value;
+                final displayName = item.name.trim().isNotEmpty
+                    ? item.name
+                    : (item.description.trim().isNotEmpty ? item.description : '—');
                 return Container(
                   decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: _rowDivider))),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -1687,7 +1710,7 @@ class _PrPdfPreview extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(item.name, style: const TextStyle(fontSize: 13, color: Color(0xFF111111))),
+                            Text(displayName, style: const TextStyle(fontSize: 13, color: Color(0xFF111111))),
                             if (item.description.isNotEmpty) ...[
                               const SizedBox(height: 2),
                               Text(item.description, style: const TextStyle(fontSize: 11, color: Color(0xFF888888))),
@@ -1889,6 +1912,7 @@ class _PrJournalEntry {
 
 // ── LEGACY: kept for reference, replaced by _PrPdfPreview ────────────────────
 
+// ignore: unused_element
 class _PrDocumentPreview extends StatelessWidget {
   final PurchaseReturnDetailData returnDetail;
 

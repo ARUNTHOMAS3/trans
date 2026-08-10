@@ -210,7 +210,7 @@ describe.skip("ReportsService.getDashboardSummary", () => {
             return accQuery;
           }
 
-          if (table === "account_transactions") {
+          if (table === "batch_transactions") {
             return createQuery({ data: [], error: null });
           }
 

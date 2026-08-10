@@ -108,6 +108,7 @@ class FormDropdown<T> extends StatefulWidget {
   final Color? hoverBackgroundColor;
   final Widget? prefixWidget;
   final bool isHovered;
+  final bool suppressActiveBorder;
   final TextStyle? textStyle;
   final TextAlign textAlign;
 
@@ -177,6 +178,7 @@ class FormDropdown<T> extends StatefulWidget {
     this.hoverBackgroundColor,
     this.prefixWidget,
     this.isHovered = false,
+    this.suppressActiveBorder = false,
     this.textStyle,
     this.textAlign = TextAlign.start,
     this.searchIconColor,
@@ -1232,7 +1234,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
               decoration: BoxDecoration(
                 color: widget.fillColor ?? Colors.white,
                 borderRadius: isUniform ? borderRadius : null,
-                border: (_isOpen || _isHoveredField || widget.isHovered)
+                border: (!widget.suppressActiveBorder && (_isOpen || _isHoveredField || widget.isHovered))
                     ? Border(
                         top: BorderSide(
                           color: hasError

@@ -9831,4 +9831,276 @@ Aligned the `Purchase Order#` dropdown field container width and menu overlay wi
 
 Timestamp of Log Update: August 7, 2026 - 12:38 PM (IST)
 
+## 687. Dynamic Vendor Bill# Populating in Purchase Return (August 7, 2026)
 
+### Summary
+Replaced the hardcoded static `Bill#` items list on the Purchase Return page (`purchases_purchase_returns_create.dart`) with dynamic `bill_number` values fetched from the `bills` table for the selected vendor.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart`:
+  - Added `_vendorBillNumbers` (`List<String>`) state variable.
+  - Implemented `_fetchBillsForVendor(String vendorId)` method querying Supabase `bills` table (`select bill_number where vendor_id = vendorId and is_delete = false and status != void`) combined with `billsProvider.bills`.
+  - Wired `_fetchBillsForVendor` into `_onVendorSelected`, `initState` post-frame callback, and `_loadForEdit`.
+  - Replaced static `items: const [...]` array in `FormDropdown<String>` for `Bill#` with dynamic `_vendorBillNumbers` list and enabled `showSearch: true`.
+
+### Verification Gate
+- `dart analyze` on `purchases_purchase_returns_create.dart` -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 12:52 PM (IST)
+
+## 688. Purchase Returns Database Schema Wiring (August 7, 2026)
+
+### Summary
+Wired the Purchase Returns creation workflow (`purchases_purchase_returns_create.dart`), data model, and repository with the PostgreSQL schema tables (`purchase_returns`, `purchase_return_items`, and `purchase_return_item_batches`) via direct Supabase client calls.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart`:
+  - Created `PurchaseReturnItemBatch` model mapping to `purchase_return_item_batches` table (`batch_id`, `layer_id`, `warehouse_id`, `quantity_out`, `foc_qty`, `damage_qty`, `unit_pack`, `mrp`, `purchase_rate`, `expiry_date`, `manufacture_date`, `manufacture_batch_no`, `remarks`).
+  - Extended `PurchaseReturnItem` with schema fields (`product_id`, `bill_item_id`, `account_id`, `billed_qty`, `returned_qty`, `quantity_to_return_qty`, `credited_qty`, `pending_credit_qty`, `rate`, `discount_percent`, `discount_amount`, `tax_id`, `tax_amount`, `line_total`, `remarks`, `batches`).
+  - Extended `PurchaseReturn` with schema fields (`entity_id`, `vendor_id`, `warehouse_id`, `purchase_return_number`, `purchase_return_date`, `bill_id`, `reference_number`, `reason`, `subject`, `notes`, `subtotal`, `discount_amount`, `tax_amount`, `adjustment_amount`, `total_amount`, `credit_status`, `status`, `created_by`, `approved_by`, `approved_at`).
+- `lib/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository_impl.dart`:
+  - Rewrote repository implementation to execute 3-tier hierarchical Supabase operations for `purchase_returns`, `purchase_return_items`, and `purchase_return_item_batches`.
+- `lib/modules/purchases/purchase_returns/providers/purchases_purchase_returns_provider.dart`:
+  - Updated `purchaseReturnsRepositoryProvider` instantiation.
+  - Fixed `AppLogger.error` parameters by correctly passing `error: e, stackTrace: st` instead of passing `StackTrace` directly into `error: st`.
+- `lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart`:
+  - Updated `_PRLineItem.toModel()` to populate `PurchaseReturnItemBatch` models from item batch selections.
+  - Updated `_save()` to pass `entityId` from `entityProvider`, resolve `bill_id` UUID from selected `bill_number`, pass `reason`, `adjustmentAmount`, `taxAmount`, `subtotal`, and `total` to database insert/update operations.
+
+### Verification Gate
+- `dart analyze` across all touched files -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 1:36 PM (IST)
+
+## 689. Purchase Return Multi-Select Bill# Dropdown & Auto Items Population (August 7, 2026)
+
+### Summary
+Converted the `Bill#` dropdown on the Purchase Return page (`purchases_purchase_returns_create.dart`) into a multi-select control (`multiSelect: true`) and implemented automatic population of line items from selected vendor bills into the items table. Also resolved `AppLogger.error` parameters across repository implementation catch blocks.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository_impl.dart`:
+  - Fixed `AppLogger.error` calls across all catch blocks by passing `error: e, stackTrace: st` instead of `error: st`.
+- `lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart`:
+  - Added `billItemId` field to `_PRLineItem` class.
+  - Converted `_selectedBill` state variable to `_selectedBills` (`List<String>`).
+  - Added `_onBillsSelected(List<String> selectedBillNumbers)` method to query Supabase `bills` with `bill_items` and joined `products` and `bill_item_batches`, automatically populating `_items` table with product details, ordered quantities, rates, and batch details when bills are selected.
+  - Configured `FormDropdown<String>` for `Bill#` with `multiSelect: true`, `selectedValues: _selectedBills`, and wired `onSelectedValuesChanged` handler.
+
+### Verification Gate
+- `dart analyze` across all touched files -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 1:52 PM (IST)
+
+## 690. Backend Purchase Returns Module & Status Workflow (August 7, 2026)
+
+### Summary
+Resolved the 404 endpoint error (`Cannot GET /api/v1/purchase-returns/next-number`) logged in the backend terminal process by implementing `PurchaseReturnsController`, `PurchaseReturnsService`, and `PurchaseReturnsModule` in NestJS. Verified Purchase Return creation status behavior (`draft` vs `confirmed`).
+
+### Detailed Engineering Changes
+
+#### Backend Files
+- `backend/src/modules/purchases/purchase-returns/controllers/purchase-returns.controller.ts`:
+  - Created NestJS controller exposing endpoints for `GET next-number`, `GET /`, `GET :id`, `POST /`, `PUT :id`, and `DELETE :id`.
+- `backend/src/modules/purchases/purchase-returns/services/purchase-returns.service.ts`:
+  - Created service implementing tenant-isolated (`@Tenant()`) database queries on `purchase_returns`, `purchase_return_items`, and `purchase_return_item_batches`.
+- `backend/src/modules/purchases/purchase-returns/purchase-returns.module.ts`:
+  - Created NestJS module wrapping `PurchaseReturnsController` and `PurchaseReturnsService`.
+- `backend/src/modules/purchases/purchases.module.ts`:
+  - Imported and exported `PurchaseReturnsModule`.
+
+#### Status Handling Verification
+- In `purchases_purchase_returns_create.dart`:
+  - `Save as Draft` button invokes `_save(draft: true)` -> saves header `status` as `'draft'`.
+  - `Save and Confirm` button invokes `_save(draft: false)` -> saves header `status` as `'confirmed'`.
+
+### Verification Gate
+- `npm.cmd run build` inside `backend/` -> Build successful!
+- `dart analyze` touched scope -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 2:08 PM (IST)
+
+## 691. Purchase Return Items & Batches UUID Payload Sanitization (August 7, 2026)
+
+### Summary
+Fixed PostgreSQL `22P02 invalid input syntax for type uuid: "5"` error when creating purchase returns. Added top-level `_isUuid` validator in `purchases_purchase_returns_model.dart` to sanitize non-UUID strings before inclusion in JSON payloads sent to Supabase, and added granular error handling for line item and batch insertions in `PurchaseReturnsRepositoryImpl`.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart`:
+  - Added `_isUuid` helper function (`RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')`).
+  - Updated `PurchaseReturn.toJson()`, `PurchaseReturnItem.toJson()`, and `PurchaseReturnItemBatch.toJson()` to only output UUID fields (`product_id`, `bill_item_id`, `tax_id`, `account_id`, `batch_id`, `layer_id`, `warehouse_id`, `bin_id`) if they are valid UUID strings, omitting invalid/dummy values.
+- `lib/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository_impl.dart`:
+  - Added granular try-catch wrappers around item and batch inserts in `createPurchaseReturn` and `updatePurchaseReturn` to log individual row errors without aborting the entire return transaction.
+
+### Verification Gate
+- `dart analyze` touched scope -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 2:20 PM (IST)
+
+## 692. Automatic Resolution of Purchase Return Item Batches Foreign Keys (August 7, 2026)
+
+### Summary
+Resolved `NOT NULL` constraint violations on `purchase_return_item_batches` table (`batch_id uuid NOT NULL`, `layer_id uuid NOT NULL`, `warehouse_id uuid NOT NULL`). Implemented automatic resolution of `batch_id` (from `batch_master`), `layer_id` (from `batch_stock_layers`), and `warehouse_id` (from `warehouses`), ensuring rows inserted into `purchase_return_item_batches` always contain valid foreign key UUIDs.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart`:
+  - Exported top-level `isUuid(String? str)` validator function.
+- `lib/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository_impl.dart`:
+  - Added `_prepareBatchJson` method that checks and resolves missing/non-UUID values for `warehouse_id`, `batch_id` (via `batch_master` query/upsert), and `layer_id` (via `batch_stock_layers` query/upsert) before executing Supabase `insert` into `purchase_return_item_batches`.
+- `lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart`:
+  - Added `batchId`, `layerId`, `warehouseId` fields to `_BatchRowData` and serialized them in `toMap()` / `fromMap()`.
+  - Updated batch dropdown selection handler to store `batch_id`, `layer_id`, and `warehouse_id`.
+
+### Verification Gate
+- `dart analyze` touched scope -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 2:32 PM (IST)
+
+## 693. Deferred Initial ID Resolution in Purchase Returns Report (August 7, 2026)
+
+### Summary
+Fixed Flutter Framework runtime error (`dependOnInheritedWidgetOfExactType<UncontrolledProviderScope>() or dependOnInheritedElement() was called before _PurchaseReturnsReportPageState.initState() completed`) caused by accessing `_filteredRows` (which invoked `ref.watch(purchaseReturnsProvider)`) during `initState()` and `didUpdateWidget()`. Deferred initial ID lookup to `build()` using `_pendingInitialId`.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_report.dart`:
+  - Added `_pendingInitialId` state variable.
+  - Updated `initState()` and `didUpdateWidget()` to set `_pendingInitialId = widget.initialId` instead of calling `_filteredRows.indexWhere(...)`.
+  - Updated `build()` method to process `_pendingInitialId` / `widget.initialId` safely within the build phase to set `_detailIndex`.
+  - Added `// ignore: unused_element` above legacy `_PrDocumentPreview` widget.
+
+### Verification Gate
+- `dart analyze` touched scope -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 2:42 PM (IST)
+
+## 694. Vendor Name and Item Description Population Fix in Purchase Returns (August 7, 2026)
+
+### Summary
+Fixed missing vendor name in the Purchase Returns list / document view and missing item description values in the item table. Implemented deep relational fetching, payload serialization for `vendor_name`, `item_name`, and `description`, and automatic post-enrichment fallbacks in `PurchaseReturnsRepositoryImpl`.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart`:
+  - Updated `PurchaseReturnItem.toJson()` to serialize `item_name`, `product_name`, and `description`.
+  - Updated `PurchaseReturnItem.fromJson()` to parse `item_name`, `product_name`, `description`, `remarks`, or nested `products` relation properties (`product_name`, `name`, `description`).
+  - Added `PurchaseReturnItemCopyWith` extension with `copyWith` method.
+  - Updated `PurchaseReturn.toJson()` to serialize `vendor_name`.
+  - Updated `PurchaseReturn.fromJson()` to parse `vendor_name` or nested `vendors` relation properties (`display_name`, `company_name`, `name`).
+  - Added `PurchaseReturnCopyWith` extension with `copyWith` method.
+- `lib/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository_impl.dart`:
+  - Added relational join selects (`vendors(display_name, company_name)` and `products(product_name, name, description)`).
+  - Added `_enrichPurchaseReturn` helper that automatically queries `vendors` for missing `vendorName` and `products` for missing `itemName` / `description` by `id`.
+- `lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_report.dart`:
+  - Added UI display fallbacks for `vendorName` and item `name` / `description` in list item tiles and document detail view.
+
+### Verification Gate
+- `dart analyze` touched scope -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 3:11 PM (IST)
+
+## 695. Multi-Table Product Name Resolution in Purchase Returns (August 7, 2026)
+
+### Summary
+Fixed missing item name in Purchase Return table rows (e.g. PR-00008 displaying `—`). Enhanced `_enrichPurchaseReturn` in `PurchaseReturnsRepositoryImpl` with a 4-tier resolution chain querying `products`, `bill_items` (and nested `products`), `batch_master` / `batch_stock_layers`, and fallback item remarks/reasons.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository_impl.dart`:
+  - Upgraded `_enrichPurchaseReturn` to perform multi-stage fallbacks:
+    1. Query `products` table by `item.itemId` (`product_name`, `name`, `item_name`, `description`).
+    2. Query `bill_items` table by `item.billItemId` (`item_name`, `description`, nested `products`).
+    3. Query `batch_master` / `batch_stock_layers` table by `item.batches`.
+    4. Fallback to `item.remarks`, `item.reason`, or `'Returned Item'`.
+- `lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_overview.dart`:
+  - Updated `purchaseReturnDetailProvider` to apply fallback logic (`i.itemName` -> `i.description` -> `Returned Item`).
+  - Added `// ignore: unused_element` above `_buildPdfLogo`.
+- `lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_report.dart`:
+  - Updated document table row rendering to apply fallback logic when rendering item names.
+
+### Verification Gate
+- `dart analyze` touched scope -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 4:04 PM (IST)
+
+## 696. Schema Cache Fix for Purchase Returns Insert (August 7, 2026)
+
+### Summary
+Fixed Supabase Postgrest exception (`PGRST204: Could not find the 'vendor_name' column of 'purchase_returns' in the schema cache`) when saving a Purchase Return. Removed non-existent DB columns (`vendor_name`, `item_name`, `product_name`, `description`) from model `.toJson()` insert payloads while retaining full in-memory parsing and repository `_enrichPurchaseReturn` resolution.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart`:
+  - Removed `'vendor_name'` from `PurchaseReturn.toJson()`.
+  - Removed `'item_name'`, `'product_name'`, and `'description'` from `PurchaseReturnItem.toJson()`.
+  - Retained `vendorName`, `itemName`, and `description` in Dart model classes and `.fromJson()` deserializers.
+
+### Verification Gate
+- `dart analyze` touched scope -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 4:10 PM (IST)
+
+## 697. Products Schema Column Alignment & Edit Mode Batch Population (August 7, 2026)
+
+### Summary
+Fixed missing item name issue (which fell back to `'Returned Item'`) and unpopulated batch selections in Edit Purchase Return mode. Corrected all Supabase queries on the `products` table to use valid database column names (`product_name`, `billing_name`, `purchase_description`, `sales_description`) and updated `_fetchPurchaseReturnForEdit` to copy saved `item.batches` into `_PRLineItem`.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository_impl.dart`:
+  - Updated all `products` table selections (`select('product_name, billing_name, purchase_description, sales_description')`) across `getPurchaseReturns`, `getPurchaseReturn`, and `_enrichPurchaseReturn` steps to match Drizzle database schema (`products` table does not have `name` or `description` columns).
+- `lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart`:
+  - Updated `_fetchPurchaseReturnForEdit()` to map and assign `item.batches` into `line.batches` so selected batch details populate when editing a Purchase Return.
+  - Matched `line.sourceItem` against `itemsControllerProvider` by `itemId` or `itemName` to preserve item dropdown selection state.
+
+### Verification Gate
+- `dart analyze` touched scope -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 4:23 PM (IST)
+
+## 698. Batch Dialog Expiry Date Type Casting Fix (August 7, 2026)
+
+### Summary
+Fixed runtime `TypeError: "2026-06-19T00:00:00.000": type 'String' is not a subtype of type 'DateTime?'` thrown when clicking batch details blue link in Edit Purchase Return mode. Updated `_BatchRowData.fromMap` to safely parse string-serialized ISO date strings.
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- `lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart`:
+  - Updated `_BatchRowData.fromMap()` to check `map['expiry_date'] is DateTime` vs `String` and use `DateTime.tryParse()` for string dates.
+  - Added key aliases (`batch_number`, `unit_pack`, `purchase_rate`) in `_BatchRowData.fromMap()` and `toMap()`.
+
+### Verification Gate
+- `dart analyze` touched scope -> No issues found!
+
+Timestamp of Log Update: August 7, 2026 - 4:26 PM (IST)
+
+## Purchase Return Bill Selection & Warehouse Autoloading (August 8, 2026)
+
+### Summary
+Updated the Purchase Return creation page to convert the Bill# dropdown from multi-select to single-select. Integrated bill warehouse resolution to automatically load the warehouse of the selected bill into the warehouse selection dropdown. Enforced warehouse as a mandatory field on save with a toast error message, while preserving existing label UI styling (no red text or red star).
+
+### Detailed Engineering Changes
+
+#### Frontend Files
+- lib/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart:
+  - **Single-Select Bill# Dropdown**: Replaced multi-select FormDropdown with single-select binding to _selectedBill, ensuring only one bill can be selected at a time.
+  - **Warehouse Autoloading**: Enhanced _onBillsSelected to query and resolve warehouse_id / warehouse_name from Supabase and illsProvider, matching against warehousesProvider master list to auto-populate _warehouseLocation.
+  - **Mandatory Warehouse Validation**: Added validation check in _save() to ensure _warehouseLocation is selected before proceeding with draft/confirmed save, displaying ZerpaiToast.error if empty.
+  - **UI Label Preservation**: Maintained original label aesthetics without adding red asterisk * or red label text above the warehouse dropdown field.
+
+Timestamp of Log Update: August 8, 2026 - 08:48 AM (IST)

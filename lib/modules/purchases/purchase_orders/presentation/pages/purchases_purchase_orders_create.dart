@@ -36,6 +36,7 @@ import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/tax_preferences_popover.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/reporting_tags_popover.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
@@ -50,7 +51,6 @@ import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
-import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import '../../notifiers/purchase_order_notifier.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/manage_tds_tcs_rates_dialog.dart';
 import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
@@ -8303,164 +8303,22 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       return;
     }
 
-    final Map<String, String> localTags = Map<String, String>.from(row.reportingTags);
-
-    _reportingTagsOverlay = OverlayEntry(
-      builder: (ctx) {
-        return GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: _closeReportingTagsOverlay,
-          child: Stack(
-            children: [
-              Positioned.fill(child: Container(color: Colors.transparent)),
-              CompositedTransformFollower(
-                link: link,
-                showWhenUnlinked: false,
-                offset: const Offset(0, 32),
-                child: Material(
-                  elevation: 8,
-                  shadowColor: Colors.black26,
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  child: StatefulBuilder(
-                    builder: (context, setOverlayState) {
-                      return Container(
-                        width: 320,
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Reporting Tags',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1F2937),
-                                    fontFamily: 'Inter',
-                                  ),
-                                ),
-                                InkWell(
-                                  onTap: _closeReportingTagsOverlay,
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: Color(0xFF9CA3AF),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'ADGF',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF374151),
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            FormDropdown<String>(
-                              value: localTags['adgf'],
-                              items: const ['None', 'Option 1', 'Option 2'],
-                              hint: 'None',
-                              height: 32,
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setOverlayState(() {
-                                    localTags['adgf'] = val;
-                                  });
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Schedule',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF374151),
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            FormDropdown<String>(
-                              value: localTags['schedule'],
-                              items: const ['None', 'Option 1', 'Option 2'],
-                              hint: 'None',
-                              height: 32,
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setOverlayState(() {
-                                    localTags['schedule'] = val;
-                                  });
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Demo advanced reporting tag',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF374151),
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            FormDropdown<String>(
-                              value: localTags['demo_tag'],
-                              items: const ['None', 'Option 1', 'Option 2'],
-                              hint: 'None',
-                              height: 32,
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setOverlayState(() {
-                                    localTags['demo_tag'] = val;
-                                  });
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                ZButton.secondary(
-                                  label: 'Cancel',
-                                  onPressed: _closeReportingTagsOverlay,
-                                ),
-                                const SizedBox(width: 8),
-                                ZButton.primary(
-                                  label: 'Update',
-                                  onPressed: () {
-                                    setState(() {
-                                      row.reportingTags['adgf'] = localTags['adgf']!;
-                                      row.reportingTags['schedule'] = localTags['schedule']!;
-                                      row.reportingTags['demo_tag'] = localTags['demo_tag']!;
-                                    });
-                                    _closeReportingTagsOverlay();
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+    _reportingTagsOverlay = showReportingTagsPopover(
+      context: context,
+      link: link,
+      selectedTags: Map<String, String>.from(row.reportingTags),
+      onSave: (updatedTags) {
+        setState(() {
+          row.reportingTags.clear();
+          row.reportingTags.addAll(updatedTags);
+        });
+      },
+      onClose: () {
+        _reportingTagsOverlay = null;
+        setState(() {});
       },
     );
-
-    Overlay.of(context).insert(_reportingTagsOverlay!);
+    setState(() {});
   }
 
   String? _getDefaultDiscountAccountId(List<AccountNode> availableAccounts) {

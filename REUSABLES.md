@@ -39,6 +39,7 @@
 | `ZerpaiDatePicker` | `inputs/zerpai_date_picker.dart` | Standard date picker — anchored calendar popup below target field — **use for all ERP date inputs** |
 | `TaxPreferencesPopover` | `inputs/tax_preferences_popover.dart` | Anchored tax preferences popover wrapper with triangle pointer, GST Treatment selection, GSTIN field, and permanent setting checkbox |
 | `ConfigureTaxPreferencesDialog` | `inputs/tax_preferences_popover.dart` | Reusable Tax Preferences content dialog with GST treatment dropdown, descriptions, GSTIN input, taxpayer details lookup, and permanent setting checkbox |
+| `ReportingTagsPopover` | `inputs/reporting_tags_popover.dart` | Reusable anchored reporting tags popover for line items; params: `context`, `link`, `selectedTags`, `onSave`, `onClose`, `tagOptions` |
 | `ZerpaiCalendar` | `inputs/zerpai_calendar.dart` | Reusable calendar with day/month/year selector modes and date range constraints |
 | `ZTooltip` | `inputs/z_tooltip.dart` | 220px-max-width tooltip with arrow — **always use instead of Flutter's `Tooltip`**; trigger icon `LucideIcons.helpCircle` size 14-15 |
 | `FileUploadButton` | `inputs/file_upload_button.dart` | File picker button with badge count and overlay listing selected files |

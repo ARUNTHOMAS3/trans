@@ -72,8 +72,8 @@ import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/page
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_update_screen.dart';
 import 'package:zerpai_erp/modules/accountant/config/routes.dart';
 import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_audit_logs_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_sales_sales_daily.dart';
+import 'package:zerpai_erp/modules/reports/activity/presentation/pages/reports_audit_logs_screen.dart';
+import 'package:zerpai_erp/modules/reports/sales/presentation/pages/reports_sales_sales_daily.dart';
 import 'package:zerpai_erp/modules/home/presentation/home_dashboard_overview.dart';
 import 'package:zerpai_erp/modules/reports/config/routes.dart';
 import 'package:zerpai_erp/modules/settings/config/routes.dart';
@@ -93,9 +93,7 @@ import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/page
 import 'package:zerpai_erp/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_create.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_overview.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/presentation/purchases_purchase_returns_report.dart';
-
 import 'package:zerpai_erp/modules/purchases/purchase_receives/presentation/pages/purchases_purchase_receives_list.dart';
-
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_list.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_report.dart';
@@ -1094,15 +1092,17 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesRecurringInvoicesCreate,
-                  builder: (context, state) => const RecurringInvoicesCreatePage(),
+                  builder: (context, state) =>
+                      const RecurringInvoicesCreatePage(),
                 ),
                 GoRoute(
                   path: 'preferences',
                   name: AppRoutes.salesRecurringInvoicesPreferences,
-                  builder: (context, state) => const RecurringInvoicesOverviewPage(
-                    showPreferencesOverlayOnLoad: true,
-                    closePreferencesToPreviousRoute: true,
-                  ),
+                  builder: (context, state) =>
+                      const RecurringInvoicesOverviewPage(
+                        showPreferencesOverlayOnLoad: true,
+                        closePreferencesToPreviousRoute: true,
+                      ),
                 ),
                 GoRoute(
                   path: ':id',
@@ -1390,9 +1390,8 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'items/mapping/:id',
               name: AppRoutes.itemMappingDetail,
-              builder: (context, state) => ItemTradeSetupOverviewPage(
-                id: state.pathParameters['id'],
-              ),
+              builder: (context, state) =>
+                  ItemTradeSetupOverviewPage(id: state.pathParameters['id']),
             ),
             GoRoute(
               path: 'items/trade-setup',

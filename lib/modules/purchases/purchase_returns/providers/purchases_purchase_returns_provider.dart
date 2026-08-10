@@ -2,14 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/models/purchases_purchase_returns_model.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository.dart';
 import 'package:zerpai_erp/modules/purchases/purchase_returns/repositories/purchases_purchase_returns_repository_impl.dart';
-import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 
 // ── Repository provider ──────────────────────────────────────────────────────
 
 final purchaseReturnsRepositoryProvider =
     Provider<PurchaseReturnsRepository>((ref) {
-  return PurchaseReturnsRepositoryImpl(ref.read(apiClientProvider));
+  return PurchaseReturnsRepositoryImpl();
 });
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -89,7 +88,7 @@ class PurchaseReturnsNotifier
         status: status,
       ));
     } catch (e, st) {
-      AppLogger.error('Failed to fetch purchase returns: $e', module: 'purchases', error: st);
+      AppLogger.error('Failed to fetch purchase returns: $e', module: 'purchases', error: e, stackTrace: st);
       final filtered = _applyFilters(_localReturns, search, status);
       state = AsyncValue.data(PurchaseReturnsState(
         returns: filtered,
@@ -112,7 +111,7 @@ class PurchaseReturnsNotifier
       );
       return created;
     } catch (e, st) {
-      AppLogger.error('Failed to create purchase return: $e', module: 'purchases', error: st);
+      AppLogger.error('Failed to create purchase return: $e', module: 'purchases', error: e, stackTrace: st);
       return null;
     }
   }
@@ -133,7 +132,7 @@ class PurchaseReturnsNotifier
       }
       return updated;
     } catch (e, st) {
-      AppLogger.error('Failed to update purchase return: $e', module: 'purchases', error: st);
+      AppLogger.error('Failed to update purchase return: $e', module: 'purchases', error: e, stackTrace: st);
       return null;
     }
   }
@@ -150,7 +149,7 @@ class PurchaseReturnsNotifier
       }
       return ok;
     } catch (e, st) {
-      AppLogger.error('Failed to delete purchase return: $e', module: 'purchases', error: st);
+      AppLogger.error('Failed to delete purchase return: $e', module: 'purchases', error: e, stackTrace: st);
       return false;
     }
   }

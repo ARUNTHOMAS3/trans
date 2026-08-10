@@ -141,7 +141,13 @@ final purchaseReturnDetailProvider =
     items: match.items
         .map(
           (i) => PurchaseReturnDetailItemData(
-            name: i.itemName,
+            name: i.itemName.trim().isNotEmpty && i.itemName.trim() != '—'
+                ? i.itemName
+                : (i.description != null && i.description!.trim().isNotEmpty
+                    ? i.description!
+                    : (i.reason != null && i.reason!.trim().isNotEmpty
+                        ? 'Returned Item (${i.reason})'
+                        : 'Returned Item')),
             description: i.description ?? '',
             returnQty: i.returnQty,
             unit: i.unit ?? 'Pcs',
@@ -338,6 +344,7 @@ class _PurchaseReturnDetailPageState
     );
   }
 
+  // ignore: unused_element
   Widget _buildPdfLogo(OrgSettings? orgSettings) {
     final logoUrl = orgSettings?.logoUrl;
     if (logoUrl != null && logoUrl.trim().isNotEmpty) {

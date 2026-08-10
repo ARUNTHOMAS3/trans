@@ -1,10 +1,10 @@
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_general_ledger_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_inventory_valuation_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_profit_and_loss_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_sales_by_customer_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_trial_balance_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/accountant/presentation/pages/reports_general_ledger_screen.dart';
+import 'package:zerpai_erp/modules/reports/inventory_valuation/presentation/pages/reports_inventory_valuation_screen.dart';
+import 'package:zerpai_erp/modules/reports/business_overview/presentation/pages/reports_profit_and_loss_screen.dart';
+import 'package:zerpai_erp/modules/reports/accountant/presentation/pages/reports_trial_balance_screen.dart';
 
 List<GoRoute> buildStandaloneReportRoutes() {
   return [
@@ -24,14 +24,39 @@ List<GoRoute> buildStandaloneReportRoutes() {
       builder: (context, state) => const TrialBalanceScreen(),
     ),
     GoRoute(
-      path: 'reports/sales-by-customer',
-      name: AppRoutes.salesByCustomer,
-      builder: (context, state) => const SalesByCustomerScreen(),
-    ),
-    GoRoute(
       path: 'reports/inventory-valuation',
       name: AppRoutes.inventoryValuation,
       builder: (context, state) => const InventoryValuationScreen(),
+    ),
+    GoRoute(
+      path: 'reports/category/:categorySlug/report/:reportSlug',
+      builder: (context, state) {
+        final category = reportsResolveCategory(
+          state.pathParameters['categorySlug'],
+        );
+        final reportName = reportsReportNameFromSlug(
+          state.pathParameters['reportSlug'],
+          category: category,
+        );
+        final reportPage = reportName == null
+            ? null
+            : buildReportsModuleReportPage(reportName, category: category);
+
+        return reportPage ??
+            ReportsCenterScreen(
+              initialCategory: category,
+              initialSearchQuery: state.uri.queryParameters['q'],
+            );
+      },
+    ),
+    GoRoute(
+      path: 'reports/category/:categorySlug',
+      builder: (context, state) => ReportsCenterScreen(
+        initialCategory: reportsResolveCategory(
+          state.pathParameters['categorySlug'],
+        ),
+        initialSearchQuery: state.uri.queryParameters['q'],
+      ),
     ),
   ];
 }

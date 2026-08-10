@@ -6,6 +6,7 @@ import { BillsModule } from "./bills/bills.module";
 import { ExpensesModule } from "./expenses/expenses.module";
 import { RecurringExpensesModule } from "./recurring_expenses/recurring-expenses.module";
 import { PaymentsMadeModule } from "./payments-made/payments-made.module";
+import { PurchaseReturnsModule } from "./purchase-returns/purchase-returns.module";
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PaymentsMadeModule } from "./payments-made/payments-made.module";
     ExpensesModule,
     RecurringExpensesModule,
     PaymentsMadeModule,
+    PurchaseReturnsModule,
   ],
   controllers: [],
   providers: [],
@@ -27,6 +29,7 @@ import { PaymentsMadeModule } from "./payments-made/payments-made.module";
     ExpensesModule,
     RecurringExpensesModule,
     PaymentsMadeModule,
+    PurchaseReturnsModule,
   ],
 })
 export class PurchasesModule {}

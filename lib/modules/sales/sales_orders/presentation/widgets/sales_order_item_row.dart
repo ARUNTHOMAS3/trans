@@ -30,6 +30,7 @@ class SalesOrderItemRow {
   final LayerLink accountsLink = LayerLink();
   final LayerLink priceListLink = LayerLink();
   final LayerLink taxLink = LayerLink();
+  Map<String, String> selectedReportingTags = {};
   String? salesOrderNumber;
   String? salesOrderId;
   double profit = 0;

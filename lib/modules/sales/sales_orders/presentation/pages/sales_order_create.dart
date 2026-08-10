@@ -15,6 +15,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/shared_field_layout.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/tax_preferences_popover.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/reporting_tags_popover.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
@@ -4248,214 +4249,20 @@ class _SalesOrderCreateScreenState
       return;
     }
 
-    _reportingTagsOverlay = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                _reportingTagsOverlay?.remove();
-                _reportingTagsOverlay = null;
-                setState(() {});
-              },
-              behavior: HitTestBehavior.translucent,
-            ),
-          ),
-          Positioned(
-            width: 500,
-            child: CompositedTransformFollower(
-              link: row.reportingTagsLink,
-              showWhenUnlinked: false,
-              offset: const Offset(0, 30),
-              child: Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.white,
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        child: const Text(
-                          'Reporting Tags',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF374151),
-                          ),
-                        ),
-                      ),
-                      const Divider(height: 1),
-                      Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'ADGF',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Color(0xFF374151),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      FormDropdown<String>(
-                                        items: const ['None'],
-                                        value: 'None',
-                                        onChanged: (_) {},
-                                        hint: 'None',
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 24),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'shedule',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Color(0xFF374151),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      FormDropdown<String>(
-                                        items: const ['None'],
-                                        value: 'None',
-                                        onChanged: (_) {},
-                                        hint: 'None',
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'demo adavced reporting tag',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: Color(0xFF374151),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      FormDropdown<String>(
-                                        items: const ['None'],
-                                        value: 'None',
-                                        onChanged: (_) {},
-                                        hint: 'None',
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Spacer(),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          children: [
-                            ElevatedButton(
-                              onPressed: () {
-                                _reportingTagsOverlay?.remove();
-                                _reportingTagsOverlay = null;
-                                setState(() {});
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF10B981),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                              ),
-                              child: const Text(
-                                'Save',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            OutlinedButton(
-                              onPressed: () {
-                                _reportingTagsOverlay?.remove();
-                                _reportingTagsOverlay = null;
-                                setState(() {});
-                              },
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                  color: Color(0xFFE5E7EB),
-                                ),
-                                foregroundColor: const Color(0xFF374151),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                                backgroundColor: const Color(0xFFF9FAFB),
-                              ),
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    _reportingTagsOverlay = showReportingTagsPopover(
+      context: context,
+      link: row.reportingTagsLink,
+      selectedTags: row.selectedReportingTags,
+      onSave: (updatedTags) {
+        setState(() {
+          row.selectedReportingTags = updatedTags;
+        });
+      },
+      onClose: () {
+        _reportingTagsOverlay = null;
+        setState(() {});
+      },
     );
-
-    Overlay.of(context).insert(_reportingTagsOverlay!);
     setState(() {});
   }
 
