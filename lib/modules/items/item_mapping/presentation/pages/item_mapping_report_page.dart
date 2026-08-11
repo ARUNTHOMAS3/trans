@@ -73,15 +73,15 @@ class _ItemTradeSetupReportPageState
 
   @override
   void deactivate() {
-    _closeFilterOverlay();
-    _closeSettingsOverlay();
+    _closeFilterOverlay(updateState: false);
+    _closeSettingsOverlay(updateState: false);
     super.deactivate();
   }
 
   @override
   void dispose() {
-    _closeFilterOverlay();
-    _closeSettingsOverlay();
+    _closeFilterOverlay(updateState: false);
+    _closeSettingsOverlay(updateState: false);
     _rightController.dispose();
     _searchCtrl.dispose();
     super.dispose();
@@ -157,11 +157,11 @@ class _ItemTradeSetupReportPageState
     Overlay.of(context).insert(_filterOverlayEntry!);
   }
 
-  void _closeFilterOverlay() {
+  void _closeFilterOverlay({bool updateState = true}) {
     if (_filterOverlayEntry != null) {
       _filterOverlayEntry!.remove();
       _filterOverlayEntry = null;
-      if (mounted) setState(() => _isFilterOpen = false);
+      if (updateState && mounted) setState(() => _isFilterOpen = false);
     }
   }
 
@@ -212,11 +212,11 @@ class _ItemTradeSetupReportPageState
     Overlay.of(context).insert(_settingsOverlayEntry!);
   }
 
-  void _closeSettingsOverlay() {
+  void _closeSettingsOverlay({bool updateState = true}) {
     if (_settingsOverlayEntry != null) {
       _settingsOverlayEntry!.remove();
       _settingsOverlayEntry = null;
-      if (mounted) setState(() => _isSettingsOpen = false);
+      if (updateState && mounted) setState(() => _isSettingsOpen = false);
     }
   }
 

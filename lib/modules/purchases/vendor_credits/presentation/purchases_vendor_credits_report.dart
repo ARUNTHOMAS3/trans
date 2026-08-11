@@ -1,20 +1,41 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
+import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
+import 'package:dotted_border/dotted_border.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 import 'package:zerpai_erp/core/models/org_settings_model.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/shared/models/column_config.dart';
+import 'package:zerpai_erp/shared/services/storage_service.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
+import 'package:zerpai_erp/shared/widgets/tables/table_more_menu.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
+import 'package:zerpai_erp/modules/purchases/vendor_credits/models/vendor_credit_models.dart';
+import 'package:zerpai_erp/modules/purchases/vendor_credits/providers/vendor_credits_providers.dart';
 import 'package:zerpai_erp/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_overview.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 
 class VendorCreditsOverviewPage extends ConsumerStatefulWidget {
   final String? initialCreditNoteNumber;
@@ -26,6 +47,12 @@ class VendorCreditsOverviewPage extends ConsumerStatefulWidget {
 }
 
 final _inFmt = NumberFormat('#,##,##0.00', 'en_IN');
+const List<String> _vcBulkUpdateFields = <String>[
+  'Order Number',
+  'Date',
+  'Billing Address',
+  'Notes',
+];
 
 // ── Skeleton Loader ──────────────────────────────────────────────────────────
 
@@ -194,17 +221,22 @@ class _VendorCreditsOverviewPageState
   final Set<String> _starredViews = {'Draft', 'Open'};
   List<ColumnConfig> _columns = _defaultColumns();
   int? _detailIndex;
-  final _moreMenuKey = GlobalKey();
   final _columnSettingsKey = GlobalKey();
   final ScrollController _hScrollController = ScrollController();
   final LayerLink _filterDropdownLink = LayerLink();
   final LayerLink _pdfPrintLink = LayerLink();
+  final LayerLink _detailAttachmentLink = LayerLink();
   OverlayEntry? _pdfPrintOverlay;
+  OverlayEntry? _detailAttachmentOverlay;
 
   bool _tabExpanded = true;
+  bool _showDetailHistorySidebar = false;
   final ScrollController _detailScrollController = ScrollController();
   final GlobalKey _journalKey = GlobalKey();
   final Set<int> _selectedIndices = {};
+  bool _isLoading = true;
+  String? _loadError;
+  List<_VendorCreditRow> _rows = const [];
 
   bool get _allSelected =>
       _filteredRows.isNotEmpty &&
@@ -233,7 +265,194 @@ class _VendorCreditsOverviewPageState
     });
   }
 
-  final List<_VendorCreditRow> _rows = [
+  void _clearSelection() {
+    _closePdfPrintMenu();
+    setState(() => _selectedIndices.clear());
+  }
+
+  Future<void> _deleteSelectedRows() async {
+    final filteredRows = _filteredRows;
+    final selectedIds = _selectedIndices
+        .where((index) => index >= 0 && index < filteredRows.length)
+        .map((index) => filteredRows[index].id)
+        .toSet();
+    if (selectedIds.isEmpty) {
+      _clearSelection();
+      return;
+    }
+
+    _closePdfPrintMenu();
+
+    final confirm = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Delete Vendor Credits',
+      message: 'Are you sure you want to delete the selected ${selectedIds.length} vendor credits? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: ZerpaiConfirmationVariant.danger,
+    );
+
+    if (!confirm) return;
+
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
+    try {
+      final supabase = Supabase.instance.client;
+      for (final id in selectedIds) {
+        if (id.isNotEmpty) {
+          // Delete attachments first
+          try {
+            await supabase.from('vendor_credits_attachments').delete().eq('vendor_credit_id', id);
+          } catch (_) {
+            // Ignore if table doesn't exist or no permissions
+          }
+          
+          // Find item IDs to delete their batches
+          List<dynamic> itemIds = [];
+          try {
+            final itemsResp = await supabase
+                .from('vendor_credit_items')
+                .select('id')
+                .eq('vendor_credit_id', id);
+            itemIds = (itemsResp as List).map((row) => row['id']).toList();
+          } catch (_) {}
+
+          if (itemIds.isNotEmpty) {
+            try {
+              await supabase
+                  .from('vendor_credit_item_batches')
+                  .delete()
+                  .inFilter('vendor_credit_item_id', itemIds);
+            } catch (_) {}
+          }
+          
+          // Delete items
+          try {
+            await supabase.from('vendor_credit_items').delete().eq('vendor_credit_id', id);
+          } catch (_) {
+            // Ignore
+          }
+
+          // Delete main record
+          await supabase.from('vendor_credits').delete().eq('id', id);
+        }
+      }
+    } catch (e) {
+      // Ignore error for now
+    }
+
+    if (mounted) {
+      setState(() {
+        _rows = _rows.where((row) => !selectedIds.contains(row.id)).toList();
+        _selectedIndices.clear();
+        if (_detailIndex != null && _detailIndex! >= _filteredRows.length) {
+          _detailIndex = null;
+        }
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showBulkUpdateDialog(BuildContext context) {
+    _closePdfPrintMenu();
+    showGeneralDialog<void>(
+      context: context,
+      barrierLabel: 'Bulk Update Vendor Credit',
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      pageBuilder: (dialogContext, _, __) {
+        final selectedRows = _selectedIndices
+            .where((index) => index >= 0 && index < _filteredRows.length)
+            .map((index) => _filteredRows[index])
+            .toList();
+        final selectedVendorNames = selectedRows
+            .map((row) => row.vendorName.trim())
+            .where((name) => name.isNotEmpty)
+            .toSet()
+            .toList(growable: false);
+        final selectedBillingAddresses = selectedRows
+            .expand((row) => row.billingAddresses)
+            .map((address) => address.trim())
+            .where((address) => address.isNotEmpty)
+            .toSet()
+            .toList(growable: false);
+        return _VcBulkUpdateDialog(
+          selectedVendorName: selectedVendorNames.length == 1
+              ? selectedVendorNames.first
+              : selectedVendorNames.isEmpty
+              ? 'Vendor'
+              : 'Multiple Vendors',
+          billingAddresses: selectedBillingAddresses,
+          onClose: () => Navigator.of(dialogContext).pop(),
+          onApply: (field, value) {
+            final selectedIds = _selectedIndices
+                .where((index) => index >= 0 && index < _filteredRows.length)
+                .map((index) => _filteredRows[index].id)
+                .toSet();
+            if (selectedIds.isEmpty) {
+              Navigator.of(dialogContext).pop();
+              return;
+            }
+
+            setState(() {
+              _rows = _rows.map((row) {
+                if (!selectedIds.contains(row.id)) return row;
+                switch (field) {
+                  case 'Order Number':
+                    return _VendorCreditRow(
+                      id: row.id,
+                      date: row.date,
+                      creditNoteNumber: row.creditNoteNumber,
+                      referenceNumber: value,
+                      vendorId: row.vendorId,
+                      vendorName: row.vendorName,
+                      billingAddresses: row.billingAddresses,
+                      status: row.status,
+                      amount: row.amount,
+                      balance: row.balance,
+                    );
+                  case 'Date':
+                    return _VendorCreditRow(
+                      id: row.id,
+                      date: value,
+                      creditNoteNumber: row.creditNoteNumber,
+                      referenceNumber: row.referenceNumber,
+                      vendorId: row.vendorId,
+                      vendorName: row.vendorName,
+                      billingAddresses: row.billingAddresses,
+                      status: row.status,
+                      amount: row.amount,
+                      balance: row.balance,
+                    );
+                  default:
+                    return row;
+                }
+              }).toList();
+            });
+            Navigator.of(dialogContext).pop();
+          },
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curve = CurvedAnimation(parent: animation, curve: Curves.easeOut);
+        return FadeTransition(
+          opacity: curve,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, -0.03),
+              end: Offset.zero,
+            ).animate(curve),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  /* final List<_VendorCreditRow> _rows = [
     const _VendorCreditRow(
       id: 'VC-00001',
       date: '20-04-2026',
@@ -274,7 +493,142 @@ class _VendorCreditsOverviewPageState
       amount: '₹9,800.00',
       balance: '₹9,800.00',
     ),
-  ];
+  ]; */
+
+  double _toDouble(dynamic value) {
+    if (value == null) return 0;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString()) ?? 0;
+  }
+
+  String _formatCurrency(double amount) => '₹${_inFmt.format(amount)}';
+
+  double _balanceForStatus(String status, double totalAmount) {
+    final normalized = status.trim().toLowerCase();
+    if (normalized == 'closed' || normalized == 'void') {
+      return 0;
+    }
+    return totalAmount;
+  }
+
+  void _syncDetailSelection() {
+    if (widget.initialCreditNoteNumber == null) {
+      if (_detailIndex != null && _detailIndex! >= _rows.length) {
+        _detailIndex = null;
+      }
+      return;
+    }
+
+    final index = _rows.indexWhere(
+      (r) => r.creditNoteNumber == widget.initialCreditNoteNumber,
+    );
+    _detailIndex = index == -1 ? null : index;
+  }
+
+  Future<void> _loadSavedVendorCredits() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
+    }
+
+    try {
+      final entityId = ref.read(entityProvider).entityId;
+      if (entityId == null || entityId.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _rows = const [];
+          _selectedIndices.clear();
+          _detailIndex = null;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final supabase = Supabase.instance.client;
+      final creditRows = await supabase
+          .from('vendor_credits')
+          .select(
+            'id, vendor_id, vendor_credit_number, reference_number, '
+            'vendor_credit_date, status, total_amount',
+          )
+          .eq('entity_id', entityId)
+          .order('vendor_credit_date', ascending: false);
+
+      final vendorIds = (creditRows as List)
+          .map((row) => row['vendor_id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
+
+      final vendorNames = <String, String>{};
+      final vendorBillingAddresses = <String, List<String>>{};
+      if (vendorIds.isNotEmpty) {
+        var vendors = ref.read(vendorProvider).vendors;
+        final missingVendorIds = vendorIds
+            .where((id) => !vendors.any((vendor) => vendor.id == id))
+            .toList(growable: false);
+        if (vendors.isEmpty || missingVendorIds.isNotEmpty) {
+          await ref.read(vendorProvider.notifier).loadVendors();
+          vendors = ref.read(vendorProvider).vendors;
+        }
+
+        for (final vendor in vendors) {
+          if (!vendorIds.contains(vendor.id)) continue;
+          vendorNames[vendor.id] = vendor.displayName;
+          vendorBillingAddresses[vendor.id] =
+              _vendorBillingAddressesFromVendor(vendor);
+        }
+      }
+
+      final rows = creditRows
+          .map((raw) {
+            final row = Map<String, dynamic>.from(raw as Map);
+            final totalAmount = _toDouble(row['total_amount']);
+            final status = row['status']?.toString() ?? 'draft';
+            final balance = _balanceForStatus(status, totalAmount);
+            final date = DateTime.tryParse(
+              row['vendor_credit_date']?.toString() ?? '',
+            );
+            return _VendorCreditRow(
+              id: row['id']?.toString() ?? '',
+              date: date == null ? '' : DateFormat('dd-MM-yyyy').format(date),
+              creditNoteNumber: row['vendor_credit_number']?.toString() ?? '',
+              referenceNumber: row['reference_number']?.toString() ?? '',
+              vendorId: row['vendor_id']?.toString() ?? '',
+              vendorName:
+                  vendorNames[row['vendor_id']?.toString() ?? ''] ??
+                  'Unknown Vendor',
+              billingAddresses:
+                  vendorBillingAddresses[row['vendor_id']?.toString() ?? ''] ??
+                  const <String>[],
+              status: status,
+              amount: _formatCurrency(totalAmount),
+              balance: _formatCurrency(balance),
+            );
+          })
+          .where((row) => row.creditNoteNumber.trim().isNotEmpty)
+          .toList(growable: false);
+
+      if (!mounted) return;
+      setState(() {
+        _rows = rows;
+        _selectedIndices.removeWhere((index) => index >= rows.length);
+        _syncDetailSelection();
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _rows = const [];
+        _selectedIndices.clear();
+        _detailIndex = null;
+        _loadError = error.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   static List<ColumnConfig> _defaultColumns() => [
     ColumnConfig(id: 'date', label: 'Date', orderIndex: 0, isLocked: true),
@@ -321,38 +675,130 @@ class _VendorCreditsOverviewPageState
   @override
   void initState() {
     super.initState();
-    if (widget.initialCreditNoteNumber != null) {
-      final index = _rows.indexWhere(
-        (r) => r.creditNoteNumber == widget.initialCreditNoteNumber,
-      );
-      if (index != -1) _detailIndex = index;
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadSavedVendorCredits();
+    });
   }
 
   @override
   void didUpdateWidget(VendorCreditsOverviewPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialCreditNoteNumber != widget.initialCreditNoteNumber) {
-      if (widget.initialCreditNoteNumber == null) {
-        setState(() => _detailIndex = null);
-      } else {
-        final index = _rows.indexWhere(
-          (r) => r.creditNoteNumber == widget.initialCreditNoteNumber,
-        );
-        if (index != -1) setState(() => _detailIndex = index);
-      }
+      setState(_syncDetailSelection);
     }
   }
 
   @override
   void dispose() {
     _pdfPrintOverlay?.remove();
+    _detailAttachmentOverlay?.remove();
     _hScrollController.dispose();
     _detailScrollController.dispose();
     super.dispose();
   }
 
-  void _showPdfPrintMenu(BuildContext context) {
+  void _closeDetailAttachmentOverlay() {
+    _detailAttachmentOverlay?.remove();
+    _detailAttachmentOverlay = null;
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _toggleDetailAttachmentOverlay(_VendorCreditRow rawRow) {
+    if (_detailAttachmentOverlay != null) {
+      _closeDetailAttachmentOverlay();
+      return;
+    }
+
+    _detailAttachmentOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _closeDetailAttachmentOverlay,
+              behavior: HitTestBehavior.opaque,
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _detailAttachmentLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomRight,
+            followerAnchor: Alignment.topRight,
+            offset: const Offset(-8, 4),
+            child: Material(
+              color: Colors.transparent,
+              child: _VendorCreditAttachmentOverlayContent(
+                vendorCreditId: rawRow.id,
+                entityId: ref.read(entityProvider).entityId,
+                onClose: _closeDetailAttachmentOverlay,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_detailAttachmentOverlay!);
+    setState(() {});
+  }
+
+  // ── PDF/Print helpers ──────────────────────────────────────────────────────
+
+  Future<Uint8List> _generatePdfBytes(
+    VendorCreditDetail creditNote,
+    OrgSettings? orgSettings,
+  ) async {
+    // Delegate to the shared generator in VendorCreditDetailPage via static
+    // helper defined below in this file.
+    return _buildVcPdfBytes(creditNote, orgSettings);
+  }
+
+  Future<void> _exportPdf(
+    VendorCreditDetail creditNote,
+    OrgSettings? orgSettings,
+  ) async {
+    try {
+      final bytes = await _generatePdfBytes(creditNote, orgSettings);
+      try {
+        await Printing.sharePdf(
+          bytes: bytes,
+          filename: '${creditNote.creditNoteNumber}.pdf',
+        );
+      } catch (_) {
+        await Printing.layoutPdf(
+          onLayout: (_) async => bytes,
+          name: creditNote.creditNoteNumber,
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Failed to generate vendor credit PDF.');
+    }
+  }
+
+  Future<void> _printCredit(
+    VendorCreditDetail creditNote,
+    OrgSettings? orgSettings,
+  ) async {
+    try {
+      final bytes = await _generatePdfBytes(creditNote, orgSettings);
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: creditNote.creditNoteNumber,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Failed to print vendor credit.');
+    }
+  }
+
+  void _showPdfPrintMenu(
+    BuildContext context, {
+    VendorCreditDetail? creditNote,
+    OrgSettings? orgSettings,
+  }) {
     if (_pdfPrintOverlay != null) return;
     final overlay = Overlay.of(context);
     _pdfPrintOverlay = OverlayEntry(
@@ -387,12 +833,22 @@ class _VendorCreditsOverviewPageState
                     _DownloadMenuOption(
                       icon: LucideIcons.fileText,
                       label: 'PDF',
-                      onTap: () => _closePdfPrintMenu(),
+                      onTap: creditNote != null
+                          ? () {
+                              _closePdfPrintMenu();
+                              _exportPdf(creditNote, orgSettings);
+                            }
+                          : _closePdfPrintMenu,
                     ),
                     _DownloadMenuOption(
                       icon: LucideIcons.printer,
                       label: 'Print',
-                      onTap: () => _closePdfPrintMenu(),
+                      onTap: creditNote != null
+                          ? () {
+                              _closePdfPrintMenu();
+                              _printCredit(creditNote, orgSettings);
+                            }
+                          : _closePdfPrintMenu,
                     ),
                   ],
                 ),
@@ -408,6 +864,115 @@ class _VendorCreditsOverviewPageState
   void _closePdfPrintMenu() {
     _pdfPrintOverlay?.remove();
     _pdfPrintOverlay = null;
+  }
+
+  // ── Status-change helpers ──────────────────────────────────────────────────
+
+  Future<void> _updateVcStatus(
+    _VendorCreditRow rawRow,
+    String newStatus,
+  ) async {
+    try {
+      await Supabase.instance.client
+          .from('vendor_credits')
+          .update({'status': newStatus})
+          .eq('id', rawRow.id);
+
+      if (!mounted) return;
+      setState(() {
+        final idx = _rows.indexWhere((r) => r.id == rawRow.id);
+        if (idx != -1) {
+          _rows = List.of(_rows)
+            ..[idx] = _VendorCreditRow(
+              id: rawRow.id,
+              date: rawRow.date,
+              creditNoteNumber: rawRow.creditNoteNumber,
+              referenceNumber: rawRow.referenceNumber,
+              vendorId: rawRow.vendorId,
+              vendorName: rawRow.vendorName,
+              billingAddresses: rawRow.billingAddresses,
+              status: newStatus,
+              amount: rawRow.amount,
+              balance: rawRow.balance,
+            );
+        }
+      });
+      // Invalidate detail provider so the open detail re-fetches.
+      ref.invalidate(vendorCreditDetailProvider(rawRow.creditNoteNumber));
+      ZerpaiToast.success(context, 'Status updated to $newStatus.');
+    } catch (e) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Failed to update status: $e');
+    }
+  }
+
+  Future<void> _voidCredit(_VendorCreditRow rawRow) async {
+    final confirm = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Void Vendor Credit',
+      message:
+          'Are you sure you want to void ${rawRow.creditNoteNumber}? This cannot be undone.',
+      confirmLabel: 'Void',
+      variant: ZerpaiConfirmationVariant.danger,
+    );
+    if (!confirm) return;
+    await _updateVcStatus(rawRow, 'void');
+  }
+
+  Future<void> _closeCredit(_VendorCreditRow rawRow) async {
+    final confirm = await showZerpaiConfirmationDialog(
+      context,
+      title: 'Close Vendor Credit',
+      message: 'Mark ${rawRow.creditNoteNumber} as Closed?',
+      confirmLabel: 'Close',
+      variant: ZerpaiConfirmationVariant.warning,
+    );
+    if (!confirm) return;
+    await _updateVcStatus(rawRow, 'closed');
+  }
+
+  Future<void> _cloneCredit(
+    BuildContext context,
+    _VendorCreditRow rawRow,
+  ) async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      // Fetch full row to clone
+      final rows = await supabase
+          .from('vendor_credits')
+          .select()
+          .eq('id', rawRow.id)
+          .limit(1);
+      if (rows.isEmpty) {
+        if (!mounted) return;
+        ZerpaiToast.error(context, 'Original record not found.');
+        return;
+      }
+
+      final original = Map<String, dynamic>.from(rows.first as Map);
+      original.remove('id');
+      original.remove('created_at');
+      original.remove('updated_at');
+
+      // Generate a new credit number: append -COPY or increment suffix
+      final baseName =
+          (original['vendor_credit_number'] as String? ?? '').replaceAll(
+            RegExp(r'-COPY\d*$'),
+            '',
+          );
+      original['vendor_credit_number'] = '$baseName-COPY';
+      original['status'] = 'draft';
+
+      await supabase.from('vendor_credits').insert(original);
+
+      if (!mounted) return;
+      ZerpaiToast.success(context, 'Cloned as ${original['vendor_credit_number']}.');
+      _loadSavedVendorCredits();
+    } catch (e) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Clone failed: $e');
+    }
   }
 
   int _compare(_VendorCreditRow a, _VendorCreditRow b, String column) {
@@ -472,58 +1037,7 @@ class _VendorCreditsOverviewPageState
     return list;
   }
 
-  void _showMoreMenu(BuildContext context) {
-    final box = _moreMenuKey.currentContext?.findRenderObject() as RenderBox?;
-    final screenWidth = MediaQuery.of(context).size.width;
-    double menuTop = 65;
-    double menuLeft = 8;
-    if (box != null) {
-      final pos = box.localToGlobal(Offset.zero);
-      menuTop = pos.dy + box.size.height + 4;
-      menuLeft = (pos.dx + box.size.width - 200).clamp(0.0, screenWidth - 200);
-    }
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.transparent,
-      barrierDismissible: true,
-      useRootNavigator: true,
-      builder: (dialogContext) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(dialogContext).pop(),
-              child: const SizedBox.expand(),
-            ),
-          ),
-          Positioned(
-            top: menuTop,
-            left: menuLeft,
-            child: Material(
-              color: Colors.transparent,
-              child: _VcMoreMenu(
-                sortColumn: _sortColumn,
-                sortAscending: _sortAscending,
-                onSortChanged: (col, asc) {
-                  Navigator.of(dialogContext).pop();
-                  setState(() {
-                    _sortColumn = col;
-                    _sortAscending = asc;
-                  });
-                },
-                onExport: () => Navigator.of(dialogContext).pop(),
-                onManageCustomFields: () {
-                  Navigator.of(dialogContext).pop();
-                  _openColumnCustomizer();
-                },
-                onRefreshList: () => Navigator.of(dialogContext).pop(),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _showColumnMenu(BuildContext context) {
     final box =
@@ -644,6 +1158,198 @@ class _VendorCreditsOverviewPageState
     });
   }
 
+  List<String> _vendorBillingAddressesFromVendor(Vendor vendor) {
+    final addresses = <String>[];
+
+    String joinAddressParts(Map<String, dynamic>? source) {
+      if (source == null) return '';
+      final lines = <String>[
+        source['attention']?.toString().trim() ?? '',
+        source['street1']?.toString().trim() ?? '',
+        source['street2']?.toString().trim() ?? '',
+      ].where((value) => value.isNotEmpty).toList();
+
+      final locality = [
+        source['city']?.toString().trim() ?? '',
+        source['state']?.toString().trim() ?? '',
+        source['zip']?.toString().trim() ?? '',
+      ].where((value) => value.isNotEmpty).join(', ');
+      if (locality.isNotEmpty) lines.add(locality);
+
+      final country = source['country']?.toString().trim() ?? '';
+      if (country.isNotEmpty) lines.add(country);
+
+      final phone = source['phone']?.toString().trim() ?? '';
+      if (phone.isNotEmpty) lines.add(phone);
+
+      final fax = source['fax']?.toString().trim() ?? '';
+      if (fax.isNotEmpty) lines.add('Fax Number : $fax');
+
+      return lines.join('\n').trim();
+    }
+
+    final primaryAddress = joinAddressParts(vendor.billingAddress);
+    if (primaryAddress.isNotEmpty) {
+      addresses.add(primaryAddress);
+    }
+
+    final rawVendorAddresses = vendor.vendorAddresses ?? const [];
+    for (final address in rawVendorAddresses) {
+      final normalized = joinAddressParts({
+        'attention': address['attention'] ?? address['billing_attention'],
+        'street1':
+            address['street1'] ??
+            address['street'] ??
+            address['billing_address_street'] ??
+            address['billingAddressStreet'],
+        'street2':
+            address['street2'] ??
+            address['place'] ??
+            address['billing_address_place'] ??
+            address['billingAddressPlace'],
+        'city': address['city'] ?? address['billing_city'],
+        'state': address['state'] ?? address['billing_state'],
+        'zip':
+            address['zip'] ??
+            address['pincode'] ??
+            address['billing_pincode'],
+        'country':
+            address['country'] ??
+            address['country_region'] ??
+            address['billing_country_region'],
+        'phone': address['phone'] ?? address['billing_phone'],
+        'fax': address['fax'] ?? address['billing_fax'],
+      });
+      if (normalized.isNotEmpty) {
+        addresses.add(normalized);
+      }
+    }
+
+    return addresses.toSet().toList(growable: false);
+  }
+
+  void _resetColumnWidths() {
+    setState(() {
+      _colWidths = {
+        'date': _VcColumnWidths.date,
+        'creditNoteNumber': _VcColumnWidths.creditNoteNumber,
+        'referenceNumber': _VcColumnWidths.referenceNumber,
+        'vendorName': _VcColumnWidths.vendorName,
+        'status': _VcColumnWidths.status,
+        'amount': _VcColumnWidths.amount,
+        'balance': _VcColumnWidths.balance,
+      };
+    });
+  }
+
+  ButtonStyle _vendorCreditMoreMenuItemStyle({bool isActive = false}) {
+    return ButtonStyle(
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      backgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (isActive) return AppTheme.bgDisabled;
+        if (states.contains(WidgetState.hovered)) return AppTheme.primaryBlue;
+        return Colors.white;
+      }),
+      foregroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered)) return Colors.white;
+        return AppTheme.textPrimary;
+      }),
+      iconColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered)) return Colors.white;
+        return AppTheme.primaryBlue;
+      }),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      ),
+      minimumSize: const WidgetStatePropertyAll(Size(220, 40)),
+      alignment: Alignment.centerLeft,
+      shape: const WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortMenuItem(String label, String column) {
+    final active = _sortColumn == column;
+    return MenuItemButton(
+      style: _vendorCreditMoreMenuItemStyle(isActive: active),
+      leadingIcon: active
+          ? Icon(
+              _sortAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
+              size: 16,
+            )
+          : const SizedBox(width: 16, height: 16),
+      onPressed: () {
+        setState(() {
+          if (_sortColumn == column) {
+            _sortAscending = !_sortAscending;
+          } else {
+            _sortColumn = column;
+            _sortAscending = true;
+          }
+        });
+      },
+      child: Text(label),
+    );
+  }
+
+  List<Widget> _buildMoreMenuChildren() {
+    return [
+      SubmenuButton(
+        style: _vendorCreditMoreMenuItemStyle(),
+        menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+        alignmentOffset: const Offset(4, 0),
+        leadingIcon: const Icon(LucideIcons.arrowUpDown, size: 16),
+        menuChildren: [
+          _buildSortMenuItem('Credit Note#', 'creditNoteNumber'),
+          _buildSortMenuItem('Date', 'date'),
+          _buildSortMenuItem('Amount', 'amount'),
+          _buildSortMenuItem('Balance', 'balance'),
+        ],
+        child: const Text('Sort by'),
+      ),
+      SubmenuButton(
+        style: _vendorCreditMoreMenuItemStyle(),
+        menuStyle: ZTableMoreMenu.submenuMenuStyle(),
+        alignmentOffset: const Offset(4, 0),
+        leadingIcon: const Icon(LucideIcons.upload, size: 16),
+        menuChildren: [
+          MenuItemButton(
+            style: _vendorCreditMoreMenuItemStyle(),
+            onPressed: () {},
+            child: const Text('Export Vendor Credits'),
+          ),
+          MenuItemButton(
+            style: _vendorCreditMoreMenuItemStyle(),
+            onPressed: () {},
+            child: const Text('Export Current View'),
+          ),
+        ],
+        child: const Text('Export'),
+      ),
+      MenuItemButton(
+        style: _vendorCreditMoreMenuItemStyle(),
+        leadingIcon: const Icon(LucideIcons.columns, size: 16),
+        onPressed: _openColumnCustomizer,
+        child: const Text('Customize Columns'),
+      ),
+      MenuItemButton(
+        style: _vendorCreditMoreMenuItemStyle(),
+        leadingIcon: const Icon(LucideIcons.refreshCw, size: 16),
+        onPressed: _loadSavedVendorCredits,
+        child: const Text('Refresh List'),
+      ),
+      MenuItemButton(
+        style: _vendorCreditMoreMenuItemStyle(),
+        leadingIcon: const Icon(LucideIcons.rotateCcw, size: 16),
+        onPressed: _resetColumnWidths,
+        child: const Text('Reset Column Width'),
+      ),
+    ];
+  }
+
   static Color _statusColor(String status) {
     switch (status.toUpperCase()) {
       case 'OPEN':
@@ -661,6 +1367,31 @@ class _VendorCreditsOverviewPageState
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading && _rows.isEmpty) {
+      return const ZerpaiLayout(
+        pageTitle: '',
+        enableBodyScroll: false,
+        useTopPadding: false,
+        useHorizontalPadding: false,
+        child: _VendorCreditsOverviewSkeleton(),
+      );
+    }
+
+    if (_loadError != null && _rows.isEmpty) {
+      return ZerpaiLayout(
+        pageTitle: '',
+        enableBodyScroll: false,
+        useTopPadding: false,
+        useHorizontalPadding: false,
+        child: Center(
+          child: Text(
+            'Failed to load vendor credits: $_loadError',
+            style: const TextStyle(color: AppTheme.textSecondary),
+          ),
+        ),
+      );
+    }
+
     final visibleColumns = _visibleColumns;
     final tableWidth = _tableWidth;
     final filteredRows = _filteredRows;
@@ -696,7 +1427,9 @@ class _VendorCreditsOverviewPageState
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildToolbar(context),
+                    _selectedIndices.isNotEmpty
+                        ? _buildSelectionToolbar(context)
+                        : _buildToolbar(context),
                     const Divider(height: 1, color: AppTheme.borderLight),
                     Expanded(
                       child: _buildFullTable(
@@ -836,82 +1569,88 @@ class _VendorCreditsOverviewPageState
       controller: _hScrollController,
       thumbVisibility: true,
       trackVisibility: true,
-      child: SingleChildScrollView(
-        controller: _hScrollController,
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: MediaQuery.of(context).size.width,
-          ),
-          child: SizedBox(
-            width: tableWidth,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _TableHeader(
-                  columns: visibleColumns,
-                  colWidths: _colWidths,
-                  columnMenuOpen: _columnMenuOpen,
-                  onColumnMenuTap: () => _showColumnMenu(context),
-                  textMode: _textMode,
-                  sortColumn: _sortColumn,
-                  sortAscending: _sortAscending,
-                  onColumnResize: _onColumnResize,
-                  onSort: (colId) => setState(() {
-                    if (_sortColumn == colId) {
-                      _sortAscending = !_sortAscending;
-                    } else {
-                      _sortColumn = colId;
-                      _sortAscending = true;
-                    }
-                  }),
-                  columnSettingsKey: _columnSettingsKey,
-                  allSelected: _allSelected,
-                  someSelected: _someSelected,
-                  onSelectAll: _toggleSelectAll,
-                  hasSelection: _selectedIndices.isNotEmpty,
-                ),
-                const Divider(height: 1, color: AppTheme.borderLight),
-                Expanded(
-                  child: rows.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No Vendor Credits found',
-                            style: TextStyle(color: AppTheme.textSecondary),
-                          ),
-                        )
-                      : ListView.separated(
-                          padding: EdgeInsets.zero,
-                          itemCount: rows.length,
-                          separatorBuilder: (_, __) => const Divider(
-                            height: 1,
-                            color: AppTheme.borderLight,
-                          ),
-                          itemBuilder: (context, index) {
-                            final row = rows[index];
-                            return _TableRow(
-                              row: row,
-                              columns: visibleColumns,
-                              colWidths: _colWidths,
-                              textMode: _textMode,
-                              onTap: () {
-                                setState(() => _detailIndex = index);
-                                if (_detailScrollController.hasClients) _detailScrollController.jumpTo(0);
-                                context.go(
-                                  '${AppRoutes.vendorCredits}?id=${row.creditNoteNumber}',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            controller: _hScrollController,
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: MediaQuery.of(context).size.width,
+                maxHeight: constraints.maxHeight,
+              ),
+              child: SizedBox(
+                width: tableWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _TableHeader(
+                      columns: visibleColumns,
+                      colWidths: _colWidths,
+                      columnMenuOpen: _columnMenuOpen,
+                      onColumnMenuTap: () => _showColumnMenu(context),
+                      textMode: _textMode,
+                      sortColumn: _sortColumn,
+                      sortAscending: _sortAscending,
+                      onColumnResize: _onColumnResize,
+                      onSort: (colId) => setState(() {
+                        if (_sortColumn == colId) {
+                          _sortAscending = !_sortAscending;
+                        } else {
+                          _sortColumn = colId;
+                          _sortAscending = true;
+                        }
+                      }),
+                      columnSettingsKey: _columnSettingsKey,
+                      allSelected: _allSelected,
+                      someSelected: _someSelected,
+                      onSelectAll: _toggleSelectAll,
+                      hasSelection: _selectedIndices.isNotEmpty,
+                    ),
+                    const Divider(height: 1, color: AppTheme.borderLight),
+                    Expanded(
+                      child: rows.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No Vendor Credits found',
+                                style: TextStyle(color: AppTheme.textSecondary),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: EdgeInsets.zero,
+                              itemCount: rows.length,
+                              separatorBuilder: (_, __) => const Divider(
+                                height: 1,
+                                color: AppTheme.borderLight,
+                              ),
+                              itemBuilder: (context, index) {
+                                final row = rows[index];
+                                return _TableRow(
+                                  row: row,
+                                  columns: visibleColumns,
+                                  colWidths: _colWidths,
+                                  textMode: _textMode,
+                                  onTap: () {
+                                    setState(() => _detailIndex = index);
+                                    if (_detailScrollController.hasClients)
+                                      _detailScrollController.jumpTo(0);
+                                    context.go(
+                                      '${AppRoutes.vendorCredits}?id=${row.creditNoteNumber}',
+                                    );
+                                  },
+                                  selected: _selectedIndices.contains(index),
+                                  onChanged: (v) => _toggleRow(index, v),
+                                  hasSelection: _selectedIndices.isNotEmpty,
                                 );
                               },
-                              selected: _selectedIndices.contains(index),
-                              onChanged: (v) => _toggleRow(index, v),
-                              hasSelection: _selectedIndices.isNotEmpty,
-                            );
-                          },
-                        ),
+                            ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -1001,27 +1740,11 @@ class _VendorCreditsOverviewPageState
                   ),
                 ),
                 const SizedBox(width: 10),
-                SizedBox(
-                  key: _moreMenuKey,
-                  width: 32,
-                  height: 32,
-                  child: TextButton(
-                    onPressed: () => _showMoreMenu(context),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(color: AppTheme.borderLight),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    child: const Icon(
-                      LucideIcons.moreHorizontal,
-                      size: 16,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
+                ZTableMoreMenu(
+                  width: 40,
+                  height: 36,
+                  iconSize: 18,
+                  menuChildren: _buildMoreMenuChildren(),
                 ),
               ],
             ),
@@ -1039,7 +1762,8 @@ class _VendorCreditsOverviewPageState
                   selected: index == _detailIndex,
                   onTap: () {
                     setState(() => _detailIndex = index);
-                    if (_detailScrollController.hasClients) _detailScrollController.jumpTo(0);
+                    if (_detailScrollController.hasClients)
+                      _detailScrollController.jumpTo(0);
                     context.go(
                       '${AppRoutes.vendorCredits}?id=${row.creditNoteNumber}',
                     );
@@ -1060,190 +1784,274 @@ class _VendorCreditsOverviewPageState
       return const Center(child: Text('Selection out of range'));
     }
     final rawRow = rows[_detailIndex!];
-    final creditNote = ref.watch(
+    final creditNoteAsync = ref.watch(
       vendorCreditDetailProvider(rawRow.creditNoteNumber),
     );
 
-    return Container(
-      color: AppTheme.backgroundColor,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Title header: VC number + status badge + icon buttons + close ──
-          Container(
-            height: 64,
-            padding: const EdgeInsets.only(left: 20, right: 8),
-            decoration: const BoxDecoration(
-              color: AppTheme.backgroundColor,
-              border: Border(
-                bottom: BorderSide(color: AppTheme.borderLight, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                Text(
-                  creditNote.creditNoteNumber,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _statusColor(
-                      creditNote.status,
-                    ).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    creditNote.status[0].toUpperCase() +
-                        creditNote.status.substring(1).toLowerCase(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: _statusColor(creditNote.status),
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                _DetailHeaderIconButton(
-                  icon: LucideIcons.paperclip,
-                  onTap: () {},
-                ),
-                const SizedBox(width: 6),
-                _DetailHeaderIconButton(
-                  icon: LucideIcons.messageSquare,
-                  onTap: () {},
-                ),
-                Container(
-                  width: 1,
-                  height: 28,
-                  margin: const EdgeInsets.symmetric(horizontal: 10),
-                  color: AppTheme.borderLight,
-                ),
-                GestureDetector(
-                  onTap: () {
-                    setState(() => _detailIndex = null);
-                    context.go(AppRoutes.vendorCredits);
-                  },
-                  child: const SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: Icon(
-                      LucideIcons.x,
-                      size: 20,
-                      color: AppTheme.errorRed,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // ── Action bar ──
-          Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: const BoxDecoration(
-              color: AppTheme.bgLight,
-              border: Border(
-                bottom: BorderSide(color: AppTheme.borderLight, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                _DetailActionBtn(
-                  icon: LucideIcons.pencil,
-                  label: 'Edit',
-                  onTap: () => context.push(
-                    '${AppRoutes.vendorCreditsCreate}?id=${creditNote.id}',
-                  ),
-                ),
-                const _DetailActionDivider(),
-                CompositedTransformTarget(
-                  link: _pdfPrintLink,
-                  child: _DetailActionBtn(
-                    icon: LucideIcons.fileText,
-                    label: 'PDF/Print',
-                    trailingIcon: LucideIcons.chevronDown,
-                    onTap: () => _showPdfPrintMenu(context),
-                  ),
-                ),
-                const _DetailActionDivider(),
-                if (creditNote.status.toLowerCase() == 'open') ...[
-                  _DetailActionBtn(
-                    icon: LucideIcons.clipboardCheck,
-                    label: 'Apply to Bills',
-                    onTap: () => showDialog(
-                      context: context,
-                      useRootNavigator: false,
-                      builder: (_) =>
-                          ApplyToBillsDialog(creditNote: creditNote),
-                    ),
-                  ),
-                  const _DetailActionDivider(),
-                ],
-                _DetailMoreBtn(
-                  onRefund: () {},
-                  onVoid: () {},
-                  onClone: () {},
-                  onViewJournal: () {
-                    final ctx = _journalKey.currentContext;
-                    if (ctx != null) {
-                      Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
-                    }
-                  },
-                  onDelete: () {
-                    setState(() {
-                      _rows.removeWhere((r) => r.id == rawRow.id);
-                      _detailIndex = null;
-                    });
-                    context.go(AppRoutes.vendorCredits);
-                  },
-                ),
-              ],
-            ),
-          ),
-          // Credit Applied Bills — fixed tab, never scrolls away
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-            child: _buildCreditAppliedSection(creditNote),
-          ),
-          // Scrollable content
-          Expanded(
-            child: SingleChildScrollView(
-              controller: _detailScrollController,
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildAssociatedBillRow(creditNote),
-                  const SizedBox(height: 16),
-                  _VcPdfPreview(creditNote: creditNote),
-                  const SizedBox(height: 24),
-                  _VcJournalSection(key: _journalKey, creditNote: creditNote),
-                ],
-              ),
-            ),
-          ),
-        ],
+    return creditNoteAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Center(
+        child: Text(
+          'Failed to load vendor credit: $error',
+          style: const TextStyle(color: AppTheme.textSecondary),
+        ),
       ),
+      data: (creditNote) {
+        if (creditNote == null) {
+          return const Center(
+            child: Text(
+              'Vendor credit not found',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+          );
+        }
+
+        return Container(
+          color: AppTheme.backgroundColor,
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      height: 64,
+                      padding: const EdgeInsets.only(left: 20, right: 8),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.backgroundColor,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppTheme.borderLight,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            creditNote.creditNoteNumber,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _statusColor(
+                                creditNote.status,
+                              ).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              creditNote.status[0].toUpperCase() +
+                                  creditNote.status.substring(1).toLowerCase(),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: _statusColor(creditNote.status),
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          CompositedTransformTarget(
+                            link: _detailAttachmentLink,
+                            child: _DetailHeaderIconButton(
+                              icon: LucideIcons.paperclip,
+                              onTap: () => _toggleDetailAttachmentOverlay(
+                                rawRow,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _DetailHeaderIconButton(
+                            icon: LucideIcons.messageSquare,
+                            onTap: () => setState(
+                              () => _showDetailHistorySidebar =
+                                  !_showDetailHistorySidebar,
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: 28,
+                            margin: const EdgeInsets.symmetric(horizontal: 10),
+                            color: AppTheme.borderLight,
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              _closeDetailAttachmentOverlay();
+                              setState(() {
+                                _detailIndex = null;
+                                _showDetailHistorySidebar = false;
+                              });
+                              context.go(AppRoutes.vendorCredits);
+                            },
+                            child: const SizedBox(
+                              width: 36,
+                              height: 36,
+                              child: Icon(
+                                LucideIcons.x,
+                                size: 20,
+                                color: AppTheme.errorRed,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      height: 44,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.bgLight,
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppTheme.borderLight,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          _DetailActionBtn(
+                            icon: LucideIcons.pencil,
+                            label: 'Edit',
+                            onTap: () => context.push(
+                              '${AppRoutes.vendorCreditsCreate}?id=${rawRow.id}',
+                            ),
+                          ),
+                          CompositedTransformTarget(
+                            link: _pdfPrintLink,
+                            child: _DetailActionBtn(
+                              icon: LucideIcons.fileText,
+                              label: 'PDF/Print',
+                              trailingIcon: LucideIcons.chevronDown,
+                              onTap: () => _showPdfPrintMenu(
+                                context,
+                                creditNote: creditNote,
+                                orgSettings: ref.read(orgSettingsProvider).asData?.value,
+                              ),
+                            ),
+                          ),
+                          const _DetailActionDivider(),
+                          if (creditNote.appliedBillNumber?.trim().isEmpty ??
+                              true) ...[
+                            _DetailActionBtn(
+                              icon: LucideIcons.clipboardCheck,
+                              label: 'Apply to Bills',
+                              onTap: () async {
+                                final applied = await showDialog<bool>(
+                                  context: context,
+                                  useRootNavigator: true,
+                                  useSafeArea: false,
+                                  builder: (_) => ApplyToBillsDialog(
+                                    creditNote: creditNote,
+                                  ),
+                                );
+                                if (applied == true) {
+                                  ref.invalidate(
+                                    vendorCreditDetailProvider(
+                                      rawRow.creditNoteNumber,
+                                    ),
+                                  );
+                                  if (mounted) {
+                                    setState(() => _tabExpanded = true);
+                                  }
+                                }
+                              },
+                            ),
+                            const _DetailActionDivider(),
+                          ],
+                          _DetailMoreBtn(
+                            onRefund: () => _updateVcStatus(rawRow, 'open'),
+                            onVoid: () => _voidCredit(rawRow),
+                            onClone: () => _cloneCredit(context, rawRow),
+                            onClose: () => _closeCredit(rawRow),
+                            onViewJournal: () {
+                              final ctx = _journalKey.currentContext;
+                              if (ctx != null) {
+                                Scrollable.ensureVisible(
+                                  ctx,
+                                  duration: const Duration(milliseconds: 400),
+                                  curve: Curves.easeInOut,
+                                );
+                              }
+                            },
+                            onDelete: () {
+                              setState(() {
+                                _rows.removeWhere((r) => r.id == rawRow.id);
+                                _detailIndex = null;
+                                _showDetailHistorySidebar = false;
+                              });
+                              context.go(AppRoutes.vendorCredits);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                      child: _buildCreditAppliedSection(creditNote),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        controller: _detailScrollController,
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 760),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildAssociatedBillRow(creditNote),
+                                const SizedBox(height: 16),
+                                _VcPdfPreview(creditNote: creditNote),
+                                const SizedBox(height: 24),
+                                _VcJournalSection(
+                                  key: _journalKey,
+                                  creditNote: creditNote,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_showDetailHistorySidebar)
+                _VendorCreditHistorySidebar(
+                  rawRow: rawRow,
+                  creditNote: creditNote,
+                  entityId: ref.read(entityProvider).entityId,
+                  orgId: ref.read(entityProvider).orgId,
+                  onClose: () => setState(
+                    () => _showDetailHistorySidebar = false,
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  static String? _mockAppliedBill(String creditNoteId) {
-    const map = {'VC-00001': 'B2B/25-26/07761', 'VC-00002': 'B2B/25-26/07892'};
-    return map[creditNoteId];
-  }
-
   Widget _buildCreditAppliedSection(VendorCreditDetail creditNote) {
-    final appliedBill = _mockAppliedBill(creditNote.id);
-    final count = appliedBill != null ? 1 : 0;
+    final appliedBill = creditNote.appliedBillNumber?.trim();
+    if (appliedBill == null || appliedBill.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final appliedDate = creditNote.appliedBillDate ?? creditNote.date;
+    final appliedAmount = creditNote.appliedBillAmount ?? creditNote.total;
+    final dateText = DateFormat('dd-MM-yyyy').format(appliedDate);
+    final amountCredited = '₹${_inFmt.format(appliedAmount)}';
 
     return GestureDetector(
       onTap: () => setState(() => _tabExpanded = !_tabExpanded),
@@ -1251,45 +2059,151 @@ class _VendorCreditsOverviewPageState
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: AppTheme.borderLight),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Credit Applied Bills',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: AppTheme.primaryBlue,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: const [
+                        Text(
+                          'Credit Applied Bills',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          '1',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  AnimatedRotation(
+                    turns: _tabExpanded ? 0.25 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: Icon(
+                        LucideIcons.chevronRight,
+                        size: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryBlue,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '$count',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+            const Divider(height: 1, thickness: 1, color: AppTheme.borderLight),
+            if (_tabExpanded) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+                child: Row(
+                  children: const [
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        'Date',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        'Bill#',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        'Amount Credited',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const Spacer(),
-            AnimatedRotation(
-              turns: _tabExpanded ? 0.25 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: const Icon(
-                LucideIcons.chevronRight,
-                size: 16,
-                color: AppTheme.textSecondary,
+              const Divider(
+                height: 1,
+                thickness: 1,
+                color: Color(0xFFEFF2F6),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        dateText,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        appliedBill.startsWith('+') ? appliedBill : '+$appliedBill',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        amountCredited,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1297,26 +2211,7 @@ class _VendorCreditsOverviewPageState
   }
 
   Widget _buildAssociatedBillRow(VendorCreditDetail creditNote) {
-    final bill = _mockAppliedBill(creditNote.id);
-    if (bill == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(left: 4),
-      child: RichText(
-        text: TextSpan(
-          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-          children: [
-            const TextSpan(text: 'Associated Bill: '),
-            TextSpan(
-              text: bill,
-              style: const TextStyle(
-                color: AppTheme.primaryBlue,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildToolbar(BuildContext context) {
@@ -1355,35 +2250,125 @@ class _VendorCreditsOverviewPageState
             ),
           ),
           const Spacer(),
-          ZButton.primary(
-            label: 'New',
-            icon: LucideIcons.plus,
-            onPressed: () => context.go(AppRoutes.vendorCreditsCreate),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ZButton.primary(
+                label: 'New',
+                icon: LucideIcons.plus,
+                onPressed: () => context.go(AppRoutes.vendorCreditsCreate),
+              ),
+              const SizedBox(width: 12),
+              ZTableMoreMenu(
+                width: 40,
+                height: 36,
+                iconSize: 18,
+                menuChildren: _buildMoreMenuChildren(),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          SizedBox(
-            key: _columnSettingsKey,
-            width: 36,
-            height: 36,
-            child: TextButton(
-              onPressed: () => _showMoreMenu(context),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: AppTheme.borderLight),
-                  borderRadius: BorderRadius.circular(4),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectionToolbar(BuildContext context) {
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      color: Colors.white,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppTheme.borderLight),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            _VcSelectionActionButton(
+              label: 'Bulk Update',
+              onTap: () => _showBulkUpdateDialog(context),
+            ),
+            const SizedBox(width: 8),
+            CompositedTransformTarget(
+              link: _pdfPrintLink,
+              child: _VcSelectionIconButton(
+                icon: LucideIcons.printer,
+                onTap: () => _showPdfPrintMenu(context),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _VcSelectionActionButton(
+              label: 'Delete',
+              onTap: _deleteSelectedRows,
+            ),
+            Container(
+              width: 1,
+              height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: AppTheme.borderLight,
+            ),
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF2FF),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${_selectedIndices.length}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primaryBlue,
                 ),
               ),
-              child: const Icon(
-                LucideIcons.moreHorizontal,
-                size: 18,
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Selected',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
                 color: AppTheme.textPrimary,
               ),
             ),
-          ),
-        ],
+            const Spacer(),
+            InkWell(
+              onTap: _clearSelection,
+              borderRadius: BorderRadius.circular(6),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Esc',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(
+                      LucideIcons.x,
+                      size: 16,
+                      color: AppTheme.errorRed,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1481,10 +2466,14 @@ class _TableHeaderState extends State<_TableHeader> {
                 child: Checkbox(
                   value: widget.allSelected || widget.someSelected,
                   tristate: false,
-                  onChanged: (v) => widget.onSelectAll(widget.allSelected ? false : true),
+                  onChanged: (v) =>
+                      widget.onSelectAll(widget.allSelected ? false : true),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   activeColor: AppTheme.primaryBlue,
-                  side: const BorderSide(color: AppTheme.borderLight, width: 1.5),
+                  side: const BorderSide(
+                    color: AppTheme.borderLight,
+                    width: 1.5,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -1564,8 +2553,10 @@ class _TableHeaderState extends State<_TableHeader> {
                                 color: isDragging
                                     ? AppTheme.primaryBlue
                                     : showHandle
-                                        ? AppTheme.primaryBlue.withValues(alpha: 0.55)
-                                        : AppTheme.borderLight,
+                                    ? AppTheme.primaryBlue.withValues(
+                                        alpha: 0.55,
+                                      )
+                                    : AppTheme.borderLight,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -2845,17 +3836,24 @@ class _ColumnMenuOptionState extends State<_ColumnMenuOption> {
         onTap: widget.onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          color: _hovered ? AppTheme.bgLight : Colors.transparent,
+          decoration: BoxDecoration(
+            color: _hovered ? AppTheme.primaryBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Row(
             children: [
-              Icon(widget.icon, size: 16, color: AppTheme.textSecondary),
+              Icon(
+                widget.icon,
+                size: 16,
+                color: _hovered ? Colors.white : AppTheme.textSecondary,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   widget.label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: AppTheme.textPrimary,
+                    color: _hovered ? Colors.white : AppTheme.textPrimary,
                   ),
                 ),
               ),
@@ -2867,138 +3865,7 @@ class _ColumnMenuOptionState extends State<_ColumnMenuOption> {
   }
 }
 
-class _VcMoreMenu extends StatelessWidget {
-  const _VcMoreMenu({
-    required this.sortColumn,
-    required this.sortAscending,
-    required this.onSortChanged,
-    required this.onExport,
-    required this.onManageCustomFields,
-    required this.onRefreshList,
-  });
 
-  final String sortColumn;
-  final bool sortAscending;
-  final void Function(String column, bool ascending) onSortChanged;
-  final VoidCallback onExport;
-  final VoidCallback onManageCustomFields;
-  final VoidCallback onRefreshList;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppTheme.borderLight),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.textPrimary.withValues(alpha: 0.12),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _menuHeader('SORT BY'),
-          _sortOption('Credit Note#', 'creditNoteNumber'),
-          _sortOption('Date', 'date'),
-          _sortOption('Amount', 'amount'),
-          _sortOption('Balance', 'balance'),
-          const Divider(height: 1, color: AppTheme.borderLight),
-          _actionOption(
-            'Export Vendor Credits',
-            LucideIcons.download,
-            onExport,
-          ),
-          _actionOption(
-            'Customize Columns',
-            LucideIcons.columns,
-            onManageCustomFields,
-          ),
-          _actionOption('Refresh List', LucideIcons.refreshCw, onRefreshList),
-        ],
-      ),
-    );
-  }
-
-  Widget _menuHeader(String label) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: AppTheme.textSecondary,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-
-  Widget _sortOption(String label, String column) {
-    final active = sortColumn == column;
-    return InkWell(
-      onTap: () => onSortChanged(column, active ? !sortAscending : true),
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                  color: active
-                      ? AppTheme.primaryBlueDark
-                      : AppTheme.textPrimary,
-                ),
-              ),
-            ),
-            if (active)
-              Icon(
-                sortAscending ? LucideIcons.arrowUp : LucideIcons.arrowDown,
-                size: 13,
-                color: AppTheme.primaryBlue,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _actionOption(String label, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        height: 38,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: Row(
-          children: [
-            Icon(icon, size: 14, color: AppTheme.textSecondary),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _VcCustomizeMenu extends StatefulWidget {
   const _VcCustomizeMenu({required this.onOpen, required this.onClose});
@@ -3095,7 +3962,11 @@ class _VcCustomizeMenuState extends State<_VcCustomizeMenu> {
 }
 
 class _DownloadMenuOption extends StatefulWidget {
-  const _DownloadMenuOption({required this.label, required this.onTap, this.icon});
+  const _DownloadMenuOption({
+    required this.label,
+    required this.onTap,
+    this.icon,
+  });
   final String label;
   final VoidCallback onTap;
   final IconData? icon;
@@ -3123,7 +3994,11 @@ class _DownloadMenuOptionState extends State<_DownloadMenuOption> {
           child: Row(
             children: [
               if (widget.icon != null) ...[
-                Icon(widget.icon, size: 16, color: _hovered ? Colors.white : AppTheme.primaryBlue),
+                Icon(
+                  widget.icon,
+                  size: 16,
+                  color: _hovered ? Colors.white : AppTheme.primaryBlue,
+                ),
                 const SizedBox(width: 8),
               ],
               Text(
@@ -3135,6 +4010,738 @@ class _DownloadMenuOptionState extends State<_DownloadMenuOption> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VcSelectionActionButton extends StatefulWidget {
+  const _VcSelectionActionButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  State<_VcSelectionActionButton> createState() =>
+      _VcSelectionActionButtonState();
+}
+
+class _VcSelectionActionButtonState extends State<_VcSelectionActionButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _hovered ? const Color(0xFFF8FAFC) : Colors.white,
+            border: Border.all(color: AppTheme.borderLight),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            widget.label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _VcSelectionIconButton extends StatefulWidget {
+  const _VcSelectionIconButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  State<_VcSelectionIconButton> createState() => _VcSelectionIconButtonState();
+}
+
+class _VcSelectionIconButtonState extends State<_VcSelectionIconButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _hovered ? const Color(0xFFF8FAFC) : Colors.white,
+            border: Border.all(color: AppTheme.borderLight),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Icon(widget.icon, size: 15, color: AppTheme.textPrimary),
+        ),
+      ),
+    );
+  }
+}
+
+class _VcBulkUpdateDialog extends StatefulWidget {
+  const _VcBulkUpdateDialog({
+    required this.selectedVendorName,
+    required this.billingAddresses,
+    required this.onClose,
+    required this.onApply,
+  });
+
+  final String selectedVendorName;
+  final List<String> billingAddresses;
+  final VoidCallback onClose;
+  final void Function(String field, String value) onApply;
+
+  @override
+  State<_VcBulkUpdateDialog> createState() => _VcBulkUpdateDialogState();
+}
+
+class _VcBulkUpdateDialogState extends State<_VcBulkUpdateDialog> {
+  final TextEditingController _valueController = TextEditingController();
+  final GlobalKey _dateFieldKey = GlobalKey();
+  String? _selectedField;
+  String? _selectedAddress;
+
+  @override
+  void dispose() {
+    _valueController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildDropdownItem(String item, bool isSelected, bool isHovered) {
+    final background = isHovered
+        ? AppTheme.primaryBlue
+        : isSelected
+        ? const Color(0xFFF1F1F3)
+        : Colors.white;
+    final foreground = isHovered ? Colors.white : AppTheme.textPrimary;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          item,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: foreground,
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<String> get _resolvedAddresses => widget.billingAddresses;
+
+  String get _effectiveAddress =>
+      _selectedAddress ??
+      (_resolvedAddresses.isNotEmpty ? _resolvedAddresses.first : '');
+
+  List<String> get _effectiveAddressLines => _effectiveAddress
+      .split('\n')
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty)
+      .toList(growable: false);
+
+  Future<void> _pickDate() async {
+    final initial = _parseDate(_valueController.text) ?? DateTime.now();
+    final picked = await ZerpaiDatePicker.show(
+      context,
+      initialDate: initial,
+      firstDate: DateTime(2000, 1, 1),
+      lastDate: DateTime(2100, 12, 31),
+      targetKey: _dateFieldKey,
+    );
+    if (picked == null) return;
+    setState(() {
+      _valueController.text = DateFormat('dd-MM-yyyy').format(picked);
+    });
+  }
+
+  DateTime? _parseDate(String value) {
+    try {
+      return DateFormat('dd-MM-yyyy').parseStrict(value);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Widget _buildFieldContent() {
+    switch (_selectedField) {
+      case 'Date':
+        return Align(
+          alignment: Alignment.topRight,
+          child: SizedBox(
+            width: 300,
+            child: _buildDateField(),
+          ),
+        );
+      case 'Billing Address':
+        return _buildBillingAddressContent();
+      case 'Notes':
+        return Align(
+          alignment: Alignment.topRight,
+          child: SizedBox(
+            width: 300,
+            child: _buildNotesField(),
+          ),
+        );
+      case 'Order Number':
+      default:
+        return Align(
+          alignment: Alignment.topRight,
+          child: SizedBox(
+            width: 300,
+            child: _buildTextField(),
+          ),
+        );
+    }
+  }
+
+  Widget _buildTextField({String? hintText}) {
+    return SizedBox(
+      height: 38,
+      child: TextField(
+        controller: _valueController,
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppTheme.textPrimary,
+        ),
+        decoration: InputDecoration(
+          isDense: true,
+          hintText: hintText,
+          hintStyle: const TextStyle(
+            fontSize: 13,
+            color: AppTheme.textSecondary,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: AppTheme.borderLight),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: AppTheme.borderLight),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: AppTheme.primaryBlue),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateField() {
+    return KeyedSubtree(
+      key: _dateFieldKey,
+      child: InkWell(
+        onTap: _pickDate,
+        borderRadius: BorderRadius.circular(6),
+        child: IgnorePointer(
+          child: TextField(
+            controller: _valueController,
+            readOnly: true,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textPrimary,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: 'dd-MM-yyyy',
+              hintStyle: const TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              suffixIcon: const Icon(
+                LucideIcons.calendar,
+                size: 16,
+                color: AppTheme.textSecondary,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: AppTheme.borderLight),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: AppTheme.borderLight),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: AppTheme.primaryBlue),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotesField() {
+    return SizedBox(
+      height: 84,
+      child: TextField(
+        controller: _valueController,
+        maxLines: null,
+        expands: true,
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppTheme.textPrimary,
+        ),
+        decoration: InputDecoration(
+          isDense: true,
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: AppTheme.borderLight),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: AppTheme.borderLight),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: const BorderSide(color: AppTheme.primaryBlue),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBillingAddressContent() {
+    final hasSelectedAddress = _effectiveAddressLines.isNotEmpty;
+    Widget buildAddressMenuAnchor(Widget child) {
+      return MenuAnchor(
+        style: MenuStyle(
+          backgroundColor: const WidgetStatePropertyAll(Colors.white),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
+          elevation: const WidgetStatePropertyAll(6),
+          shadowColor: WidgetStatePropertyAll(
+            Colors.black.withValues(alpha: 0.12),
+          ),
+          padding: const WidgetStatePropertyAll(EdgeInsets.all(6)),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: AppTheme.borderLight),
+            ),
+          ),
+        ),
+        menuChildren: _resolvedAddresses.isEmpty
+            ? [
+                const MenuItemButton(
+                  onPressed: null,
+                  child: SizedBox(
+                    width: 320,
+                    child: Text(
+                      'No billing addresses found for the selected vendor.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ),
+              ]
+            : _resolvedAddresses.map((address) {
+                final isSelected = _effectiveAddress == address;
+                return MenuItemButton(
+                  style: ButtonStyle(
+                    padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+                    minimumSize: const WidgetStatePropertyAll(Size(332, 0)),
+                    backgroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.hovered)) {
+                        return AppTheme.primaryBlue;
+                      }
+                      if (isSelected) return const Color(0xFFF1F1F3);
+                      return Colors.white;
+                    }),
+                    foregroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.hovered)) {
+                        return Colors.white;
+                      }
+                      return AppTheme.textPrimary;
+                    }),
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: isSelected
+                              ? AppTheme.primaryBlue.withValues(alpha: 0.35)
+                              : AppTheme.borderLight,
+                        ),
+                      ),
+                    ),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _selectedAddress = address;
+                      _valueController.text = address;
+                    });
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      address,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(growable: false),
+        builder: (context, controller, _) => GestureDetector(
+          onTap: () => controller.isOpen ? controller.close() : controller.open(),
+          child: child,
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FC),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'VENDOR CREDIT ADDRESS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textSecondary,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              if (hasSelectedAddress) ...[
+                const SizedBox(width: 6),
+                buildAddressMenuAnchor(
+                  const Icon(
+                    LucideIcons.pencil,
+                    size: 13,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              const Text(
+                'Vendor Name: ',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              Text(
+                widget.selectedVendorName,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              if (!hasSelectedAddress)
+                buildAddressMenuAnchor(
+                  const Text(
+                    'Choose existing address',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.primaryBlue,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (hasSelectedAddress) ...[
+            const SizedBox(height: 12),
+            ..._effectiveAddressLines.map(
+              (line) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  line,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textPrimary,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: SafeArea(
+        top: false,
+        bottom: false,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: 600,
+              maxWidth: 600,
+              minHeight: 296.01,
+            ),
+            child: Container(
+            color: Colors.white,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  height: 57,
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      bottom: BorderSide(color: AppTheme.borderLight),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Bulk Update Vendor Credit',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ),
+                      InkWell(
+                        onTap: widget.onClose,
+                        borderRadius: BorderRadius.circular(4),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(
+                            LucideIcons.x,
+                            size: 18,
+                            color: AppTheme.errorRed,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 20, 22, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Choose a field from the dropdown and update with new information.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 298,
+                                child: FormDropdown<String>(
+                                  value: _selectedField,
+                                  items: _vcBulkUpdateFields,
+                                  hint: 'Select a field',
+                                  menuWidth: 298,
+                                  menuMaxHeight: 204,
+                                  showSearch: true,
+                                  showSearchIcon: true,
+                                  borderRadius: BorderRadius.circular(6),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedField = value;
+                                      _valueController.clear();
+                                    });
+                                  },
+                                  displayStringForValue: (value) => value,
+                                  searchStringForValue: (value) => value,
+                                  itemBuilder: _buildDropdownItem,
+                                ),
+                              ),
+                              if (_selectedField != 'Billing Address') ...[
+                                const SizedBox(width: 34),
+                                Expanded(child: _buildFieldContent()),
+                              ],
+                            ],
+                          ),
+                          if (_selectedField == 'Billing Address') ...[
+                            const SizedBox(height: 18),
+                            _buildFieldContent(),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Note: ',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF667085),
+                              ),
+                            ),
+                            TextSpan(
+                              text:
+                                  'All the selected vendor credit will be updated with the new\ninformation and you cannot undo this action.',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF667085),
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF667085),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+                Container(
+                  height: 76,
+                  padding: const EdgeInsets.fromLTRB(22, 25, 22, 0),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      top: BorderSide(color: AppTheme.borderLight),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        height: 36,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            final field = _selectedField?.trim() ?? '';
+                            final value = field == 'Billing Address'
+                                ? _effectiveAddress.trim()
+                                : _valueController.text.trim();
+                            if (field.isEmpty || value.isEmpty) return;
+                            widget.onApply(field, value);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF22B573),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          child: const Text(
+                            'Update',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        height: 36,
+                        child: OutlinedButton(
+                          onPressed: widget.onClose,
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppTheme.textPrimary,
+                            elevation: 0,
+                            side: const BorderSide(
+                              color: AppTheme.borderLight,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
           ),
         ),
       ),
@@ -3191,7 +4798,11 @@ class _DetailActionBtnState extends State<_DetailActionBtn> {
               ),
               if (widget.trailingIcon != null) ...[
                 const SizedBox(width: 3),
-                Icon(widget.trailingIcon, size: 11, color: AppTheme.textSecondary),
+                Icon(
+                  widget.trailingIcon,
+                  size: 11,
+                  color: AppTheme.textSecondary,
+                ),
               ],
             ],
           ),
@@ -3239,6 +4850,1001 @@ class _DetailHeaderIconButtonState extends State<_DetailHeaderIconButton> {
   }
 }
 
+class _VendorCreditAttachmentOverlayContent extends StatefulWidget {
+  const _VendorCreditAttachmentOverlayContent({
+    required this.vendorCreditId,
+    required this.entityId,
+    required this.onClose,
+  });
+
+  final String vendorCreditId;
+  final String? entityId;
+  final VoidCallback onClose;
+
+  @override
+  State<_VendorCreditAttachmentOverlayContent> createState() =>
+      _VendorCreditAttachmentOverlayContentState();
+}
+
+class _VendorCreditAttachmentOverlayContentState
+    extends State<_VendorCreditAttachmentOverlayContent> {
+  bool _isLoading = true;
+  bool _isUploading = false;
+  List<Map<String, dynamic>> _attachments = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAttachments();
+  }
+
+  Future<void> _loadAttachments() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('vendor_credits_attachments')
+          .select(
+            'id,file_name,original_file_name,file_path,file_url,file_size,file_type,uploaded_at',
+          )
+          .eq('vendor_credits_id', widget.vendorCreditId)
+          .order('uploaded_at', ascending: false);
+      if (!mounted) return;
+      setState(() {
+        _attachments = (res as List)
+            .map((row) => Map<String, dynamic>.from(row as Map))
+            .toList(growable: false);
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _attachments = const [];
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _formatFileSize(dynamic size) {
+    final parsed = double.tryParse(size?.toString() ?? '0') ?? 0;
+    if (parsed <= 0) return 'File Size: 0 KB';
+    if (parsed / 1024 > 1024) {
+      return 'File Size: ${(parsed / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return 'File Size: ${(parsed / 1024).toStringAsFixed(1)} KB';
+  }
+
+  Future<void> _insertVendorCreditAttachmentRows({
+    required SupabaseClient supabase,
+    required List<Map<String, dynamic>> files,
+  }) async {
+    if (files.isEmpty) return;
+    final uploadedBy = supabase.auth.currentUser?.id;
+    const attachmentForeignKey = 'vendor_credits_id';
+    final variants = <List<Map<String, dynamic>>>[
+      files
+          .map(
+            (file) => <String, dynamic>{
+              attachmentForeignKey: widget.vendorCreditId,
+              'file_name': file['file_name'],
+              'file_path': file['file_path'],
+              'original_file_name': file['original_file_name'],
+              'file_size': file['file_size'],
+              'file_type': file['file_type'],
+              'remarks': file['remarks'],
+            },
+          )
+          .toList(growable: false),
+      files
+          .map(
+            (file) => <String, dynamic>{
+              attachmentForeignKey: widget.vendorCreditId,
+              'file_name': file['file_name'],
+              'file_url': file['file_path'],
+              'original_file_name': file['original_file_name'],
+              'file_size': file['file_size'],
+              'file_type': file['file_type'],
+              'remarks': file['remarks'],
+            },
+          )
+          .toList(growable: false),
+      files
+          .map(
+            (file) => <String, dynamic>{
+              attachmentForeignKey: widget.vendorCreditId,
+              'entity_id': widget.entityId,
+              'uploaded_by': uploadedBy,
+              'file_name': file['file_name'],
+              'file_path': file['file_path'],
+              'original_file_name': file['original_file_name'],
+              'file_size': file['file_size'],
+              'file_type': file['file_type'],
+              'remarks': file['remarks'],
+            },
+          )
+          .toList(growable: false),
+      files
+          .map(
+            (file) => <String, dynamic>{
+              attachmentForeignKey: widget.vendorCreditId,
+              'entity_id': widget.entityId,
+              'uploaded_by': uploadedBy,
+              'file_name': file['file_name'],
+              'file_url': file['file_path'],
+              'original_file_name': file['original_file_name'],
+              'file_size': file['file_size'],
+              'file_type': file['file_type'],
+              'remarks': file['remarks'],
+            },
+          )
+          .toList(growable: false),
+    ];
+
+    Object? lastError;
+    for (final payload in variants) {
+      try {
+        await supabase.from('vendor_credits_attachments').insert(payload);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError ?? Exception('Failed to save vendor credit attachments.');
+  }
+
+  Future<void> _uploadAttachments() async {
+    if (_isUploading) return;
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        withData: true,
+      );
+      if (picked == null || picked.files.isEmpty || !mounted) return;
+
+      final totalCount = _attachments.length + picked.files.length;
+      if (totalCount > 5) {
+        ZerpaiToast.error(context, 'You can upload a maximum of 5 files.');
+        return;
+      }
+
+      for (final file in picked.files) {
+        if (file.size > 10 * 1024 * 1024) {
+          ZerpaiToast.error(context, '${file.name} exceeds the 10MB limit.');
+          return;
+        }
+      }
+
+      setState(() => _isUploading = true);
+
+      final storage = StorageService();
+      final supabase = Supabase.instance.client;
+      final rows = <Map<String, dynamic>>[];
+      for (final file in picked.files) {
+        final uploadedPath = await storage.uploadPaymentAttachment(file);
+        if (uploadedPath == null || uploadedPath.isEmpty) {
+          throw Exception('Failed to upload attachment: ${file.name}');
+        }
+        rows.add(<String, dynamic>{
+          'file_name': file.name,
+          'file_path': uploadedPath,
+          'original_file_name': file.name,
+          'file_size': file.size,
+          'file_type': file.extension?.toLowerCase(),
+          'remarks': null,
+        });
+      }
+
+      await _insertVendorCreditAttachmentRows(
+        supabase: supabase,
+        files: rows,
+      );
+      await _loadAttachments();
+      if (!mounted) return;
+      ZerpaiToast.success(context, 'Attachments uploaded successfully');
+    } catch (e) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Failed to upload attachments: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  Widget _buildUploadBox() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+      child: DottedBorder(
+        color: const Color(0xFFD7DEE8),
+        dashPattern: const [4, 3],
+        radius: const Radius.circular(6),
+        borderType: BorderType.RRect,
+        strokeWidth: 1,
+        child: InkWell(
+          onTap: _isUploading ? null : _uploadAttachments,
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            height: 52,
+            width: double.infinity,
+            color: Colors.white,
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isUploading)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  const Icon(
+                    LucideIcons.upload,
+                    size: 16,
+                    color: Color(0xFF3B82F6),
+                  ),
+                const SizedBox(width: 8),
+                Text(
+                  _isUploading ? 'Uploading...' : 'Upload your Files',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF5B6472),
+                  ),
+                ),
+                if (!_isUploading) ...[
+                  const SizedBox(width: 6),
+                  const Icon(
+                    LucideIcons.chevronDown,
+                    size: 16,
+                    color: Color(0xFF7B8794),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          top: -5,
+          right: 88,
+          child: Transform.rotate(
+            angle: 0.785398,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+            ),
+          ),
+        ),
+        Container(
+          width: 314,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Attachments',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const Spacer(),
+                    InkWell(
+                      onTap: widget.onClose,
+                      borderRadius: BorderRadius.circular(4),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(
+                          LucideIcons.x,
+                          color: Color(0xFFFF4D4F),
+                          size: 15,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFEEF1F5)),
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 28),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_attachments.isEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 18, 16, 16),
+                  child: Text(
+                    'No Files Attached',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFF1F3F5),
+                ),
+                _buildUploadBox(),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 11),
+                  child: Text(
+                    'You can upload a maximum of 5 files, 10MB each',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ] else ...[
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+                    itemCount: _attachments.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final att = _attachments[index];
+                      final name = att['original_file_name']
+                                  ?.toString()
+                                  .trim()
+                                  .isNotEmpty ==
+                              true
+                          ? att['original_file_name'].toString().trim()
+                          : att['file_name']?.toString() ?? 'Unnamed';
+                      final fileType =
+                          att['file_type']?.toString().toLowerCase() ?? '';
+                      final isPdf =
+                          fileType == 'pdf' ||
+                          name.toLowerCase().endsWith('.pdf');
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE8EDF3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: isPdf
+                                    ? const Color(0xFFFEE2E2)
+                                    : const Color(0xFFE8F1FF),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  LucideIcons.fileText,
+                                  color: isPdf
+                                      ? const Color(0xFFDC2626)
+                                      : const Color(0xFF3B82F6),
+                                  size: 17,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    name,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _formatFileSize(att['file_size']),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFF1F3F5),
+                ),
+                _buildUploadBox(),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 11),
+                  child: Text(
+                    'You can upload a maximum of 5 files, 10MB each',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _VcHistoryEvent {
+  const _VcHistoryEvent({
+    required this.username,
+    required this.time,
+    required this.content,
+    required this.icon,
+  });
+
+  final String username;
+  final DateTime time;
+  final String content;
+  final IconData icon;
+}
+
+class _VendorCreditHistorySidebar extends StatefulWidget {
+  const _VendorCreditHistorySidebar({
+    required this.rawRow,
+    required this.creditNote,
+    required this.entityId,
+    required this.orgId,
+    required this.onClose,
+  });
+
+  final _VendorCreditRow rawRow;
+  final VendorCreditDetail creditNote;
+  final String? entityId;
+  final String? orgId;
+  final VoidCallback onClose;
+
+  @override
+  State<_VendorCreditHistorySidebar> createState() =>
+      _VendorCreditHistorySidebarState();
+}
+
+class _VendorCreditHistorySidebarState
+    extends State<_VendorCreditHistorySidebar> {
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _attachments = const [];
+  List<Map<String, dynamic>> _comments = const [];
+  late final TextEditingController _commentController;
+  bool _isSavingComment = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _commentController = TextEditingController();
+    _loadSidebarData();
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSidebarData() async {
+    await Future.wait([_loadAttachments(), _loadComments()]);
+  }
+
+  Future<void> _loadAttachments() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('vendor_credits_attachments')
+          .select('id,uploaded_at,file_name,original_file_name')
+          .eq('vendor_credits_id', widget.rawRow.id);
+      if (!mounted) return;
+      setState(() {
+        _attachments = (res as List)
+            .map((row) => Map<String, dynamic>.from(row as Map))
+            .toList(growable: false);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _attachments = const [];
+      });
+    }
+  }
+
+  Future<void> _loadComments() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('audit_logs')
+          .select('id,action,actor_name,new_values,created_at')
+          .eq('table_name', 'vendor_credits')
+          .eq('record_id', widget.rawRow.id)
+          .eq('action', 'COMMENT')
+          .order('created_at', ascending: false);
+      if (!mounted) return;
+      setState(() {
+        _comments = (res as List)
+            .map((row) => Map<String, dynamic>.from(row as Map))
+            .toList(growable: false);
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _comments = const [];
+        _isLoading = false;
+      });
+    }
+  }
+
+  String get _currentActorName {
+    final user = Supabase.instance.client.auth.currentUser;
+    final email = user?.email?.trim();
+    if (email != null && email.isNotEmpty) {
+      return email.split('@').first;
+    }
+    return 'system';
+  }
+
+  Future<void> _saveComment() async {
+    final comment = _commentController.text.trim();
+    if (comment.isEmpty || _isSavingComment) return;
+    final entityId = widget.entityId?.trim();
+    if (entityId == null || entityId.isEmpty) {
+      ZerpaiToast.error(context, 'Entity is not selected.');
+      return;
+    }
+
+    try {
+      setState(() => _isSavingComment = true);
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      await supabase.from('audit_logs').insert({
+        'table_name': 'vendor_credits',
+        'record_id': widget.rawRow.id,
+        'action': 'COMMENT',
+        'old_values': null,
+        'new_values': {
+          'comment': comment,
+          'credit_note_number': widget.creditNote.creditNoteNumber,
+        },
+        'user_id':
+            user?.id ?? '00000000-0000-0000-0000-000000000000',
+        'org_id':
+            widget.orgId?.trim().isNotEmpty == true
+            ? widget.orgId!.trim()
+            : '00000000-0000-0000-0000-000000000000',
+        'entity_id': entityId,
+        'actor_name': _currentActorName,
+        'schema_name': 'public',
+        'record_pk': widget.creditNote.creditNoteNumber,
+        'changed_columns': const ['comment'],
+        'source': 'ui',
+        'module_name': 'vendor_credits',
+      });
+      _commentController.clear();
+      await _loadComments();
+      if (!mounted) return;
+      ZerpaiToast.success(context, 'Comment added successfully');
+    } catch (e) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Failed to add comment: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isSavingComment = false);
+      }
+    }
+  }
+
+  List<_VcHistoryEvent> get _events {
+    final events = <_VcHistoryEvent>[
+      _VcHistoryEvent(
+        username: widget.creditNote.vendorName.isNotEmpty
+            ? widget.creditNote.vendorName
+            : 'system',
+        time: widget.creditNote.date,
+        content:
+            'Vendor Credit ${widget.creditNote.creditNoteNumber} created for ${widget.rawRow.amount}.',
+        icon: LucideIcons.fileSpreadsheet,
+      ),
+    ];
+
+    for (final attachment in _attachments) {
+      final uploadedAt = DateTime.tryParse(
+        attachment['uploaded_at']?.toString() ?? '',
+      );
+      final fileName =
+          attachment['original_file_name']?.toString().trim().isNotEmpty == true
+          ? attachment['original_file_name'].toString().trim()
+          : attachment['file_name']?.toString() ?? 'Attachment';
+      events.add(
+        _VcHistoryEvent(
+          username: widget.creditNote.vendorName.isNotEmpty
+              ? widget.creditNote.vendorName
+              : 'system',
+          time: uploadedAt ?? widget.creditNote.date,
+          content: '$fileName attached to vendor credit.',
+          icon: LucideIcons.paperclip,
+        ),
+      );
+    }
+
+    for (final comment in _comments) {
+      final newValues = comment['new_values'];
+      String content = '';
+      if (newValues is Map) {
+        content = newValues['comment']?.toString().trim() ?? '';
+      }
+      if (content.isEmpty) continue;
+
+      final createdAt = DateTime.tryParse(
+        comment['created_at']?.toString() ?? '',
+      );
+      final actorName = comment['actor_name']?.toString().trim();
+      events.add(
+        _VcHistoryEvent(
+          username: actorName?.isNotEmpty == true ? actorName! : 'system',
+          time: createdAt ?? widget.creditNote.date,
+          content: content,
+          icon: LucideIcons.messageSquare,
+        ),
+      );
+    }
+
+    events.sort((a, b) => b.time.compareTo(a.time));
+    return events;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final events = _events;
+    return Container(
+      width: 360,
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+            child: Row(
+              children: [
+                const Text(
+                  'Comments & History',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: widget.onClose,
+                  borderRadius: BorderRadius.circular(4),
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      LucideIcons.x,
+                      color: Color(0xFFFF4D4F),
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFE9EDF3)),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFFD9E1EC)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                height: 34,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF5F7FA),
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: Color(0xFFE8EDF3),
+                                    ),
+                                  ),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Text(
+                                      'B',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                    SizedBox(width: 18),
+                                    Text(
+                                      'I',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontStyle: FontStyle.italic,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                    SizedBox(width: 18),
+                                    Text(
+                                      'U',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        decoration: TextDecoration.underline,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  10,
+                                  12,
+                                  8,
+                                ),
+                                child: TextField(
+                                  controller: _commentController,
+                                  maxLines: 3,
+                                  minLines: 3,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    isCollapsed: true,
+                                    border: InputBorder.none,
+                                    hintText: 'Type your comment here...',
+                                    hintStyle: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF98A2B3),
+                                    ),
+                                  ),
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: Color(0xFFE8EDF3),
+                                    ),
+                                  ),
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton(
+                                    onPressed: _commentController.text.trim().isEmpty ||
+                                            _isSavingComment
+                                        ? null
+                                        : _saveComment,
+                                    style: TextButton.styleFrom(
+                                      minimumSize: const Size(0, 30),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      foregroundColor: const Color(0xFF98A2B3),
+                                      disabledForegroundColor: const Color(
+                                        0xFF98A2B3,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(3),
+                                        side: const BorderSide(
+                                          color: Color(0xFFD9E1EC),
+                                        ),
+                                      ),
+                                    ),
+                                    child: _isSavingComment
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text(
+                                            'Add Comment',
+                                            style: TextStyle(fontSize: 13),
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        Row(
+                          children: [
+                            const Text(
+                              'ALL COMMENTS',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF667085),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF22C55E),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${events.length}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        const Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: Color(0xFFE9EDF3),
+                        ),
+                        const SizedBox(height: 16),
+                        for (final e in events) ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: const Color(0xFFE5E7EB),
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: Icon(
+                                  e.icon == LucideIcons.messageSquare
+                                      ? LucideIcons.user
+                                      : LucideIcons.fileText,
+                                  size: 12,
+                                  color: const Color(0xFFF4B400),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            e.username,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppTheme.textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          DateFormat(
+                                            'dd-MM-yyyy hh:mm a',
+                                          ).format(e.time),
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF98A2B3),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 12,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF7F8FB),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        e.content,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          height: 1.55,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DetailActionDivider extends StatelessWidget {
   const _DetailActionDivider();
 
@@ -3258,6 +5864,7 @@ class _DetailMoreBtn extends StatelessWidget {
     required this.onRefund,
     required this.onVoid,
     required this.onClone,
+    required this.onClose,
     required this.onViewJournal,
     required this.onDelete,
   });
@@ -3265,6 +5872,7 @@ class _DetailMoreBtn extends StatelessWidget {
   final VoidCallback onRefund;
   final VoidCallback onVoid;
   final VoidCallback onClone;
+  final VoidCallback onClose;
   final VoidCallback onViewJournal;
   final VoidCallback onDelete;
 
@@ -3275,14 +5883,18 @@ class _DetailMoreBtn extends StatelessWidget {
         backgroundColor: const WidgetStatePropertyAll(Colors.white),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
         elevation: const WidgetStatePropertyAll(4),
-        shadowColor: WidgetStatePropertyAll(Colors.black.withValues(alpha: 0.12)),
+        shadowColor: WidgetStatePropertyAll(
+          Colors.black.withValues(alpha: 0.12),
+        ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
             side: const BorderSide(color: AppTheme.borderLight),
           ),
         ),
-        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(vertical: 6),
+        ),
         minimumSize: const WidgetStatePropertyAll(Size(180, 0)),
       ),
       builder: (ctx, ctrl, _) => GestureDetector(
@@ -3306,6 +5918,7 @@ class _DetailMoreBtn extends StatelessWidget {
         _MoreMenuItem(label: 'Refund', onTap: onRefund),
         _MoreMenuItem(label: 'Void', onTap: onVoid),
         _MoreMenuItem(label: 'Clone', onTap: onClone),
+        _MoreMenuItem(label: 'Close', onTap: onClose),
         _MoreMenuItem(label: 'View Journal', onTap: onViewJournal),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -3322,11 +5935,7 @@ class _DetailMoreBtn extends StatelessWidget {
 }
 
 class _MoreMenuItem extends StatefulWidget {
-  const _MoreMenuItem({
-    required this.label,
-    required this.onTap,
-    this.color,
-  });
+  const _MoreMenuItem({required this.label, required this.onTap, this.color});
 
   final String label;
   final VoidCallback onTap;
@@ -3379,7 +5988,9 @@ class _VendorCreditRow {
     required this.date,
     required this.creditNoteNumber,
     required this.referenceNumber,
+    required this.vendorId,
     required this.vendorName,
+    required this.billingAddresses,
     required this.status,
     required this.amount,
     required this.balance,
@@ -3389,7 +6000,9 @@ class _VendorCreditRow {
   final String date;
   final String creditNoteNumber;
   final String referenceNumber;
+  final String vendorId;
   final String vendorName;
+  final List<String> billingAddresses;
   final String status;
   final String amount;
   final String balance;
@@ -3458,6 +6071,7 @@ class _VcPdfPreview extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const SizedBox(height: 30),
                         const _PdfOrgLogo(width: 200, height: 80),
                         const SizedBox(height: 16),
                         const Text(
@@ -3773,38 +6387,9 @@ class _VcPdfPreview extends StatelessWidget {
         Positioned(
           top: 0,
           left: 0,
-          child: ClipRect(
-            child: SizedBox(
-              width: 110,
-              height: 110,
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: 18,
-                    left: -28,
-                    child: Transform.rotate(
-                      angle: -0.785,
-                      child: Container(
-                        width: 130,
-                        height: 36,
-                        color: _ribbonColor(creditNote.status),
-                        alignment: Alignment.center,
-                        child: Text(
-                          creditNote.status[0].toUpperCase() +
-                              creditNote.status.substring(1).toLowerCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          child: _VcCornerRibbon(
+            label: creditNote.status,
+            color: _ribbonColor(creditNote.status),
           ),
         ),
       ],
@@ -3864,6 +6449,131 @@ class _VcPdfPreview extends StatelessWidget {
   }
 }
 
+class _VcCornerRibbon extends StatelessWidget {
+  const _VcCornerRibbon({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    const double size = 110;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        children: [
+          CustomPaint(
+            size: const Size(size, size),
+            painter: _VcCornerFoldPainter(color: color),
+          ),
+          Positioned(
+            top: 29,
+            left: -41,
+            child: Transform.rotate(
+              angle: -math.pi / 4,
+              child: Container(
+                width: 170,
+                height: 30,
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 27,
+            left: -43,
+            child: Transform.rotate(
+              angle: -math.pi / 4,
+              child: Container(
+                width: 170,
+                height: 30,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      color,
+                      HSLColor.fromColor(color)
+                          .withLightness(
+                            (HSLColor.fromColor(color).lightness * 0.85).clamp(
+                              0.0,
+                              1.0,
+                            ),
+                          )
+                          .toColor(),
+                    ],
+                  ),
+                ),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.only(bottom: 1),
+                child: Text(
+                  label.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.8,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black45,
+                        offset: Offset(0, 1),
+                        blurRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VcCornerFoldPainter extends CustomPainter {
+  _VcCornerFoldPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final darkColor = HSLColor.fromColor(color)
+        .withLightness(
+          (HSLColor.fromColor(color).lightness * 0.45).clamp(0.0, 1.0),
+        )
+        .toColor();
+
+    final paint = Paint()..color = darkColor;
+
+    final path = Path()
+      ..moveTo(72, 0)
+      ..lineTo(84, 0)
+      ..lineTo(72, 12)
+      ..close()
+      ..moveTo(0, 72)
+      ..lineTo(0, 84)
+      ..lineTo(12, 72)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _VcCornerFoldPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
 // ── Journal Section ───────────────────────────────────────────────────────────
 
 class _VcJournalSection extends StatelessWidget {
@@ -3915,10 +6625,7 @@ class _VcJournalSection extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: const BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(
-                        color: AppTheme.primaryBlue,
-                        width: 2,
-                      ),
+                      bottom: BorderSide(color: AppTheme.primaryBlue, width: 2),
                     ),
                   ),
                   child: const Text(
@@ -3952,7 +6659,9 @@ class _VcJournalSection extends StatelessWidget {
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 2),
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.successGreen,
                         borderRadius: BorderRadius.circular(4),
@@ -4047,7 +6756,8 @@ class _VcJournalSection extends StatelessWidget {
                   (e) => Container(
                     decoration: const BoxDecoration(
                       border: Border(
-                          bottom: BorderSide(color: _dividerColor, width: 0.5)),
+                        bottom: BorderSide(color: _dividerColor, width: 0.5),
+                      ),
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     child: Row(
@@ -4142,7 +6852,6 @@ class _VcJournalSection extends StatelessWidget {
   }
 }
 
-
 class _PdfOrgLogo extends ConsumerWidget {
   const _PdfOrgLogo({this.width = 160, this.height = 64});
   final double width;
@@ -4172,14 +6881,288 @@ class _PdfOrgLogo extends ConsumerWidget {
   }
 
   Widget _fallback() => Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        alignment: Alignment.center,
-        child: const Text('LOGO',
-            style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8)),
-      );
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: const Color(0xFF1A1A2E),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    alignment: Alignment.center,
+    child: const Text(
+      'LOGO',
+      style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 0.8),
+    ),
+  );
 }
+
+// ── Shared PDF generator (used by both overview + report pages) ──────────────
+
+Future<Uint8List> _buildVcPdfBytes(
+  VendorCreditDetail creditNote,
+  OrgSettings? orgSettings,
+) async {
+  final doc = pw.Document();
+  pw.ThemeData pdfTheme;
+  try {
+    final regularData = await rootBundle.load('assets/fonts/Inter-Regular.ttf');
+    final boldData = await rootBundle.load('assets/fonts/Inter-Bold.ttf');
+    pdfTheme = pw.ThemeData.withFont(
+      base: pw.Font.ttf(regularData),
+      bold: pw.Font.ttf(boldData),
+    );
+  } catch (_) {
+    pdfTheme = pw.ThemeData.withFont();
+  }
+
+  pw.MemoryImage? logoImage;
+  final logoUrl = orgSettings?.logoUrl;
+  if (logoUrl != null && logoUrl.trim().isNotEmpty) {
+    try {
+      final res = await Dio().get<List<int>>(
+        logoUrl,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final data = res.data;
+      if (data != null && data.isNotEmpty) {
+        logoImage = pw.MemoryImage(Uint8List.fromList(data));
+      }
+    } catch (_) {}
+  }
+
+  final fmt = NumberFormat('#,##,##0.00', 'en_IN');
+  final itemRows = creditNote.items
+      .map(
+        (item) => [
+          item.name,
+          item.description.trim().isEmpty ? '-' : item.description.trim(),
+          item.quantity.toStringAsFixed(2),
+          fmt.format(item.rate),
+          item.taxRate,
+          fmt.format(item.amount),
+        ],
+      )
+      .toList(growable: false);
+
+  doc.addPage(
+    pw.MultiPage(
+      pageTheme: pw.PageTheme(
+        theme: pdfTheme,
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+      ),
+      build: (ctx) => [
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  if (logoImage != null)
+                    pw.Container(
+                      width: 120,
+                      height: 54,
+                      padding: const pw.EdgeInsets.all(4),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.grey300),
+                      ),
+                      child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                    )
+                  else
+                    pw.Container(
+                      width: 120,
+                      height: 54,
+                      color: PdfColor.fromHex('#101820'),
+                      alignment: pw.Alignment.center,
+                      child: pw.Text(
+                        'LOGO',
+                        style: const pw.TextStyle(
+                          color: PdfColors.white,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  pw.SizedBox(height: 12),
+                  pw.Text(
+                    orgSettings?.name.trim().isNotEmpty == true
+                        ? orgSettings!.name.trim()
+                        : 'YOUR COMPANY NAME',
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    (orgSettings?.paymentStubAddress?.trim().isNotEmpty == true)
+                        ? orgSettings!.paymentStubAddress!.trim()
+                        : 'Address Line 1\nCity, State PIN',
+                    style: const pw.TextStyle(
+                      fontSize: 10,
+                      color: PdfColors.grey700,
+                      lineSpacing: 3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: [
+                pw.Text(
+                  'VENDOR CREDIT',
+                  style: pw.TextStyle(
+                    fontSize: 20,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  'Credit Note# ${creditNote.creditNoteNumber}',
+                  style: const pw.TextStyle(
+                    fontSize: 12,
+                    color: PdfColors.blue,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 16),
+        pw.Divider(color: PdfColors.grey300),
+        pw.SizedBox(height: 16),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'VENDOR ADDRESS',
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                  pw.SizedBox(height: 6),
+                  pw.Text(
+                    creditNote.vendorName,
+                    style: pw.TextStyle(
+                      fontSize: 12,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromHex('#1463B8'),
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    creditNote.billingAddress.trim().isEmpty
+                        ? '-'
+                        : creditNote.billingAddress.trim(),
+                    style: const pw.TextStyle(
+                      fontSize: 10.5,
+                      color: PdfColors.grey700,
+                      lineSpacing: 3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(width: 24),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _vcPdfMeta('Credit Date', DateFormat('dd-MM-yyyy').format(creditNote.date)),
+                _vcPdfMeta('Reference#', creditNote.referenceNumber),
+                _vcPdfMeta('Source of Supply', creditNote.sourceOfSupply),
+                _vcPdfMeta('Destination', creditNote.destinationOfSupply),
+                _vcPdfMeta('Status', creditNote.status),
+              ],
+            ),
+          ],
+        ),
+        pw.SizedBox(height: 18),
+        pw.TableHelper.fromTextArray(
+          headerStyle: pw.TextStyle(
+            fontSize: 10,
+            fontWeight: pw.FontWeight.bold,
+          ),
+          headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
+          cellStyle: const pw.TextStyle(fontSize: 9.5),
+          cellAlignments: const {
+            2: pw.Alignment.centerRight,
+            3: pw.Alignment.centerRight,
+            4: pw.Alignment.centerRight,
+            5: pw.Alignment.centerRight,
+          },
+          headers: const ['Item', 'Description', 'Qty', 'Rate', 'Tax', 'Amount'],
+          data: itemRows,
+          border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.6),
+          headerPadding: const pw.EdgeInsets.all(8),
+          cellPadding: const pw.EdgeInsets.all(8),
+        ),
+        pw.SizedBox(height: 18),
+        pw.Row(
+          children: [
+            pw.Spacer(),
+            pw.SizedBox(
+              width: 220,
+              child: pw.Column(
+                children: [
+                  _vcPdfTotal('Sub Total', fmt.format(creditNote.subtotal)),
+                  _vcPdfTotal('Tax', fmt.format(creditNote.taxAmount)),
+                  _vcPdfTotal('Shipping', fmt.format(creditNote.shipping)),
+                  _vcPdfTotal('Adjustment', fmt.format(creditNote.adjustment)),
+                  pw.Divider(color: PdfColors.grey400),
+                  _vcPdfTotal('Total', fmt.format(creditNote.total), bold: true),
+                  _vcPdfTotal('Balance', fmt.format(creditNote.balance), bold: true),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  return doc.save();
+}
+
+pw.Widget _vcPdfMeta(String label, String value) {
+  final v = value.trim().isEmpty ? '-' : value.trim();
+  return pw.Padding(
+    padding: const pw.EdgeInsets.only(bottom: 5),
+    child: pw.RichText(
+      text: pw.TextSpan(
+        children: [
+          pw.TextSpan(
+            text: '$label: ',
+            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
+          ),
+          pw.TextSpan(
+            text: v,
+            style: const pw.TextStyle(fontSize: 10, color: PdfColors.black),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+pw.Widget _vcPdfTotal(String label, String value, {bool bold = false}) {
+  final style = pw.TextStyle(
+    fontSize: 10.5,
+    fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+  );
+  return pw.Padding(
+    padding: const pw.EdgeInsets.symmetric(vertical: 3),
+    child: pw.Row(
+      children: [
+        pw.Expanded(child: pw.Text(label, style: style)),
+        pw.Text(value, style: style, textAlign: pw.TextAlign.right),
+      ],
+    ),
+  );
+}
+

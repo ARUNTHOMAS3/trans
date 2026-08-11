@@ -914,6 +914,7 @@ class _SalesCustomerCreateScreenState
         mobilePhone: mobileDigits,
         designation: designationCtrl.text.trim(),
         department: departmentCtrl.text.trim(),
+        customerLanguage: customerLanguage,
         gstTreatment: gstTreatment.label,
         gstin: gstinPrefillCtrl.text.trim(),
         placeOfSupply: placeOfSupply == 'Select' ? null : placeOfSupply,

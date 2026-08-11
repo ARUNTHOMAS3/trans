@@ -71,6 +71,7 @@ class PicklistBatchDialogResult {
 class PicklistSelectBatchesDialog extends ConsumerStatefulWidget {
   final String itemName;
   final String productId;
+  final String productUnitPack;
   final String warehouseName;
   final String warehouseId;
   final String? branchId;
@@ -81,6 +82,7 @@ class PicklistSelectBatchesDialog extends ConsumerStatefulWidget {
     super.key,
     required this.itemName,
     required this.productId,
+    this.productUnitPack = '',
     required this.warehouseName,
     required this.warehouseId,
     this.branchId,
@@ -109,6 +111,8 @@ class _PicklistSelectBatchesDialogState
   bool _showFocColumn = false;
   static const String _quantityMismatchMessage =
       "There's a mismatch between the quantity entered in the line item and the total quantity across all batches. Click the checkbox to overwrite the quantity in the line item.";
+
+  String get _defaultUnitPack => widget.productUnitPack.trim();
 
   @override
   void initState() {
@@ -155,6 +159,7 @@ class _PicklistSelectBatchesDialogState
     } else {
       final firstRow = PicklistBatchRowController();
       firstRow.qtyOutCtrl.text = widget.totalQuantity.toInt().toString();
+      firstRow.unitPackCtrl.text = _defaultUnitPack;
       _rows.add(firstRow);
     }
   }

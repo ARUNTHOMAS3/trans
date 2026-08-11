@@ -5,30 +5,40 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart'
     as acct_model;
 import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accountant_chart_of_accounts_provider.dart';
 import 'package:zerpai_erp/modules/purchases/vendor_credits/providers/vendor_credits_tax_provider.dart';
+import 'package:zerpai_erp/modules/purchases/bills/models/purchases_bills_bill_model.dart';
+import 'package:zerpai_erp/modules/purchases/bills/providers/purchases_bills_provider.dart';
 import 'package:zerpai_erp/shared/models/account_node.dart' as shared_acct;
 import 'package:zerpai_erp/shared/widgets/inputs/account_tree_dropdown.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
+import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/presentation/pages/purchases_vendors_vendor_create.dart';
+import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/sales_item_quick_edit_dialog.dart';
-import 'package:zerpai_erp/shared/widgets/dialogs/advanced_customer_search_modal.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/manage_tds_tcs_rates_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/bulk_items_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/advanced_vendor_search_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_calendar.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart';
+import 'package:zerpai_erp/shared/services/storage_service.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 import 'package:zerpai_erp/modules/inventory/providers/warehouse_provider.dart';
-import 'package:zerpai_erp/modules/sales/models/sales_customer_model.dart';
-import 'package:zerpai_erp/modules/sales/providers/customers_provider.dart';
 import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
 import 'package:zerpai_erp/modules/pricelists/pricelist/providers/pricelist_provider.dart';
@@ -57,7 +67,7 @@ class _VendorCreditsCreatePageState
   static const double _fieldHeight = 32.0;
 
   // --- Form State ---
-  SalesCustomer? _selectedVendorObj;
+  Vendor? _selectedVendorObj;
   String? get _selectedVendor => _selectedVendorObj?.displayName;
   String? _selectedSourceOfSupply;
   String? _selectedDestinationOfSupply;
@@ -74,13 +84,15 @@ class _VendorCreditsCreatePageState
   late final TextEditingController _vcNumberController;
   late final TextEditingController _vcDateController;
   final _vcDateKey = GlobalKey();
+  final LayerLink _vcDateLayerLink = LayerLink();
+  OverlayEntry? _vcDateOverlay;
   DateTime _vcDate = DateTime.now();
   late final TextEditingController _orderNumberController;
   late final TextEditingController _subjectController;
   late final TextEditingController _notesController;
   late final TextEditingController _shippingController;
   late final TextEditingController _adjustmentController;
-  // _termsController removed     ” Terms & Conditions replaced by Notes + Attach Files
+  // _termsController removed â€” Terms & Conditions replaced by Notes + Attach Files
   late final TextEditingController _vcPrefixController;
   late final TextEditingController _vcNextNumberController;
 
@@ -93,6 +105,15 @@ class _VendorCreditsCreatePageState
 
   String _taxType = 'TDS';
   String? _selectedTaxRate;
+  double _selectedTaxRateValue = 0.0;
+  List<Map<String, dynamic>> _tdsRatesList = [];
+  List<Map<String, dynamic>> _tdsSectionsList = [];
+  List<Map<String, dynamic>> _tcsRatesList = [];
+  List<Map<String, dynamic>> _tcsNaturesList = [];
+  bool _isLoadingTdsRates = false;
+  Future<void>? _loadTdsFuture;
+  String? _persistedVendorCreditId;
+  final Map<String, Map<String, dynamic>> _persistedAttachmentCache = {};
 
   final List<_VCLineItem> _items = [];
 
@@ -103,10 +124,12 @@ class _VendorCreditsCreatePageState
 
   // --- Manage TDS/TCS popover ---
   OverlayEntry? _manageTaxOverlay;
+  bool _didAttemptExistingVendorCreditLoad = false;
 
   @override
   void initState() {
     super.initState();
+    _persistedVendorCreditId = widget.vendorCreditId;
     _vcNumberController = TextEditingController(text: 'VC-00001');
     _vcDateController = TextEditingController(
       text: DateFormat('dd-MM-yyyy').format(_vcDate),
@@ -120,13 +143,109 @@ class _VendorCreditsCreatePageState
     _vcNextNumberController = TextEditingController(text: '00001');
     _txnDiscountController = TextEditingController();
     _addItem();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(itemsControllerProvider.notifier).loadLookupData();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final vendorCreditId = widget.vendorCreditId?.trim();
+      if ((vendorCreditId == null || vendorCreditId.isEmpty) &&
+          _vcAutoGenerate) {
+        await _syncVendorCreditNumberFromDb();
+      }
+      try {
+        await ref.read(vendorProvider.notifier).loadVendors();
+      } catch (_) {}
+      try {
+        await ref.read(billsProvider.notifier).loadBills();
+      } catch (_) {}
+      if (vendorCreditId != null &&
+          vendorCreditId.isNotEmpty &&
+          !_didAttemptExistingVendorCreditLoad) {
+        _didAttemptExistingVendorCreditLoad = true;
+        await _loadExistingVendorCredit(vendorCreditId);
+      }
+      try {
+        await ref.read(itemsControllerProvider.notifier).loadLookupData();
+      } catch (_) {}
+      await _loadTdsRates();
     });
+  }
+
+  int _extractVendorCreditSequence(String number, String prefix) {
+    final trimmedNumber = number.trim();
+    final trimmedPrefix = prefix.trim();
+    if (trimmedNumber.isEmpty || trimmedPrefix.isEmpty) return -1;
+    if (!trimmedNumber.startsWith(trimmedPrefix)) return -1;
+    final suffix = trimmedNumber.substring(trimmedPrefix.length).trim();
+    if (suffix.isEmpty) return -1;
+    return int.tryParse(suffix) ?? -1;
+  }
+
+  Future<void> _syncVendorCreditNumberFromDb() async {
+    if (!_vcAutoGenerate) return;
+    final entityId = ref.read(entityProvider).entityId;
+    if (entityId == null || entityId.isEmpty) return;
+
+    final prefix = _vcPrefixController.text.trim().isEmpty
+        ? 'VC-'
+        : _vcPrefixController.text.trim();
+    final rows = await Supabase.instance.client
+        .from('vendor_credits')
+        .select('vendor_credit_number')
+        .eq('entity_id', entityId)
+        .order('created_at', ascending: false);
+
+    var maxSequence = 0;
+    for (final raw in rows as List) {
+      final row = Map<String, dynamic>.from(raw as Map);
+      final sequence = _extractVendorCreditSequence(
+        row['vendor_credit_number']?.toString() ?? '',
+        prefix,
+      );
+      if (sequence > maxSequence) {
+        maxSequence = sequence;
+      }
+    }
+
+    final nextSequence = maxSequence + 1;
+    final nextNumber = nextSequence.toString().padLeft(5, '0');
+    if (!mounted) return;
+    setState(() {
+      _vcNextNumberController.text = nextNumber;
+      _vcNumberController.text = '$prefix$nextNumber';
+    });
+  }
+
+  Future<void> _ensureVendorCreditNumberIsUnique({
+    required String entityId,
+    required String vendorCreditNumber,
+  }) async {
+    final normalizedNumber = vendorCreditNumber.trim();
+    if (normalizedNumber.isEmpty) {
+      throw Exception('Vendor credit number is required.');
+    }
+
+    final currentId = _persistedVendorCreditId?.trim();
+    final existingRows = await Supabase.instance.client
+        .from('vendor_credits')
+        .select('id')
+        .eq('entity_id', entityId)
+        .eq('vendor_credit_number', normalizedNumber)
+        .limit(10);
+
+    for (final raw in existingRows as List) {
+      final row = Map<String, dynamic>.from(raw as Map);
+      final existingId = row['id']?.toString().trim() ?? '';
+      if (existingId.isEmpty) continue;
+      if (currentId != null && currentId.isNotEmpty && existingId == currentId) {
+        continue;
+      }
+      throw Exception(
+        'Vendor credit number $normalizedNumber already exists.',
+      );
+    }
   }
 
   @override
   void dispose() {
+    _vcDateOverlay?.remove();
     _vcNumberController.dispose();
     _vcDateController.dispose();
     _orderNumberController.dispose();
@@ -145,7 +264,31 @@ class _VendorCreditsCreatePageState
     super.dispose();
   }
 
-  static List<_VCTaxOption> _buildTaxOptions(List<TaxGroupItem> groups) {
+  static List<_VCTaxOption> _buildTaxOptions({
+    required bool isKeralaIntraState,
+    required List<TaxGroupItem> taxGroups,
+    required List<TaxRateItem> igstRates,
+  }) {
+    final taxableOptions = isKeralaIntraState
+        ? taxGroups
+              .map(
+                (g) => _VCTaxOption(
+                  label: g.name,
+                  description: '[${TaxGroupItem.fmtRate(g.rate)}%]',
+                  rate: g.rate,
+                ),
+              )
+              .toList(growable: false)
+        : igstRates
+              .map(
+                (r) => _VCTaxOption(
+                  label: r.name,
+                  description: '[${TaxGroupItem.fmtRate(r.rate)}%]',
+                  rate: r.rate,
+                ),
+              )
+              .toList(growable: false);
+
     return [
       const _VCTaxOption(
         label: 'Non-Taxable',
@@ -162,20 +305,7 @@ class _VendorCreditsCreatePageState
             'Supplies which do not come under GST such as petroleum products and liquor.',
       ),
       const _VCTaxOption(label: 'Taxable', isHeader: true),
-      if (groups.isEmpty) ...[
-        const _VCTaxOption(label: 'GST 0%', description: '[0%]', rate: 0),
-        const _VCTaxOption(label: 'GST 5%', description: '[5%]', rate: 5),
-        const _VCTaxOption(label: 'GST 12%', description: '[12%]', rate: 12),
-        const _VCTaxOption(label: 'GST 18%', description: '[18%]', rate: 18),
-        const _VCTaxOption(label: 'GST 28%', description: '[28%]', rate: 28),
-      ] else
-        ...groups.map(
-          (g) => _VCTaxOption(
-            label: g.name,
-            description: '[${TaxGroupItem.fmtRate(g.rate)}%]',
-            rate: g.rate,
-          ),
-        ),
+      ...taxableOptions,
     ];
   }
 
@@ -194,7 +324,7 @@ class _VendorCreditsCreatePageState
     collect(nodes);
     if (flat.isEmpty) return const [];
 
-    // Group: accountGroup   †’ accountType   †’ accounts
+    // Group: accountGroup â†’ accountType â†’ accounts
     final byGroup = <String, Map<String, List<acct_model.AccountNode>>>{};
     for (final n in flat) {
       final group = n.accountGroup.isEmpty ? 'Other' : n.accountGroup;
@@ -212,7 +342,7 @@ class _VendorCreditsCreatePageState
         final accounts = typeEntry.value
             .map(
               (a) => shared_acct.AccountNode(
-                id: a.name,
+                id: a.id,
                 name: a.name,
                 selectable: true,
               ),
@@ -246,8 +376,68 @@ class _VendorCreditsCreatePageState
     return result;
   }
 
+  void _applySelectedVendor(Vendor? vendor) {
+    setState(() {
+      _selectedVendorObj = vendor;
+      _clearItemTaxes();
+      if (vendor == null) {
+        _selectedSourceOfSupply = null;
+        _selectedDestinationOfSupply = null;
+        _selectedBill = null;
+      } else {
+        _selectedSourceOfSupply = _vendorSourceOfSupply(vendor);
+        _selectedDestinationOfSupply = null;
+        _selectedBill = null;
+      }
+    });
+  }
+
+  Future<void> _showAdvancedVendorSearchDialog(List<Vendor> vendors) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.1),
+      builder: (_) => AdvancedVendorSearchDialog(
+        vendors: vendors,
+        onSelect: _applySelectedVendor,
+      ),
+    );
+  }
+
+  Future<void> _showNewVendorDialog() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.only(
+          top: 0,
+          bottom: 24,
+          left: 40,
+          right: 40,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1300),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: const PurchasesVendorsVendorCreateScreen(isDialog: true),
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    ref.read(vendorProvider.notifier).loadVendors();
+  }
+
   void _addItem() {
     setState(() => _items.add(_VCLineItem()));
+  }
+
+  void _clearItemTaxes() {
+    for (final item in _items) {
+      item.selectedTax = null;
+      item.selectedTaxRate = null;
+    }
   }
 
   void _openItemDetails(_VCLineItem item, {int initialTab = 0}) {
@@ -333,6 +523,24 @@ class _VendorCreditsCreatePageState
     });
   }
 
+  void _reorderItem(int fromIndex, int toIndex) {
+    if (fromIndex == toIndex ||
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= _items.length ||
+        toIndex > _items.length) {
+      return;
+    }
+
+    setState(() {
+      if (fromIndex < toIndex) {
+        toIndex -= 1;
+      }
+      final moved = _items.removeAt(fromIndex);
+      _items.insert(toIndex, moved);
+    });
+  }
+
   void _showBulkItemsDialog() {
     final products = ref.read(itemsControllerProvider).items;
     showDialog(
@@ -364,17 +572,27 @@ class _VendorCreditsCreatePageState
       builder: (_) => PicklistSelectBatchesDialog(
         itemName: lineItem.sourceItem?.productName ?? '',
         productId: lineItem.sourceItem?.id ?? '',
+        productUnitPack: _resolveProductUnitPack(lineItem.sourceItem),
         warehouseName: _selectedWarehouse?.name ?? '',
         warehouseId: _selectedWarehouse?.id ?? '',
         totalQuantity: double.tryParse(lineItem.qtyController.text.trim()) ?? 1,
         savedBatchData: lineItem.savedBatches
             .map(
               (b) => {
+                'binLocation': b.binLocation,
+                'binId': b.binId,
+                'batchId': b.batchId,
+                'layerId': b.layerId,
                 'batchRef': b.referenceController.text,
+                'batchNo': b.batchNo,
+                'unitPack': b.unitPack,
+                'mrp': b.mrp,
+                'prate': b.purchaseRate,
                 'mfgBatch': b.mfrBatchController.text,
                 'mfgDate': b.mfrDateController.text,
                 'expDate': b.expiryDateController.text,
                 'qtyOut': b.quantityController.text,
+                'foc': b.focQuantity,
               },
             )
             .toList(growable: false),
@@ -387,15 +605,829 @@ class _VendorCreditsCreatePageState
       lineItem.savedBatches = result!.batchDataList!
           .map((row) {
             final b = _VCBatch();
+            b.binLocation = row['binLocation'] ?? '';
+            b.binId = row['binId'] ?? '';
+            b.batchId = row['batchId'] ?? '';
+            b.layerId = row['layerId'] ?? '';
             b.referenceController.text = row['batchRef'] ?? '';
+            b.batchNo = row['batchNo'] ?? '';
+            b.unitPack = row['unitPack'] ?? '';
+            b.mrp = row['mrp'] ?? '';
+            b.purchaseRate = row['prate'] ?? '';
             b.mfrBatchController.text = row['mfgBatch'] ?? '';
             b.mfrDateController.text = row['mfgDate'] ?? '';
             b.expiryDateController.text = row['expDate'] ?? '';
             b.quantityController.text = row['qtyOut'] ?? '';
+            b.focQuantity = row['foc'] ?? '';
             return b;
           })
           .toList(growable: false);
     });
+
+    await _persistVendorCreditItemBatches(lineItem);
+  }
+
+  String? _asUuidOrNull(String? value) {
+    final trimmed = value?.trim() ?? '';
+    final uuidPattern = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+    );
+    return uuidPattern.hasMatch(trimmed) ? trimmed : null;
+  }
+
+  String? _toDbDate(String? value) {
+    final trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) return null;
+    try {
+      return DateFormat(
+        'yyyy-MM-dd',
+      ).format(DateFormat('dd-MM-yyyy').parseStrict(trimmed));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '0') ?? 0.0;
+  }
+
+  String _toDisplayDate(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) return '';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return '';
+    return DateFormat('dd-MM-yyyy').format(parsed);
+  }
+
+  Future<_VCTaxOption?> _loadSavedTaxOption(String? taxId) async {
+    final normalizedTaxId = taxId?.trim() ?? '';
+    if (normalizedTaxId.isEmpty) return null;
+
+    final supabase = Supabase.instance.client;
+
+    try {
+      final groupRow = await supabase
+          .from('tax_groups')
+          .select('id, tax_group_name, tax_rate')
+          .eq('id', normalizedTaxId)
+          .maybeSingle();
+      if (groupRow != null) {
+        final row = Map<String, dynamic>.from(groupRow);
+        return _VCTaxOption(
+          label: row['tax_group_name']?.toString() ?? '',
+          description:
+              '[${TaxGroupItem.fmtRate(_toDouble(row['tax_rate']))}%]',
+          rate: _toDouble(row['tax_rate']),
+        );
+      }
+    } catch (_) {}
+
+    try {
+      final rateRow = await supabase
+          .from('tax_rates')
+          .select('id, tax_name, tax_rate')
+          .eq('id', normalizedTaxId)
+          .maybeSingle();
+      if (rateRow != null) {
+        final row = Map<String, dynamic>.from(rateRow);
+        return _VCTaxOption(
+          label: row['tax_name']?.toString() ?? '',
+          description:
+              '[${TaxGroupItem.fmtRate(_toDouble(row['tax_rate']))}%]',
+          rate: _toDouble(row['tax_rate']),
+        );
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  Future<Item?> _loadSavedItem(String? productId) async {
+    final normalizedProductId = productId?.trim() ?? '';
+    if (normalizedProductId.isEmpty) return null;
+
+    final existing = ref
+        .read(itemsControllerProvider)
+        .items
+        .cast<Item?>()
+        .firstWhere(
+          (item) => item?.id == normalizedProductId,
+          orElse: () => null,
+        );
+    if (existing != null) {
+      return existing;
+    }
+
+    return ref
+        .read(itemsControllerProvider.notifier)
+        .ensureItemLoaded(normalizedProductId);
+  }
+
+  Future<void> _loadExistingVendorCredit(String vendorCreditId) async {
+    final entityId = ref.read(entityProvider).entityId;
+    if (entityId == null || entityId.isEmpty) {
+      return;
+    }
+    try {
+      final supabase = Supabase.instance.client;
+      final creditSelect =
+          'id, vendor_id, warehouse_id, vendor_credit_number, '
+          'vendor_credit_date, bill_id, reference_number, subject, notes, '
+          'reverse_charge_applicable';
+      Map<String, dynamic>? vendorCreditRow;
+
+      try {
+        final byId = await supabase
+            .from('vendor_credits')
+            .select(creditSelect)
+            .eq('id', vendorCreditId)
+            .eq('entity_id', entityId)
+            .maybeSingle();
+        if (byId != null) {
+          vendorCreditRow = Map<String, dynamic>.from(byId);
+        }
+      } catch (_) {}
+
+      if (vendorCreditRow == null) {
+        final byNumber = await supabase
+            .from('vendor_credits')
+            .select(creditSelect)
+            .eq('vendor_credit_number', vendorCreditId)
+            .eq('entity_id', entityId)
+            .order('updated_at', ascending: false)
+            .limit(1)
+            .maybeSingle();
+        if (byNumber != null) {
+          vendorCreditRow = Map<String, dynamic>.from(byNumber);
+        }
+      }
+
+      if (vendorCreditRow == null) {
+        return;
+      }
+
+      final resolvedVendorCreditId = vendorCreditRow['id']?.toString() ?? '';
+      if (resolvedVendorCreditId.isEmpty) {
+        return;
+      }
+
+      final vendors = ref.read(vendorProvider).vendors;
+      final vendorId = vendorCreditRow['vendor_id']?.toString() ?? '';
+      final selectedVendor = vendors.cast<Vendor?>().firstWhere(
+        (vendor) => vendor?.id == vendorId,
+        orElse: () => null,
+      );
+
+      final warehouseId = vendorCreditRow['warehouse_id']?.toString();
+      final warehouses = await ref.read(warehousesProvider.future);
+      final selectedWarehouse = warehouses.cast<Warehouse?>().firstWhere(
+        (warehouse) => warehouse?.id == warehouseId,
+        orElse: () => null,
+      );
+
+      final selectedBillId = vendorCreditRow['bill_id']?.toString();
+      final bills = ref.read(billsProvider).bills;
+      final selectedBill = bills.cast<PurchasesBill?>().firstWhere(
+        (bill) => bill?.id == selectedBillId,
+        orElse: () => null,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _persistedVendorCreditId = resolvedVendorCreditId;
+        _selectedVendorObj = selectedVendor;
+        _selectedWarehouse = selectedWarehouse;
+        _selectedBill = selectedBill?.id;
+        _selectedSourceOfSupply =
+            selectedBill?.sourceOfSupply ??
+            selectedVendor?.sourceOfSupply ??
+            _selectedSourceOfSupply;
+        _selectedDestinationOfSupply =
+            selectedBill?.destinationToSupply ?? _selectedDestinationOfSupply;
+        _vcNumberController.text =
+            vendorCreditRow!['vendor_credit_number']?.toString() ?? '';
+        final vendorCreditDate = DateTime.tryParse(
+          vendorCreditRow['vendor_credit_date']?.toString() ?? '',
+        );
+        if (vendorCreditDate != null) {
+          _vcDate = vendorCreditDate;
+          _vcDateController.text = DateFormat(
+            'dd-MM-yyyy',
+          ).format(vendorCreditDate);
+        }
+        _orderNumberController.text =
+            vendorCreditRow['reference_number']?.toString() ?? '';
+        _subjectController.text = vendorCreditRow['subject']?.toString() ?? '';
+        _notesController.text = vendorCreditRow['notes']?.toString() ?? '';
+        _isReverseCharge =
+            vendorCreditRow['reverse_charge_applicable'] as bool? ?? false;
+      });
+
+      final itemRowsRaw = await supabase
+          .from('vendor_credit_items')
+          .select(
+            'id, product_id, account_id, quantity, rate, discount_percent, '
+            'discount_amount, tax_id, remarks',
+          )
+          .eq('vendor_credit_id', resolvedVendorCreditId)
+          .order('created_at');
+      final itemRows = (itemRowsRaw as List)
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .toList(growable: false);
+
+      final vendorCreditItemIds = itemRows
+          .map((row) => row['id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList(growable: false);
+
+      final batchRowsByItemId = <String, List<Map<String, dynamic>>>{};
+      if (vendorCreditItemIds.isNotEmpty) {
+        try {
+          final batchRowsRaw = await supabase
+              .from('vendor_credit_item_batches')
+              .select(
+                'vendor_credit_item_id, batch_id, layer_id, bin_id, quantity_out, '
+                'foc_qty, unit_pack, mrp, purchase_rate, expiry_date, '
+                'manufacture_date, manufacture_batch_no',
+              )
+              .inFilter('vendor_credit_item_id', vendorCreditItemIds);
+          for (final raw in batchRowsRaw as List) {
+            final row = Map<String, dynamic>.from(raw as Map);
+            final itemId = row['vendor_credit_item_id']?.toString() ?? '';
+            if (itemId.isEmpty) continue;
+            batchRowsByItemId.putIfAbsent(itemId, () => []).add(row);
+          }
+        } catch (_) {}
+      }
+
+      final attachmentRows = <Map<String, dynamic>>[];
+      try {
+        final attachmentRowsRaw = await supabase
+            .from('vendor_credits_attachments')
+            .select(
+              'file_name, original_file_name, file_path, file_size, file_type',
+            )
+            .eq('vendor_credits_id', resolvedVendorCreditId);
+        attachmentRows.addAll(
+          (attachmentRowsRaw as List)
+              .map((row) => Map<String, dynamic>.from(row as Map)),
+        );
+      } catch (_) {}
+
+      final hydratedItems = <_VCLineItem>[];
+      for (final row in itemRows) {
+        final lineItem = _VCLineItem();
+        lineItem.dbItemId = row['id']?.toString();
+        try {
+          lineItem.sourceItem = await _loadSavedItem(
+            row['product_id']?.toString(),
+          );
+        } catch (_) {}
+        lineItem.selectedAccount = row['account_id']?.toString();
+
+        final qty = _toDouble(row['quantity']);
+        final rate = _toDouble(row['rate']);
+        final discountPercent = _toDouble(row['discount_percent']);
+        final discountAmount = _toDouble(row['discount_amount']);
+
+        lineItem.qtyController.text = qty.toStringAsFixed(2);
+        lineItem.rateController.text = rate.toStringAsFixed(2);
+        lineItem.discountIsPercent = discountPercent > 0;
+        lineItem.discountController.text =
+            (discountPercent > 0 ? discountPercent : discountAmount)
+                .toStringAsFixed(discountPercent > 0 ? 2 : 0);
+        lineItem.descriptionController.text = row['remarks']?.toString() ?? '';
+
+        try {
+          final taxOption = await _loadSavedTaxOption(row['tax_id']?.toString());
+          if (taxOption != null && taxOption.label.isNotEmpty) {
+            lineItem.selectedTax = taxOption.label;
+            lineItem.selectedTaxRate =
+                taxOption.rate > 0 ? taxOption.rate : null;
+          }
+        } catch (_) {}
+
+        final batchRows =
+            batchRowsByItemId[lineItem.dbItemId ?? ''] ??
+            const <Map<String, dynamic>>[];
+        lineItem.savedBatches = batchRows.map((row) {
+          final batch = _VCBatch();
+          batch.binId = row['bin_id']?.toString() ?? '';
+          batch.batchId = row['batch_id']?.toString() ?? '';
+          batch.layerId = row['layer_id']?.toString() ?? '';
+          batch.unitPack = row['unit_pack']?.toString() ?? '';
+          batch.mrp = _toDouble(row['mrp']).toStringAsFixed(2);
+          batch.purchaseRate =
+              _toDouble(row['purchase_rate']).toStringAsFixed(2);
+          batch.focQuantity = _toDouble(row['foc_qty']).toStringAsFixed(2);
+          batch.quantityController.text =
+              _toDouble(row['quantity_out']).toStringAsFixed(2);
+          batch.mfrBatchController.text =
+              row['manufacture_batch_no']?.toString() ?? '';
+          batch.mfrDateController.text =
+              _toDisplayDate(row['manufacture_date']);
+          batch.expiryDateController.text = _toDisplayDate(row['expiry_date']);
+          return batch;
+        }).toList(growable: false);
+
+        hydratedItems.add(lineItem);
+      }
+
+      if (hydratedItems.isEmpty) {
+        hydratedItems.add(_VCLineItem());
+      }
+
+      final hydratedFiles = <PlatformFile>[];
+      final hydratedAttachmentCache = <String, Map<String, dynamic>>{};
+      for (final row in attachmentRows) {
+        final name =
+            (row['original_file_name']?.toString().trim().isNotEmpty ?? false)
+            ? row['original_file_name']!.toString().trim()
+            : row['file_name']?.toString().trim() ?? '';
+        if (name.isEmpty) continue;
+        final size = int.tryParse(row['file_size']?.toString() ?? '0') ?? 0;
+        final file = PlatformFile(name: name, size: size);
+        hydratedFiles.add(file);
+        hydratedAttachmentCache[_attachmentCacheKey(file)] = row;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        for (final item in _items) {
+          item.dispose();
+        }
+        _items
+          ..clear()
+          ..addAll(hydratedItems);
+        _attachedFiles = hydratedFiles;
+        _persistedAttachmentCache
+          ..clear()
+          ..addAll(hydratedAttachmentCache);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Failed to load vendor credit for edit: $e');
+    }
+  }
+
+  String _attachmentCacheKey(PlatformFile file) {
+    return '${file.name}__${file.size}__${file.extension ?? ''}';
+  }
+
+  Map<String, dynamic> _buildVendorCreditPayload({
+    required String entityId,
+    required String vendorId,
+    required String status,
+  }) {
+    final prefix = _vcPrefixController.text.trim().isEmpty
+        ? 'VC-'
+        : _vcPrefixController.text.trim();
+    final nextNumber = _vcNextNumberController.text.trim().isEmpty
+        ? '00001'
+        : _vcNextNumberController.text.trim();
+    final resolvedVendorCreditNumber = _vcNumberController.text.trim().isEmpty
+        ? '$prefix$nextNumber'
+        : _vcNumberController.text.trim();
+    final payload = <String, dynamic>{
+      'entity_id': entityId,
+      'vendor_id': vendorId,
+      'warehouse_id': _selectedWarehouse?.id,
+      'vendor_credit_number': resolvedVendorCreditNumber,
+      'vendor_credit_date': DateFormat('yyyy-MM-dd').format(_vcDate),
+      'source_type': _selectedBill != null ? 'BILL' : 'DIRECT',
+      'bill_id': _asUuidOrNull(_selectedBill),
+      'reference_number': _orderNumberController.text.trim().isEmpty
+          ? null
+          : _orderNumberController.text.trim(),
+      'subject': _subjectController.text.trim().isEmpty
+          ? null
+          : _subjectController.text.trim(),
+      'notes': _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
+      'reverse_charge_applicable': _isReverseCharge,
+      'subtotal': _subTotal,
+      'discount_amount': _txnDiscountAmount,
+      'tax_amount': _taxSummaryAmount,
+      'adjustment_amount': _adjustmentAmount,
+      'total_amount': _grandTotal,
+      'status': status,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+    if (status.toLowerCase() == 'approved') {
+      payload['approved_by'] = Supabase.instance.client.auth.currentUser?.id;
+      payload['approved_at'] = DateTime.now().toIso8601String();
+    }
+    return payload;
+  }
+
+  Future<void> _insertVendorCreditAttachmentRows({
+    required SupabaseClient supabase,
+    required String vendorCreditId,
+    required List<Map<String, dynamic>> files,
+  }) async {
+    if (files.isEmpty) return;
+
+    final entityId = ref.read(entityProvider).entityId;
+    final uploadedBy = supabase.auth.currentUser?.id;
+    const attachmentForeignKey = 'vendor_credits_id';
+    final variants = <List<Map<String, dynamic>>>[
+      files
+          .map(
+            (file) => <String, dynamic>{
+              attachmentForeignKey: vendorCreditId,
+              'file_name': file['file_name'],
+              'file_path': file['file_path'],
+              'original_file_name': file['original_file_name'],
+              'file_size': file['file_size'],
+              'file_type': file['file_type'],
+              'remarks': file['remarks'],
+            },
+          )
+          .toList(growable: false),
+      files
+          .map(
+            (file) => <String, dynamic>{
+              attachmentForeignKey: vendorCreditId,
+              'file_name': file['file_name'],
+              'file_url': file['file_path'],
+              'original_file_name': file['original_file_name'],
+              'file_size': file['file_size'],
+              'file_type': file['file_type'],
+              'remarks': file['remarks'],
+            },
+          )
+          .toList(growable: false),
+      files
+          .map(
+            (file) => <String, dynamic>{
+              attachmentForeignKey: vendorCreditId,
+              'entity_id': entityId,
+              'uploaded_by': uploadedBy,
+              'file_name': file['file_name'],
+              'file_path': file['file_path'],
+              'original_file_name': file['original_file_name'],
+              'file_size': file['file_size'],
+              'file_type': file['file_type'],
+              'remarks': file['remarks'],
+            },
+          )
+          .toList(growable: false),
+      files
+          .map(
+            (file) => <String, dynamic>{
+              attachmentForeignKey: vendorCreditId,
+              'entity_id': entityId,
+              'uploaded_by': uploadedBy,
+              'file_name': file['file_name'],
+              'file_url': file['file_path'],
+              'original_file_name': file['original_file_name'],
+              'file_size': file['file_size'],
+              'file_type': file['file_type'],
+              'remarks': file['remarks'],
+            },
+          )
+          .toList(growable: false),
+    ];
+
+    Object? lastError;
+    for (final payload in variants) {
+      try {
+        await supabase.from('vendor_credits_attachments').insert(payload);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw lastError ?? Exception('Failed to save vendor credit attachments.');
+  }
+
+  Future<void> _persistVendorCreditAttachments(String vendorCreditId) async {
+    final supabase = Supabase.instance.client;
+    final storage = StorageService();
+    final rows = <Map<String, dynamic>>[];
+
+    for (final file in _attachedFiles) {
+      final cacheKey = _attachmentCacheKey(file);
+      final cached = _persistedAttachmentCache[cacheKey];
+      String? filePath = cached?['file_path']?.toString();
+
+      if (filePath == null || filePath.isEmpty) {
+        final uploaded = await storage.uploadPaymentAttachment(file);
+        if (uploaded == null || uploaded.isEmpty) {
+          throw Exception('Failed to upload attachment: ${file.name}');
+        }
+        filePath = uploaded;
+      }
+
+      final row = <String, dynamic>{
+        'file_name': file.name,
+        'file_path': filePath,
+        'original_file_name': file.name,
+        'file_size': file.size,
+        'file_type': file.extension?.toLowerCase(),
+        'remarks': null,
+      };
+      rows.add(row);
+      _persistedAttachmentCache[cacheKey] = row;
+    }
+
+    final currentKeys = _attachedFiles.map(_attachmentCacheKey).toSet();
+    _persistedAttachmentCache.removeWhere(
+      (key, _) => !currentKeys.contains(key),
+    );
+
+    await supabase
+        .from('vendor_credits_attachments')
+        .delete()
+        .eq('vendor_credits_id', vendorCreditId);
+
+    await _insertVendorCreditAttachmentRows(
+      supabase: supabase,
+      vendorCreditId: vendorCreditId,
+      files: rows,
+    );
+  }
+
+  Future<void> _saveVendorCredit({
+    required String status,
+    required String successMessage,
+    String? redirectRoute,
+  }) async {
+    try {
+      final vendorCreditId = await _ensureVendorCreditDraftId(status: status);
+      await _persistVendorCreditItems(vendorCreditId);
+      await _persistVendorCreditAttachments(vendorCreditId);
+      if (!mounted) return;
+      ZerpaiToast.success(context, successMessage);
+      if (redirectRoute != null && redirectRoute.isNotEmpty) {
+        context.go(redirectRoute);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final actionLabel = status.toLowerCase() == 'approved'
+          ? 'save and approve'
+          : 'save draft';
+      ZerpaiToast.error(context, 'Failed to $actionLabel: $e');
+    }
+  }
+
+  Future<void> _handleSaveDraft() async {
+    await _saveVendorCredit(
+      status: 'draft',
+      successMessage: 'Vendor credit draft saved successfully',
+    );
+  }
+
+  Future<void> _handleSaveAsOpen() async {
+    await _saveVendorCredit(
+      status: 'open',
+      successMessage: 'Vendor credit saved successfully',
+      redirectRoute: AppRoutes.vendorCreditsReport,
+    );
+  }
+
+  Future<String> _ensureVendorCreditDraftId({String status = 'draft'}) async {
+    final entityId = ref.read(entityProvider).entityId;
+    final vendorId = _selectedVendorObj?.id;
+    if (entityId == null || entityId.isEmpty) {
+      throw Exception('Entity is not selected.');
+    }
+    if (vendorId == null || vendorId.isEmpty) {
+      throw Exception('Please select a vendor first.');
+    }
+
+    final supabase = Supabase.instance.client;
+    if (_vcAutoGenerate) {
+      await _syncVendorCreditNumberFromDb();
+    }
+    await _ensureVendorCreditNumberIsUnique(
+      entityId: entityId,
+      vendorCreditNumber: _vcNumberController.text.trim(),
+    );
+    final payload = _buildVendorCreditPayload(
+      entityId: entityId,
+      vendorId: vendorId,
+      status: status,
+    );
+
+    if (_persistedVendorCreditId != null &&
+        _persistedVendorCreditId!.isNotEmpty) {
+      await supabase
+          .from('vendor_credits')
+          .update(payload)
+          .eq('id', _persistedVendorCreditId!)
+          .eq('entity_id', entityId);
+      return _persistedVendorCreditId!;
+    }
+
+    final inserted = await supabase
+        .from('vendor_credits')
+        .insert({
+          ...payload,
+          'created_by': Supabase.instance.client.auth.currentUser?.id,
+        })
+        .select('id')
+        .single();
+    final id = inserted['id']?.toString();
+    if (id == null || id.isEmpty) {
+      throw Exception('Failed to create vendor credit draft.');
+    }
+    _persistedVendorCreditId = id;
+    return id;
+  }
+
+  double _lineTaxAmount(_VCLineItem item) {
+    final taxRate =
+        item.selectedTaxRate ?? _taxPercentFromLabel(item.selectedTax);
+    if (taxRate <= 0) return 0;
+    return _lineSubtotal(item) * taxRate / 100;
+  }
+
+  Future<String?> _resolveVendorCreditItemTaxId(_VCLineItem lineItem) async {
+    final selectedTax = lineItem.selectedTax?.trim();
+    if (selectedTax == null || selectedTax.isEmpty) {
+      return null;
+    }
+    final taxRate =
+        lineItem.selectedTaxRate ?? _taxPercentFromLabel(selectedTax);
+    if (taxRate <= 0) {
+      return null;
+    }
+
+    if (_isKeralaIntraStateSupply) {
+      final taxGroups = await ref.read(taxGroupsProvider.future);
+      for (final group in taxGroups) {
+        if (group.name == selectedTax && group.rate == taxRate) {
+          return group.id;
+        }
+      }
+      return null;
+    }
+
+    final igstRates = await ref.read(igstTaxRatesProvider.future);
+    for (final rate in igstRates) {
+      if (rate.name == selectedTax && rate.rate == taxRate) {
+        return rate.id;
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> _buildVendorCreditItemPayload({
+    required String vendorCreditId,
+    required _VCLineItem lineItem,
+  }) async {
+    final productId = lineItem.sourceItem?.id;
+    if (productId == null || productId.isEmpty) {
+      throw Exception('Please select an item first.');
+    }
+
+    final remarks = lineItem.descriptionController.text.trim();
+    return <String, dynamic>{
+      'vendor_credit_id': vendorCreditId,
+      'product_id': productId,
+      'account_id': _asUuidOrNull(lineItem.selectedAccount),
+      'quantity': _parseMoney(lineItem.qtyController.text),
+      'rate': _parseMoney(lineItem.rateController.text),
+      'discount_percent': lineItem.discountIsPercent
+          ? _parseMoney(lineItem.discountController.text)
+          : 0,
+      'discount_amount': lineItem.discountIsPercent
+          ? 0
+          : _parseMoney(lineItem.discountController.text),
+      'tax_id': await _resolveVendorCreditItemTaxId(lineItem),
+      'tax_amount': _lineTaxAmount(lineItem),
+      'line_total': _lineSubtotal(lineItem),
+      'remarks': remarks.isEmpty ? null : remarks,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+
+  Future<void> _persistVendorCreditItems(String vendorCreditId) async {
+    final supabase = Supabase.instance.client;
+    final activeItems = _items
+        .where((item) => item.sourceItem?.id?.trim().isNotEmpty ?? false)
+        .toList(growable: false);
+
+    await supabase
+        .from('vendor_credit_items')
+        .delete()
+        .eq('vendor_credit_id', vendorCreditId);
+
+    for (final item in _items) {
+      item.dbItemId = null;
+    }
+
+    for (final item in activeItems) {
+      final payload = await _buildVendorCreditItemPayload(
+        vendorCreditId: vendorCreditId,
+        lineItem: item,
+      );
+      final inserted = await supabase
+          .from('vendor_credit_items')
+          .insert(payload)
+          .select('id')
+          .single();
+      final itemId = inserted['id']?.toString();
+      if (itemId == null || itemId.isEmpty) {
+        throw Exception('Failed to save vendor credit item.');
+      }
+      item.dbItemId = itemId;
+      await _persistVendorCreditItemBatches(item);
+    }
+  }
+
+  Future<String> _ensureVendorCreditItemId(_VCLineItem lineItem) async {
+    if (lineItem.dbItemId != null && lineItem.dbItemId!.isNotEmpty) {
+      return lineItem.dbItemId!;
+    }
+
+    final vendorCreditId = await _ensureVendorCreditDraftId();
+    final supabase = Supabase.instance.client;
+    final payload = await _buildVendorCreditItemPayload(
+      vendorCreditId: vendorCreditId,
+      lineItem: lineItem,
+    );
+
+    final inserted = await supabase
+        .from('vendor_credit_items')
+        .insert(payload)
+        .select('id')
+        .single();
+    final id = inserted['id']?.toString();
+    if (id == null || id.isEmpty) {
+      throw Exception('Failed to create vendor credit item.');
+    }
+    lineItem.dbItemId = id;
+    return id;
+  }
+
+  Future<void> _persistVendorCreditItemBatches(_VCLineItem lineItem) async {
+    try {
+      final validBatches = lineItem.savedBatches
+          .where(
+            (b) =>
+                b.batchId.trim().isNotEmpty &&
+                b.layerId.trim().isNotEmpty &&
+                b.quantityController.text.trim().isNotEmpty,
+          )
+          .toList(growable: false);
+
+      if (validBatches.isEmpty) {
+        final existingItemId = lineItem.dbItemId;
+        if (existingItemId != null && existingItemId.isNotEmpty) {
+          await Supabase.instance.client
+              .from('vendor_credit_item_batches')
+              .delete()
+              .eq('vendor_credit_item_id', existingItemId);
+        }
+        return;
+      }
+
+      final vendorCreditItemId = await _ensureVendorCreditItemId(lineItem);
+      final warehouseId = _selectedWarehouse?.id;
+      if (warehouseId == null || warehouseId.isEmpty) {
+        throw Exception('Please select a warehouse first.');
+      }
+
+      final supabase = Supabase.instance.client;
+      await supabase
+          .from('vendor_credit_item_batches')
+          .delete()
+          .eq('vendor_credit_item_id', vendorCreditItemId);
+
+      final rows = validBatches
+          .map(
+            (b) => <String, dynamic>{
+              'vendor_credit_item_id': vendorCreditItemId,
+              'batch_id': b.batchId.trim(),
+              'layer_id': b.layerId.trim(),
+              'warehouse_id': warehouseId,
+              'bin_id': b.binId.trim().isEmpty ? null : b.binId.trim(),
+              'quantity_out': _parseMoney(b.quantityController.text),
+              'foc_qty': _parseMoney(b.focQuantity),
+              'unit_pack': b.unitPack.trim().isEmpty ? null : b.unitPack.trim(),
+              'mrp': _parseMoney(b.mrp),
+              'purchase_rate': _parseMoney(b.purchaseRate),
+              'expiry_date': _toDbDate(b.expiryDateController.text),
+              'manufacture_date': _toDbDate(b.mfrDateController.text),
+              'manufacture_batch_no': b.mfrBatchController.text.trim().isEmpty
+                  ? null
+                  : b.mfrBatchController.text.trim(),
+            },
+          )
+          .toList(growable: false);
+
+      if (rows.isNotEmpty) {
+        await supabase.from('vendor_credit_item_batches').insert(rows);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Failed to save batches: $e');
+    }
   }
 
   void _showVCPreferencesDialog() {
@@ -415,11 +1447,22 @@ class _VendorCreditsCreatePageState
             nextNumber: _vcNextNumberController.text,
             autoGenerate: _vcAutoGenerate,
             onSave: (prefix, nextNumber, autoGenerate) {
+              final wasAutoGenerate = _vcAutoGenerate;
               setState(() {
                 _vcAutoGenerate = autoGenerate;
                 _vcPrefixController.text = prefix;
                 _vcNextNumberController.text = nextNumber;
+                if (!_vcAutoGenerate) {
+                  _vcNumberController.text = '$prefix$nextNumber';
+                }
               });
+              if (_vcAutoGenerate) {
+                _syncVendorCreditNumberFromDb();
+              } else if (wasAutoGenerate != _vcAutoGenerate) {
+                setState(() {
+                  _vcNumberController.text = '$prefix$nextNumber';
+                });
+              }
             },
           ),
         ),
@@ -428,18 +1471,57 @@ class _VendorCreditsCreatePageState
   }
 
   Future<void> _pickVCDate() async {
-    final date = await ZerpaiDatePicker.show(
-      context,
-      initialDate: _vcDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
-      targetKey: _vcDateKey,
+    if (_vcDateOverlay != null) {
+      _closeVcDateOverlay();
+      return;
+    }
+
+    _vcDateOverlay = OverlayEntry(
+      builder: (context) => Positioned.fill(
+        child: IgnorePointer(
+          ignoring: true,
+          child: Stack(
+            children: [
+              CompositedTransformFollower(
+                link: _vcDateLayerLink,
+                showWhenUnlinked: false,
+                targetAnchor: Alignment.bottomLeft,
+                followerAnchor: Alignment.topLeft,
+                offset: const Offset(0, 6),
+                child: IgnorePointer(
+                  ignoring: false,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: ZerpaiCalendar(
+                      selectedDate: _vcDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                      onDateSelected: (date) {
+                        setState(() {
+                          _vcDate = date;
+                          _vcDateController.text = DateFormat(
+                            'dd-MM-yyyy',
+                          ).format(date);
+                        });
+                        _closeVcDateOverlay();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
-    if (date == null) return;
-    setState(() {
-      _vcDate = date;
-      _vcDateController.text = DateFormat('dd-MM-yyyy').format(date);
-    });
+    Overlay.of(context).insert(_vcDateOverlay!);
+    setState(() {});
+  }
+
+  void _closeVcDateOverlay() {
+    _vcDateOverlay?.remove();
+    _vcDateOverlay = null;
+    if (mounted) setState(() {});
   }
 
   double _parseMoney(String value) =>
@@ -473,6 +1555,13 @@ class _VendorCreditsCreatePageState
 
   double get _shippingAmount => _parseMoney(_shippingController.text);
   double get _adjustmentAmount => _parseMoney(_adjustmentController.text);
+  double get _selectedTdsTcsAmount => _subTotal * _selectedTaxRateValue / 100;
+  double get _baseTotalBeforeTdsTcs =>
+      _subTotal -
+      _txnDiscountAmount +
+      _shippingAmount +
+      _taxSummaryAmount +
+      _adjustmentAmount;
 
   double _taxPercentFromLabel(String? label) {
     if (label == null) return 0;
@@ -492,10 +1581,19 @@ class _VendorCreditsCreatePageState
         );
   }
 
+  bool _isKeralaPlace(String? value) {
+    final normalized = value?.toLowerCase().trim() ?? '';
+    if (normalized.isEmpty) return false;
+    return normalized.contains('[kl]') || normalized.contains('kerala');
+  }
+
+  bool get _isKeralaIntraStateSupply {
+    return _isKeralaPlace(_selectedSourceOfSupply) &&
+        _isKeralaPlace(_selectedDestinationOfSupply);
+  }
+
   bool get _isInterStateSupply {
-    final place = _selectedDestinationOfSupply?.toLowerCase().trim();
-    if (place == null || place.isEmpty) return false;
-    return !place.contains('[kl]') && !place.contains('kerala');
+    return !_isKeralaIntraStateSupply;
   }
 
   List<_VCTaxSummaryLine> get _taxSummaryLines {
@@ -558,25 +1656,58 @@ class _VendorCreditsCreatePageState
     return _taxSummaryLines.fold(0.0, (sum, line) => sum + line.amount);
   }
 
-  double get _grandTotal =>
-      _subTotal -
-      _txnDiscountAmount +
-      _shippingAmount +
-      _taxSummaryAmount +
-      _adjustmentAmount;
+  double get _grandTotal {
+    final baseTotal = _baseTotalBeforeTdsTcs;
+    if (_selectedTaxRateValue <= 0) {
+      return baseTotal;
+    }
+    if (_taxType == 'TDS') {
+      return baseTotal - _selectedTdsTcsAmount;
+    }
+    if (_taxType == 'TCS') {
+      return baseTotal + _selectedTdsTcsAmount;
+    }
+    return baseTotal;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final customersLoading = ref.watch(customersProvider).isLoading;
+    final vendorState = ref.watch(vendorProvider);
+    final billsState = ref.watch(billsProvider);
+    final gstRegistrationTypesAsync = ref.watch(gstRegistrationTypesProvider);
+    final gstTreatmentsAsync = ref.watch(gstTreatmentsProvider);
+    final taxGroupsAsync = ref.watch(taxGroupsProvider);
+    final igstTaxRatesAsync = ref.watch(igstTaxRatesProvider);
     final warehousesAsync = ref.watch(warehousesProvider);
     final warehouses = warehousesAsync.asData?.value ?? const <Warehouse>[];
+    final billTypeOptions =
+        gstRegistrationTypesAsync.asData?.value ??
+        const <Map<String, String>>[];
+    final gstTreatmentOptions =
+        gstTreatmentsAsync.asData?.value ?? const <Map<String, String>>[];
+    final vendorBills = _selectedVendorObj == null
+        ? const <PurchasesBill>[]
+        : billsState.bills
+              .where((bill) => bill.vendorId == _selectedVendorObj!.id)
+              .toList(growable: false);
+    PurchasesBill? selectedBillRecord;
+    if (_selectedBill != null) {
+      for (final bill in vendorBills) {
+        if (bill.id == _selectedBill) {
+          selectedBillRecord = bill;
+          break;
+        }
+      }
+    }
     final accountTree = _buildAccountTree(
       ref.watch(chartOfAccountsProvider).roots,
     );
     final taxOptions = _buildTaxOptions(
-      ref.watch(taxGroupsProvider).asData?.value ?? const [],
+      isKeralaIntraState: _isKeralaIntraStateSupply,
+      taxGroups: taxGroupsAsync.asData?.value ?? const <TaxGroupItem>[],
+      igstRates: igstTaxRatesAsync.asData?.value ?? const <TaxRateItem>[],
     );
-    if (customersLoading) {
+    if (vendorState.isLoading && vendorState.vendors.isEmpty) {
       return ZerpaiLayout(
         pageTitle: widget.vendorCreditId != null
             ? 'Edit Vendor Credit'
@@ -609,16 +1740,19 @@ class _VendorCreditsCreatePageState
                 maxWidth: _rowMaxWidth,
                 child: Row(
                   children: [
-                    ZButton.primary(label: 'Save as Draft', onPressed: () {}),
-                    const SizedBox(width: 12),
                     ZButton.secondary(
-                      label: 'Save and Approve',
-                      onPressed: () {},
+                      label: 'Save as Draft',
+                      onPressed: _handleSaveDraft,
+                    ),
+                    const SizedBox(width: 12),
+                    ZButton.primary(
+                      label: 'Save as Open',
+                      onPressed: _handleSaveAsOpen,
                     ),
                     const SizedBox(width: 12),
                     ZButton.secondary(
                       label: 'Cancel',
-                      onPressed: () => context.go(AppRoutes.vendorCredits),
+                      onPressed: () => context.goNamed(AppRoutes.vendorCredits),
                     ),
                   ],
                 ),
@@ -658,25 +1792,18 @@ class _VendorCreditsCreatePageState
                                         Expanded(
                                           child: Builder(
                                             builder: (context) {
-                                              final customersAsync = ref.watch(
-                                                customersProvider,
+                                              final vendorState = ref.watch(
+                                                vendorProvider,
                                               );
-                                              return FormDropdown<
-                                                SalesCustomer
-                                              >(
+                                              return FormDropdown<Vendor>(
                                                 value: _selectedVendorObj,
-                                                items:
-                                                    customersAsync.asData?.value
-                                                        ?.cast<
-                                                          SalesCustomer
-                                                        >() ??
-                                                    const <SalesCustomer>[],
+                                                items: vendorState.vendors,
                                                 isLoading:
-                                                    customersAsync.isLoading,
+                                                    vendorState.isLoading,
                                                 displayStringForValue: (c) =>
                                                     c.displayName,
                                                 searchStringForValue: (c) =>
-                                                    '${c.displayName} ${c.companyName ?? ''} ${c.customerNumber ?? ''} ${c.gstin ?? ''}',
+                                                    '${c.displayName} ${c.companyName ?? ''} ${c.vendorNumber ?? ''} ${c.gstin ?? ''}',
                                                 hint: 'Select or add a vendor',
                                                 height: _fieldHeight,
                                                 menuMaxHeight: 320,
@@ -689,16 +1816,19 @@ class _VendorCreditsCreatePageState
                                                     ) => _VcVendorDropdownItem(
                                                       name: c.displayName,
                                                       code:
-                                                          c.customerNumber ??
-                                                          '',
+                                                          c.vendorNumber ?? '',
                                                       subtitle:
                                                           c.companyName ??
                                                           c.gstin ??
                                                           '',
-                                                      highlighted:
-                                                          isSelected ||
-                                                          isHovered,
+                                                      isSelected: isSelected,
+                                                      isHovered: isHovered,
                                                     ),
+                                                showSettings: true,
+                                                settingsLabel: 'New Vendor',
+                                                settingsIcon: LucideIcons.plus,
+                                                onSettingsTap:
+                                                    _showNewVendorDialog,
                                                 showRightBorder: false,
                                                 borderRadius:
                                                     const BorderRadius.only(
@@ -709,19 +1839,7 @@ class _VendorCreditsCreatePageState
                                                           Radius.circular(4),
                                                     ),
                                                 allowClear: true,
-                                                onChanged: (val) => setState(() {
-                                                  _selectedVendorObj = val;
-                                                  if (val == null) {
-                                                    _selectedSourceOfSupply =
-                                                        null;
-                                                    _selectedDestinationOfSupply =
-                                                        null;
-                                                    _selectedBill = null;
-                                                  } else {
-                                                    _selectedSourceOfSupply =
-                                                        val.placeOfSupply;
-                                                  }
-                                                }),
+                                                onChanged: _applySelectedVendor,
                                               );
                                             },
                                           ),
@@ -744,36 +1862,13 @@ class _VendorCreditsCreatePageState
                                               color: Colors.white,
                                             ),
                                             onPressed: () async {
-                                              final List<SalesCustomer>
-                                              customers =
-                                                  ref
-                                                      .read(customersProvider)
-                                                      .asData
-                                                      ?.value
-                                                      ?.cast<SalesCustomer>() ??
-                                                  const <SalesCustomer>[];
-                                              final result =
-                                                  await AdvancedCustomerSearchModal.show(
-                                                    context,
-                                                    customers: customers,
-                                                  );
-                                              if (result != null && mounted) {
-                                                setState(() {
-                                                  _selectedVendorObj = customers
-                                                      .firstWhere(
-                                                        (c) =>
-                                                            c.displayName ==
-                                                            result,
-                                                        orElse: () =>
-                                                            customers.first,
-                                                      );
-                                                  _selectedSourceOfSupply =
-                                                      _selectedVendorObj
-                                                          ?.placeOfSupply;
-                                                  _selectedDestinationOfSupply =
-                                                      null;
-                                                  _selectedBill = null;
-                                                });
+                                              final vendors = ref
+                                                  .read(vendorProvider)
+                                                  .vendors;
+                                              if (vendors.isNotEmpty) {
+                                                await _showAdvancedVendorSearchDialog(
+                                                  vendors,
+                                                );
                                               }
                                             },
                                           ),
@@ -809,8 +1904,9 @@ class _VendorCreditsCreatePageState
                             if (_selectedVendorObj != null) ...[
                               // Billing address + GST Treatment panel
                               _VCVendorAddressPanel(
-                                customer: _selectedVendorObj!,
+                                vendor: _selectedVendorObj!,
                                 labelWidth: _labelWidth,
+                                gstTreatmentOptions: gstTreatmentOptions,
                               ),
                               // Source of Supply
                               _CompactFormRow(
@@ -833,9 +1929,10 @@ class _VendorCreditsCreatePageState
                                       items: stateNames,
                                       hint: 'Select Source of Supply',
                                       height: _fieldHeight,
-                                      onChanged: (val) => setState(
-                                        () => _selectedSourceOfSupply = val,
-                                      ),
+                                      onChanged: (val) => setState(() {
+                                        _selectedSourceOfSupply = val;
+                                        _clearItemTaxes();
+                                      }),
                                     );
                                   },
                                 ),
@@ -861,10 +1958,10 @@ class _VendorCreditsCreatePageState
                                       items: stateNames,
                                       hint: 'Select Destination of Supply',
                                       height: _fieldHeight,
-                                      onChanged: (val) => setState(
-                                        () =>
-                                            _selectedDestinationOfSupply = val,
-                                      ),
+                                      onChanged: (val) => setState(() {
+                                        _selectedDestinationOfSupply = val;
+                                        _clearItemTaxes();
+                                      }),
                                     );
                                   },
                                 ),
@@ -879,20 +1976,54 @@ class _VendorCreditsCreatePageState
                                   children: [
                                     FormDropdown<String>(
                                       value: _selectedBill,
-                                      items: const [
-                                        '33333',
-                                        'BILL-001',
-                                        'BILL-002',
-                                      ],
-                                      hint: 'Select Bill',
+                                      items: vendorBills
+                                          .map((bill) => bill.id)
+                                          .toList(growable: false),
+                                      hint: _selectedVendorObj == null
+                                          ? 'Select Vendor First'
+                                          : 'Select Bill',
+                                      enabled: _selectedVendorObj != null,
+                                      isLoading:
+                                          billsState.isLoading &&
+                                          _selectedVendorObj != null,
+                                      displayStringForValue: (billId) {
+                                        for (final bill in vendorBills) {
+                                          if (bill.id == billId) {
+                                            final billNumber =
+                                                bill.billNumber?.trim() ?? '';
+                                            if (billNumber.isNotEmpty) {
+                                              return billNumber;
+                                            }
+                                            final orderNumber =
+                                                bill.orderNumber?.trim() ?? '';
+                                            if (orderNumber.isNotEmpty) {
+                                              return orderNumber;
+                                            }
+                                            return bill.id;
+                                          }
+                                        }
+                                        return billId;
+                                      },
+                                      searchStringForValue: (billId) {
+                                        for (final bill in vendorBills) {
+                                          if (bill.id == billId) {
+                                            return [
+                                              bill.billNumber ?? '',
+                                              bill.orderNumber ?? '',
+                                              bill.vendorName,
+                                            ].join(' ');
+                                          }
+                                        }
+                                        return billId;
+                                      },
                                       height: _fieldHeight,
                                       onChanged: (val) =>
                                           setState(() => _selectedBill = val),
                                     ),
-                                    if (_selectedBill != null) ...[
+                                    if (selectedBillRecord != null) ...[
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Bill Date: 12-05-2026',
+                                        'Bill Date: ${selectedBillRecord.billDate != null ? DateFormat('dd-MM-yyyy').format(selectedBillRecord.billDate!) : '-'}',
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: AppTheme.textSecondary,
@@ -908,13 +2039,14 @@ class _VendorCreditsCreatePageState
                                 fieldWidth: 330,
                                 child: FormDropdown<String>(
                                   value: _selectedBillType,
-                                  items: const [
-                                    'B2B',
-                                    'B2C Large',
-                                    'B2C Others',
-                                    'Export',
-                                  ],
+                                  items: billTypeOptions
+                                      .map((item) => item['label'] ?? '')
+                                      .where((label) => label.isNotEmpty)
+                                      .toList(growable: false),
                                   hint: 'Select Bill Type',
+                                  isLoading:
+                                      gstRegistrationTypesAsync.isLoading &&
+                                      billTypeOptions.isEmpty,
                                   height: _fieldHeight,
                                   onChanged: (val) =>
                                       setState(() => _selectedBillType = val),
@@ -982,16 +2114,19 @@ class _VendorCreditsCreatePageState
                     _CompactFormRow(
                       label: 'Vendor Credit Date',
                       fieldWidth: 330,
-                      child: CustomTextField(
-                        key: _vcDateKey,
-                        controller: _vcDateController,
-                        readOnly: true,
-                        onTap: _pickVCDate,
-                        height: _fieldHeight,
-                        suffixWidget: const Icon(
-                          LucideIcons.calendar,
-                          size: 14,
-                          color: AppTheme.textSecondary,
+                      child: CompositedTransformTarget(
+                        link: _vcDateLayerLink,
+                        child: CustomTextField(
+                          key: _vcDateKey,
+                          controller: _vcDateController,
+                          readOnly: true,
+                          onTap: _pickVCDate,
+                          height: _fieldHeight,
+                          suffixWidget: const Icon(
+                            LucideIcons.calendar,
+                            size: 14,
+                            color: AppTheme.textSecondary,
+                          ),
                         ),
                       ),
                     ),
@@ -1102,6 +2237,7 @@ class _VendorCreditsCreatePageState
                       onInsertItem: _insertItem,
                       onDuplicateItem: _duplicateItem,
                       onRemoveItem: _removeItem,
+                      onReorderItem: _reorderItem,
                       onTotalsChanged: () => setState(() {}),
                       onAddBatches: _openBatchDialog,
                       warehouse: _selectedWarehouse?.name ?? '',
@@ -1113,6 +2249,7 @@ class _VendorCreditsCreatePageState
                           _openItemDetails(item, initialTab: 2),
                       onEditItem: _openEditItem,
                       defaultPriceList: _selectedPriceList,
+                      priceListOptions: ref.watch(activePriceListsProvider),
                       discountType: _discountType,
                     ),
 
@@ -1221,9 +2358,7 @@ class _VendorCreditsCreatePageState
                                               ),
                                             ),
                                             child: Text(
-                                              _txnDiscountIsPercent
-                                                  ? '%'
-                                                  : '  ‚¹',
+                                              _txnDiscountIsPercent ? '%' : '₹',
                                               style: const TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w600,
@@ -1311,7 +2446,7 @@ class _VendorCreditsCreatePageState
                                   ),
                                   _buildGstSummaryRows(taxSummaryLines),
                                 ],
-                                // Total Tax Amount     ” always visible once any item is selected
+                                // Total Tax Amount â€” always visible once any item is selected
                                 if (_items.any(
                                   (i) => i.sourceItem != null,
                                 )) ...[
@@ -1486,7 +2621,7 @@ class _VendorCreditsCreatePageState
                                         MainAxisAlignment.spaceBetween,
                                     children: [
                                       const Text(
-                                        'Total (  ‚¹)',
+                                        'Total (₹)',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
@@ -1641,12 +2776,12 @@ class _VendorCreditsCreatePageState
                             text: 'Settings',
                             style: TextStyle(fontStyle: FontStyle.italic),
                           ),
-                          TextSpan(text: '   †’ '),
+                          TextSpan(text: ' â†’ '),
                           TextSpan(
                             text: 'Purchases',
                             style: TextStyle(fontStyle: FontStyle.italic),
                           ),
-                          TextSpan(text: '   †’ '),
+                          TextSpan(text: ' â†’ '),
                           TextSpan(
                             text: 'Vendor Credits',
                             style: TextStyle(fontStyle: FontStyle.italic),
@@ -1751,6 +2886,14 @@ class _VendorCreditsCreatePageState
   }
 
   void _showManageTaxPopover(BuildContext context) {
+    if (_taxType == 'TDS') {
+      _showManageTdsRatesDialog();
+      return;
+    }
+    if (_taxType == 'TCS') {
+      _showManageTcsRatesDialog();
+      return;
+    }
     _manageTaxOverlay?.remove();
     _manageTaxOverlay = null;
 
@@ -1764,6 +2907,10 @@ class _VendorCreditsCreatePageState
       _manageTaxOverlay?.remove();
       _manageTaxOverlay = null;
     }
+
+    final accountTree = _buildAccountTree(
+      ref.read(chartOfAccountsProvider).roots,
+    );
 
     _manageTaxOverlay = OverlayEntry(
       builder: (ctx) => GestureDetector(
@@ -1852,7 +2999,7 @@ class _VendorCreditsCreatePageState
                                 GestureDetector(
                                   onTap: () {
                                     close();
-                                    showDialog<void>(
+                                    showDialog<Map<String, dynamic>>(
                                       context: context,
                                       barrierColor: Colors.black.withValues(
                                         alpha: 0.35,
@@ -1861,9 +3008,19 @@ class _VendorCreditsCreatePageState
                                         alignment: Alignment.topCenter,
                                         child: _VCNewTaxFormDialog(
                                           isTds: isTds,
+                                          accountTree: accountTree,
+                                          taxSections: isTds
+                                              ? _tdsSectionsList
+                                              : _tcsNaturesList,
                                         ),
                                       ),
-                                    );
+                                    ).then((savedRate) {
+                                      if (!mounted || savedRate == null) return;
+                                      _applySavedTaxRate(
+                                        isTds: isTds,
+                                        savedRate: savedRate,
+                                      );
+                                    });
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1979,6 +3136,224 @@ class _VendorCreditsCreatePageState
     );
 
     Overlay.of(context).insert(_manageTaxOverlay!);
+  }
+
+  Future<void> _loadTdsRates() async {
+    if (_isLoadingTdsRates) {
+      await _loadTdsFuture;
+      return;
+    }
+    _isLoadingTdsRates = true;
+    _loadTdsFuture = _performLoadTdsRates();
+    await _loadTdsFuture;
+    _isLoadingTdsRates = false;
+  }
+
+  Future<void> _performLoadTdsRates() async {
+    try {
+      final lookupsService = LookupsApiService();
+      final rates = await lookupsService.getTdsRates();
+      final sections = await lookupsService.getTdsSections();
+      final tcsRates = await lookupsService.getTcsRates();
+      final tcsNatures = await lookupsService.getTcsNatures();
+      if (!mounted) return;
+      setState(() {
+        _tdsRatesList = rates;
+        _tdsSectionsList = sections;
+        _tcsRatesList = tcsRates;
+        _tcsNaturesList = tcsNatures;
+      });
+    } catch (_) {}
+  }
+
+  void _applySavedTaxRate({
+    required bool isTds,
+    required Map<String, dynamic> savedRate,
+  }) {
+    final savedId = savedRate['id']?.toString();
+    final savedName = savedRate['tax_name']?.toString();
+    final savedValue =
+        double.tryParse(
+          (isTds ? savedRate['base_rate'] : savedRate['rate'])?.toString() ??
+              '0',
+        ) ??
+        0.0;
+
+    setState(() {
+      final targetList = isTds ? _tdsRatesList : _tcsRatesList;
+      final index = targetList.indexWhere(
+        (row) =>
+            (savedId != null && row['id']?.toString() == savedId) ||
+            (savedName != null && row['tax_name']?.toString() == savedName),
+      );
+
+      if (index >= 0) {
+        targetList[index] = savedRate;
+      } else {
+        targetList.add(savedRate);
+      }
+
+      _selectedTaxRate = savedId;
+      _selectedTaxRateValue = savedValue;
+    });
+  }
+
+  String _resolveProductUnitPack(Item? item) {
+    if (item == null) return '';
+    final lockedPack = item.lockUnitPack;
+    if (lockedPack != null) {
+      final whole = lockedPack.truncateToDouble();
+      return lockedPack == whole
+          ? whole.toInt().toString()
+          : lockedPack.toString();
+    }
+    return item.unitPack?.trim() ?? '';
+  }
+
+  void _showManageTdsRatesDialog() async {
+    if (_tdsRatesList.isEmpty) {
+      await _loadTdsRates();
+    }
+    if (!mounted) return;
+    final accountTree = _buildAccountTree(
+      ref.read(chartOfAccountsProvider).roots,
+    );
+    await showDialog(
+      context: context,
+      builder: (context) => ManageTdsTcsRatesDialog(
+        title: 'Manage TDS Rates',
+        isTcs: false,
+        items: _tdsRatesList,
+        sections: _tdsSectionsList,
+        showNewTaxMenu: false,
+        showGroupAction: false,
+        onNewTaxTap: () {
+          Navigator.of(context).pop();
+          showDialog<Map<String, dynamic>>(
+            context: this.context,
+            barrierColor: Colors.black.withValues(alpha: 0.35),
+            builder: (_) => Align(
+              alignment: Alignment.topCenter,
+              child: _VCNewTaxFormDialog(
+                isTds: true,
+                accountTree: accountTree,
+                taxSections: _tdsSectionsList,
+              ),
+            ),
+          ).then((savedRate) {
+            if (!mounted || savedRate == null) return;
+            _applySavedTaxRate(isTds: true, savedRate: savedRate);
+          });
+        },
+        selectedId: _selectedTaxRate,
+        onSelect: (value) {
+          setState(() {
+            _selectedTaxRate = value['id']?.toString();
+            _selectedTaxRateValue =
+                double.tryParse(value['base_rate']?.toString() ?? '0') ?? 0.0;
+          });
+        },
+        onSave: (items) async {
+          final lookupsService = LookupsApiService();
+          final updated = await lookupsService.syncTdsRates(items);
+          if (mounted) {
+            setState(() => _tdsRatesList = updated);
+          }
+          return updated;
+        },
+        onDeleteCheck: (item) async {
+          if (item['id'] == null || item['id'].toString().startsWith('new_')) {
+            return null;
+          }
+          try {
+            final lookupsService = LookupsApiService();
+            final usage = await lookupsService.checkLookupUsage(
+              'tds-rates',
+              item['id'].toString(),
+            );
+            if (usage['inUse'] == true) {
+              return usage['message'] ??
+                  'This TDS rate is in use and cannot be deleted.';
+            }
+          } catch (_) {}
+          return null;
+        },
+      ),
+    );
+    await _performLoadTdsRates();
+  }
+
+  void _showManageTcsRatesDialog() async {
+    if (_tcsRatesList.isEmpty) {
+      await _loadTdsRates();
+    }
+    if (!mounted) return;
+    final accountTree = _buildAccountTree(
+      ref.read(chartOfAccountsProvider).roots,
+    );
+    await showDialog(
+      context: context,
+      builder: (context) => ManageTdsTcsRatesDialog(
+        title: 'Manage TCS Rates',
+        isTcs: true,
+        items: _tcsRatesList,
+        sections: _tcsNaturesList,
+        showNewTaxMenu: false,
+        showGroupAction: false,
+        onNewTaxTap: () {
+          Navigator.of(context).pop();
+          showDialog<Map<String, dynamic>>(
+            context: this.context,
+            barrierColor: Colors.black.withValues(alpha: 0.35),
+            builder: (_) => Align(
+              alignment: Alignment.topCenter,
+              child: _VCNewTaxFormDialog(
+                isTds: false,
+                accountTree: accountTree,
+                taxSections: _tcsNaturesList,
+              ),
+            ),
+          ).then((savedRate) {
+            if (!mounted || savedRate == null) return;
+            _applySavedTaxRate(isTds: false, savedRate: savedRate);
+          });
+        },
+        selectedId: _selectedTaxRate,
+        onSelect: (value) {
+          setState(() {
+            _selectedTaxRate = value['id']?.toString();
+            _selectedTaxRateValue =
+                double.tryParse(value['rate']?.toString() ?? '0') ?? 0.0;
+          });
+        },
+        onSave: (items) async {
+          final lookupsService = LookupsApiService();
+          final updated = await lookupsService.syncTcsRates(items);
+          if (mounted) {
+            setState(() => _tcsRatesList = updated);
+          }
+          return updated;
+        },
+        onDeleteCheck: (item) async {
+          if (item['id'] == null || item['id'].toString().startsWith('new_')) {
+            return null;
+          }
+          try {
+            final lookupsService = LookupsApiService();
+            final usage = await lookupsService.checkLookupUsage(
+              'tcs-rates',
+              item['id'].toString(),
+            );
+            if (usage['inUse'] == true) {
+              return usage['message'] ??
+                  'This TCS rate is in use and cannot be deleted.';
+            }
+          } catch (_) {}
+          return null;
+        },
+      ),
+    );
+    await _performLoadTdsRates();
   }
 
   void _showTotalTaxPopover(
@@ -2186,6 +3561,8 @@ class _VendorCreditsCreatePageState
   }
 
   Widget _buildTaxRow() {
+    final isTds = _taxType == 'TDS';
+    final currentRates = isTds ? _tdsRatesList : _tcsRatesList;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
       child: Row(
@@ -2199,7 +3576,12 @@ class _VendorCreditsCreatePageState
                   value: 'TDS',
                   groupValue: _taxType,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  onChanged: (val) => setState(() => _taxType = val!),
+                  activeColor: AppTheme.primaryBlue,
+                  onChanged: (val) => setState(() {
+                    _taxType = val!;
+                    _selectedTaxRate = null;
+                    _selectedTaxRateValue = 0.0;
+                  }),
                 ),
                 const Text(
                   'TDS',
@@ -2214,7 +3596,12 @@ class _VendorCreditsCreatePageState
                   value: 'TCS',
                   groupValue: _taxType,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  onChanged: (val) => setState(() => _taxType = val!),
+                  activeColor: AppTheme.primaryBlue,
+                  onChanged: (val) => setState(() {
+                    _taxType = val!;
+                    _selectedTaxRate = null;
+                    _selectedTaxRateValue = 0.0;
+                  }),
                 ),
                 const Text(
                   'TCS',
@@ -2232,10 +3619,65 @@ class _VendorCreditsCreatePageState
             fit: FlexFit.tight,
             child: FormDropdown<String>(
               value: _selectedTaxRate,
-              items: const ['5%', '10%', '15%', '20%', '28%'],
+              items: currentRates
+                  .map((rate) => rate['id']?.toString() ?? '')
+                  .where((id) => id.isNotEmpty)
+                  .toList(growable: false),
               hint: 'Select a Tax',
               height: 34,
-              onChanged: (val) => setState(() => _selectedTaxRate = val),
+              displayStringForValue: (id) {
+                final match = currentRates
+                    .cast<Map<String, dynamic>?>()
+                    .firstWhere(
+                      (rate) => rate?['id']?.toString() == id,
+                      orElse: () => null,
+                    );
+                if (match == null) return 'Select a Tax';
+                final taxName = (match['tax_name'] ?? match['tds_name'] ?? '')
+                    .toString();
+                final rawRate = isTds
+                    ? match['base_rate']
+                    : (match['rate'] ?? match['tds_rate']);
+                final rateValue =
+                    double.tryParse(rawRate?.toString() ?? '0') ?? 0.0;
+                final rateText = rateValue == rateValue.roundToDouble()
+                    ? rateValue.toStringAsFixed(0)
+                    : rateValue.toStringAsFixed(2);
+                return '$taxName [$rateText%]';
+              },
+              searchStringForValue: (id) {
+                final match = currentRates
+                    .cast<Map<String, dynamic>?>()
+                    .firstWhere(
+                      (rate) => rate?['id']?.toString() == id,
+                      orElse: () => null,
+                    );
+                if (match == null) return '';
+                return '${match['tax_name'] ?? match['tds_name'] ?? ''} '
+                    '${match['base_rate'] ?? match['rate'] ?? ''}';
+              },
+              onChanged: (val) {
+                final match = currentRates
+                    .cast<Map<String, dynamic>?>()
+                    .firstWhere(
+                      (rate) => rate?['id']?.toString() == val,
+                      orElse: () => null,
+                    );
+                setState(() {
+                  _selectedTaxRate = val;
+                  _selectedTaxRateValue = match == null
+                      ? 0.0
+                      : double.tryParse(
+                              (isTds
+                                          ? match['base_rate']
+                                          : (match['rate'] ??
+                                                match['tds_rate']))
+                                      ?.toString() ??
+                                  '0',
+                            ) ??
+                            0.0;
+                });
+              },
               showSettings: true,
               settingsLabel: _taxType == 'TDS' ? 'Manage TDS' : 'Manage TCS',
               settingsIcon: LucideIcons.settings,
@@ -2246,7 +3688,9 @@ class _VendorCreditsCreatePageState
           SizedBox(
             width: 60,
             child: Text(
-              _taxType == 'TDS' ? '- 0.00' : '0.00',
+              _taxType == 'TDS'
+                  ? '- ${_formatMoney(_selectedTdsTcsAmount)}'
+                  : _formatMoney(_selectedTdsTcsAmount),
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -2362,13 +3806,79 @@ class _VCCurrencyBadge extends StatelessWidget {
 // Vendor billing address panel
 // ---------------------------------------------------------------------------
 
+Map<String, dynamic>? _vendorBillingAddress(Vendor vendor) {
+  final billing = vendor.billingAddress;
+  if (billing != null && billing.isNotEmpty) return billing;
+
+  final addresses = vendor.vendorAddresses ?? const <Map<String, dynamic>>[];
+  for (final address in addresses) {
+    final type = (address['address_type'] ?? address['addressType'])
+        ?.toString()
+        .toLowerCase();
+    final isDefaultBilling =
+        address['is_default_billing'] == true ||
+        address['isDefaultBilling'] == true;
+    if (isDefaultBilling || type == 'billing') {
+      return address;
+    }
+  }
+  return null;
+}
+
+String _vendorAddressValue(Map<String, dynamic>? address, String key) {
+  if (address == null) return '';
+  final value =
+      address[key] ??
+      address[_snakeCaseKey(key)] ??
+      switch (key) {
+        'street1' => address['addressStreet'] ?? address['address_street'],
+        'street2' => address['addressPlace'] ?? address['address_place'],
+        'zip' => address['pincode'],
+        'country' => address['countryRegion'] ?? address['country_region'],
+        _ => null,
+      };
+  return value?.toString().trim() ?? '';
+}
+
+String _snakeCaseKey(String value) {
+  return value
+      .replaceAllMapped(
+        RegExp(r'[A-Z]'),
+        (match) => '_${match.group(0)!.toLowerCase()}',
+      )
+      .replaceFirst(RegExp(r'^_'), '');
+}
+
+String _vendorSourceOfSupply(Vendor vendor) {
+  final direct = vendor.sourceOfSupply?.trim() ?? '';
+  if (direct.isNotEmpty) return direct;
+  return _vendorAddressValue(_vendorBillingAddress(vendor), 'state');
+}
+
+String _vendorGstTreatmentLabel(String? rawValue) {
+  switch (rawValue?.toLowerCase()) {
+    case 'registered_business':
+      return 'Registered Business';
+    case 'unregistered_business':
+      return 'Unregistered Business';
+    case 'overseas':
+      return 'Overseas';
+    case 'consumer':
+      return 'Consumer';
+    default:
+      return rawValue ?? 'Unregistered Business';
+  }
+}
+
 class _VCVendorAddressPanel extends StatefulWidget {
-  final SalesCustomer customer;
+  final Vendor vendor;
   final double labelWidth;
+  final List<Map<String, String>> gstTreatmentOptions;
 
   const _VCVendorAddressPanel({
-    required this.customer,
+    required this.vendor,
     required this.labelWidth,
+    required this.gstTreatmentOptions,
   });
 
   @override
@@ -2385,7 +3895,7 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
   final LayerLink _gstTreatmentLink = LayerLink();
   OverlayEntry? _gstTreatmentOverlay;
 
-  // Overrides: null means use customer data
+  // Overrides: null means use vendor data
   String? _overrideName;
   List<String>? _overrideLines;
   String? _overrideGstTreatment;
@@ -2393,47 +3903,36 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
 
   List<String> get _billingLines {
     if (_overrideLines != null) return _overrideLines!;
-    final c = widget.customer;
     final lines = <String>[];
-    if ((c.billingAddressStreet1 ?? '').isNotEmpty)
-      lines.add(c.billingAddressStreet1!);
-    if ((c.billingAddressStreet2 ?? '').isNotEmpty)
-      lines.add(c.billingAddressStreet2!);
-    if ((c.billingAddressCity ?? '').isNotEmpty)
-      lines.add(c.billingAddressCity!);
-    if ((c.billingAddressStateId ?? '').isNotEmpty) {
-      final zip = (c.billingAddressZip ?? '').isNotEmpty
-          ? ' ${c.billingAddressZip}'
-          : '';
-      lines.add('${c.billingAddressStateId}$zip');
-    }
-    if ((c.billingAddressPhone ?? '').isNotEmpty)
-      lines.add('Phone: ${c.billingAddressPhone}');
+    final billingAddress = _vendorBillingAddress(widget.vendor);
+    final street1 = _vendorAddressValue(billingAddress, 'street1');
+    final street2 = _vendorAddressValue(billingAddress, 'street2');
+    final city = _vendorAddressValue(billingAddress, 'city');
+    final state = _vendorAddressValue(billingAddress, 'state');
+    final zip = _vendorAddressValue(billingAddress, 'zip');
+    final phone = _vendorAddressValue(billingAddress, 'phone');
+    if (street1.isNotEmpty) lines.add(street1);
+    if (street2.isNotEmpty) lines.add(street2);
+    if (city.isNotEmpty) lines.add(city);
+    if (state.isNotEmpty) lines.add(zip.isNotEmpty ? '$state $zip' : state);
+    if (phone.isNotEmpty) lines.add('Phone: $phone');
     return lines;
   }
 
   String get _displayName =>
-      _overrideName ?? widget.customer.displayName.toUpperCase();
+      _overrideName ?? widget.vendor.displayName.toUpperCase();
 
   String get _gstTreatmentLabel {
     if (_overrideGstTreatment != null) return _overrideGstTreatment!;
-    switch (widget.customer.gstTreatment?.toLowerCase()) {
-      case 'registered_business':
-        return 'Registered Business - Regular';
-      case 'unregistered_business':
-        return 'Unregistered Business';
-      case 'overseas':
-        return 'Overseas';
-      case 'consumer':
-        return 'Consumer';
-      default:
-        return widget.customer.gstTreatment ?? 'Unregistered Business';
-    }
+    final baseLabel = _vendorGstTreatmentLabel(widget.vendor.gstTreatment);
+    return baseLabel == 'Registered Business'
+        ? 'Registered Business - Regular'
+        : baseLabel;
   }
 
-  String get _gstinValue => _overrideGstin ?? widget.customer.gstin ?? '';
+  String get _gstinValue => _overrideGstin ?? widget.vendor.gstin ?? '';
 
-  //          Billing address picker
+  // â”€â”€ Billing address picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   void _closeBillingPicker() {
     _billingOverlay?.remove();
@@ -2537,7 +4036,7 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
     });
   }
 
-  //          GST Treatment popover
+  // â”€â”€ GST Treatment popover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   void _closeGstTreatmentPopover() {
     _gstTreatmentOverlay?.remove();
@@ -2555,17 +4054,15 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
     final gstinCtrl = TextEditingController(text: _gstinValue);
     bool makePermanent = false;
 
-    const treatments = [
-      'Registered Business - Regular',
-      'Registered Business - Composition',
-      'Unregistered Business',
-      'Consumer',
-      'Overseas',
-      'Special Economic Zone',
-      'Deemed Export',
-      'Tax Deductor',
-      'SEZ Developer',
-    ];
+    final treatments = widget.gstTreatmentOptions
+        .map((item) => item['label'] ?? '')
+        .where((label) => label.isNotEmpty)
+        .toList(growable: false);
+
+    if (treatments.isEmpty) {
+      gstinCtrl.dispose();
+      return;
+    }
 
     if (!treatments.contains(selectedTreatment))
       selectedTreatment = treatments.first;
@@ -2623,20 +4120,10 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
                                 gstinCtrl.dispose();
                                 _closeGstTreatmentPopover();
                               },
-                              child: Container(
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: AppTheme.primaryBlue,
-                                    width: 1.5,
-                                  ),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Icon(
-                                  LucideIcons.x,
-                                  size: 12,
-                                  color: AppTheme.errorRed,
-                                ),
+                              child: const Icon(
+                                LucideIcons.x,
+                                size: 14,
+                                color: AppTheme.errorRed,
                               ),
                             ),
                           ],
@@ -2687,6 +4174,7 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
                           ),
                         ),
                         const SizedBox(height: 6),
+                        // TODO(GSTIN): Add GSTIN format validation using validateGstin(value) helper
                         TextField(
                           controller: gstinCtrl,
                           maxLines: 1,
@@ -2863,7 +4351,7 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
     setState(() {});
   }
 
-  //          GSTIN picker popover
+  // â”€â”€ GSTIN picker popover â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   void _closeGstinPopover() {
     _gstinOverlay?.remove();
@@ -2878,7 +4366,10 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
     }
 
     final gstin = _gstinValue;
-    final state = widget.customer.billingAddressStateId ?? '';
+    final state = _vendorAddressValue(
+      _vendorBillingAddress(widget.vendor),
+      'state',
+    );
     final label = gstin.isNotEmpty
         ? '$gstin${state.isNotEmpty ? ' - $state' : ''}'
         : 'No GSTIN';
@@ -2965,8 +4456,7 @@ class _VCVendorAddressPanelState extends State<_VCVendorAddressPanel> {
                               ),
                               builder: (_) => _VCManageTaxInfoDialog(
                                 gstin: _gstinValue,
-                                placeOfSupply:
-                                    widget.customer.billingAddressStateId ?? '',
+                                placeOfSupply: state,
                                 onSelected: (gstin) {
                                   if (mounted)
                                     setState(() => _overrideGstin = gstin);
@@ -3251,7 +4741,14 @@ class _DatePickerField extends StatelessWidget {
 
 class _VCNewTaxFormDialog extends StatefulWidget {
   final bool isTds;
-  const _VCNewTaxFormDialog({required this.isTds});
+  final List<shared_acct.AccountNode> accountTree;
+  final List<Map<String, dynamic>> taxSections;
+
+  const _VCNewTaxFormDialog({
+    required this.isTds,
+    required this.accountTree,
+    this.taxSections = const [],
+  });
 
   @override
   State<_VCNewTaxFormDialog> createState() => _VCNewTaxFormDialogState();
@@ -3262,7 +4759,13 @@ class _VCNewTaxFormDialogState extends State<_VCNewTaxFormDialog> {
   final _rateCtrl = TextEditingController();
   String _incomeAct = 'New Income Tax Act 2025';
   String? _natureOfCollection;
+  String? _higherRateReason;
+  bool _showAccountSelection = false;
+  String? _selectedPayableAccount;
+  String? _selectedReceivableAccount;
   bool _isHigherRate = false;
+  bool _isSaving = false;
+  String? _errorMessage;
   DateTime? _startDate = DateTime(2026, 4, 1);
   DateTime? _endDate;
   final _startDateKey = GlobalKey();
@@ -3273,20 +4776,29 @@ class _VCNewTaxFormDialogState extends State<_VCNewTaxFormDialog> {
     'Old Income Tax Act 1961',
   ];
 
-  static const _natureOptions = [
-    'Sale of Goods',
-    'Provision of Services',
-    'Sale of Scrap',
-    'Sale of Minerals',
-    'Tendu Leaves',
-    'Timber - Forest Lease',
-    'Timber - Other Mode',
-    'Any Other Forest Produce',
-    'Alcoholic Liquor',
-    'Parking Lot',
-    'Toll Plaza',
-    'Mining & Quarrying',
+  static const _higherTdsRateReasonOptions = [
+    'Non-furnishing of PAN',
+    'Non-filing of return of income',
   ];
+
+  static const Map<String, String> _higherTdsRateReasonDescriptions = {
+    'Non-furnishing of PAN':
+        'Deduction is on higher rate under section 206AA/397(2)(b)(i) on account of non-furnishing of PAN',
+    'Non-filing of return of income':
+        'Deduction is on higher rate in view of section 206AB for non-filing of return of income',
+  };
+
+  static const _higherTcsRateReasonOptions = [
+    'Non-furnishing of PAN',
+    'Non-filing of return of income',
+  ];
+
+  static const Map<String, String> _higherTcsRateReasonDescriptions = {
+    'Non-furnishing of PAN':
+        'Collection is at higher rate under section 206CC/397(2)(b)(ii) on account of non-furnishing of PAN/Aadhaar by the collectee',
+    'Non-filing of return of income':
+        'Collection is at a higher rate in view of section 206CCA',
+  };
 
   @override
   void dispose() {
@@ -3303,24 +4815,651 @@ class _VCNewTaxFormDialogState extends State<_VCNewTaxFormDialog> {
     final higherLabel = widget.isTds
         ? 'This is a Higher TDS Rate'
         : 'This is a Higher TCS Rate';
+    final sectionOptions = widget.taxSections
+        .map(
+          (section) =>
+              (widget.isTds ? section['section_name'] : section['nature_name'])
+                  .toString()
+                  .trim(),
+        )
+        .where((name) => name.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
 
     return Material(
       color: Colors.white,
-      borderRadius: const BorderRadius.only(
-        bottomLeft: Radius.circular(10),
-        bottomRight: Radius.circular(10),
-      ),
+      borderRadius: BorderRadius.circular(10),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
-        width: 520,
-        child: SingleChildScrollView(
+        width: 790,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              height: 58,
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'New $typeLabel',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: const Icon(
+                      LucideIcons.x,
+                      size: 18,
+                      color: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 22, 24, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildTaxDialogField(
+                          label: 'Tax Name*',
+                          labelColor: Colors.red,
+                          child: CustomTextField(
+                            controller: _taxNameCtrl,
+                            hintText: '',
+                            height: 38,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 34),
+                      Expanded(
+                        child: _buildTaxDialogField(
+                          label: 'Rate (%)*',
+                          labelColor: Colors.red,
+                          child: CustomTextField(
+                            controller: _rateCtrl,
+                            hintText: '',
+                            height: 38,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: 354,
+                    child: _buildTaxDialogField(
+                      label: 'Applicable Income Tax Act',
+                      child: FormDropdown<String>(
+                        value: _incomeAct,
+                        items: _incomeTaxActs,
+                        hint: 'Select',
+                        height: 38,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _incomeAct = val);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: 354,
+                    child: _buildTaxDialogField(
+                      label: widget.isTds
+                          ? 'Section*'
+                          : 'Nature of Collection*',
+                      labelColor: Colors.red,
+                      child: FormDropdown<String>(
+                        value: _natureOfCollection,
+                        items: sectionOptions,
+                        hint: 'Select a Tax Type.',
+                        height: 38,
+                        onChanged: (val) =>
+                            setState(() => _natureOfCollection = val),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (_showAccountSelection)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildTaxDialogField(
+                            label: '$typeLabel Payable Account',
+                            child: AccountTreeDropdown(
+                              value: _selectedPayableAccount,
+                              nodes: widget.accountTree.isNotEmpty
+                                  ? widget.accountTree
+                                  : _vcFallbackAccountTree,
+                              hint: 'Select an account',
+                              height: 38,
+                              borderRadius: BorderRadius.circular(4),
+                              onChanged: (val) =>
+                                  setState(() => _selectedPayableAccount = val),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 34),
+                        Expanded(
+                          child: _buildTaxDialogField(
+                            label: '$typeLabel Receivable Account',
+                            child: AccountTreeDropdown(
+                              value: _selectedReceivableAccount,
+                              nodes: widget.accountTree.isNotEmpty
+                                  ? widget.accountTree
+                                  : _vcFallbackAccountTree,
+                              hint: 'Select an account',
+                              height: 38,
+                              borderRadius: BorderRadius.circular(4),
+                              onChanged: (val) => setState(
+                                () => _selectedReceivableAccount = val,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Icon(
+                          LucideIcons.info,
+                          size: 15,
+                          color: AppTheme.primaryBlue,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'By default, $typeLabel will be tracked under ',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 1.45,
+                            color: AppTheme.textBody,
+                          ),
+                        ),
+                        Text(
+                          payableLabel,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 1.45,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textBody,
+                          ),
+                        ),
+                        const Text(
+                          ' and ',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.45,
+                            color: AppTheme.textBody,
+                          ),
+                        ),
+                        Text(
+                          receivableLabel,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 1.45,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textBody,
+                          ),
+                        ),
+                        const Text(
+                          ' accounts. Click ',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.45,
+                            color: AppTheme.textBody,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () =>
+                              setState(() => _showAccountSelection = true),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Edit',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.primaryBlue,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                                SizedBox(width: 3),
+                                Icon(
+                                  LucideIcons.pencil,
+                                  size: 12,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const Text(
+                          ' to choose an account of your choice.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.45,
+                            color: AppTheme.textBody,
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: Checkbox(
+                          value: _isHigherRate,
+                          onChanged: (v) => setState(() {
+                            _isHigherRate = v ?? false;
+                            if (!_isHigherRate) {
+                              _higherRateReason = null;
+                            }
+                          }),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          activeColor: AppTheme.primaryBlue,
+                          side: const BorderSide(
+                            color: AppTheme.borderColor,
+                            width: 1.2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        higherLabel,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textBody,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      ZTooltip(
+                        message: widget.isTds
+                            ? 'Select this if a higher TDS rate applies when PAN is not provided.'
+                            : 'Select this if a higher TCS rate applies when PAN is not provided.',
+                        child: Icon(
+                          LucideIcons.helpCircle,
+                          size: 14,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_isHigherRate) ...[
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: 354,
+                      child: _buildTaxDialogField(
+                        label: widget.isTds
+                            ? 'Reason for Higher TDS Rate*'
+                            : 'Reason for Higher TCS Rate*',
+                        labelColor: Colors.red,
+                        child: FormDropdown<String>(
+                          value: _higherRateReason,
+                          items: widget.isTds
+                              ? _higherTdsRateReasonOptions
+                              : _higherTcsRateReasonOptions,
+                          hint: '',
+                          height: 38,
+                          itemHeight: 64,
+                          itemEstimatedHeight: 64,
+                          onChanged: (val) =>
+                              setState(() => _higherRateReason = val),
+                          itemBuilder: (item, isSelected, isHovered) {
+                            final backgroundColor = isHovered
+                                ? AppTheme.primaryBlue
+                                : (isSelected
+                                      ? const Color(0xFFF3F4F6)
+                                      : Colors.white);
+                            final titleColor = isHovered
+                                ? Colors.white
+                                : AppTheme.textPrimary;
+                            final descriptionColor = isHovered
+                                ? Colors.white
+                                : AppTheme.textSecondary;
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: backgroundColor,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    item,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: titleColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    widget.isTds
+                                        ? (_higherTdsRateReasonDescriptions[item] ??
+                                              '')
+                                        : (_higherTcsRateReasonDescriptions[item] ??
+                                              ''),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      height: 1.25,
+                                      color: descriptionColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 28),
+                  Row(
+                    children: [
+                      const Text(
+                        'Applicable Period',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const ZTooltip(
+                        message:
+                            'The date range during which this rate is applicable.',
+                        child: Icon(
+                          LucideIcons.helpCircle,
+                          size: 14,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildTaxDialogField(
+                          label: 'Start Date',
+                          child: _DatePickerField(
+                            globalKey: _startDateKey,
+                            date: _startDate,
+                            onPick: (d) => setState(() => _startDate = d),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 34),
+                      Expanded(
+                        child: _buildTaxDialogField(
+                          label: 'End Date',
+                          child: _DatePickerField(
+                            globalKey: _endDateKey,
+                            date: _endDate,
+                            onPick: (d) => setState(() => _endDate = d),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      _errorMessage!,
+                      style: const TextStyle(fontSize: 12, color: Colors.red),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Container(
+              height: 74,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: AppTheme.borderLight)),
+              ),
+              child: Row(
+                children: [
+                  ZButton.primary(
+                    label: 'Save',
+                    onPressed: _isSaving ? null : _handleSave,
+                  ),
+                  const SizedBox(width: 10),
+                  ZButton.secondary(
+                    label: 'Cancel',
+                    onPressed: _isSaving
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _findAccountIdByName(String accountName) {
+    String? match;
+
+    void search(List<shared_acct.AccountNode> nodes) {
+      for (final node in nodes) {
+        if (match != null) return;
+        if (node.selectable &&
+            node.name.trim().toLowerCase() ==
+                accountName.trim().toLowerCase()) {
+          match = node.id;
+          return;
+        }
+        if (node.children.isNotEmpty) {
+          search(node.children);
+        }
+      }
+    }
+
+    final nodes = widget.accountTree.isNotEmpty
+        ? widget.accountTree
+        : _vcFallbackAccountTree;
+    search(nodes);
+    return match;
+  }
+
+  String? _resolveSelectedSectionId() {
+    if (_natureOfCollection == null) {
+      return null;
+    }
+    for (final section in widget.taxSections) {
+      final name =
+          (widget.isTds ? section['section_name'] : section['nature_name'])
+              .toString()
+              .trim();
+      if (name == _natureOfCollection) {
+        return section['id']?.toString();
+      }
+    }
+    return null;
+  }
+
+  Future<void> _handleSave() async {
+    if (_isSaving) return;
+
+    final typeLabel = widget.isTds ? 'TDS' : 'TCS';
+    final payableLabel = widget.isTds ? 'TDS Payable' : 'TCS Payable';
+    final receivableLabel = widget.isTds ? 'TDS Receivable' : 'TCS Receivable';
+    final name = _taxNameCtrl.text.trim();
+    final rate = double.tryParse(_rateCtrl.text.trim());
+    final sectionId = _resolveSelectedSectionId();
+
+    if (name.isEmpty) {
+      setState(() => _errorMessage = '$typeLabel tax name is required.');
+      return;
+    }
+    if (rate == null) {
+      setState(() => _errorMessage = 'Please enter a valid rate.');
+      return;
+    }
+    if (sectionId == null) {
+      setState(
+        () => _errorMessage = widget.isTds
+            ? 'Please select a section.'
+            : 'Please select a nature.',
+      );
+      return;
+    }
+    if (_isHigherRate && (_higherRateReason?.isEmpty ?? true)) {
+      setState(
+        () => _errorMessage = widget.isTds
+            ? 'Higher TDS rate reason is required before saving.'
+            : 'Higher TCS rate reason is required before saving.',
+      );
+      return;
+    }
+
+    final payload = <String, dynamic>{
+      'tax_name': name,
+      if (widget.isTds) 'base_rate': rate else 'rate': rate,
+      if (widget.isTds) 'section_id': sectionId else 'nature_id': sectionId,
+      'payable_account_id':
+          _selectedPayableAccount ?? _findAccountIdByName(payableLabel),
+      'receivable_account_id':
+          _selectedReceivableAccount ?? _findAccountIdByName(receivableLabel),
+      'is_higher_rate': _isHigherRate,
+      'reason_higher_rate': _higherRateReason,
+      'applicable_from': _startDate?.toIso8601String(),
+      'applicable_to': _endDate?.toIso8601String(),
+      'is_active': true,
+      if (!widget.isTds) 'income_tax_act': _incomeAct,
+    };
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final lookupsService = LookupsApiService();
+      final savedRows = widget.isTds
+          ? await lookupsService.syncTdsRates([payload])
+          : await lookupsService.syncTcsRates([payload]);
+      if (!mounted) return;
+
+      final savedItem = savedRows.isNotEmpty ? savedRows.first : payload;
+      Navigator.of(context).pop(savedItem);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Unable to save $typeLabel tax.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  Widget _buildTaxDialogField({
+    required String label,
+    Color labelColor = AppTheme.textPrimary,
+    required Widget child,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: labelColor,
+          ),
+        ),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+}
+
+class _VCNewGstTaxDialog extends StatefulWidget {
+  const _VCNewGstTaxDialog();
+
+  @override
+  State<_VCNewGstTaxDialog> createState() => _VCNewGstTaxDialogState();
+}
+
+class _VCNewGstTaxDialogState extends State<_VCNewGstTaxDialog> {
+  final TextEditingController _taxNameController = TextEditingController();
+  final TextEditingController _rateController = TextEditingController();
+  String? _selectedTaxType;
+
+  static const List<String> _taxTypes = <String>[
+    'Tax Group',
+    'IGST',
+    'CGST',
+    'SGST',
+  ];
+
+  @override
+  void dispose() {
+    _taxNameController.dispose();
+    _rateController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: SizedBox(
+        width: 700,
+        height: 333.64,
+        child: Material(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(10),
+            bottomRight: Radius.circular(10),
+          ),
+          clipBehavior: Clip.antiAlias,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Title bar
               Container(
-                padding: const EdgeInsets.fromLTRB(24, 18, 18, 18),
+                height: 58,
+                padding: const EdgeInsets.fromLTRB(24, 0, 20, 0),
                 decoration: const BoxDecoration(
                   border: Border(
                     bottom: BorderSide(color: AppTheme.borderLight),
@@ -3328,329 +5467,120 @@ class _VCNewTaxFormDialogState extends State<_VCNewTaxFormDialog> {
                 ),
                 child: Row(
                   children: [
-                    Expanded(
+                    const Expanded(
                       child: Text(
-                        'New $typeLabel',
-                        style: const TextStyle(
+                        'New Tax',
+                        style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: AppTheme.textPrimary,
                         ),
                       ),
                     ),
-                    GestureDetector(
+                    InkWell(
                       onTap: () => Navigator.of(context).pop(),
-                      child: const Icon(
-                        LucideIcons.x,
-                        size: 18,
-                        color: AppTheme.textSecondary,
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(LucideIcons.x, size: 18, color: Colors.red),
                       ),
                     ),
                   ],
                 ),
               ),
-              // Form body
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Row 1: Tax Name + Rate
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              RichText(
-                                text: const TextSpan(
-                                  text: 'Tax Name',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                  children: [
-                                    TextSpan(
-                                      text: '*',
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              CustomTextField(
-                                controller: _taxNameCtrl,
-                                hintText: '',
-                                height: 36,
-                              ),
-                            ],
-                          ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 22, 24, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildFormRow(
+                        label: 'Tax Name*',
+                        labelColor: AppTheme.errorRed,
+                        child: CustomTextField(
+                          controller: _taxNameController,
+                          height: 38,
+                          hintText: '',
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              RichText(
-                                text: const TextSpan(
-                                  text: 'Rate (%)',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                  children: [
-                                    TextSpan(
-                                      text: '*',
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              CustomTextField(
-                                controller: _rateCtrl,
+                      ),
+                      const SizedBox(height: 22),
+                      _buildFormRow(
+                        label: 'Rate (%)*',
+                        labelColor: AppTheme.errorRed,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: CustomTextField(
+                                controller: _rateController,
+                                height: 38,
                                 hintText: '',
-                                height: 36,
                                 keyboardType: TextInputType.number,
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Applicable Income Tax Act
-                    const Text(
-                      'Applicable Income Tax Act',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    FormDropdown<String>(
-                      value: _incomeAct,
-                      items: _incomeTaxActs,
-                      hint: 'Select',
-                      height: 36,
-                      onChanged: (val) {
-                        if (val != null) setState(() => _incomeAct = val);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    // Nature of Collection
-                    RichText(
-                      text: const TextSpan(
-                        text: 'Nature of Collection',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.textPrimary,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: '*',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    FormDropdown<String>(
-                      value: _natureOfCollection,
-                      items: _natureOptions,
-                      hint: 'Select a Tax Type.',
-                      height: 36,
-                      onChanged: (val) =>
-                          setState(() => _natureOfCollection = val),
-                    ),
-                    const SizedBox(height: 16),
-                    // Info note
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.infoBg,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            LucideIcons.info,
-                            size: 14,
-                            color: AppTheme.primaryBlue,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textBody,
+                            ),
+                            Container(
+                              width: 40,
+                              height: 38,
+                              alignment: Alignment.center,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFF9F9FB),
+                                borderRadius: BorderRadius.only(
+                                  topRight: Radius.circular(6),
+                                  bottomRight: Radius.circular(6),
                                 ),
-                                children: [
-                                  TextSpan(
-                                    text:
-                                        'By default, $typeLabel will be tracked under ',
+                                border: Border(
+                                  top: BorderSide(color: AppTheme.borderLight),
+                                  right: BorderSide(
+                                    color: AppTheme.borderLight,
                                   ),
-                                  TextSpan(
-                                    text: payableLabel,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  bottom: BorderSide(
+                                    color: AppTheme.borderLight,
                                   ),
-                                  const TextSpan(text: ' and '),
-                                  TextSpan(
-                                    text: receivableLabel,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const TextSpan(
-                                    text:
-                                        ' accounts. Click Edit to choose an account of your choice. ',
-                                  ),
-                                  const TextSpan(
-                                    text: 'Edit',
-                                    style: TextStyle(
-                                      color: AppTheme.primaryBlue,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ],
+                                ),
+                              ),
+                              child: const Text(
+                                '%',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+                      const SizedBox(height: 22),
+                      _buildFormRow(
+                        label: 'Tax Type',
+                        child: FormDropdown<String>(
+                          value: _selectedTaxType,
+                          items: _taxTypes,
+                          hint: 'Select a Tax Type.',
+                          height: 38,
+                          showSearch: false,
+                          onChanged: (value) {
+                            setState(() => _selectedTaxType = value);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Container(
+                height: 88,
+                padding: const EdgeInsets.fromLTRB(24, 26, 24, 0),
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: AppTheme.borderLight)),
+                ),
+                child: Row(
+                  children: [
+                    ZButton.primary(
+                      label: 'Save',
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                    const SizedBox(height: 16),
-                    // Higher rate checkbox
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: Checkbox(
-                            value: _isHigherRate,
-                            onChanged: (v) =>
-                                setState(() => _isHigherRate = v ?? false),
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            side: const BorderSide(
-                              color: AppTheme.borderColor,
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          higherLabel,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textBody,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        ZTooltip(
-                          message:
-                              'Select this if a higher $typeLabel rate applies when PAN is not provided.',
-                          child: const Icon(
-                            LucideIcons.helpCircle,
-                            size: 14,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    // Applicable Period
-                    Row(
-                      children: [
-                        const Text(
-                          'Applicable Period',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        ZTooltip(
-                          message:
-                              'The date range during which this $typeLabel rate is applicable.',
-                          child: const Icon(
-                            LucideIcons.helpCircle,
-                            size: 14,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Start Date',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              _DatePickerField(
-                                globalKey: _startDateKey,
-                                date: _startDate,
-                                onPick: (d) => setState(() => _startDate = d),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'End Date',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              _DatePickerField(
-                                globalKey: _endDateKey,
-                                date: _endDate,
-                                onPick: (d) => setState(() => _endDate = d),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    // Buttons
-                    Row(
-                      children: [
-                        ZButton.primary(
-                          label: 'Save',
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                        const SizedBox(width: 12),
-                        ZButton.secondary(
-                          label: 'Cancel',
-                          onPressed: () => Navigator.of(context).pop(),
-                        ),
-                      ],
+                    const SizedBox(width: 12),
+                    ZButton.secondary(
+                      label: 'Cancel',
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),
@@ -3659,6 +5589,31 @@ class _VCNewTaxFormDialogState extends State<_VCNewTaxFormDialog> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildFormRow({
+    required String label,
+    Color labelColor = AppTheme.textPrimary,
+    required Widget child,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 258,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: labelColor,
+            ),
+          ),
+        ),
+        const SizedBox(width: 18),
+        Expanded(child: child),
+      ],
     );
   }
 }
@@ -3702,29 +5657,10 @@ class _HeaderBackgroundBand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final horizontalPadding = screenWidth < 1000 ? 16.0 : 40.0;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final bodyWidth = screenWidth - (horizontalPadding * 2);
-        final rightBleed =
-            (bodyWidth - constraints.maxWidth + horizontalPadding)
-                .clamp(0.0, double.infinity)
-                .toDouble();
-
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned.fill(
-              left: -horizontalPadding,
-              right: -rightBleed,
-              child: const ColoredBox(color: AppTheme.bgDisabled),
-            ),
-            child,
-          ],
-        );
-      },
+    return Container(
+      color: AppTheme.bgDisabled,
+      width: double.infinity,
+      child: child,
     );
   }
 }
@@ -3956,7 +5892,7 @@ class _DottedUnderlinePainter extends CustomPainter {
 }
 
 // ---------------------------------------------------------------------------
-// Items grid (table only     ” notes/totals moved to parent)
+// Items grid (table only â€” notes/totals moved to parent)
 // ---------------------------------------------------------------------------
 
 class _VCItemsGrid extends StatefulWidget {
@@ -3969,6 +5905,7 @@ class _VCItemsGrid extends StatefulWidget {
     required this.onInsertItem,
     required this.onDuplicateItem,
     required this.onRemoveItem,
+    required this.onReorderItem,
     required this.onTotalsChanged,
     required this.onAddBatches,
     required this.warehouse,
@@ -3980,6 +5917,7 @@ class _VCItemsGrid extends StatefulWidget {
     required this.onEditItem,
     required this.discountType,
     this.defaultPriceList,
+    required this.priceListOptions,
   });
 
   final List<_VCLineItem> items;
@@ -3990,6 +5928,7 @@ class _VCItemsGrid extends StatefulWidget {
   final void Function(int) onInsertItem;
   final void Function(int) onDuplicateItem;
   final void Function(int) onRemoveItem;
+  final void Function(int fromIndex, int toIndex) onReorderItem;
   final VoidCallback onTotalsChanged;
   final Future<void> Function(_VCLineItem) onAddBatches;
   final String warehouse;
@@ -4000,6 +5939,7 @@ class _VCItemsGrid extends StatefulWidget {
   final void Function(_VCLineItem) onViewItemDetailsTransactions;
   final void Function(_VCLineItem) onEditItem;
   final PriceList? defaultPriceList;
+  final List<PriceList> priceListOptions;
   final String discountType;
 
   @override
@@ -4045,10 +5985,7 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
           children: [
             InkWell(
               onTap: widget.onAddItem,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(6),
-                bottomLeft: Radius.circular(6),
-              ),
+              borderRadius: BorderRadius.circular(6),
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
@@ -4068,28 +6005,6 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
                       ),
                     ),
                   ],
-                ),
-              ),
-            ),
-            const VerticalDivider(
-              width: 1,
-              color: AppTheme.borderLight,
-              thickness: 1,
-              indent: 8,
-              endIndent: 8,
-            ),
-            InkWell(
-              onTap: () {},
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(6),
-                bottomRight: Radius.circular(6),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(
-                  Icons.keyboard_arrow_down,
-                  size: 20,
-                  color: AppTheme.textSecondary,
                 ),
               ),
             ),
@@ -4370,11 +6285,10 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
           child: IntrinsicHeight(
             child: Row(
               children: [
-                const SizedBox(width: 40),
                 const Expanded(
                   flex: 14,
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     child: _TH('ITEM DETAILS'),
                   ),
                 ),
@@ -4382,7 +6296,7 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
                 const Expanded(
                   flex: 6,
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     child: _TH('ACCOUNT'),
                   ),
                 ),
@@ -4390,7 +6304,7 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
                 const Expanded(
                   flex: 4,
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     child: _TH('QUANTITY', right: true),
                   ),
                 ),
@@ -4400,7 +6314,7 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 10,
+                      vertical: 9,
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -4423,7 +6337,7 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
                     child: Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 10,
+                        vertical: 9,
                       ),
                       child: _TH('DISCOUNT', right: true),
                     ),
@@ -4435,7 +6349,7 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 10,
+                      vertical: 9,
                     ),
                     child: widget.isReverseCharge
                         ? Column(
@@ -4475,7 +6389,7 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
                 const Expanded(
                   flex: 4,
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                     child: _TH('AMOUNT', right: true),
                   ),
                 ),
@@ -4484,94 +6398,102 @@ class _VCItemsGridState extends State<_VCItemsGrid> {
           ),
         ),
         // Item rows
-        ...List.generate(widget.items.length, (index) {
-          final showActions = _hoveredItemActionIndex == index;
-
-          return MouseRegion(
-            onEnter: (_) {
-              if (_hoveredItemActionIndex != index) {
-                setState(() => _hoveredItemActionIndex = index);
-              }
-            },
-            onExit: (_) {
-              if (_hoveredItemActionIndex == index) {
-                setState(() => _hoveredItemActionIndex = null);
-              }
-            },
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.backgroundColor,
-                        border: Border(
-                          left: BorderSide(color: AppTheme.borderLight),
-                          right: BorderSide(color: AppTheme.borderLight),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          _VCItemRow(
-                            item: widget.items[index],
-                            availableProducts: widget.availableProducts,
-                            onSearchProducts: widget.onSearchProducts,
-                            onChanged: widget.onTotalsChanged,
-                            onAddBatches: () =>
-                                widget.onAddBatches(widget.items[index]),
-                            defaultWarehouse: widget.warehouse,
-                            accountTree: widget.accountTree,
-                            taxOptions: widget.taxOptions,
-                            selectedStockView: _selectedStockView,
-                            showAdditionalInformation:
-                                !_areAdditionalInfosHidden,
-                            onStockViewChanged: (v) =>
-                                setState(() => _selectedStockView = v),
-                            onViewItemDetails: () =>
-                                widget.onViewItemDetails(widget.items[index]),
-                            onViewItemDetailsTransactions: () =>
-                                widget.onViewItemDetailsTransactions(
+        Column(
+          children: List.generate(widget.items.length, (index) {
+            final showActions = _hoveredItemActionIndex == index;
+            return KeyedSubtree(
+              key: ValueKey(widget.items[index]),
+              child: MouseRegion(
+                onEnter: (_) {
+                  if (_hoveredItemActionIndex != index) {
+                    setState(() => _hoveredItemActionIndex = index);
+                  }
+                },
+                onExit: (_) {
+                  if (_hoveredItemActionIndex == index) {
+                    setState(() => _hoveredItemActionIndex = null);
+                  }
+                },
+                child: Container(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: AppTheme.backgroundColor,
+                            border: Border(
+                              left: BorderSide(color: AppTheme.borderLight),
+                              right: BorderSide(color: AppTheme.borderLight),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              _VCItemRow(
+                                item: widget.items[index],
+                                availableProducts: widget.availableProducts,
+                                onSearchProducts: widget.onSearchProducts,
+                                onChanged: widget.onTotalsChanged,
+                                onAddBatches: () => widget.onAddBatches(
                                   widget.items[index],
                                 ),
-                            onEditItem: () =>
-                                widget.onEditItem(widget.items[index]),
-                            defaultPriceList: widget.defaultPriceList,
-                            discountType: widget.discountType,
-                          ),
-                          if (index < widget.items.length - 1)
-                            const Divider(
-                              height: 1,
-                              color: AppTheme.borderLight,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      IgnorePointer(
-                        ignoring: !showActions,
-                        child: AnimatedOpacity(
-                          opacity: showActions ? 1 : 0,
-                          duration: const Duration(milliseconds: 120),
-                          child: SizedBox(
-                            width: _rowActionWidth,
-                            child: Center(child: _buildRowActionMenu(index)),
+                                defaultWarehouse: widget.warehouse,
+                                accountTree: widget.accountTree,
+                                taxOptions: widget.taxOptions,
+                                selectedStockView: _selectedStockView,
+                                showAdditionalInformation:
+                                    !_areAdditionalInfosHidden,
+                                onStockViewChanged: (v) =>
+                                    setState(() => _selectedStockView = v),
+                                onViewItemDetails: () => widget
+                                    .onViewItemDetails(widget.items[index]),
+                                onViewItemDetailsTransactions: () =>
+                                    widget.onViewItemDetailsTransactions(
+                                      widget.items[index],
+                                    ),
+                                onEditItem: () =>
+                                    widget.onEditItem(widget.items[index]),
+                                defaultPriceList: widget.defaultPriceList,
+                                priceListOptions: widget.priceListOptions,
+                                discountType: widget.discountType,
+                              ),
+                              if (index < widget.items.length - 1)
+                                const Divider(
+                                  height: 1,
+                                  color: AppTheme.borderLight,
+                                ),
+                            ],
                           ),
                         ),
                       ),
-                      _VCDeleteRowButton(
-                        enabled: widget.items.length > 1,
-                        onTap: () => widget.onRemoveItem(index),
+                      Row(
+                        children: [
+                          IgnorePointer(
+                            ignoring: !showActions,
+                            child: AnimatedOpacity(
+                              opacity: showActions ? 1 : 0,
+                              duration: const Duration(milliseconds: 120),
+                              child: SizedBox(
+                                width: _rowActionWidth,
+                                child: Center(
+                                  child: _buildRowActionMenu(index),
+                                ),
+                              ),
+                            ),
+                          ),
+                          _VCDeleteRowButton(
+                            enabled: widget.items.length > 1,
+                            onTap: () => widget.onRemoveItem(index),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          );
-        }),
+            );
+          }),
+        ),
         // Table bottom border
         Container(
           margin: const EdgeInsets.only(right: _rowActionsWidth),
@@ -4624,6 +6546,7 @@ class _VCItemRow extends StatefulWidget {
     required this.onEditItem,
     required this.discountType,
     this.defaultPriceList,
+    required this.priceListOptions,
   });
 
   final _VCLineItem item;
@@ -4641,6 +6564,7 @@ class _VCItemRow extends StatefulWidget {
   final VoidCallback onViewItemDetailsTransactions;
   final VoidCallback onEditItem;
   final PriceList? defaultPriceList;
+  final List<PriceList> priceListOptions;
   final String discountType;
 
   @override
@@ -5117,7 +7041,7 @@ class _VCItemRowState extends State<_VCItemRow> {
             : baseRate;
         widget.item.rateController.text = effectiveRate.toStringAsFixed(2);
         widget.item.selectedAccount =
-            selected.purchaseAccountName ?? 'Cost of Goods Sold';
+            selected.purchaseAccountId ?? 'Cost of Goods Sold';
         widget.item.descriptionController.text =
             selected.purchaseDescription ?? '';
         if (widget.item.qtyController.text.isEmpty ||
@@ -5132,431 +7056,266 @@ class _VCItemRowState extends State<_VCItemRow> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(
-            width: 40,
-            child: Padding(
-              padding: EdgeInsets.only(top: 14),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: Icon(
-                  LucideIcons.gripVertical,
-                  size: 16,
-                  color: AppTheme.borderLight,
-                ),
-              ),
-            ),
-          ),
-          // ITEM DETAILS
-          Expanded(
-            flex: 14,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+    PriceList? selectedRowPriceList;
+    final selectedPriceListKey = item.selectedPriceList?.trim();
+    if (selectedPriceListKey != null && selectedPriceListKey.isNotEmpty) {
+      for (final priceList in widget.priceListOptions) {
+        if (priceList.id == selectedPriceListKey ||
+            priceList.name == selectedPriceListKey) {
+          selectedRowPriceList = priceList;
+          break;
+        }
+      }
+    }
+    selectedRowPriceList ??= widget.defaultPriceList;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ITEM DETAILS
+              Expanded(
+                flex: 14,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppTheme.bgDisabled,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Icon(
-                          LucideIcons.image,
-                          size: 20,
-                          color: AppTheme.textMuted,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FormDropdown<Item>(
-                          value: item.sourceItem,
-                          items: widget.availableProducts,
-                          hint: 'Type or click to select an item.',
-                          height:
-                              _VendorCreditsCreatePageState._tableFieldHeight,
-                          hideBorderDefault: true,
-                          allowClear: false,
-                          displayStringForValue: (p) => p.productName,
-                          searchStringForValue: (p) =>
-                              '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
-                          onSearch: widget.onSearchProducts,
-                          itemBuilder: (product, isSelected, isHovered) =>
-                              _VCProductDropdownItem(
-                                productName: product.productName,
-                                itemCode: product.itemCode,
-                                highlighted: isSelected || isHovered,
-                              ),
-                          onChanged: _onItemSelected,
-                        ),
-                      ),
-                      if (item.sourceItem != null) ...[
-                        const SizedBox(width: 4),
-                        PopupMenuButton<String>(
-                          offset: const Offset(0, 20),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: const BorderSide(color: AppTheme.borderLight),
-                          ),
-                          color: Colors.white,
-                          elevation: 4,
-                          tooltip: '',
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(
-                            LucideIcons.moreHorizontal,
-                            size: 16,
-                            color: AppTheme.textSecondary,
-                          ),
-                          iconSize: 16,
-                          constraints: const BoxConstraints(
-                            minWidth: 200,
-                            maxWidth: 200,
-                          ),
-                          onSelected: (val) {
-                            if (val == 'details') {
-                              widget.onEditItem();
-                            } else if (val == 'view') {
-                              widget.onViewItemDetails();
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            PopupMenuItem<String>(
-                              value: 'details',
-                              padding: EdgeInsets.zero,
-                              height: 44,
-                              child: _VCRowMenuHoverItem(
-                                label: 'Item Details',
-                                icon: LucideIcons.pencil,
-                              ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppTheme.bgDisabled,
+                              borderRadius: BorderRadius.circular(4),
                             ),
-                            PopupMenuItem<String>(
-                              value: 'view',
+                            child: const Icon(
+                              LucideIcons.image,
+                              size: 20,
+                              color: AppTheme.textMuted,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FormDropdown<Item>(
+                              value: item.sourceItem,
+                              items: widget.availableProducts,
+                              hint: 'Type or click to select an item.',
+                              height: _VendorCreditsCreatePageState
+                                  ._tableFieldHeight,
+                              hideBorderDefault: true,
+                              allowClear: false,
+                              displayStringForValue: (p) => p.productName,
+                              searchStringForValue: (p) =>
+                                  '${p.productName} ${p.itemCode} ${p.sku ?? ''}',
+                              onSearch: widget.onSearchProducts,
+                              itemBuilder: (product, isSelected, isHovered) =>
+                                  _VCProductDropdownItem(
+                                    productName: product.productName,
+                                    itemCode: product.itemCode,
+                                    isSelected: isSelected,
+                                    isHovered: isHovered,
+                                  ),
+                              onChanged: _onItemSelected,
+                            ),
+                          ),
+                          if (item.sourceItem != null) ...[
+                            const SizedBox(width: 4),
+                            PopupMenuButton<String>(
+                              offset: const Offset(0, 20),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: const BorderSide(
+                                  color: AppTheme.borderLight,
+                                ),
+                              ),
+                              color: Colors.white,
+                              elevation: 4,
+                              tooltip: '',
                               padding: EdgeInsets.zero,
-                              height: 44,
-                              child: _VCRowMenuHoverItem(
-                                label: 'View Item Details',
-                                icon: LucideIcons.shoppingBag,
+                              icon: const Icon(
+                                LucideIcons.moreHorizontal,
+                                size: 16,
+                                color: AppTheme.textSecondary,
+                              ),
+                              iconSize: 16,
+                              constraints: const BoxConstraints(
+                                minWidth: 200,
+                                maxWidth: 200,
+                              ),
+                              onSelected: (val) {
+                                if (val == 'details') {
+                                  widget.onEditItem();
+                                } else if (val == 'view') {
+                                  widget.onViewItemDetails();
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                PopupMenuItem<String>(
+                                  value: 'details',
+                                  padding: EdgeInsets.zero,
+                                  height: 44,
+                                  child: _VCRowMenuHoverItem(
+                                    label: 'Item Details',
+                                    icon: LucideIcons.pencil,
+                                  ),
+                                ),
+                                PopupMenuItem<String>(
+                                  value: 'view',
+                                  padding: EdgeInsets.zero,
+                                  height: 44,
+                                  child: _VCRowMenuHoverItem(
+                                    label: 'View Item Details',
+                                    icon: LucideIcons.shoppingBag,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 2),
+                            GestureDetector(
+                              onTap: () => _onItemSelected(null),
+                              behavior: HitTestBehavior.opaque,
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(
+                                  LucideIcons.x,
+                                  size: 14,
+                                  color: AppTheme.errorRed,
+                                ),
                               ),
                             ),
                           ],
+                        ],
+                      ),
+                      if (item.sourceItem != null) ...[
+                        const SizedBox(height: 6),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 48),
+                          child: CustomTextField(
+                            controller: item.descriptionController,
+                            hintText: 'Item description',
+                            height: 32,
+                            hideBorderDefault: true,
+                            maxLines: 2,
+                            onChanged: (_) => setState(() {}),
+                          ),
                         ),
-                        const SizedBox(width: 2),
-                        GestureDetector(
-                          onTap: () => _onItemSelected(null),
-                          behavior: HitTestBehavior.opaque,
-                          child: const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Icon(
-                              LucideIcons.x,
-                              size: 14,
-                              color: AppTheme.errorRed,
-                            ),
+                        const SizedBox(height: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 48),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.infoBg,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  item.sourceItem!.type.toUpperCase() ==
+                                          'SERVICE'
+                                      ? 'SERVICE'
+                                      : 'GOODS',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.infoTextDark,
+                                  ),
+                                ),
+                              ),
+                              if (item.sourceItem != null) ...[
+                                const SizedBox(width: 8),
+                                CompositedTransformTarget(
+                                  link: _hsnLayerLink,
+                                  child: GestureDetector(
+                                    onTap: () => _showHsnPopover(context),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          'HSN: ',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                        Text(
+                                          item.hsnCodeOverride ??
+                                              item.sourceItem?.hsnCode ??
+                                              'â€”',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textPrimary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          LucideIcons.pencil,
+                                          size: 10,
+                                          color: AppTheme.primaryBlue,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],
                     ],
                   ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 6),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48),
-                      child: CustomTextField(
-                        controller: item.descriptionController,
-                        hintText: 'Item description',
-                        height: 32,
-                        hideBorderDefault: true,
-                        maxLines: 2,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.infoBg,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              item.sourceItem!.type.toUpperCase() == 'SERVICE'
-                                  ? 'SERVICE'
-                                  : 'GOODS',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.infoTextDark,
-                              ),
-                            ),
-                          ),
-                          if (item.sourceItem != null) ...[
-                            const SizedBox(width: 8),
-                            CompositedTransformTarget(
-                              link: _hsnLayerLink,
-                              child: GestureDetector(
-                                onTap: () => _showHsnPopover(context),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Text(
-                                      'HSN: ',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                    Text(
-                                      item.hsnCodeOverride ??
-                                          item.sourceItem?.hsnCode ??
-                                          '    ”',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.textPrimary,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Icon(
-                                      LucideIcons.pencil,
-                                      size: 10,
-                                      color: AppTheme.primaryBlue,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (widget.showAdditionalInformation) ...[
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 48, bottom: 4),
-                      child: _VCReportingTagsPopoverButton(
-                        item: item,
-                        onChanged: () => setState(() {}),
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
-          ),
-          _vLine(),
-          // ACCOUNT
-          Expanded(
-            flex: 6,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: AccountTreeDropdown(
-                value: item.selectedAccount,
-                nodes: widget.accountTree.isNotEmpty
-                    ? widget.accountTree
-                    : _vcFallbackAccountTree,
-                hint: 'Select Account',
-                height: _VendorCreditsCreatePageState._tableFieldHeight,
-                border: Border.all(color: Colors.transparent),
-                onChanged: (value) {
-                  setState(() => item.selectedAccount = value);
-                  widget.onChanged();
-                },
-              ),
-            ),
-          ),
-          _vLine(),
-          // QUANTITY
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  CustomTextField(
-                    controller: item.qtyController,
-                    height: _VendorCreditsCreatePageState._tableFieldHeight,
-                    textAlign: TextAlign.right,
-                    hintText: '0',
-                    hideBorderDefault: true,
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) => widget.onChanged(),
+              _vLine(),
+              // ACCOUNT
+              Expanded(
+                flex: 6,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
                   ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '${widget.selectedStockView}:',
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: AppTheme.textSecondary,
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                    Text(
-                      widget.selectedStockView == 'Available for Sale'
-                          ? '${item.sourceItem!.stockOnHand?.toStringAsFixed(0) ?? '0'} pcs'
-                          : '${item.sourceItem!.stockOnHand?.toStringAsFixed(0) ?? '0'} pcs',
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: AppTheme.textSecondary,
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                    const SizedBox(height: 4),
-                    WarehouseHoverPopover(
-                      warehouseName:
-                          item.warehouseLocation ?? widget.defaultWarehouse,
-                      selectedView: widget.selectedStockView,
-                      onViewChanged: widget.onStockViewChanged,
-                      onWarehouseChanged: (val) {
-                        setState(() => item.warehouseLocation = val);
-                      },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          const Icon(
-                            LucideIcons.home,
-                            size: 12,
-                            color: AppTheme.primaryBlue,
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              item.warehouseLocation ?? widget.defaultWarehouse,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: AppTheme.primaryBlue,
-                                decoration: TextDecoration.underline,
-                              ),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    GestureDetector(
-                      onTap: widget.onAddBatches,
-                      child: item.savedBatches.isEmpty
-                          ? const Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Icon(
-                                  LucideIcons.alertTriangle,
-                                  size: 12,
-                                  color: AppTheme.errorRed,
-                                ),
-                                SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    'Add Batches',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: AppTheme.errorRed,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : Text(
-                              '${item.savedBatches.fold(0, (sum, b) => sum + (int.tryParse(b.quantityController.text) ?? 0))} pcs / ${item.savedBatches.length} ${item.savedBatches.length == 1 ? 'batch' : 'batches'}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: AppTheme.primaryBlue,
-                                decoration: TextDecoration.underline,
-                              ),
-                              textAlign: TextAlign.right,
-                            ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          _vLine(),
-          // RATE
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  CustomTextField(
-                    controller: item.rateController,
-                    focusNode: _rateFocusNode,
+                  child: AccountTreeDropdown(
+                    value: item.selectedAccount,
+                    nodes: widget.accountTree.isNotEmpty
+                        ? widget.accountTree
+                        : _vcFallbackAccountTree,
+                    hint: 'Select an account',
                     height: _VendorCreditsCreatePageState._tableFieldHeight,
-                    textAlign: TextAlign.right,
-                    hintText: '0.00',
-                    hideBorderDefault: true,
-                    keyboardType: TextInputType.text,
-                    onChanged: (_) => widget.onChanged(),
+                    border: Border.all(color: Colors.transparent),
+                    onChanged: (value) {
+                      setState(() => item.selectedAccount = value);
+                      widget.onChanged();
+                    },
                   ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      height: 20,
-                      child: FormDropdown<String>(
-                        value:
-                            item.selectedPriceList ??
-                            widget.defaultPriceList?.name,
-                        items: const [
-                          'Standard Selling',
-                          'Wholesale Price',
-                          'Retail Price',
-                        ],
-                        hint: 'Apply Price List',
-                        height: 20,
-                        hideBorderDefault: true,
-                        allowClear: true,
-                        onChanged: (v) {
-                          setState(() => item.selectedPriceList = v);
-                          widget.onChanged();
-                        },
-                      ),
-                    ),
-                    InkWell(
-                      onTap: widget.onViewItemDetailsTransactions,
-                      child: const Text(
-                        'Recent Transactions',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.primaryBlue,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
-          ),
-          _vLine(),
-          // DISCOUNT (line item level only)
-          if (widget.discountType == 'At Line Item Level') ...[
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        controller: item.discountController,
+              _vLine(),
+              // QUANTITY
+              Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      CustomTextField(
+                        controller: item.qtyController,
                         height: _VendorCreditsCreatePageState._tableFieldHeight,
                         textAlign: TextAlign.right,
                         hintText: '0',
@@ -5564,211 +7323,437 @@ class _VCItemRowState extends State<_VCItemRow> {
                         keyboardType: TextInputType.number,
                         onChanged: (_) => widget.onChanged(),
                       ),
-                    ),
-                    const SizedBox(width: 2),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          item.discountIsPercent = !item.discountIsPercent;
-                        });
-                        widget.onChanged();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.bgDisabled,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppTheme.borderLight),
-                        ),
-                        child: Text(
-                          item.discountIsPercent ? '%' : '  ‚¹',
+                      if (item.sourceItem != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          '${widget.selectedStockView}:',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 9,
                             color: AppTheme.textSecondary,
-                            fontWeight: FontWeight.w600,
                           ),
+                          textAlign: TextAlign.right,
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            _vLine(),
-          ],
-          // TAX
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FormDropdown<_VCTaxOption>(
-                    value: item.selectedTax == null
-                        ? null
-                        : widget.taxOptions.firstWhere(
-                            (o) => o.label == item.selectedTax,
-                            orElse: () => widget.taxOptions.firstWhere(
-                              (o) => !o.isHeader,
-                              orElse: () => const _VCTaxOption(label: ''),
-                            ),
+                        Text(
+                          widget.selectedStockView == 'Available for Sale'
+                              ? '${item.sourceItem!.stockOnHand?.toStringAsFixed(0) ?? '0'} pcs'
+                              : '${item.sourceItem!.stockOnHand?.toStringAsFixed(0) ?? '0'} pcs',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            color: AppTheme.textSecondary,
                           ),
-                    items: widget.taxOptions,
-                    hint: 'Select Tax',
-                    height: _VendorCreditsCreatePageState._tableFieldHeight,
-                    menuWidth: 360,
-                    hideBorderDefault: true,
-                    allowClear: true,
-                    displayStringForValue: (o) => o.label,
-                    isItemEnabled: (o) => !o.isHeader,
-                    itemBuilder: (option, isSelected, isHovered) {
-                      if (option.isHeader) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          color: AppTheme.bgLight,
-                          width: double.infinity,
-                          child: Text(
-                            option.label,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        );
-                      }
-                      final active = isHovered || isSelected;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
+                          textAlign: TextAlign.right,
                         ),
-                        color: isHovered ? AppTheme.primaryBlue : Colors.white,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    option.label,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: isHovered
-                                          ? Colors.white
-                                          : (isSelected
-                                                ? AppTheme.primaryBlue
-                                                : AppTheme.textPrimary),
-                                      fontWeight: active
-                                          ? FontWeight.w600
-                                          : FontWeight.normal,
-                                    ),
+                        const SizedBox(height: 4),
+                        WarehouseHoverPopover(
+                          productId: item.sourceItem?.id,
+                          warehouseName:
+                              item.warehouseLocation ?? widget.defaultWarehouse,
+                          selectedView: widget.selectedStockView,
+                          onViewChanged: widget.onStockViewChanged,
+                          onWarehouseChanged: (val) {
+                            setState(() => item.warehouseLocation = val);
+                          },
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              const Icon(
+                                LucideIcons.home,
+                                size: 12,
+                                color: AppTheme.primaryBlue,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  item.warehouseLocation ??
+                                      widget.defaultWarehouse,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.primaryBlue,
+                                    decoration: TextDecoration.underline,
                                   ),
-                                ),
-                                if (isSelected)
-                                  Icon(
-                                    Icons.check,
-                                    size: 16,
-                                    color: isHovered
-                                        ? Colors.white
-                                        : AppTheme.primaryBlue,
-                                  ),
-                              ],
-                            ),
-                            if (option.description != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                option.description!,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isHovered
-                                      ? Colors.white70
-                                      : AppTheme.textSecondary,
+                                  textAlign: TextAlign.right,
                                 ),
                               ),
                             ],
-                          ],
+                          ),
                         ),
-                      );
-                    },
-                    onChanged: (val) {
-                      if (val != null && !val.isHeader) {
-                        setState(() {
-                          item.selectedTax = val.label;
-                          item.selectedTaxRate = val.rate > 0 ? val.rate : null;
-                        });
-                        widget.onChanged();
-                      } else if (val == null) {
-                        setState(() {
-                          item.selectedTax = null;
-                          item.selectedTaxRate = null;
-                        });
-                        widget.onChanged();
-                      }
-                    },
-                  ),
-                  if (item.sourceItem != null) ...[
-                    const SizedBox(height: 4),
-                    CompositedTransformTarget(
-                      link: _itcLayerLink,
-                      child: GestureDetector(
-                        onTap: () => _showItcPopover(context),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                item.itcStatus,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.textSecondary,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              LucideIcons.pencil,
-                              size: 10,
-                              color: AppTheme.primaryBlue,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          _vLine(),
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  '  ‚¹${_computeAmount(item)}',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
+                        if (item.sourceItem?.trackBatches == true) ...[
+                          const SizedBox(height: 4),
+                          GestureDetector(
+                            onTap: widget.onAddBatches,
+                            child: item.savedBatches.isEmpty
+                                ? const Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      Icon(
+                                        LucideIcons.alertTriangle,
+                                        size: 12,
+                                        color: AppTheme.errorRed,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          'Add Batches',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: AppTheme.errorRed,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Text(
+                                    '${item.savedBatches.fold(0, (sum, b) => sum + (int.tryParse(b.quantityController.text) ?? 0))} pcs / ${item.savedBatches.length} ${item.savedBatches.length == 1 ? 'batch' : 'batches'}',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppTheme.primaryBlue,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                          ),
+                        ],
+                      ],
+                    ],
                   ),
                 ),
               ),
+              _vLine(),
+              // RATE
+              Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      CustomTextField(
+                        controller: item.rateController,
+                        focusNode: _rateFocusNode,
+                        height: _VendorCreditsCreatePageState._tableFieldHeight,
+                        textAlign: TextAlign.right,
+                        hintText: '0.00',
+                        hideBorderDefault: true,
+                        keyboardType: TextInputType.text,
+                        onChanged: (_) => widget.onChanged(),
+                      ),
+                      if (item.sourceItem != null) ...[
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          width: 170,
+                          height: 28,
+                          child: FormDropdown<PriceList>(
+                            value: selectedRowPriceList,
+                            items: widget.priceListOptions,
+                            hint: 'Apply Price List',
+                            height: 28,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            iconSize: 12,
+                            textStyle: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textMuted,
+                            ),
+                            displayStringForValue: (priceList) =>
+                                priceList.name,
+                            hideBorderDefault: true,
+                            allowClear: true,
+                            onChanged: (v) {
+                              setState(() => item.selectedPriceList = v?.id);
+                              widget.onChanged();
+                            },
+                          ),
+                        ),
+                        InkWell(
+                          onTap: widget.onViewItemDetailsTransactions,
+                          child: const Text(
+                            'Recent Transactions',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.primaryBlue,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              _vLine(),
+              // DISCOUNT (line item level only)
+              if (widget.discountType == 'At Line Item Level') ...[
+                Expanded(
+                  flex: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: CustomTextField(
+                            controller: item.discountController,
+                            height:
+                                _VendorCreditsCreatePageState._tableFieldHeight,
+                            textAlign: TextAlign.right,
+                            hintText: '0',
+                            hideBorderDefault: true,
+                            keyboardType: TextInputType.number,
+                            onChanged: (_) => widget.onChanged(),
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              item.discountIsPercent = !item.discountIsPercent;
+                            });
+                            widget.onChanged();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.bgDisabled,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppTheme.borderLight),
+                            ),
+                            child: Text(
+                              item.discountIsPercent ? '%' : '₹',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                _vLine(),
+              ],
+              // TAX
+              Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FormDropdown<_VCTaxOption>(
+                        value: item.selectedTax == null
+                            ? null
+                            : (() {
+                                for (final option in widget.taxOptions) {
+                                  if (!option.isHeader &&
+                                      option.label == item.selectedTax) {
+                                    return option;
+                                  }
+                                }
+                                return null;
+                              })(),
+                        items: widget.taxOptions,
+                        hint: 'Select a Tax',
+                        height: _VendorCreditsCreatePageState._tableFieldHeight,
+                        menuWidth: 360,
+                        hideBorderDefault: true,
+                        allowClear: true,
+                        showSettings: true,
+                        settingsLabel: 'New Tax',
+                        settingsIcon: Icons.add_circle_outline,
+                        onSettingsTap: () {
+                          showGeneralDialog<void>(
+                            context: context,
+                            barrierDismissible: true,
+                            barrierLabel: 'Dismiss',
+                            barrierColor: Colors.black.withValues(alpha: 0.35),
+                            pageBuilder: (dialogContext, _, __) {
+                              return const Align(
+                                alignment: Alignment.topCenter,
+                                child: _VCNewGstTaxDialog(),
+                              );
+                            },
+                          );
+                        },
+                        displayStringForValue: (o) => o.label,
+                        isItemEnabled: (o) => !o.isHeader,
+                        itemBuilder: (option, isSelected, isHovered) {
+                          if (option.isHeader) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              color: AppTheme.bgLight,
+                              width: double.infinity,
+                              child: Text(
+                                option.label,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            );
+                          }
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            color: isHovered
+                                ? AppTheme.primaryBlue
+                                : (isSelected
+                                      ? AppTheme.bgDisabled
+                                      : Colors.white),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        option.label,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: isHovered
+                                              ? Colors.white
+                                              : AppTheme.textPrimary,
+                                          fontWeight: (isHovered || isSelected)
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      Icon(
+                                        Icons.check,
+                                        size: 16,
+                                        color: isHovered
+                                            ? Colors.white
+                                            : AppTheme.textPrimary,
+                                      ),
+                                  ],
+                                ),
+                                if (option.description != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    option.description!,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isHovered
+                                          ? Colors.white70
+                                          : AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        },
+                        onChanged: (val) {
+                          if (val != null && !val.isHeader) {
+                            setState(() {
+                              item.selectedTax = val.label;
+                              item.selectedTaxRate = val.rate > 0
+                                  ? val.rate
+                                  : null;
+                            });
+                            widget.onChanged();
+                          } else if (val == null) {
+                            setState(() {
+                              item.selectedTax = null;
+                              item.selectedTaxRate = null;
+                            });
+                            widget.onChanged();
+                          }
+                        },
+                      ),
+                      if (item.sourceItem != null) ...[
+                        const SizedBox(height: 4),
+                        CompositedTransformTarget(
+                          link: _itcLayerLink,
+                          child: GestureDetector(
+                            onTap: () => _showItcPopover(context),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    item.itcStatus,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  LucideIcons.pencil,
+                                  size: 10,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              _vLine(),
+              Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '₹${_computeAmount(item)}',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (widget.showAdditionalInformation)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(18, 5, 12, 5),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFBFAFA),
+              border: Border(top: BorderSide(color: AppTheme.borderLight)),
+            ),
+            child: _VCReportingTagsPopoverButton(
+              item: item,
+              onChanged: () => setState(() {}),
+              plain: true,
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -6630,8 +8615,8 @@ class _VCItemDetailsSidePanelState extends State<_VCItemDetailsSidePanel> {
         _VCPanelDetailRow(
           label: 'Cost Price',
           value: widget.item.sourceItem?.costPrice != null
-              ? '  ‚¹${widget.item.sourceItem!.costPrice!.toStringAsFixed(2)}'
-              : '  ‚¹0.00',
+              ? '₹${widget.item.sourceItem!.costPrice!.toStringAsFixed(2)}'
+              : '₹0.00',
         ),
         const SizedBox(height: 8),
         const _VCPanelDetailRow(label: 'Account', value: 'Cost of Goods Sold'),
@@ -6644,8 +8629,8 @@ class _VCItemDetailsSidePanelState extends State<_VCItemDetailsSidePanel> {
         _VCPanelDetailRow(
           label: 'Selling Price',
           value: widget.item.sourceItem?.sellingPrice != null
-              ? '  ‚¹${widget.item.sourceItem!.sellingPrice!.toStringAsFixed(2)}'
-              : '  ‚¹0.00',
+              ? '₹${widget.item.sourceItem!.sellingPrice!.toStringAsFixed(2)}'
+              : '₹0.00',
         ),
         const SizedBox(height: 8),
         const _VCPanelDetailRow(label: 'Account', value: 'Sales'),
@@ -7201,6 +9186,15 @@ class _VCStockDropdownOptionState extends State<_VCStockDropdownOption> {
 // ---------------------------------------------------------------------------
 
 class _VCBatch {
+  String binLocation = '';
+  String binId = '';
+  String batchId = '';
+  String layerId = '';
+  String batchNo = '';
+  String unitPack = '';
+  String mrp = '';
+  String purchaseRate = '';
+  String focQuantity = '';
   final referenceController = TextEditingController();
   final mfrBatchController = TextEditingController();
   final mfrDateController = TextEditingController();
@@ -7217,6 +9211,7 @@ class _VCBatch {
 }
 
 class _VCLineItem {
+  String? dbItemId;
   Item? sourceItem;
   String? selectedTax;
   double? selectedTaxRate;
@@ -7255,7 +9250,7 @@ final List<shared_acct.AccountNode> _vcFallbackAccountTree = [
   shared_acct.AccountNode(id: 'Other Expenses', name: 'Other Expenses'),
 ];
 
-//      Manage Tax Informations Dialog
+// â”€â”€â”€ Manage Tax Informations Dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _VCManageTaxInfoDialog extends ConsumerStatefulWidget {
   final String gstin;
@@ -7289,7 +9284,7 @@ class _VCManageTaxInfoDialogState
   Widget build(BuildContext context) {
     final placeLabel = widget.placeOfSupply.isNotEmpty
         ? widget.placeOfSupply
-        : '    ”';
+        : 'â€”';
 
     return Dialog(
       backgroundColor: Colors.white,
@@ -7308,7 +9303,7 @@ class _VCManageTaxInfoDialogState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            //          Header
+            // â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 16, 14),
               child: Row(
@@ -7347,7 +9342,7 @@ class _VCManageTaxInfoDialogState
             ),
             const Divider(height: 1, color: AppTheme.borderLight),
 
-            //          Add New Tax Information button
+            // â”€â”€ Add New Tax Information button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Align(
@@ -7380,7 +9375,7 @@ class _VCManageTaxInfoDialogState
               ),
             ),
 
-            //          Inline Add Form
+            // â”€â”€ Inline Add Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if (_showAddForm) ...[
               const SizedBox(height: 12),
               Container(
@@ -7596,7 +9591,7 @@ class _VCManageTaxInfoDialogState
               ),
             ],
 
-            //          Table
+            // â”€â”€ Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             const SizedBox(height: 16),
             // Table header
             Container(
@@ -7637,7 +9632,7 @@ class _VCManageTaxInfoDialogState
                 ],
               ),
             ),
-            // Table row     ” primary entry
+            // Table row â€” primary entry
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
@@ -7648,7 +9643,7 @@ class _VCManageTaxInfoDialogState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.gstin.isNotEmpty ? widget.gstin : '    ”',
+                          widget.gstin.isNotEmpty ? widget.gstin : 'â€”',
                           style: const TextStyle(
                             fontSize: 13,
                             color: AppTheme.textPrimary,
@@ -7703,7 +9698,7 @@ class _VCManageTaxInfoDialogState
   }
 }
 
-//      Vendor Details Tag
+// â”€â”€â”€ Vendor Details Tag â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _VCVendorDetailsTag extends StatelessWidget {
   final String vendorName;
@@ -7755,10 +9750,10 @@ class _VCVendorDetailsTag extends StatelessWidget {
   }
 }
 
-//      Vendor Details Side Panel
+// â”€â”€â”€ Vendor Details Side Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _VCVendorDetailsSidePanel extends StatefulWidget {
-  final SalesCustomer vendor;
+  final Vendor vendor;
   final VoidCallback onClose;
 
   const _VCVendorDetailsSidePanel({
@@ -7776,24 +9771,35 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
   bool _showContactPersons = false;
   bool _showAddress = false;
 
-  String get _gstTreatmentLabel {
-    switch (widget.vendor.gstTreatment?.toLowerCase()) {
-      case 'registered_business':
-        return 'Registered Business';
-      case 'unregistered_business':
-        return 'Unregistered Business';
-      case 'overseas':
-        return 'Overseas';
-      case 'consumer':
-        return 'Consumer';
-      default:
-        return widget.vendor.gstTreatment ?? 'Unregistered Business';
-    }
-  }
+  String get _gstTreatmentLabel =>
+      _vendorGstTreatmentLabel(widget.vendor.gstTreatment);
 
   @override
   Widget build(BuildContext context) {
     final v = widget.vendor;
+    final billingAddress = _vendorBillingAddress(v);
+    final contactPersons = v.contactPersons ?? const <Map<String, dynamic>>[];
+    final primaryContact = contactPersons.isNotEmpty
+        ? contactPersons.first
+        : null;
+    final primaryContactName =
+        [
+              primaryContact?['salutation'],
+              primaryContact?['firstName'],
+              primaryContact?['lastName'],
+            ]
+            .whereType<String>()
+            .map((part) => part.trim())
+            .where((part) => part.isNotEmpty)
+            .join(' ');
+    final primaryContactPhone =
+        (primaryContact?['workPhone'] ?? primaryContact?['mobilePhone'])
+            ?.toString()
+            .trim();
+    final primaryContactEmail = primaryContact?['email']?.toString().trim();
+    final billingStreet = _vendorAddressValue(billingAddress, 'street1');
+    final billingCity = _vendorAddressValue(billingAddress, 'city');
+    final billingPhone = _vendorAddressValue(billingAddress, 'phone');
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.backgroundColor,
@@ -7959,7 +9965,7 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                                         ),
                                         const SizedBox(height: 10),
                                         const Text(
-                                          '  ‚¹0.00',
+                                          '₹0.00',
                                           style: TextStyle(
                                             fontSize: 20,
                                             fontWeight: FontWeight.w700,
@@ -7999,7 +10005,7 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                                         ),
                                         const SizedBox(height: 10),
                                         const Text(
-                                          '  ‚¹0.00',
+                                          '₹0.00',
                                           style: TextStyle(
                                             fontSize: 20,
                                             fontWeight: FontWeight.w700,
@@ -8045,22 +10051,33 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                                   children: [
                                     _VCPanelDetailRow(
                                       label: 'Vendor Type',
-                                      value: v.customerType ?? 'Individual',
+                                      value:
+                                          (v.companyName?.trim().isNotEmpty ??
+                                              false)
+                                          ? 'Business'
+                                          : 'Individual',
                                     ),
                                     const SizedBox(height: 14),
-                                    const _VCPanelDetailRow(
+                                    _VCPanelDetailRow(
                                       label: 'Currency',
-                                      value: 'INR',
+                                      value:
+                                          v.currency?.trim().isNotEmpty == true
+                                          ? v.currency!
+                                          : 'INR',
                                     ),
                                     const SizedBox(height: 14),
                                     const _VCPanelDetailRow(
                                       label: 'Credit Limit',
-                                      value: '  ‚¹0.00',
+                                      value: '₹0.00',
                                     ),
                                     const SizedBox(height: 14),
-                                    const _VCPanelDetailRow(
+                                    _VCPanelDetailRow(
                                       label: 'Payment Terms',
-                                      value: '    ”',
+                                      value:
+                                          v.paymentTerms?.trim().isNotEmpty ==
+                                              true
+                                          ? v.paymentTerms!
+                                          : 'â€”',
                                     ),
                                     const SizedBox(height: 14),
                                     _VCPanelDetailRow(
@@ -8070,7 +10087,9 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                                     const SizedBox(height: 14),
                                     _VCPanelDetailRow(
                                       label: 'Place of Supply',
-                                      value: v.placeOfSupply ?? '    ”',
+                                      value: _vendorSourceOfSupply(v).isNotEmpty
+                                          ? _vendorSourceOfSupply(v)
+                                          : 'â€”',
                                     ),
                                     const SizedBox(height: 14),
                                     const _VCPanelDetailRow(
@@ -8087,7 +10106,7 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                         // Contact Persons tile
                         _VCPanelActionTile(
                           label: 'Contact Persons',
-                          count: 1,
+                          count: contactPersons.length,
                           expanded: _showContactPersons,
                           onTap: () => setState(
                             () => _showContactPersons = !_showContactPersons,
@@ -8105,17 +10124,23 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                               children: [
                                 _VCPanelDetailRow(
                                   label: 'Name',
-                                  value: v.displayName,
+                                  value: primaryContactName.isNotEmpty
+                                      ? primaryContactName
+                                      : v.displayName,
                                 ),
                                 const SizedBox(height: 10),
                                 _VCPanelDetailRow(
                                   label: 'Phone',
-                                  value: v.phone ?? v.mobilePhone ?? '    ”',
+                                  value: primaryContactPhone?.isNotEmpty == true
+                                      ? primaryContactPhone!
+                                      : (v.phone ?? v.mobilePhone ?? 'â€”'),
                                 ),
                                 const SizedBox(height: 10),
                                 _VCPanelDetailRow(
                                   label: 'Email',
-                                  value: v.email ?? '    ”',
+                                  value: primaryContactEmail?.isNotEmpty == true
+                                      ? primaryContactEmail!
+                                      : (v.email ?? 'â€”'),
                                 ),
                               ],
                             ),
@@ -8159,25 +10184,25 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                if ((v.billingAddressStreet1 ?? '').isNotEmpty)
+                                if (billingStreet.isNotEmpty)
                                   Text(
-                                    v.billingAddressStreet1!,
+                                    billingStreet,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: AppTheme.textSecondary,
                                     ),
                                   ),
-                                if ((v.billingAddressCity ?? '').isNotEmpty)
+                                if (billingCity.isNotEmpty)
                                   Text(
-                                    v.billingAddressCity!,
+                                    billingCity,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: AppTheme.textSecondary,
                                     ),
                                   ),
-                                if ((v.billingAddressPhone ?? '').isNotEmpty)
+                                if (billingPhone.isNotEmpty)
                                   Text(
-                                    'Phone: ${v.billingAddressPhone}',
+                                    'Phone: $billingPhone',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: AppTheme.textSecondary,
@@ -8206,7 +10231,7 @@ class _VCVendorDetailsSidePanelState extends State<_VCVendorDetailsSidePanel> {
   }
 }
 
-//      Address Picker Row
+// â”€â”€â”€ Address Picker Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _VCAddressPickerRow extends StatefulWidget {
   final Map<String, dynamic> address;
@@ -8299,7 +10324,7 @@ class _VCAddressPickerRowState extends State<_VCAddressPickerRow> {
   }
 }
 
-//      New Address Action
+// â”€â”€â”€ New Address Action â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _VCNewAddressAction extends StatefulWidget {
   final VoidCallback onTap;
@@ -8349,7 +10374,7 @@ class _VCNewAddressActionState extends State<_VCNewAddressAction> {
   }
 }
 
-//      Address Edit Dialog
+// â”€â”€â”€ Address Edit Dialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _VCAddressEditDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> address;
@@ -9035,20 +11060,23 @@ class _VCRowMenuHoverItemState extends State<_VCRowMenuHoverItem> {
 class _VCProductDropdownItem extends StatelessWidget {
   final String productName;
   final String itemCode;
-  final bool highlighted;
+  final bool isSelected;
+  final bool isHovered;
 
   const _VCProductDropdownItem({
     required this.productName,
     required this.itemCode,
-    required this.highlighted,
+    required this.isSelected,
+    required this.isHovered,
   });
 
   @override
   Widget build(BuildContext context) {
-    final textColor = highlighted
-        ? AppTheme.backgroundColor
-        : AppTheme.textBody;
-    final secondaryColor = highlighted
+    final backgroundColor = isHovered
+        ? AppTheme.primaryBlue
+        : (isSelected ? AppTheme.bgDisabled : AppTheme.backgroundColor);
+    final textColor = isHovered ? AppTheme.backgroundColor : AppTheme.textBody;
+    final secondaryColor = isHovered
         ? AppTheme.backgroundColor
         : AppTheme.textSecondary;
 
@@ -9057,7 +11085,7 @@ class _VCProductDropdownItem extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: highlighted ? AppTheme.primaryBlue : AppTheme.backgroundColor,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -9103,9 +11131,11 @@ class _VCReportingTagsPopoverButton extends StatefulWidget {
   const _VCReportingTagsPopoverButton({
     required this.item,
     required this.onChanged,
+    this.plain = false,
   });
   final _VCLineItem item;
   final VoidCallback onChanged;
+  final bool plain;
 
   @override
   State<_VCReportingTagsPopoverButton> createState() =>
@@ -9118,6 +11148,11 @@ class _VCReportingTagsPopoverButtonState
     'ADGF': ['Budget', 'Actual', 'Forecast'],
     'Schedule': ['Monthly', 'Quarterly', 'Annual'],
     'Demo Advanced Reporting Tag': ['Value A', 'Value B', 'Value C'],
+  };
+  static const Map<String, String> _groupLabels = {
+    'ADGF': 'ADGF',
+    'Schedule': 'shedule',
+    'Demo Advanced Reporting Tag': 'demo advaced reporting tag',
   };
 
   OverlayEntry? _entry;
@@ -9138,111 +11173,76 @@ class _VCReportingTagsPopoverButtonState
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setOverlayState) => Stack(
           children: [
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () {
-                  widget.item.selectedTagValues = tempValues;
-                  widget.onChanged();
-                  _close();
-                },
-                behavior: HitTestBehavior.translucent,
-                child: Container(color: Colors.transparent),
-              ),
-            ),
             CompositedTransformFollower(
               link: _layerLink,
               showWhenUnlinked: false,
               targetAnchor: Alignment.bottomLeft,
               followerAnchor: Alignment.topLeft,
               offset: const Offset(0, 4),
-              child: Material(
-                elevation: 6,
-                borderRadius: BorderRadius.circular(6),
-                color: Colors.white,
-                child: Container(
-                  width: 320,
-                  constraints: const BoxConstraints(maxHeight: 360),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.borderLight),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(12, 10, 12, 6),
-                        child: Text(
-                          'Reporting Tags',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
+              child: TapRegion(
+                groupId: this,
+                onTapOutside: (event) {
+                  _close();
+                },
+                child: Material(
+                  elevation: 6,
+                  borderRadius: BorderRadius.circular(6),
+                  color: Colors.white,
+                  child: Container(
+                    width: 470,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.borderLight),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(16, 14, 16, 14),
+                          child: Text(
+                            'Reporting Tags',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
                           ),
                         ),
-                      ),
-                      const Divider(height: 1, color: AppTheme.borderLight),
-                      Flexible(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                        const Divider(height: 1, color: AppTheme.borderLight),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                          child: Wrap(
+                            spacing: 26,
+                            runSpacing: 18,
                             children: _tagGroups.entries.map((group) {
-                              return Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  12,
-                                  10,
-                                  12,
-                                  6,
-                                ),
+                              return SizedBox(
+                                width: 198,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      group.key,
+                                      _groupLabels[group.key] ?? group.key,
                                       style: const TextStyle(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.textSecondary,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppTheme.textPrimary,
                                       ),
                                     ),
-                                    const SizedBox(height: 6),
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: group.value.map((tag) {
-                                        final selected =
-                                            tempValues[group.key] == tag;
-                                        return GestureDetector(
-                                          onTap: () => setOverlayState(() {
-                                            tempValues[group.key] = selected
-                                                ? null
-                                                : tag;
-                                          }),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 5,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: selected
-                                                  ? AppTheme.primaryBlue
-                                                  : AppTheme.bgDisabled,
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              tag,
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: selected
-                                                    ? Colors.white
-                                                    : AppTheme.textPrimary,
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      }).toList(),
+                                    const SizedBox(height: 8),
+                                    FormDropdown<String>(
+                                      value: tempValues[group.key],
+                                      items: group.value,
+                                      hint: 'None',
+                                      height: 34,
+                                      showSearch: false,
+                                      allowClear: true,
+                                      onChanged: (value) {
+                                        setOverlayState(() {
+                                          tempValues[group.key] = value;
+                                        });
+                                      },
                                     ),
                                   ],
                                 ),
@@ -9250,36 +11250,29 @@ class _VCReportingTagsPopoverButtonState
                             }).toList(),
                           ),
                         ),
-                      ),
-                      const Divider(height: 1, color: AppTheme.borderLight),
-                      Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              onPressed: _close,
-                              child: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppTheme.textSecondary,
-                                ),
+                        const Divider(height: 1, color: AppTheme.borderLight),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                          child: Row(
+                            children: [
+                              ZButton.primary(
+                                label: 'Save',
+                                onPressed: () {
+                                  widget.item.selectedTagValues = tempValues;
+                                  widget.onChanged();
+                                  _close();
+                                },
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            ZButton.primary(
-                              label: 'Apply',
-                              onPressed: () {
-                                widget.item.selectedTagValues = tempValues;
-                                widget.onChanged();
-                                _close();
-                              },
-                            ),
-                          ],
+                              const SizedBox(width: 10),
+                              ZButton.secondary(
+                                label: 'Cancel',
+                                onPressed: _close,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -9305,45 +11298,85 @@ class _VCReportingTagsPopoverButtonState
   Widget build(BuildContext context) {
     final isOpen = _entry != null;
     final count = _selectedCount;
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: GestureDetector(
-        onTap: _toggle,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(
-              color: isOpen ? AppTheme.primaryBlue : AppTheme.borderLight,
-              width: isOpen ? 1.5 : 1.0,
-            ),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                LucideIcons.tag,
-                size: 13,
-                color: isOpen ? AppTheme.primaryBlue : AppTheme.textSecondary,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                count > 0 ? 'Reporting Tags ($count)' : 'Reporting Tags',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: count > 0
-                      ? AppTheme.textPrimary
-                      : AppTheme.textSecondary,
+    if (widget.plain) {
+      return TapRegion(
+        groupId: this,
+        child: CompositedTransformTarget(
+          link: _layerLink,
+          child: GestureDetector(
+            onTap: _toggle,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  LucideIcons.tag,
+                  size: 12,
+                  color: isOpen ? AppTheme.primaryBlue : AppTheme.textSecondary,
                 ),
+                const SizedBox(width: 6),
+                Text(
+                  count > 0 ? 'Reporting Tags ($count)' : 'Reporting Tags',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: count > 0
+                        ? AppTheme.textPrimary
+                        : AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 14,
+                  color: isOpen ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return TapRegion(
+      groupId: this,
+      child: CompositedTransformTarget(
+        link: _layerLink,
+        child: GestureDetector(
+          onTap: _toggle,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(
+                color: isOpen ? AppTheme.primaryBlue : AppTheme.borderLight,
+                width: isOpen ? 1.5 : 1.0,
               ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.keyboard_arrow_down,
-                size: 14,
-                color: isOpen ? AppTheme.primaryBlue : AppTheme.textSecondary,
-              ),
-            ],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  LucideIcons.tag,
+                  size: 13,
+                  color: isOpen ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  count > 0 ? 'Reporting Tags ($count)' : 'Reporting Tags',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: count > 0
+                        ? AppTheme.textPrimary
+                        : AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 14,
+                  color: isOpen ? AppTheme.primaryBlue : AppTheme.textSecondary,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -9400,19 +11433,21 @@ class _TH extends StatelessWidget {
 
 Widget _vLine() => const VerticalDivider(width: 1, color: AppTheme.borderLight);
 
-//          Vendor dropdown item
+// â”€â”€ Vendor dropdown item â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _VcVendorDropdownItem extends StatelessWidget {
   final String name;
   final String code;
   final String subtitle;
-  final bool highlighted;
+  final bool isSelected;
+  final bool isHovered;
 
   const _VcVendorDropdownItem({
     required this.name,
     required this.code,
     required this.subtitle,
-    required this.highlighted,
+    required this.isSelected,
+    required this.isHovered,
   });
 
   String get _initial {
@@ -9422,10 +11457,12 @@ class _VcVendorDropdownItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = highlighted
-        ? AppTheme.backgroundColor
-        : AppTheme.textBody;
-    final secondaryColor = highlighted
+    final highlighted = isHovered || isSelected;
+    final backgroundColor = isHovered
+        ? AppTheme.primaryBlue
+        : (isSelected ? AppTheme.bgDisabled : AppTheme.backgroundColor);
+    final textColor = isHovered ? AppTheme.backgroundColor : AppTheme.textBody;
+    final secondaryColor = isHovered
         ? AppTheme.backgroundColor
         : AppTheme.textSecondary;
 
@@ -9434,7 +11471,7 @@ class _VcVendorDropdownItem extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: highlighted ? AppTheme.primaryBlue : AppTheme.backgroundColor,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

@@ -1,6 +1,7 @@
 // PATH: lib/modules/auth/repositories/auth_repository.dart
 
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
@@ -36,6 +37,28 @@ class AuthRepository {
       return Map<String, dynamic>.from(value);
     }
     return null;
+  }
+
+  bool _isExpectedAuthExpiryError(Object error) {
+    if (error is! DioException) {
+      return false;
+    }
+
+    final payload = _asMap(error.error);
+    final message = [
+      payload?['message'],
+      payload?['code'],
+      error.message,
+      error.response?.data is Map
+          ? (error.response?.data as Map)['message']
+          : error.response?.data,
+    ].whereType<Object>().map((value) => value.toString().toLowerCase()).join(' ');
+
+    return message.contains('invalid or expired token') ||
+        message.contains('token expired') ||
+        message.contains('jwt expired') ||
+        message.contains('unauthorized') ||
+        message.contains('please login again');
   }
 
   /// Login user with email and password
@@ -221,6 +244,11 @@ class AuthRepository {
 
   /// Get current user profile
   Future<User?> getCurrentUser() async {
+    final token = getToken()?.trim() ?? '';
+    if (token.isEmpty) {
+      return null;
+    }
+
     try {
       final response = await _apiClient.get('/auth/profile');
 
@@ -238,6 +266,14 @@ class AuthRepository {
         return user;
       }
     } catch (e) {
+      if (_isExpectedAuthExpiryError(e)) {
+        AppLogger.warning(
+          'Skipped current user profile fetch due to expired auth session',
+          module: 'auth',
+        );
+        return null;
+      }
+
       AppLogger.error(
         'Failed to fetch current user profile',
         error: e,

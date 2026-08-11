@@ -14,6 +14,7 @@ class SalesCustomer {
   final String? department;
   final String? website;
   final String? businessType;
+  final String? customerLanguage;
 
   // Tax & Regulatory
   final String? gstTreatment;
@@ -127,6 +128,7 @@ class SalesCustomer {
     this.designation,
     this.department,
     this.website,
+    this.customerLanguage,
     this.gstTreatment,
     this.gstin,
     this.placeOfSupply,
@@ -203,6 +205,7 @@ class SalesCustomer {
     String? designation,
     String? department,
     String? website,
+    String? customerLanguage,
     String? gstTreatment,
     String? gstin,
     String? placeOfSupply,
@@ -278,6 +281,7 @@ class SalesCustomer {
       designation: designation ?? this.designation,
       department: department ?? this.department,
       website: website ?? this.website,
+      customerLanguage: customerLanguage ?? this.customerLanguage,
       gstTreatment: gstTreatment ?? this.gstTreatment,
       gstin: gstin ?? this.gstin,
       placeOfSupply: placeOfSupply ?? this.placeOfSupply,
@@ -364,6 +368,7 @@ class SalesCustomer {
       designation: json['designation'],
       department: json['department'],
       website: json['website'],
+      customerLanguage: json['customerLanguage'] ?? json['customer_language'],
       gstTreatment: json['gstTreatment'] ?? json['gst_treatment'],
       gstin: json['gstin'],
       placeOfSupply: (json['placeOfSupply'] ?? json['place_of_supply'])
@@ -580,6 +585,8 @@ class SalesCustomer {
       else if (mobilePhone != null && mobilePhone!.isNotEmpty)
         'phone': mobilePhone,
       if (website != null && website!.isNotEmpty) 'website': website,
+      if (customerLanguage != null && customerLanguage!.isNotEmpty)
+        'customerLanguage': customerLanguage,
       if (designation != null && designation!.isNotEmpty)
         'designation': designation,
       if (department != null && department!.isNotEmpty)

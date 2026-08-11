@@ -11,6 +11,8 @@ import { SalesReturnsController } from "./controllers/sales-returns.controller";
 import { SalesReturnsService } from "./services/sales-returns.service";
 import { PaymentsReceivedController } from "./controllers/payments-received.controller";
 import { PaymentsReceivedService } from "./services/payments-received.service";
+import { RetainerInvoicesController } from "./controllers/retainer-invoices.controller";
+import { RetainerInvoicesService } from "./services/retainer-invoices.service";
 
 @Module({
   imports: [AccountantModule, SupabaseModule, SequencesModule],
@@ -19,6 +21,7 @@ import { PaymentsReceivedService } from "./services/payments-received.service";
     SalesController,
     SalesReturnsController,
     PaymentsReceivedController,
+    RetainerInvoicesController,
   ],
   providers: [
     CustomersService,
@@ -26,6 +29,7 @@ import { PaymentsReceivedService } from "./services/payments-received.service";
     SalesService,
     SalesReturnsService,
     PaymentsReceivedService,
+    RetainerInvoicesService,
   ],
   exports: [
     CustomersService,
@@ -33,6 +37,7 @@ import { PaymentsReceivedService } from "./services/payments-received.service";
     SalesService,
     SalesReturnsService,
     PaymentsReceivedService,
+    RetainerInvoicesService,
   ],
 })
 export class SalesModule {}

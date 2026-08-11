@@ -15,9 +15,12 @@ class ManageTdsTcsRatesDialog extends StatefulWidget {
   final List<Map<String, dynamic>> items;
   final List<Map<String, dynamic>> sections; // sections for TDS, natures for TCS
   final String? selectedId;
-  final ValueChanged<Map<String, dynamic>> onSelect;
+  final ValueChanged<Map<String, dynamic>>? onSelect;
   final Future<List<Map<String, dynamic>>> Function(List<Map<String, dynamic>>)? onSave;
   final Future<String?> Function(Map<String, dynamic> item)? onDeleteCheck;
+  final bool showNewTaxMenu;
+  final bool showGroupAction;
+  final VoidCallback? onNewTaxTap;
 
   const ManageTdsTcsRatesDialog({
     super.key,
@@ -25,10 +28,13 @@ class ManageTdsTcsRatesDialog extends StatefulWidget {
     required this.isTcs,
     required this.items,
     required this.sections,
-    required this.onSelect,
+    this.onSelect,
     this.onSave,
     this.onDeleteCheck,
     this.selectedId,
+    this.showNewTaxMenu = false,
+    this.showGroupAction = false,
+    this.onNewTaxTap,
   });
 
   @override
@@ -182,7 +188,7 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
           'is_active': true,
           'is_group': true,
         };
-        widget.onSelect(returnData);
+        widget.onSelect?.call(returnData);
         Navigator.pop(context, returnData);
       }
     } catch (e) {
@@ -277,7 +283,7 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
           }
           if (mounted) {
             final valueToReturn = savedItem ?? itemToSelect ?? _rows.last;
-            widget.onSelect(valueToReturn);
+            widget.onSelect?.call(valueToReturn);
             Navigator.pop(context, valueToReturn);
           }
         }
@@ -290,14 +296,14 @@ class _ManageTdsTcsRatesDialogState extends State<ManageTdsTcsRatesDialog> {
     } else {
       if (mounted) {
         final valueToReturn = itemToSelect ?? _rows.last;
-        widget.onSelect(valueToReturn);
+        widget.onSelect?.call(valueToReturn);
         Navigator.pop(context, valueToReturn);
       }
     }
   }
 
   void _selectAndClose(Map<String, dynamic> item) {
-    widget.onSelect(item);
+    widget.onSelect?.call(item);
     Navigator.pop(context, item);
   }
 

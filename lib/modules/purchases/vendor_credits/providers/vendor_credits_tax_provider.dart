@@ -27,6 +27,31 @@ class TaxGroupItem {
   }
 }
 
+class TaxRateItem {
+  final String id;
+  final String name;
+  final double rate;
+  final String type;
+
+  const TaxRateItem({
+    required this.id,
+    required this.name,
+    required this.rate,
+    required this.type,
+  });
+
+  String get displayLabel => '$name [${TaxGroupItem.fmtRate(rate)}%]';
+
+  factory TaxRateItem.fromJson(Map<String, dynamic> json) {
+    return TaxRateItem(
+      id: json['id']?.toString() ?? '',
+      name: json['tax_name']?.toString() ?? '',
+      rate: double.tryParse(json['tax_rate']?.toString() ?? '0') ?? 0.0,
+      type: json['tax_type']?.toString() ?? '',
+    );
+  }
+}
+
 final taxGroupsProvider = FutureProvider<List<TaxGroupItem>>((ref) async {
   try {
     final rows = await Supabase.instance.client
@@ -42,6 +67,29 @@ final taxGroupsProvider = FutureProvider<List<TaxGroupItem>>((ref) async {
   } catch (e) {
     AppLogger.warning(
       'tax_groups fetch failed',
+      error: e,
+      module: 'vendor_credits',
+    );
+    return const [];
+  }
+});
+
+final igstTaxRatesProvider = FutureProvider<List<TaxRateItem>>((ref) async {
+  try {
+    final rows = await Supabase.instance.client
+        .from('tax_rates')
+        .select('id, tax_name, tax_rate, tax_type')
+        .eq('is_active', true)
+        .eq('tax_type', 'IGST')
+        .order('tax_rate');
+
+    return (rows as List)
+        .map((r) => TaxRateItem.fromJson(Map<String, dynamic>.from(r as Map)))
+        .where((t) => t.id.isNotEmpty && t.name.isNotEmpty && t.type == 'IGST')
+        .toList(growable: false);
+  } catch (e) {
+    AppLogger.warning(
+      'tax_rates IGST fetch failed',
       error: e,
       module: 'vendor_credits',
     );

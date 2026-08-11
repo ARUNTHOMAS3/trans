@@ -85,6 +85,63 @@ class LookupService {
     }
     return [];
   }
+
+  Future<List<Map<String, dynamic>>> getGstRegistrationTypes() async {
+    try {
+      final response = await _api.get(
+        '/lookups/gst-registration-types',
+        useCache: true,
+      );
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching GST registration types', error: e);
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getGstTreatments() async {
+    try {
+      final response = await _api.get('/lookups/gst-treatments', useCache: true);
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching GST treatments', error: e);
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getPaymentTerms() async {
+    try {
+      final response = await _api.get('/products/lookups/payment-terms');
+      if (response.statusCode == 200) {
+        final rawData = response.data;
+        if (rawData is List) {
+          return List<Map<String, dynamic>>.from(rawData);
+        }
+        if (rawData is Map && rawData['data'] is List) {
+          return List<Map<String, dynamic>>.from(rawData['data'] as List);
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching payment terms', error: e);
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> getDrugLicenceTypes() async {
+    try {
+      final response = await _api.get('/lookups/drug-licence-types', useCache: true);
+      if (response.statusCode == 200) {
+        return List<Map<String, dynamic>>.from(response.data);
+      }
+    } catch (e) {
+      AppLogger.error('Error fetching drug licence types', error: e);
+    }
+    return [];
+  }
 }
 
 final lookupServiceProvider = Provider<LookupService>((ref) {
@@ -167,4 +224,69 @@ final storageLocationsProvider = FutureProvider<List<Map<String, String>>>((
         },
       )
       .toList();
+});
+
+final gstRegistrationTypesProvider =
+    FutureProvider<List<Map<String, String>>>((ref) async {
+      final service = ref.watch(lookupServiceProvider);
+      final data = await service.getGstRegistrationTypes();
+
+      return data
+          .map(
+            (json) => <String, String>{
+              'code': (json['code'] ?? json['id'] ?? '').toString(),
+              'label': (json['label'] ?? '').toString(),
+            },
+          )
+          .where((item) => item['code']!.isNotEmpty)
+          .toList(growable: false);
+    });
+
+final gstTreatmentsProvider = FutureProvider<List<Map<String, String>>>((ref) async {
+  final service = ref.watch(lookupServiceProvider);
+  final data = await service.getGstTreatments();
+
+  return data
+      .map(
+        (json) => <String, String>{
+          'code': (json['code'] ?? json['id'] ?? '').toString(),
+          'label': (json['label'] ?? '').toString(),
+        },
+      )
+      .where((item) => item['code']!.isNotEmpty)
+      .toList(growable: false);
+});
+
+final paymentTermsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final service = ref.watch(lookupServiceProvider);
+  final data = await service.getPaymentTerms();
+
+  return data
+      .map(
+        (json) => <String, dynamic>{
+          'id': (json['id'] ?? '').toString(),
+          'term_name': (json['term_name'] ?? '').toString(),
+          'number_of_days': json['number_of_days'] ?? 0,
+          'description': (json['description'] ?? '').toString(),
+        },
+      )
+      .where((item) => (item['id'] as String).isNotEmpty)
+      .toList(growable: false);
+});
+
+final drugLicenceTypesProvider = FutureProvider<List<Map<String, String>>>((
+  ref,
+) async {
+  final service = ref.watch(lookupServiceProvider);
+  final data = await service.getDrugLicenceTypes();
+
+  return data
+      .map(
+        (json) => <String, String>{
+          'code': (json['code'] ?? json['id'] ?? '').toString(),
+          'label': (json['label'] ?? '').toString(),
+        },
+      )
+      .where((item) => item['label']!.trim().isNotEmpty)
+      .toList(growable: false);
 });

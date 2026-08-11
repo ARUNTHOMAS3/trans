@@ -101,6 +101,7 @@ import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/pu
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_list.dart';
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_report.dart';
 import 'package:zerpai_erp/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_create.dart';
+import 'package:zerpai_erp/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_report.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/pages/purchases_bills_list.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/pages/purchases_bills_create.dart';
 import 'package:zerpai_erp/modules/purchases/expenses/presentation/pages/purchases_expenses_create_page.dart';
@@ -1666,8 +1667,12 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'purchases/vendor-credits',
               name: AppRoutes.vendorCredits,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Vendor Credits'),
+              builder: (context, state) => const VendorCreditsOverviewPage(),
+            ),
+            GoRoute(
+              path: 'purchases/vendor-credits/report',
+              name: AppRoutes.vendorCreditsReport,
+              builder: (context, state) => const VendorCreditsOverviewPage(),
             ),
             GoRoute(
               path: 'purchases/vendor-credits/create',

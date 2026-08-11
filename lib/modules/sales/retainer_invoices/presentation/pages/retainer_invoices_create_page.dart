@@ -346,7 +346,7 @@ class _RetainerInvoicesCreatePageState
 
   @override
   void dispose() {
-    _hideAddressSelectionOverlay();
+    _hideAddressSelectionOverlay(updateState: false);
     _invoiceNoCtrl.dispose();
     _referenceCtrl.dispose();
     _notesCtrl.dispose();
@@ -394,10 +394,10 @@ class _RetainerInvoicesCreatePageState
     setState(() {});
   }
 
-  void _hideAddressSelectionOverlay() {
+  void _hideAddressSelectionOverlay({bool updateState = true}) {
     _addressOverlayEntry?.remove();
     _addressOverlayEntry = null;
-    if (mounted) {
+    if (updateState && mounted) {
       setState(() {});
     }
   }
@@ -2895,6 +2895,7 @@ class _NewCustomerDialogState extends ConsumerState<_NewCustomerDialog>
         email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
         phone: _normalizedDigits(_phoneCtrl.text),
         mobilePhone: _normalizedDigits(_mobileCtrl.text),
+        customerLanguage: _language,
         gstTreatment: _gstTreatment,
         placeOfSupply: _placeOfSupply,
         pan: _panCtrl.text.trim().isEmpty ? null : _panCtrl.text.trim(),
