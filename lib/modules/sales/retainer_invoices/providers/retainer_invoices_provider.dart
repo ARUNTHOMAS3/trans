@@ -1,266 +1,180 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/retainer_invoices_model.dart';
-
-// ─── State ────────────────────────────────────────────────────────────────────
+import 'package:zerpai_erp/core/services/api_client.dart';
+import 'package:zerpai_erp/modules/sales/retainer_invoices/models/retainer_invoices_model.dart';
+import 'package:zerpai_erp/modules/sales/retainer_invoices/repositories/retainer_invoices_repository.dart';
 
 class RetainerInvoicesState {
-  final List<RetainerInvoice> invoices;
-  final bool isLoading;
-  final RetainerStatus? activeFilter; // null = show all
-  final String searchQuery;
-
   const RetainerInvoicesState({
-    required this.invoices,
-    this.isLoading = false,
+    this.invoices = const [],
     this.activeFilter,
     this.searchQuery = '',
+    this.isLoading = false,
+    this.errorMessage,
   });
 
+  final List<RetainerInvoice> invoices;
+  final RetainerStatus? activeFilter;
+  final String searchQuery;
+  final bool isLoading;
+  final String? errorMessage;
+
   List<RetainerInvoice> get filteredInvoices {
-    var list = invoices;
-
-    if (activeFilter != null) {
-      list = list.where((inv) => inv.status == activeFilter).toList();
-    }
-
-    if (searchQuery.trim().isNotEmpty) {
-      final q = searchQuery.toLowerCase().trim();
-      list = list.where((inv) {
-        return inv.invoiceNo.toLowerCase().contains(q) ||
-            inv.customerName.toLowerCase().contains(q);
-      }).toList();
-    }
-
-    return list;
+    final normalizedSearch = searchQuery.trim().toLowerCase();
+    return invoices.where((invoice) {
+      final matchesFilter =
+          activeFilter == null || invoice.status == activeFilter;
+      final matchesSearch =
+          normalizedSearch.isEmpty ||
+          invoice.invoiceNo.toLowerCase().contains(normalizedSearch) ||
+          invoice.customerName.toLowerCase().contains(normalizedSearch) ||
+          (invoice.referenceNo?.toLowerCase().contains(normalizedSearch) ?? false);
+      return matchesFilter && matchesSearch;
+    }).toList();
   }
-
-  // ── Summary aggregates ────────────────────────────────────────────────────
-
-  int get totalCount => invoices.length;
-
-  int get pendingCount => invoices
-      .where(
-        (i) =>
-            i.status == RetainerStatus.draft || i.status == RetainerStatus.sent,
-      )
-      .length;
-
-  double get totalCollected => invoices
-      .where(
-        (i) =>
-            i.status == RetainerStatus.paid ||
-            i.status == RetainerStatus.partiallyPaid ||
-            i.status == RetainerStatus.closed,
-      )
-      .fold(0.0, (sum, i) => sum + i.totalAmount);
-
-  double get totalApplied => invoices.fold(0.0, (sum, i) => sum + i.amountUsed);
 
   RetainerInvoicesState copyWith({
     List<RetainerInvoice>? invoices,
-    bool? isLoading,
-    RetainerStatus? activeFilter,
-    bool clearFilter = false,
+    Object? activeFilter = _noFilterChange,
     String? searchQuery,
+    bool? isLoading,
+    Object? errorMessage = _noFilterChange,
   }) {
     return RetainerInvoicesState(
       invoices: invoices ?? this.invoices,
-      isLoading: isLoading ?? this.isLoading,
-      activeFilter: clearFilter ? null : (activeFilter ?? this.activeFilter),
+      activeFilter: identical(activeFilter, _noFilterChange)
+          ? this.activeFilter
+          : activeFilter as RetainerStatus?,
       searchQuery: searchQuery ?? this.searchQuery,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: identical(errorMessage, _noFilterChange)
+          ? this.errorMessage
+          : errorMessage as String?,
     );
   }
 }
 
-// ─── Notifier ─────────────────────────────────────────────────────────────────
-
 class RetainerInvoicesNotifier extends StateNotifier<RetainerInvoicesState> {
-  RetainerInvoicesNotifier()
-    : super(RetainerInvoicesState(invoices: _seedData()));
+  RetainerInvoicesNotifier(this._repository)
+      : super(const RetainerInvoicesState());
 
-  // ── CRUD ──────────────────────────────────────────────────────────────────
+  final RetainerInvoicesRepository _repository;
 
-  void loadInvoices() {
-    // Refresh / reload invoices from DB or seed
+  String nextInvoiceNo() {
+    var next = 1;
+    for (final invoice in state.invoices) {
+      final match = RegExp(r'(\d+)$').firstMatch(invoice.invoiceNo);
+      final current = match == null ? 0 : int.tryParse(match.group(1)!) ?? 0;
+      if (current >= next) {
+        next = current + 1;
+      }
+    }
+    return 'RET-${next.toString().padLeft(5, '0')}';
   }
 
-  void addInvoice(RetainerInvoice invoice) {
-    state = state.copyWith(invoices: [invoice, ...state.invoices]);
+  void setFilter(RetainerStatus? status) {
+    state = state.copyWith(activeFilter: status);
   }
 
-  void updateInvoice(RetainerInvoice updated) {
-    state = state.copyWith(
-      invoices: state.invoices
-          .map((i) => i.id == updated.id ? updated : i)
-          .toList(),
-    );
+  void setSearchQuery(String value) {
+    state = state.copyWith(searchQuery: value);
   }
 
-  void deleteInvoice(String id) {
-    state = state.copyWith(
-      invoices: state.invoices.where((i) => i.id != id).toList(),
-    );
-  }
-
-  // ── Status actions ────────────────────────────────────────────────────────
-
-  void markAsSent(String id) => _updateStatus(id, RetainerStatus.sent);
-  void markAsPaid(String id) => _updateStatus(id, RetainerStatus.paid);
-  void voidInvoice(String id) => _updateStatus(id, RetainerStatus.voided);
-
-  void _updateStatus(String id, RetainerStatus status) {
-    state = state.copyWith(
-      invoices: state.invoices.map((i) {
-        if (i.id == id) return i.copyWith(status: status);
-        return i;
-      }).toList(),
-    );
-  }
-
-  /// Legacy string-based update for compatibility.
-  void updateInvoiceStatus(String id, String newStatus) {
-    _updateStatus(id, RetainerStatus.fromLabel(newStatus));
-  }
-
-  // ── Clone ──────────────────────────────────────────────────────────────────
-
-  RetainerInvoice cloneInvoice(String id, String newId, String newInvoiceNo) {
-    final original = state.invoices.firstWhere((i) => i.id == id);
-    final clone = original.copyWith(
-      id: newId,
-      invoiceNo: newInvoiceNo,
-      date: DateTime.now(),
-      status: RetainerStatus.draft,
-      amountUsed: 0.0,
-      applications: [],
-    );
-    addInvoice(clone);
-    return clone;
-  }
-
-  // ── Filter / Search ───────────────────────────────────────────────────────
-
-  void setFilter(RetainerStatus? filter) {
-    if (filter == null) {
-      state = state.copyWith(clearFilter: true);
-    } else {
-      state = state.copyWith(activeFilter: filter);
+  Future<void> loadInvoices() async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final invoices = await _repository.fetchRetainerInvoices();
+      state = state.copyWith(
+        invoices: invoices,
+        isLoading: false,
+        errorMessage: null,
+      );
+    } catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 
-  void setSearch(String query) {
-    state = state.copyWith(searchQuery: query);
+  void addInvoice(RetainerInvoice invoice) {
+    state = state.copyWith(invoices: [...state.invoices, invoice]);
   }
 
-  // ── Next invoice number ───────────────────────────────────────────────────
+  void updateInvoice(RetainerInvoice invoice) {
+    state = state.copyWith(
+      invoices: [
+        for (final current in state.invoices)
+          if (current.id == invoice.id) invoice else current,
+      ],
+    );
+  }
 
-  String nextInvoiceNo() {
-    final count = state.invoices.length + 1;
-    return 'RET-2026-${count.toString().padLeft(5, '0')}';
+  void deleteInvoice(String invoiceId) {
+    state = state.copyWith(
+      invoices: state.invoices.where((invoice) => invoice.id != invoiceId).toList(),
+    );
+  }
+
+  void markAsSent(String invoiceId) {
+    _mutateInvoice(invoiceId, (invoice) => invoice.copyWith(status: RetainerStatus.sent));
+  }
+
+  void markAsPaid(String invoiceId) {
+    _mutateInvoice(
+      invoiceId,
+      (invoice) => invoice.copyWith(
+        status: RetainerStatus.paid,
+        amountUsed: invoice.totalAmount,
+      ),
+    );
+  }
+
+  void voidInvoice(String invoiceId) {
+    _mutateInvoice(
+      invoiceId,
+      (invoice) => invoice.copyWith(status: RetainerStatus.voided),
+    );
+  }
+
+  void cloneInvoice(String sourceId, String newId, String newInvoiceNo) {
+    final original = state.invoices.where((invoice) => invoice.id == sourceId).firstOrNull;
+    if (original == null) {
+      return;
+    }
+    addInvoice(
+      original.copyWith(
+        id: newId,
+        invoiceNo: newInvoiceNo,
+        date: DateTime.now(),
+        status: RetainerStatus.draft,
+        amountUsed: 0,
+      ),
+    );
+  }
+
+  void _mutateInvoice(
+    String invoiceId,
+    RetainerInvoice Function(RetainerInvoice invoice) update,
+  ) {
+    state = state.copyWith(
+      invoices: [
+        for (final invoice in state.invoices)
+          if (invoice.id == invoiceId) update(invoice) else invoice,
+      ],
+    );
   }
 }
 
-// ─── Seeded demo data ─────────────────────────────────────────────────────────
-
-List<RetainerInvoice> _seedData() => [
-  RetainerInvoice.create(
-    id: '1',
-    invoiceNo: 'RET-2026-00001',
-    date: DateTime.now().subtract(const Duration(days: 20)),
-    expiryDate: DateTime.now().subtract(const Duration(days: 5)),
-    customerId: 'cust-1',
-    customerName: 'Acme Corporation',
-    customerEmail: 'billing@acme.com',
-    amount: 15000.00,
-    taxLabel: 'GST 18%',
-    taxRate: 0.18,
-    amountUsed: 15000.00 * 1.18,
-    paymentMode: 'Bank Transfer',
-    referenceNo: 'TXN-4492211',
-    status: RetainerStatus.paid,
-    notes: 'Advance retainer for project consultation and design setup.',
-    termsAndConditions:
-        'Payment is non-refundable once services have commenced.',
-    applications: [
-      RetainerPaymentApplication(
-        salesInvoiceNo: 'INV-2026-00012',
-        amountApplied: 15000.00 * 1.18,
-        appliedOn: DateTime.now().subtract(const Duration(days: 3)),
-      ),
-    ],
-  ),
-  RetainerInvoice.create(
-    id: '2',
-    invoiceNo: 'RET-2026-00002',
-    date: DateTime.now().subtract(const Duration(days: 12)),
-    customerId: 'cust-2',
-    customerName: 'Wayne Enterprises',
-    customerEmail: 'accounts@wayne.com',
-    amount: 45000.00,
-    taxLabel: 'GST 18%',
-    taxRate: 0.18,
-    amountUsed: 20000.00,
-    paymentMode: 'Cheque',
-    referenceNo: 'CHQ-009832',
-    status: RetainerStatus.partiallyPaid,
-    notes: 'Retainer deposit for high-grade equipment manufacturing services.',
-    termsAndConditions: 'Balance to be settled within 30 days of invoice.',
-  ),
-  RetainerInvoice.create(
-    id: '3',
-    invoiceNo: 'RET-2026-00003',
-    date: DateTime.now().subtract(const Duration(days: 5)),
-    customerId: 'cust-3',
-    customerName: 'Stark Industries',
-    customerEmail: 'finance@stark.com',
-    amount: 120000.00,
-    taxLabel: 'GST 12%',
-    taxRate: 0.12,
-    amountUsed: 0.0,
-    paymentMode: 'Bank Transfer',
-    status: RetainerStatus.draft,
-    notes: 'Retainer request for raw material supply line allocation.',
-    termsAndConditions: 'Subject to board approval.',
-  ),
-  RetainerInvoice.create(
-    id: '4',
-    invoiceNo: 'RET-2026-00004',
-    date: DateTime.now().subtract(const Duration(days: 2)),
-    expiryDate: DateTime.now().add(const Duration(days: 28)),
-    customerId: 'cust-4',
-    customerName: 'Oscorp Industries',
-    customerEmail: 'ap@oscorp.com',
-    amount: 35000.00,
-    taxLabel: 'GST 18%',
-    taxRate: 0.18,
-    amountUsed: 0.0,
-    paymentMode: 'UPI',
-    referenceNo: 'UPI-TXN-8823',
-    status: RetainerStatus.sent,
-    notes: 'Advance retainer for biochemical research and consultation.',
-  ),
-  RetainerInvoice.create(
-    id: '5',
-    invoiceNo: 'RET-2026-00005',
-    date: DateTime.now().subtract(const Duration(days: 45)),
-    customerId: 'cust-5',
-    customerName: 'LexCorp',
-    customerEmail: 'billing@lexcorp.com',
-    amount: 80000.00,
-    taxLabel: 'None',
-    taxRate: 0.0,
-    amountUsed: 0.0,
-    paymentMode: 'Cash',
-    status: RetainerStatus.voided,
-    notes: 'Cancelled project retainer.',
-  ),
-];
-
-// ─── Provider ─────────────────────────────────────────────────────────────────
-
 final retainerInvoicesProvider =
-    StateNotifierProvider<RetainerInvoicesNotifier, RetainerInvoicesState>((
-      ref,
-    ) {
-      return RetainerInvoicesNotifier();
-    });
+    StateNotifierProvider<RetainerInvoicesNotifier, RetainerInvoicesState>(
+      (ref) => RetainerInvoicesNotifier(
+        ref.read(retainerInvoicesRepositoryProvider),
+      ),
+    );
+
+final retainerInvoicesRepositoryProvider =
+    Provider<RetainerInvoicesRepository>(
+      (ref) => RetainerInvoicesRepository(apiClient: ref.read(apiClientProvider)),
+    );
+
+const Object _noFilterChange = Object();

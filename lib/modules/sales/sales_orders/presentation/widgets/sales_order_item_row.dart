@@ -26,6 +26,7 @@ class SalesOrderItemRow {
   final LayerLink discountLink = LayerLink();
   final LayerLink warehouseLink = LayerLink();
   final LayerLink moreActionsLink = LayerLink();
+  LayerLink get itemActionsLink => moreActionsLink;
   final LayerLink reportingTagsLink = LayerLink();
   final LayerLink accountsLink = LayerLink();
   final LayerLink priceListLink = LayerLink();
@@ -35,6 +36,7 @@ class SalesOrderItemRow {
   String? salesOrderId;
   double profit = 0;
   bool isHeader;
+  bool showAdditionalInfo;
 
   SalesOrderItemRow({
     required this.quantityCtrl,
@@ -59,6 +61,7 @@ class SalesOrderItemRow {
     List<Map<String, String>>? batchDataList,
     this.profit = 0,
     this.isHeader = false,
+    this.showAdditionalInfo = true,
   }) : fQtyCtrl = fQtyCtrl ?? TextEditingController(text: '0'),
        batchDataList = batchDataList ?? <Map<String, String>>[],
        mrpCtrl = mrpCtrl ?? TextEditingController(text: '0'),

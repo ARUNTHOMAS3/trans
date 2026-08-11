@@ -43,6 +43,7 @@ class CustomTextField extends StatefulWidget {
   final bool resizable;
   final double? minHeight;
   final ValueChanged<double>? onHeightChanged;
+  final bool allowNegative;
 
   const CustomTextField({
     super.key,
@@ -83,6 +84,7 @@ class CustomTextField extends StatefulWidget {
     this.resizable = false,
     this.minHeight,
     this.onHeightChanged,
+    this.allowNegative = false,
     Widget? suffixWidget,
     @Deprecated('Use suffixWidget instead') Widget? suffix,
   }) : suffixWidget = suffixWidget ?? suffix;
@@ -161,6 +163,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
               allowDecimal:
                   widget.keyboardType ==
                   const TextInputType.numberWithOptions(decimal: true),
+              allowNegative: widget.allowNegative,
             ),
           );
         }

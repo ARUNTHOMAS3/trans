@@ -266,9 +266,29 @@ extension _ItemDetailComponents on _ItemDetailScreenState {
       child: Row(
         children: [
           Expanded(
-            child: ItemsFilterDropdown(
-              currentFilter: _currentFilter,
-              onFilterChanged: (filter) {
+            child: FavoriteFilterDropdown(
+              moduleName: 'items',
+              options: kItemsFilterOptions
+                  .map((o) => FavoriteFilterOption(
+                        label: o.label,
+                        value: o.value.name,
+                      ))
+                  .toList(),
+              selectedOption: FavoriteFilterOption(
+                label: kItemsFilterOptions
+                    .firstWhere(
+                      (o) => o.value == _currentFilter,
+                      orElse: () => kItemsFilterOptions.first,
+                    )
+                    .label,
+                value: _currentFilter.name,
+              ),
+              isCompact: true,
+              onChanged: (opt) {
+                final filter = ItemsFilter.values.firstWhere(
+                  (f) => f.name == opt.value,
+                  orElse: () => ItemsFilter.all,
+                );
                 final selectedId =
                     widget.itemId ??
                     ref.read(itemsControllerProvider).selectedItemId;

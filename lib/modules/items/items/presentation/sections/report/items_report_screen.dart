@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
-import 'package:zerpai_erp/modules/items/items/presentation/pages/items_item_detail.dart';
 import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 
@@ -329,6 +328,18 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
 
       case ItemsFilter.nonsku:
         return rows.where((e) => !e.hasSku).toList();
+
+      case ItemsFilter.unconfirmed:
+        return rows.where((e) => !e.isActive).toList();
+
+      case ItemsFilter.marketplace:
+        return rows;
+
+      case ItemsFilter.serialized:
+        return rows.where((e) => e.usesBatch).toList();
+
+      case ItemsFilter.bintracked:
+        return rows.where((e) => e.isRackItem).toList();
     }
   }
 
@@ -364,19 +375,14 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
           'id': item.id!,
         },
       );
-    } else {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ItemDetailScreen(itemId: item.id)),
-      );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(itemsControllerProvider);
 
     return ZerpaiLayout(
-      pageTitle: 'Items',
+      pageTitle: '',
       enableBodyScroll: false,
       searchFocusNode: _searchFocusNode,
       child: ItemsReportBody(

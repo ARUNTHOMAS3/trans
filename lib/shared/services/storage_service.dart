@@ -108,14 +108,14 @@ class StorageService {
 
     final ext = file.extension?.toLowerCase();
     String contentType = 'application/octet-stream';
-    if (ext == 'pdf') {
-      contentType = 'application/pdf';
-    } else if (ext == 'jpg' || ext == 'jpeg') {
-      contentType = 'image/jpeg';
-    } else if (ext == 'png') {
-      contentType = 'image/png';
-    } else if (ext == 'csv') {
+    if (ext == 'csv') {
       contentType = 'text/csv';
+    } else if (ext == 'tsv') {
+      contentType = 'text/tab-separated-values';
+    } else if (ext == 'xls') {
+      contentType = 'application/vnd.ms-excel';
+    } else if (ext == 'xlsx') {
+      contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     }
 
     try {
@@ -127,6 +127,32 @@ class StorageService {
       );
     } catch (e) {
       debugPrint('Error uploading stock count attachment: $e');
+      return null;
+    }
+  }
+
+  Future<String?> uploadQuotationAttachment(PlatformFile file) async {
+    if (file.bytes == null) return null;
+
+    final ext = file.extension?.toLowerCase();
+    String contentType = 'application/octet-stream';
+    if (ext == 'pdf') {
+      contentType = 'application/pdf';
+    } else if (ext == 'jpg' || ext == 'jpeg') {
+      contentType = 'image/jpeg';
+    } else if (ext == 'png') {
+      contentType = 'image/png';
+    }
+
+    try {
+      return await _uploadViaBackend(
+        fileName: '${DateTime.now().millisecondsSinceEpoch}_${file.name}',
+        fileBytes: file.bytes!,
+        mimeType: contentType,
+        prefix: 'quotations',
+      );
+    } catch (e) {
+      debugPrint('Error uploading quotation attachment: $e');
       return null;
     }
   }

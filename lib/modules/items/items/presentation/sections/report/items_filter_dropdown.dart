@@ -11,11 +11,13 @@ import 'package:zerpai_erp/core/theme/app_theme.dart';
 class ItemsFilterDropdown extends StatefulWidget {
   final ItemsFilter currentFilter;
   final ValueChanged<ItemsFilter> onFilterChanged;
+  final bool isHeaderStyle;
 
   const ItemsFilterDropdown({
     super.key,
     required this.currentFilter,
     required this.onFilterChanged,
+    this.isHeaderStyle = false,
   });
 
   @override
@@ -101,10 +103,6 @@ class _ItemsFilterDropdownState extends State<ItemsFilterDropdown> {
   }
 
   Widget _buildOverlayContent() {
-    final RenderBox box = context.findRenderObject() as RenderBox;
-    final Size size = box.size;
-    final Offset position = box.localToGlobal(Offset.zero);
-
     final String query = _searchCtrl.text.toLowerCase().trim();
 
     List<ItemsFilterOption> favoriteOptions = kItemsFilterOptions
@@ -123,24 +121,27 @@ class _ItemsFilterDropdownState extends State<ItemsFilterDropdown> {
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: _removeOverlay,
-            child: const SizedBox.shrink(),
+            child: Container(color: Colors.transparent),
           ),
         ),
-        Positioned(
-          left: position.dx,
-          top: position.dy + size.height + 4,
-          width: 320,
+        CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: widget.isHeaderStyle ? const Offset(0, 34) : const Offset(0, 44),
           child: Material(
             elevation: 8,
             borderRadius: BorderRadius.circular(10),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 220, maxHeight: 420),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
+            child: SizedBox(
+              width: 320,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 220, maxHeight: 420),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Column(
                   mainAxisSize: MainAxisSize.max,
                   children: [
                     // Search box
@@ -241,12 +242,48 @@ class _ItemsFilterDropdownState extends State<ItemsFilterDropdown> {
             ),
           ),
         ),
+        ),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isHeaderStyle) {
+      return CompositedTransformTarget(
+        link: _layerLink,
+        child: InkWell(
+          onTap: _toggleDropdown,
+          borderRadius: BorderRadius.circular(6),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _labelFor(widget.currentFilter),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  _isOpen
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  size: 22,
+                  color: AppTheme.textPrimary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return CompositedTransformTarget(
       link: _layerLink,
       child: GestureDetector(

@@ -438,6 +438,18 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
 
       case ItemsFilter.nonsku:
         return rows.where((e) => !e.hasSku).toList();
+
+      case ItemsFilter.unconfirmed:
+        return rows.where((e) => !e.isActive).toList();
+
+      case ItemsFilter.marketplace:
+        return rows;
+
+      case ItemsFilter.serialized:
+        return rows.where((e) => e.usesBatch).toList();
+
+      case ItemsFilter.bintracked:
+        return rows.where((e) => e.isRackItem).toList();
     }
   }
 
@@ -508,7 +520,7 @@ class _ItemsReportScreenState extends ConsumerState<ItemsReportScreen> {
     }
 
     return ZerpaiLayout(
-      pageTitle: 'Items',
+      pageTitle: '',
       enableBodyScroll: false,
       child: ItemsReportBody(
         isLoading: state.isLoadingList,

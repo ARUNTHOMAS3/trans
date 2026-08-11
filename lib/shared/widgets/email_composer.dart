@@ -10,6 +10,7 @@ class EmailComposerScreen extends StatefulWidget {
   final String initialBody;
   final String attachmentName;
   final String? attachmentLabel;
+  final Widget? customPreview;
   final VoidCallback? onCancel;
   final Function(
     String from,
@@ -29,6 +30,7 @@ class EmailComposerScreen extends StatefulWidget {
     required this.initialBody,
     required this.attachmentName,
     this.attachmentLabel,
+    this.customPreview,
     this.onCancel,
     required this.onSend,
   });
@@ -113,6 +115,7 @@ class _EmailComposerScreenState extends State<EmailComposerScreen> {
                   ),
                 ),
               ),
+              if (widget.customPreview != null) widget.customPreview!,
 
               // Attachments Footer
               Padding(

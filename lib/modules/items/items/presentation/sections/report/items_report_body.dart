@@ -18,7 +18,7 @@ import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dar
 import 'dialogs/bulk_update_dialog.dart';
 import 'dialogs/items_export_dialog.dart';
 import 'dialogs/items_import_dialog.dart';
-import 'items_filter_dropdown.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import 'items_filters.dart';
 import 'item_row.dart';
 import 'itemsgrid_view.dart';

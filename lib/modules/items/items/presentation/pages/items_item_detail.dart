@@ -15,7 +15,7 @@ import '../sections/components/items_batch_dialogs.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_state.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
-import 'package:zerpai_erp/modules/items/items/presentation/sections/report/items_filter_dropdown.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import 'package:zerpai_erp/modules/items/items/presentation/sections/report/items_filters.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:zerpai_erp/core/auth/capability_service.dart';
@@ -738,6 +738,14 @@ class _ItemDetailScreenState extends ConsumerState<ItemDetailScreen> {
         return allItems
             .where((it) => it.sku == null || it.sku!.isEmpty)
             .toList();
+      case ItemsFilter.unconfirmed:
+        return allItems.where((it) => !it.isActive).toList();
+      case ItemsFilter.marketplace:
+        return allItems;
+      case ItemsFilter.serialized:
+        return allItems.where((it) => it.trackBatches).toList();
+      case ItemsFilter.bintracked:
+        return allItems.where((it) => it.rackId != null && it.rackId!.isNotEmpty).toList();
     }
   }
 

@@ -27,7 +27,8 @@ class _VolumePricingHelpButtonState extends State<VolumePricingHelpButton> {
 
   @override
   void dispose() {
-    _hidePopover();
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     super.dispose();
   }
 

@@ -4517,38 +4517,40 @@ class _SalesOrderCreateScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 140), // Space to align notes lower
-                const Text(
-                  'Customer Notes',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: _kBodyText,
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 140), // Space to align notes lower
+                  const Text(
+                    'Customer Notes',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: _kBodyText,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: CustomTextField(
-                    controller: notesCtrl,
-                    maxLines: 3,
-                    height: 80,
-                    hintText:
-                        'Enter any notes to be displayed in your transaction',
+                  const SizedBox(height: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: CustomTextField(
+                      controller: notesCtrl,
+                      maxLines: 3,
+                      height: 80,
+                      hintText:
+                          'Enter any notes to be displayed in your transaction',
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 250),
-            // Right Column: Totals
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 392),
+                ],
+              ),
+              const SizedBox(width: 40),
+              // Right Column: Totals
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 392),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   vertical: 20,
@@ -4614,7 +4616,8 @@ class _SalesOrderCreateScreenState
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ],
     );

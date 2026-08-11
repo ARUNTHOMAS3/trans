@@ -258,12 +258,31 @@ extension _ItemsReportBodyActions on _ItemsReportBodyState {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                SizedBox(
-                  width: 260,
-                  child: ItemsFilterDropdown(
-                    currentFilter: widget.filter,
-                    onFilterChanged: widget.onFilterChanged,
+                FavoriteFilterDropdown(
+                  moduleName: 'items',
+                  options: kItemsFilterOptions
+                      .map((o) => FavoriteFilterOption(
+                            label: o.label,
+                            value: o.value.name,
+                          ))
+                      .toList(),
+                  selectedOption: FavoriteFilterOption(
+                    label: kItemsFilterOptions
+                        .firstWhere(
+                          (o) => o.value == widget.filter,
+                          orElse: () => kItemsFilterOptions.first,
+                        )
+                        .label,
+                    value: widget.filter.name,
                   ),
+                  isCompact: false,
+                  onChanged: (opt) {
+                    final matchedFilter = ItemsFilter.values.firstWhere(
+                      (f) => f.name == opt.value,
+                      orElse: () => ItemsFilter.all,
+                    );
+                    widget.onFilterChanged(matchedFilter);
+                  },
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,7 +35,6 @@ const double _bulkRatesVolumeMinWidth = 960;
 const double _bulkRatesRowHeight = 52;
 const double _bulkRatesVolumeLineHeight = 40;
 const double _bulkRatesAddRangeHeight = 34;
-const double _bulkRatesRemoveWidth = 54;
 const double _bulkRatesSelectionWidth = 30;
 
 class PriceListCreateScreen extends ConsumerStatefulWidget {
@@ -84,8 +84,36 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
   bool _isBulkUpdateMode = false;
   bool _isSaving = false;
   bool _isLoading = false;
-  String? _hoveredBulkRateCellKey;
-  String? _activeBulkRateCellKey;
+  bool _isRenderingFullList = true;
+
+  void _switchPriceListType(String type) {
+    if (_priceListType == type) return;
+    setState(() {
+      _priceListType = type;
+      if (type == 'all_items') {
+        _isDiscountEnabled = false;
+      }
+      _isRenderingFullList = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_isRenderingFullList) {
+        setState(() => _isRenderingFullList = true);
+      }
+    });
+  }
+
+  void _switchPricingScheme(String scheme) {
+    if (_pricingScheme == scheme) return;
+    setState(() {
+      _pricingScheme = scheme;
+      _isRenderingFullList = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_isRenderingFullList) {
+        setState(() => _isRenderingFullList = true);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -209,6 +237,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(itemsControllerProvider);
     final isEdit = widget.priceList != null || widget.priceListId != null;
     final pageTitle = isEdit ? 'Edit Price List' : 'New Price List';
 
@@ -331,17 +360,13 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
                 selected: _priceListType == 'all_items',
                 title: 'All Items',
                 subtitle: 'Mark up or mark down the rates of all items',
-                onTap: () => setState(() {
-                  _priceListType = 'all_items';
-                  _isDiscountEnabled = false;
-                }),
+                onTap: () => _switchPriceListType('all_items'),
               ),
               _PriceListTypeCard(
                 selected: _priceListType == 'individual_items',
                 title: 'Individual Items',
                 subtitle: 'Customize the rate of each item',
-                onTap: () =>
-                    setState(() => _priceListType = 'individual_items'),
+                onTap: () => _switchPriceListType('individual_items'),
               ),
             ],
           ),
@@ -370,262 +395,333 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
     return _FormRow(
       label: 'Percentage',
       required: true,
-      child: SizedBox(
-        width: _priceListFieldWidth,
-        child: Container(
-          height: _priceListFieldHeight,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: AppTheme.borderColorDark),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 110,
-                child: FormDropdown<String>(
-                  value: _percentageType,
-                  items: const ['Markup', 'Markdown'],
-                  onChanged: (value) {
-                    setState(() => _percentageType = value ?? 'Markup');
-                  },
-                  height: _priceListFieldHeight,
-                  showSearch: false,
-                  showSearchIcon: false,
-                  hideBorderDefault: true,
-                  menuWidth: 124,
-                ),
-              ),
-              Container(
-                width: 1,
-                height: _priceListFieldHeight,
-                color: AppTheme.borderColorDark,
-              ),
-              Expanded(
-                child: TextFormField(
-                  controller: _percentageController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                  ],
-                  validator: (value) {
-                    final trimmed = value?.trim() ?? '';
-                    final number = double.tryParse(trimmed);
-                    if (trimmed.isEmpty || number == null || number < 0) {
-                      return 'Required';
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: _priceListFieldWidth,
+            child: FormField<String>(
+              validator: (_) {
+                final trimmed = _percentageController.text.trim();
+                final number = double.tryParse(trimmed);
+                if (trimmed.isEmpty || number == null || number < 0) {
+                  return 'Required';
+                }
+
+                if (_percentageType == 'Markup') {
+                  final itemsState = ref.read(itemsControllerProvider);
+                  final allItems = itemsState.items;
+                  for (final item in allItems) {
+                    final mrp = item.mrp ?? 0.0;
+                    final baseRate = _baseRateFor(item);
+                    if (mrp > 0 && baseRate > 0) {
+                      final markupAmount = baseRate * (number / 100);
+                      final calculatedRate = baseRate + markupAmount;
+                      if (calculatedRate > mrp) {
+                        return 'Calculated rate for "${_itemName(item)}" (${_formatCurrency(calculatedRate)}) exceeds MRP (${_formatCurrency(mrp)})';
+                      }
                     }
-                    return null;
-                  },
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textPrimary,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    errorStyle: TextStyle(height: 0, fontSize: 0),
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                  }
+                }
+                return null;
+              },
+              builder: (fieldState) {
+                final hasError = fieldState.hasError;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: _priceListFieldHeight,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(
+                          color: hasError
+                              ? AppTheme.errorRedDark
+                              : AppTheme.borderColorDark,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 110,
+                            child: FormDropdown<String>(
+                              value: _percentageType,
+                              items: const ['Markup', 'Markdown'],
+                              onChanged: (value) {
+                                setState(() => _percentageType = value ?? 'Markup');
+                                fieldState.didChange(_percentageController.text);
+                              },
+                              height: _priceListFieldHeight,
+                              showSearch: false,
+                              showSearchIcon: false,
+                              hideBorderDefault: true,
+                              menuWidth: 124,
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: _priceListFieldHeight,
+                            color: AppTheme.borderColorDark,
+                          ),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _percentageController,
+                              keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true,
+                              ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                              ],
+                              onChanged: (val) {
+                                fieldState.didChange(val);
+                              },
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textPrimary,
+                              ),
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                errorStyle: TextStyle(height: 0, fontSize: 0),
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: _priceListFieldHeight,
+                            color: AppTheme.borderColorDark,
+                          ),
+                          Container(
+                            width: 42,
+                            alignment: Alignment.center,
+                            color: AppTheme.inputFill,
+                            child: const Text(
+                              '%',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-              ),
-              Container(
-                width: 1,
-                height: _priceListFieldHeight,
-                color: AppTheme.borderColorDark,
-              ),
-              Container(
-                width: 42,
-                alignment: Alignment.center,
-                color: AppTheme.inputFill,
-                child: const Text(
-                  '%',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-                ),
-              ),
-            ],
+                    if (hasError && fieldState.errorText != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, left: 2),
+                        child: Text(
+                          fieldState.errorText!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.errorRedDark,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildPricingSchemeRow() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 720) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 9),
-                child: const Text(
-                  'Pricing Scheme',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textPrimary,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
+    final isEdit = widget.priceList != null || widget.priceListId != null;
+    return IgnorePointer(
+      ignoring: isEdit,
+      child: Opacity(
+        opacity: isEdit ? 0.75 : 1.0,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 720) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _PricingSchemeCard(
-                    selected: _pricingScheme == 'unit_pricing',
-                    title: 'Unit Pricing',
-                    width: _pricingSchemeUnitCardWidth,
-                    onTap: () =>
-                        setState(() => _pricingScheme = 'unit_pricing'),
-                  ),
-                  const SizedBox(width: _pricingSchemeCardGap),
-                  _PricingSchemeCard(
-                    selected: _pricingScheme == 'volume_pricing',
-                    title: 'Volume Pricing',
-                    onTap: () =>
-                        setState(() => _pricingScheme = 'volume_pricing'),
-                  ),
-                  if (_pricingScheme == 'volume_pricing')
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: VolumePricingHelpButton(),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 9),
+                    child: const Text(
+                      'Pricing Scheme',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _PricingSchemeCard(
+                        selected: _pricingScheme == 'unit_pricing',
+                        title: 'Unit Pricing',
+                        width: _pricingSchemeUnitCardWidth,
+                        onTap: () => _switchPricingScheme('unit_pricing'),
+                      ),
+                      const SizedBox(width: _pricingSchemeCardGap),
+                      _PricingSchemeCard(
+                        selected: _pricingScheme == 'volume_pricing',
+                        title: 'Volume Pricing',
+                        onTap: () => _switchPricingScheme('volume_pricing'),
+                      ),
+                      if (_pricingScheme == 'volume_pricing')
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: VolumePricingHelpButton(),
+                        ),
+                    ],
+                  ),
                 ],
-              ),
-            ],
-          );
-        }
+              );
+            }
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: _priceListLabelWidth,
-              child: const Padding(
-                padding: EdgeInsets.only(top: 9),
-                child: Text(
-                  'Pricing Scheme',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textPrimary,
-                    fontWeight: FontWeight.w400,
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: _priceListLabelWidth,
+                  child: const Padding(
+                    padding: EdgeInsets.only(top: 9),
+                    child: Text(
+                      'Pricing Scheme',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textPrimary,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            Flexible(
-              fit: FlexFit.loose,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _PricingSchemeCard(
-                    selected: _pricingScheme == 'unit_pricing',
-                    title: 'Unit Pricing',
-                    width: _pricingSchemeUnitCardWidth,
-                    onTap: () =>
-                        setState(() => _pricingScheme = 'unit_pricing'),
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _PricingSchemeCard(
+                        selected: _pricingScheme == 'unit_pricing',
+                        title: 'Unit Pricing',
+                        width: _pricingSchemeUnitCardWidth,
+                        onTap: () => _switchPricingScheme('unit_pricing'),
+                      ),
+                      const SizedBox(width: _pricingSchemeCardGap),
+                      _PricingSchemeCard(
+                        selected: _pricingScheme == 'volume_pricing',
+                        title: 'Volume Pricing',
+                        onTap: () => _switchPricingScheme('volume_pricing'),
+                      ),
+                      if (_pricingScheme == 'volume_pricing')
+                        const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: VolumePricingHelpButton(),
+                        ),
+                    ],
                   ),
-                  const SizedBox(width: _pricingSchemeCardGap),
-                  _PricingSchemeCard(
-                    selected: _pricingScheme == 'volume_pricing',
-                    title: 'Volume Pricing',
-                    onTap: () =>
-                        setState(() => _pricingScheme = 'volume_pricing'),
-                  ),
-                  if (_pricingScheme == 'volume_pricing')
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: VolumePricingHelpButton(),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
   Widget _buildCurrencyRow() {
+    final isEdit = widget.priceList != null || widget.priceListId != null;
     return _FormRow(
       label: 'Currency',
-      child: SizedBox(
-        width: _priceListFieldWidth,
-        child: FormDropdown<CurrencyOption>(
-          value: _currency,
-          items: defaultCurrencyOptions,
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => _currency = value);
-          },
-          displayStringForValue: (value) => value.label,
-          searchStringForValue: (value) => value.label,
-          height: _priceListFieldHeight,
-          menuWidth: _priceListFieldWidth,
+      child: IgnorePointer(
+        ignoring: isEdit,
+        child: Opacity(
+          opacity: isEdit ? 0.75 : 1.0,
+          child: SizedBox(
+            width: _priceListFieldWidth,
+            child: FormDropdown<CurrencyOption>(
+              value: _currency,
+              items: defaultCurrencyOptions,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _currency = value);
+              },
+              displayStringForValue: (value) => value.label,
+              searchStringForValue: (value) => value.label,
+              height: _priceListFieldHeight,
+              menuWidth: _priceListFieldWidth,
+            ),
+          ),
         ),
       ),
     );
   }
 
   Widget _buildDiscountRow() {
+    final isEdit = widget.priceList != null || widget.priceListId != null;
     return _FormRow(
       label: 'Discount',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () {
-              setState(() => _isDiscountEnabled = !_isDiscountEnabled);
-            },
-            borderRadius: BorderRadius.circular(4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: Checkbox(
-                    value: _isDiscountEnabled,
-                    onChanged: (value) {
-                      setState(() => _isDiscountEnabled = value ?? false);
-                    },
-                    activeColor: AppTheme.primaryBlueDark,
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    side: const BorderSide(
-                      color: AppTheme.borderMid,
-                      width: 1.5,
+      child: IgnorePointer(
+        ignoring: isEdit,
+        child: Opacity(
+          opacity: isEdit ? 0.75 : 1.0,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: () {
+                  setState(() => _isDiscountEnabled = !_isDiscountEnabled);
+                },
+                borderRadius: BorderRadius.circular(4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: Checkbox(
+                        value: _isDiscountEnabled,
+                        onChanged: (value) {
+                          setState(() => _isDiscountEnabled = value ?? false);
+                        },
+                        activeColor: AppTheme.primaryBlueDark,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        side: const BorderSide(
+                          color: AppTheme.borderMid,
+                          width: 1.5,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    const Flexible(
+                      child: Text(
+                        'I want to include discount percentage for the items',
+                        style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+                      ),
+                    ),
+                    if (_isDiscountEnabled) ...[
+                      const SizedBox(width: 8),
+                      const ZTooltip(
+                        message:
+                            'When a price list is applied, the discount percentage will be applied only if discount is enabled at the line-item level.',
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(width: 8),
-                const Flexible(
-                  child: Text(
-                    'I want to include discount percentage for the items',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-                  ),
-                ),
-                if (_isDiscountEnabled) ...[
-                  const SizedBox(width: 8),
-                  const ZTooltip(
-                    message:
-                        'When a price list is applied, the discount percentage will be applied only if discount is enabled at the line-item level.',
-                  ),
-                ],
-              ],
-            ),
+              ),
+              const SizedBox(height: 14),
+            ],
           ),
-          const SizedBox(height: 14),
-        ],
+        ),
       ),
     );
   }
@@ -1343,12 +1439,9 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
     String? errorMessage,
   }) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(
-          top: BorderSide(color: AppTheme.borderLight),
-          bottom: BorderSide(color: AppTheme.borderLight),
-        ),
+        border: Border.all(color: AppTheme.borderLight),
       ),
       child: Column(
         children: [
@@ -1364,12 +1457,24 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
           else if (visibleItems.isEmpty)
             _buildRatesTableMessage('No items match your search.')
           else
-            for (var index = 0; index < visibleItems.length; index++)
-              _buildRatesTableRow(
-                visibleItems[index],
-                index,
-                index == visibleItems.length - 1,
-              ),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _isRenderingFullList
+                  ? visibleItems.length
+                  : math.min(10, visibleItems.length),
+              itemExtent: _pricingScheme == 'unit_pricing' ? 40.0 : null,
+              itemBuilder: (context, index) {
+                final count = _isRenderingFullList
+                    ? visibleItems.length
+                    : math.min(10, visibleItems.length);
+                return _buildRatesTableRow(
+                  visibleItems[index],
+                  index,
+                  index == count - 1,
+                );
+              },
+            ),
         ],
       ),
     );
@@ -1378,14 +1483,23 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
   Widget _buildRatesTableHeader(List<Item> visibleItems) {
     final headerHeight =
         _pricingScheme == 'volume_pricing' || _isDiscountEnabled ? 44.0 : 32.0;
+    final rangeColumnsFlex = _isDiscountEnabled ? 8 : 6;
 
     return SizedBox(
       height: headerHeight,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_isBulkUpdateMode) _buildBulkSelectionHeader(visibleItems),
+          if (_isBulkUpdateMode) ...[
+            _buildBulkSelectionHeader(visibleItems),
+            _buildTableDivider(),
+          ],
           Expanded(flex: 5, child: _buildItemDetailsHeader()),
+          _buildTableDivider(),
+          Expanded(
+            flex: 2,
+            child: _buildHeaderCell('MRP', alignEnd: true),
+          ),
           _buildTableDivider(),
           Expanded(
             flex: 2,
@@ -1394,27 +1508,40 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
           _buildTableDivider(),
           if (_pricingScheme == 'volume_pricing') ...[
             Expanded(
-              flex: 2,
-              child: _buildHeaderCell('START\nQUANTITY', alignEnd: true),
+              flex: rangeColumnsFlex,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: _buildHeaderCell('START\nQUANTITY', alignEnd: true),
+                  ),
+                  _buildTableDivider(),
+                  Expanded(
+                    flex: 2,
+                    child: _buildHeaderCell('END\nQUANTITY', alignEnd: true),
+                  ),
+                  _buildTableDivider(),
+                  Expanded(
+                    flex: 2,
+                    child: _buildHeaderCell('CUSTOM RATE', alignEnd: true),
+                  ),
+                  if (_isDiscountEnabled) ...[
+                    _buildTableDivider(),
+                    Expanded(flex: 2, child: _buildDiscountHeaderCell()),
+                  ],
+                ],
+              ),
             ),
-            _buildTableDivider(),
+          ] else ...[
             Expanded(
               flex: 2,
-              child: _buildHeaderCell('END\nQUANTITY', alignEnd: true),
+              child: _buildHeaderCell('CUSTOM RATE', alignEnd: true),
             ),
-            _buildTableDivider(),
-          ],
-          Expanded(
-            flex: 2,
-            child: _buildHeaderCell('CUSTOM RATE', alignEnd: true),
-          ),
-          if (_isDiscountEnabled) ...[
-            _buildTableDivider(),
-            Expanded(flex: 2, child: _buildDiscountHeaderCell()),
-          ],
-          if (_pricingScheme == 'volume_pricing') ...[
-            _buildTableDivider(),
-            const SizedBox(width: _bulkRatesRemoveWidth),
+            if (_isDiscountEnabled) ...[
+              _buildTableDivider(),
+              Expanded(flex: 2, child: _buildDiscountHeaderCell()),
+            ],
           ],
         ],
       ),
@@ -1644,26 +1771,31 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
         ),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_isBulkUpdateMode) _buildBulkSelectionCell(item, index),
+          if (_isBulkUpdateMode) ...[
+            _buildBulkSelectionCell(item, index),
+            _buildTableDivider(),
+          ],
           Expanded(flex: 5, child: _buildItemNameCell(item)),
+          _buildTableDivider(),
+          Expanded(flex: 2, child: _buildBaseRateCell(item.mrp ?? 0.0)),
           _buildTableDivider(),
           Expanded(flex: 2, child: _buildBaseRateCell(baseRate)),
           _buildTableDivider(),
           Expanded(
             flex: 2,
-            child: _buildBulkRateHoverCell(
-              cellKey: _bulkRateCellKey(itemId, 'custom-rate'),
-              child: _buildCustomRateCell(itemId),
+            child: _BulkRateHoverCell(
+              controller: _customRateControllerFor(itemId),
+              mrp: item.mrp,
+              child: _buildCustomRateCell(itemId, mrp: item.mrp),
             ),
           ),
           if (_isDiscountEnabled) ...[
             _buildTableDivider(),
             Expanded(
               flex: 2,
-              child: _buildBulkRateHoverCell(
-                cellKey: _bulkRateCellKey(itemId, 'discount'),
+              child: _BulkRateHoverCell(
                 child: _buildDiscountCell(itemId),
               ),
             ),
@@ -1689,157 +1821,92 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
               : const BorderSide(color: AppTheme.borderLight),
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_isBulkUpdateMode)
-            _buildBulkSelectionCell(item, index, alignTop: true),
-          Expanded(flex: 5, child: _buildItemNameCell(item, alignTop: true)),
-          _buildTableDivider(),
-          Expanded(
-            flex: 2,
-            child: _buildBaseRateCell(baseRate, alignTop: true),
-          ),
-          _buildTableDivider(),
-          Expanded(
-            flex: rangeColumnsFlex,
-            child: Column(
-              children: [
-                for (var rangeIndex = 0; rangeIndex < rangeCount; rangeIndex++)
-                  _buildVolumeRangeLine(itemId, rangeIndex),
-                _buildAddRangeLine(itemId),
-              ],
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_isBulkUpdateMode) ...[
+              _buildBulkSelectionCell(item, index, alignTop: true),
+              _buildTableDivider(),
+            ],
+            Expanded(flex: 5, child: _buildItemNameCell(item, alignTop: true)),
+            _buildTableDivider(),
+            Expanded(
+              flex: 2,
+              child: _buildBaseRateCell(item.mrp ?? 0.0, alignTop: true),
             ),
-          ),
-          _buildTableDivider(),
-          SizedBox(
-            width: _bulkRatesRemoveWidth,
-            child: Column(
-              children: [
-                for (var rangeIndex = 0; rangeIndex < rangeCount; rangeIndex++)
-                  _buildVolumeRangeCloseLine(
-                    itemId,
-                    rangeIndex,
-                    showClose: rangeIndex > 0,
-                  ),
-                const SizedBox(height: _bulkRatesAddRangeHeight),
-              ],
+            _buildTableDivider(),
+            Expanded(
+              flex: 2,
+              child: _buildBaseRateCell(baseRate, alignTop: true),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _bulkRateCellKey(String itemId, String column, [int? rangeIndex]) {
-    return rangeIndex == null
-        ? '$itemId::$column'
-        : '$itemId::$rangeIndex::$column';
-  }
-
-  bool _isHoveringVolumeRange(String itemId, int rangeIndex) {
-    final hoveredKey = _hoveredBulkRateCellKey;
-    return hoveredKey != null &&
-        hoveredKey.startsWith(_bulkRateCellKey(itemId, '', rangeIndex));
-  }
-
-  void _setHoveredBulkRateCell(String? key) {
-    if (_hoveredBulkRateCellKey == key) return;
-    setState(() => _hoveredBulkRateCellKey = key);
-  }
-
-  void _setActiveBulkRateCell(String key) {
-    if (_activeBulkRateCellKey == key) return;
-    setState(() => _activeBulkRateCellKey = key);
-  }
-
-  Widget _buildBulkRateHoverCell({
-    required String cellKey,
-    required Widget child,
-  }) {
-    final isHovered = _hoveredBulkRateCellKey == cellKey;
-    final isActive = _activeBulkRateCellKey == cellKey;
-    final showOutline = isHovered || isActive;
-
-    return MouseRegion(
-      onEnter: (_) => _setHoveredBulkRateCell(cellKey),
-      onExit: (_) {
-        if (_hoveredBulkRateCellKey == cellKey) {
-          _setHoveredBulkRateCell(null);
-        }
-      },
-      child: Listener(
-        onPointerDown: (_) => _setActiveBulkRateCell(cellKey),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(6),
-            border: showOutline
-                ? Border.all(color: AppTheme.primaryBlue, width: 1)
-                : null,
-          ),
-          child: child,
+            _buildTableDivider(),
+            Expanded(
+              flex: rangeColumnsFlex,
+              child: Column(
+                children: [
+                  for (var rangeIndex = 0; rangeIndex < rangeCount; rangeIndex++)
+                    _buildVolumeRangeLine(itemId, rangeIndex, item.mrp),
+                  _buildAddRangeLine(itemId),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildVolumeRangeLine(String itemId, int rangeIndex) {
-    return Container(
-      height: _bulkRatesVolumeLineHeight,
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: _buildBulkRateHoverCell(
-              cellKey: _bulkRateCellKey(itemId, 'start-quantity', rangeIndex),
-              child: _buildPlainNumberCell(
-                controller: _volumeStartControllerFor(itemId, rangeIndex),
-              ),
+  Widget _buildVolumeRangeLine(String itemId, int rangeIndex, [double? mrp]) {
+    final showClose = rangeIndex > 0;
+    final rateController = _volumeRateControllerFor(itemId, rangeIndex);
+
+    return _VolumeRangeLine(
+      showClose: showClose,
+      onRemove: () => _removeVolumeRange(itemId, rangeIndex),
+      children: [
+        Expanded(
+          flex: 2,
+          child: _BulkRateHoverCell(
+            child: _buildPlainNumberCell(
+              controller: _volumeStartControllerFor(itemId, rangeIndex),
             ),
           ),
+        ),
+        _buildTableDivider(),
+        Expanded(
+          flex: 2,
+          child: _BulkRateHoverCell(
+            child: _buildPlainNumberCell(
+              controller: _volumeEndControllerFor(itemId, rangeIndex),
+            ),
+          ),
+        ),
+        _buildTableDivider(),
+        Expanded(
+          flex: 2,
+          child: _BulkRateHoverCell(
+            controller: rateController,
+            mrp: mrp,
+            child: _buildCustomRateCell(
+              _volumeRateKey(itemId, rangeIndex),
+              controller: rateController,
+              mrp: mrp,
+            ),
+          ),
+        ),
+        if (_isDiscountEnabled) ...[
           _buildTableDivider(),
           Expanded(
             flex: 2,
-            child: _buildBulkRateHoverCell(
-              cellKey: _bulkRateCellKey(itemId, 'end-quantity', rangeIndex),
-              child: _buildPlainNumberCell(
-                controller: _volumeEndControllerFor(itemId, rangeIndex),
+            child: _BulkRateHoverCell(
+              child: _buildDiscountCell(
+                _volumeDiscountKey(itemId, rangeIndex),
               ),
             ),
           ),
-          _buildTableDivider(),
-          Expanded(
-            flex: 2,
-            child: _buildBulkRateHoverCell(
-              cellKey: _bulkRateCellKey(itemId, 'custom-rate', rangeIndex),
-              child: _buildCustomRateCell(
-                _volumeRateKey(itemId, rangeIndex),
-                controller: _volumeRateControllerFor(itemId, rangeIndex),
-              ),
-            ),
-          ),
-          if (_isDiscountEnabled) ...[
-            _buildTableDivider(),
-            Expanded(
-              flex: 2,
-              child: _buildBulkRateHoverCell(
-                cellKey: _bulkRateCellKey(itemId, 'discount', rangeIndex),
-                child: _buildDiscountCell(
-                  _volumeDiscountKey(itemId, rangeIndex),
-                ),
-              ),
-            ),
-          ],
         ],
-      ),
+      ],
     );
   }
 
@@ -1867,48 +1934,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
     );
   }
 
-  Widget _buildVolumeRangeCloseLine(
-    String itemId,
-    int rangeIndex, {
-    required bool showClose,
-  }) {
-    final closeKey = _bulkRateCellKey(itemId, 'close', rangeIndex);
-    final isCloseVisible =
-        showClose && _isHoveringVolumeRange(itemId, rangeIndex);
 
-    return MouseRegion(
-      onEnter: (_) => _setHoveredBulkRateCell(closeKey),
-      onExit: (_) {
-        if (_hoveredBulkRateCellKey == closeKey) {
-          _setHoveredBulkRateCell(null);
-        }
-      },
-      child: Container(
-        height: _bulkRatesVolumeLineHeight,
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
-        ),
-        child: IgnorePointer(
-          ignoring: !isCloseVisible,
-          child: AnimatedOpacity(
-            opacity: isCloseVisible ? 1 : 0,
-            duration: const Duration(milliseconds: 120),
-            child: IconButton(
-              onPressed: showClose
-                  ? () => _removeVolumeRange(itemId, rangeIndex)
-                  : null,
-              icon: const Icon(LucideIcons.x, size: 22),
-              color: AppTheme.errorRed,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 34, height: 34),
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildItemNameCell(Item item, {bool alignTop = false}) {
     final name = _itemName(item);
@@ -1997,38 +2023,59 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
   Widget _buildCustomRateCell(
     String itemId, {
     TextEditingController? controller,
+    double? mrp,
   }) {
+    final effectiveController = controller ?? _customRateControllerFor(itemId);
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: TextFormField(
-            controller: controller ?? _customRateControllerFor(itemId),
-            textAlign: TextAlign.right,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-            ],
-            validator: (value) {
-              final trimmed = value?.trim() ?? '';
-              if (trimmed.isEmpty || _parseDecimalInput(trimmed) != null) {
-                return null;
-              }
-              return 'Invalid';
+          child: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: effectiveController,
+            builder: (context, value, child) {
+              final rateVal = _parseDecimalInput(value.text.trim());
+              final isExceedingMrp = rateVal != null &&
+                  mrp != null &&
+                  mrp > 0 &&
+                  rateVal > mrp;
+
+              return TextFormField(
+                controller: effectiveController,
+                textAlign: TextAlign.right,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
+                validator: (val) {
+                  final trimmed = val?.trim() ?? '';
+                  if (trimmed.isEmpty || _parseDecimalInput(trimmed) != null) {
+                    return null;
+                  }
+                  return 'Invalid';
+                },
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isExceedingMrp
+                      ? AppTheme.errorRedDark
+                      : AppTheme.textPrimary,
+                  fontWeight: isExceedingMrp ? FontWeight.w600 : FontWeight.w400,
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  errorStyle: TextStyle(height: 0, fontSize: 0),
+                  isDense: true,
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                ),
+              );
             },
-            style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              errorStyle: TextStyle(height: 0, fontSize: 0),
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            ),
           ),
         ),
         Container(
           width: 38,
-          height: double.infinity,
           alignment: Alignment.center,
           color: AppTheme.inputFill,
           child: Text(
@@ -2042,6 +2089,7 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
 
   Widget _buildDiscountCell(String itemId) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
           child: TextFormField(
@@ -2071,7 +2119,6 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
         ),
         Container(
           width: 32,
-          height: double.infinity,
           alignment: Alignment.center,
           color: AppTheme.inputFill,
           child: const Text(
@@ -2100,7 +2147,6 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
   Widget _buildTableDivider() {
     return Container(
       width: 1,
-      height: double.infinity,
       color: AppTheme.borderLight,
     );
   }
@@ -2220,6 +2266,71 @@ class _PriceListCreateScreenState extends ConsumerState<PriceListCreateScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) {
       ZerpaiToast.error(context, 'Enter the required price list details');
       return;
+    }
+
+    if (_priceListType == 'all_items' && _percentageType == 'Markup') {
+      final val = double.tryParse(_percentageController.text.trim());
+      if (val != null && val >= 0) {
+        var itemsState = ref.read(itemsControllerProvider);
+        if (itemsState.items.isEmpty) {
+          await ref.read(itemsControllerProvider.notifier).loadItems();
+          itemsState = ref.read(itemsControllerProvider);
+        }
+        final allItems = itemsState.items;
+        for (final item in allItems) {
+          final mrp = item.mrp ?? 0.0;
+          final baseRate = _baseRateFor(item);
+          if (mrp > 0 && baseRate > 0) {
+            final markupAmount = baseRate * (val / 100);
+            final calculatedRate = baseRate + markupAmount;
+            if (calculatedRate > mrp) {
+              ZerpaiToast.error(
+                context,
+                'Calculated rate for "${_itemName(item)}" (${_formatCurrency(calculatedRate)}) exceeds MRP (${_formatCurrency(mrp)})',
+              );
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    if (_priceListType == 'individual_items') {
+      final allItems = ref.read(itemsControllerProvider).items;
+      for (var index = 0; index < allItems.length; index++) {
+        final item = allItems[index];
+        final mrp = item.mrp ?? 0.0;
+        if (mrp <= 0) continue;
+        final itemId = _itemKey(item, index);
+        if (_pricingScheme == 'unit_pricing') {
+          final controller = _customRateControllers[itemId];
+          if (controller != null) {
+            final customRate = double.tryParse(controller.text.trim());
+            if (customRate != null && customRate > mrp) {
+              ZerpaiToast.error(
+                context,
+                'Custom rate for "${_itemName(item)}" (${_formatCurrency(customRate)}) cannot exceed MRP (${_formatCurrency(mrp)})',
+              );
+              return;
+            }
+          }
+        } else {
+          final rangeCount = _volumeRangeCountFor(itemId);
+          for (var r = 0; r < rangeCount; r++) {
+            final controller = _volumeRateControllers['$itemId::$r'];
+            if (controller != null) {
+              final volumeRate = double.tryParse(controller.text.trim());
+              if (volumeRate != null && volumeRate > mrp) {
+                ZerpaiToast.error(
+                  context,
+                  'Volume rate for "${_itemName(item)}" range ${r + 1} (${_formatCurrency(volumeRate)}) cannot exceed MRP (${_formatCurrency(mrp)})',
+                );
+                return;
+              }
+            }
+          }
+        }
+      }
     }
 
     setState(() => _isSaving = true);
@@ -2758,10 +2869,12 @@ class _PriceListTypeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         width: _priceListTypeCardWidth,
         height: 74,
@@ -2813,7 +2926,8 @@ class _PriceListTypeCard extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -2832,10 +2946,12 @@ class _PricingSchemeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         width: width,
         height: _pricingSchemeCardHeight,
@@ -2865,6 +2981,171 @@ class _PricingSchemeCard extends StatelessWidget {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    ),
+  );
+  }
+}
+
+class _BulkRateHoverCell extends StatefulWidget {
+  const _BulkRateHoverCell({
+    required this.child,
+    this.controller,
+    this.mrp,
+  });
+
+  final Widget child;
+  final TextEditingController? controller;
+  final double? mrp;
+
+  @override
+  State<_BulkRateHoverCell> createState() => _BulkRateHoverCellState();
+}
+
+class _BulkRateHoverCellState extends State<_BulkRateHoverCell> {
+  bool _isHovered = false;
+  bool _isActive = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.controller != null && widget.mrp != null && widget.mrp! > 0) {
+      return ValueListenableBuilder<TextEditingValue>(
+        valueListenable: widget.controller!,
+        builder: (context, textValue, _) {
+          final rateVal = double.tryParse(textValue.text.trim());
+          final isExceedingMrp = rateVal != null && rateVal > widget.mrp!;
+
+          final showOutline = _isHovered || _isActive || isExceedingMrp;
+          final borderColor = isExceedingMrp
+              ? AppTheme.errorRedDark
+              : AppTheme.primaryBlue;
+
+          return MouseRegion(
+            onEnter: (_) {
+              if (!_isHovered) setState(() => _isHovered = true);
+            },
+            onExit: (_) {
+              if (_isHovered) setState(() => _isHovered = false);
+            },
+            child: Focus(
+              onFocusChange: (focused) {
+                if (_isActive != focused) setState(() => _isActive = focused);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                  border: showOutline
+                      ? Border.all(
+                          color: borderColor,
+                          width: isExceedingMrp ? 1.5 : 1.0,
+                        )
+                      : null,
+                ),
+                child: widget.child,
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    final showOutline = _isHovered || _isActive;
+
+    return MouseRegion(
+      onEnter: (_) {
+        if (!_isHovered) setState(() => _isHovered = true);
+      },
+      onExit: (_) {
+        if (_isHovered) setState(() => _isHovered = false);
+      },
+      child: Focus(
+        onFocusChange: (focused) {
+          if (_isActive != focused) setState(() => _isActive = focused);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+            border: showOutline
+                ? Border.all(color: AppTheme.primaryBlue, width: 1)
+                : null,
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+class _VolumeRangeLine extends StatefulWidget {
+  const _VolumeRangeLine({
+    required this.showClose,
+    required this.onRemove,
+    required this.children,
+  });
+
+  final bool showClose;
+  final VoidCallback onRemove;
+  final List<Widget> children;
+
+  @override
+  State<_VolumeRangeLine> createState() => _VolumeRangeLineState();
+}
+
+class _VolumeRangeLineState extends State<_VolumeRangeLine> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCloseVisible = widget.showClose && _isHovered;
+
+    return MouseRegion(
+      onEnter: (_) {
+        if (!_isHovered) setState(() => _isHovered = true);
+      },
+      onExit: (_) {
+        if (_isHovered) setState(() => _isHovered = false);
+      },
+      child: Container(
+        height: _bulkRatesVolumeLineHeight,
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+        ),
+        child: Stack(
+          alignment: Alignment.centerRight,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: widget.children,
+            ),
+            if (widget.showClose)
+              Positioned(
+                right: 4,
+                child: IgnorePointer(
+                  ignoring: !isCloseVisible,
+                  child: AnimatedOpacity(
+                    opacity: isCloseVisible ? 1 : 0,
+                    duration: const Duration(milliseconds: 120),
+                    child: IconButton(
+                      onPressed: widget.onRemove,
+                      icon: const Icon(LucideIcons.x, size: 16),
+                      color: AppTheme.errorRed,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

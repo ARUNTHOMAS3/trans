@@ -68,6 +68,7 @@ class FormDropdown<T> extends StatefulWidget {
   final Color? activeBorderColor;
   final bool disableBorder;
   final String? emptyText;
+  final String? emptyStateLabel;
   final Widget? searchIcon;
   final Widget? suffixWidget;
   final bool isInline;
@@ -192,6 +193,7 @@ class FormDropdown<T> extends StatefulWidget {
     this.activeBorderColor,
     this.disableBorder = false,
     this.emptyText,
+    this.emptyStateLabel,
     this.searchIcon,
     this.suffixWidget,
     this.isInline = false,
@@ -825,7 +827,7 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                       height: emptyStateHeight,
                       child: Center(
                         child: Text(
-                          widget.emptyText ?? 'No results found',
+                          widget.emptyStateLabel ?? widget.emptyText ?? 'No results found',
                           style: TextStyle(
                             color: AppTheme.textMuted,
                             fontSize: 13,

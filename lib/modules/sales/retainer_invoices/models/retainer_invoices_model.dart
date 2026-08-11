@@ -1,12 +1,27 @@
-/// Status lifecycle for a Retainer Invoice.
-enum RetainerStatus {
-  draft,
-  sent,
-  paid,
-  partiallyPaid,
-  closed,
-  voided;
+enum RetainerStatus { draft, sent, paid, partiallyPaid, voided, closed }
 
+RetainerStatus retainerStatusFromApi(String? value) {
+  switch ((value ?? '').trim().toLowerCase()) {
+    case 'draft':
+      return RetainerStatus.draft;
+    case 'sent':
+      return RetainerStatus.sent;
+    case 'paid':
+      return RetainerStatus.paid;
+    case 'partially_paid':
+    case 'partially paid':
+      return RetainerStatus.partiallyPaid;
+    case 'void':
+    case 'voided':
+      return RetainerStatus.voided;
+    case 'closed':
+      return RetainerStatus.closed;
+    default:
+      return RetainerStatus.draft;
+  }
+}
+
+extension RetainerStatusLabel on RetainerStatus {
   String get label {
     switch (this) {
       case RetainerStatus.draft:
@@ -17,214 +32,174 @@ enum RetainerStatus {
         return 'Paid';
       case RetainerStatus.partiallyPaid:
         return 'Partially Paid';
-      case RetainerStatus.closed:
-        return 'Closed';
       case RetainerStatus.voided:
         return 'Void';
+      case RetainerStatus.closed:
+        return 'Closed';
     }
   }
 
-  static RetainerStatus fromLabel(String label) {
-    switch (label.toLowerCase().trim()) {
-      case 'sent':
-        return RetainerStatus.sent;
-      case 'paid':
-        return RetainerStatus.paid;
-      case 'partially paid':
-        return RetainerStatus.partiallyPaid;
-      case 'closed':
-        return RetainerStatus.closed;
-      case 'void':
-      case 'voided':
-        return RetainerStatus.voided;
-      case 'draft':
-      default:
-        return RetainerStatus.draft;
+  String get apiValue {
+    switch (this) {
+      case RetainerStatus.draft:
+        return 'draft';
+      case RetainerStatus.sent:
+        return 'sent';
+      case RetainerStatus.paid:
+        return 'paid';
+      case RetainerStatus.partiallyPaid:
+        return 'partially_paid';
+      case RetainerStatus.voided:
+        return 'voided';
+      case RetainerStatus.closed:
+        return 'closed';
     }
   }
 }
 
-/// Records which sales invoice has consumed part of this retainer.
-class RetainerPaymentApplication {
-  final String salesInvoiceNo;
-  final double amountApplied;
-  final DateTime appliedOn;
-
-  const RetainerPaymentApplication({
-    required this.salesInvoiceNo,
-    required this.amountApplied,
-    required this.appliedOn,
-  });
-
-  RetainerPaymentApplication copyWith({
-    String? salesInvoiceNo,
-    double? amountApplied,
-    DateTime? appliedOn,
-  }) {
-    return RetainerPaymentApplication(
-      salesInvoiceNo: salesInvoiceNo ?? this.salesInvoiceNo,
-      amountApplied: amountApplied ?? this.amountApplied,
-      appliedOn: appliedOn ?? this.appliedOn,
-    );
-  }
-}
-
-/// Full ERP-grade Retainer Invoice model.
 class RetainerInvoice {
-  final String id;
-  final String invoiceNo;
-  final DateTime date;
-  final DateTime? expiryDate;
-
-  // Customer
-  final String customerId;
-  final String customerName;
-  final String? customerEmail;
-
-  // Financial
-  final double amount; // Sub-amount (before tax)
-  final String taxLabel; // e.g. "GST 18%"
-  final double taxRate; // 0.0 – 1.0
-  final double taxAmount; // amount * taxRate
-  final double totalAmount; // amount + taxAmount
-
-  // Usage tracking
-  final double amountUsed;
-  double get amountRemaining => totalAmount - amountUsed;
-
-  // Payment
-  final String? paymentMode;
-  final String? referenceNo;
-  final String? location;
-
-  // Status
-  final RetainerStatus status;
-
-  // Content
-  final String notes;
-  final String termsAndConditions;
-  final List<String> attachmentPaths;
-
-  // Applied invoices
-  final List<RetainerPaymentApplication> applications;
-
   const RetainerInvoice({
     required this.id,
     required this.invoiceNo,
     required this.date,
-    this.expiryDate,
     required this.customerId,
     required this.customerName,
-    this.customerEmail,
-    required this.amount,
-    this.taxLabel = 'None',
-    this.taxRate = 0.0,
-    required this.taxAmount,
     required this.totalAmount,
-    this.amountUsed = 0.0,
-    this.paymentMode,
-    this.referenceNo,
-    this.location,
+    required this.taxLabel,
+    required this.taxRate,
+    required this.amountUsed,
     required this.status,
+    this.referenceNo,
+    this.customerEmail,
+    this.location,
     this.notes = '',
     this.termsAndConditions = '',
-    this.attachmentPaths = const [],
-    this.applications = const [],
   });
 
-  /// Convenience factory — computes tax and total automatically.
+  factory RetainerInvoice.fromJson(Map<String, dynamic> json) {
+    final customer = json['customer'];
+    final customerMap = customer is Map ? Map<String, dynamic>.from(customer) : null;
+    final totalAmount = (json['total_amount'] as num?)?.toDouble() ?? 0;
+    final amountApplied = (json['amount_applied'] as num?)?.toDouble() ?? 0;
+    final amountReceived = (json['amount_received'] as num?)?.toDouble() ?? 0;
+
+    return RetainerInvoice(
+      id: json['id']?.toString() ?? '',
+      invoiceNo: json['retainer_invoice_number']?.toString() ?? '',
+      date: DateTime.tryParse(json['retainer_invoice_date']?.toString() ?? '') ??
+          DateTime.now(),
+      customerId: json['customer_id']?.toString() ?? '',
+      customerName:
+          customerMap?['display_name']?.toString() ??
+          json['customer_name']?.toString() ??
+          '',
+      totalAmount: totalAmount,
+      taxLabel: 'None',
+      taxRate: 0,
+      amountUsed: amountApplied > 0 ? amountApplied : amountReceived,
+      status: retainerStatusFromApi(json['status']?.toString()),
+      referenceNo: json['reference_number']?.toString(),
+      customerEmail: customerMap?['email']?.toString(),
+      location: json['location']?.toString(),
+      notes: json['customer_notes']?.toString() ?? '',
+      termsAndConditions: json['terms_conditions']?.toString() ?? '',
+    );
+  }
+
   factory RetainerInvoice.create({
     required String id,
     required String invoiceNo,
     required DateTime date,
-    DateTime? expiryDate,
     required String customerId,
     required String customerName,
-    String? customerEmail,
     required double amount,
-    String taxLabel = 'None',
-    double taxRate = 0.0,
-    double amountUsed = 0.0,
-    String? paymentMode,
-    String? referenceNo,
-    String? location,
+    required String taxLabel,
+    required double taxRate,
+    required double amountUsed,
     required RetainerStatus status,
+    String? referenceNo,
+    String? customerEmail,
+    String? location,
     String notes = '',
     String termsAndConditions = '',
-    List<String> attachmentPaths = const [],
-    List<RetainerPaymentApplication> applications = const [],
   }) {
-    final taxAmount = amount * taxRate;
     return RetainerInvoice(
       id: id,
       invoiceNo: invoiceNo,
       date: date,
-      expiryDate: expiryDate,
       customerId: customerId,
       customerName: customerName,
-      customerEmail: customerEmail,
-      amount: amount,
+      totalAmount: amount,
       taxLabel: taxLabel,
       taxRate: taxRate,
-      taxAmount: taxAmount,
-      totalAmount: amount + taxAmount,
       amountUsed: amountUsed,
-      paymentMode: paymentMode,
-      referenceNo: referenceNo,
-      location: location,
       status: status,
+      referenceNo: referenceNo,
+      customerEmail: customerEmail,
+      location: location,
       notes: notes,
       termsAndConditions: termsAndConditions,
-      attachmentPaths: attachmentPaths,
-      applications: applications,
     );
   }
+
+  final String id;
+  final String invoiceNo;
+  final DateTime date;
+  final String customerId;
+  final String customerName;
+  final double totalAmount;
+  final String taxLabel;
+  final double taxRate;
+  final double amountUsed;
+  final RetainerStatus status;
+  final String? referenceNo;
+  final String? customerEmail;
+  final String? location;
+  final String notes;
+  final String termsAndConditions;
+
+  double get amount => totalAmount;
+  double get amountRemaining => (totalAmount - amountUsed).clamp(0.0, double.infinity);
 
   RetainerInvoice copyWith({
     String? id,
     String? invoiceNo,
     DateTime? date,
-    DateTime? expiryDate,
     String? customerId,
     String? customerName,
-    String? customerEmail,
-    double? amount,
+    double? totalAmount,
     String? taxLabel,
     double? taxRate,
-    double? taxAmount,
-    double? totalAmount,
     double? amountUsed,
-    String? paymentMode,
-    String? referenceNo,
-    String? location,
     RetainerStatus? status,
+    Object? referenceNo = _sentinel,
+    Object? customerEmail = _sentinel,
+    Object? location = _sentinel,
     String? notes,
     String? termsAndConditions,
-    List<String>? attachmentPaths,
-    List<RetainerPaymentApplication>? applications,
   }) {
     return RetainerInvoice(
       id: id ?? this.id,
       invoiceNo: invoiceNo ?? this.invoiceNo,
       date: date ?? this.date,
-      expiryDate: expiryDate ?? this.expiryDate,
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,
-      customerEmail: customerEmail ?? this.customerEmail,
-      amount: amount ?? this.amount,
+      totalAmount: totalAmount ?? this.totalAmount,
       taxLabel: taxLabel ?? this.taxLabel,
       taxRate: taxRate ?? this.taxRate,
-      taxAmount: taxAmount ?? this.taxAmount,
-      totalAmount: totalAmount ?? this.totalAmount,
       amountUsed: amountUsed ?? this.amountUsed,
-      paymentMode: paymentMode ?? this.paymentMode,
-      referenceNo: referenceNo ?? this.referenceNo,
-      location: location ?? this.location,
       status: status ?? this.status,
+      referenceNo: identical(referenceNo, _sentinel)
+          ? this.referenceNo
+          : referenceNo as String?,
+      customerEmail: identical(customerEmail, _sentinel)
+          ? this.customerEmail
+          : customerEmail as String?,
+      location: identical(location, _sentinel) ? this.location : location as String?,
       notes: notes ?? this.notes,
       termsAndConditions: termsAndConditions ?? this.termsAndConditions,
-      attachmentPaths: attachmentPaths ?? this.attachmentPaths,
-      applications: applications ?? this.applications,
     );
   }
 }
+
+const Object _sentinel = Object();

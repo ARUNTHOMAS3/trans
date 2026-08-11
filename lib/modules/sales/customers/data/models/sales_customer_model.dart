@@ -69,6 +69,7 @@ class SalesCustomer {
   final String? shippingAddressZip;
   final String? shippingAddressCountryId;
   final String? shippingAddressPhone;
+  final List<Map<String, dynamic>> additionalAddresses;
 
   // Social & CRM
   final bool? enablePortal;
@@ -152,6 +153,7 @@ class SalesCustomer {
     this.shippingAddressZip,
     this.shippingAddressCountryId,
     this.shippingAddressPhone,
+    this.additionalAddresses = const [],
     this.enablePortal,
     this.facebookHandle,
     this.twitterHandle,
@@ -227,6 +229,7 @@ class SalesCustomer {
     String? shippingAddressZip,
     String? shippingAddressCountryId,
     String? shippingAddressPhone,
+    List<Map<String, dynamic>>? additionalAddresses,
     bool? enablePortal,
     String? facebookHandle,
     String? twitterHandle,
@@ -309,6 +312,7 @@ class SalesCustomer {
       shippingAddressCountryId:
           shippingAddressCountryId ?? this.shippingAddressCountryId,
       shippingAddressPhone: shippingAddressPhone ?? this.shippingAddressPhone,
+      additionalAddresses: additionalAddresses ?? this.additionalAddresses,
       enablePortal: enablePortal ?? this.enablePortal,
       facebookHandle: facebookHandle ?? this.facebookHandle,
       twitterHandle: twitterHandle ?? this.twitterHandle,
@@ -419,6 +423,12 @@ class SalesCustomer {
           json['shipping_address_country'],
       shippingAddressPhone:
           json['shippingAddressPhone'] ?? json['shipping_address_phone'],
+      additionalAddresses: _parseAdditionalAddresses(
+        json['addresses'] ??
+            json['customer_addresses'] ??
+            json['addressBook'] ??
+            json['address_book'],
+      ),
       enablePortal: json['enablePortal'] ?? json['enable_portal'],
       facebookHandle: json['facebookHandle'] ?? json['facebook_handle'],
       twitterHandle: json['twitterHandle'] ?? json['twitter_handle'],
@@ -477,6 +487,22 @@ class SalesCustomer {
                       .toList()
                 : null),
     );
+  }
+
+  static List<Map<String, dynamic>> _parseAdditionalAddresses(dynamic value) {
+    if (value == null) {
+      return const <Map<String, dynamic>>[];
+    }
+    if (value is List) {
+      return value
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    if (value is Map) {
+      return <Map<String, dynamic>>[Map<String, dynamic>.from(value)];
+    }
+    return const <Map<String, dynamic>>[];
   }
 
   String get fullBillingAddress {
@@ -574,6 +600,7 @@ class SalesCustomer {
         'paymentTerms': paymentTerms,
       if (billingAddress.isNotEmpty) 'billingAddress': billingAddress,
       if (shippingAddress.isNotEmpty) 'shippingAddress': shippingAddress,
+      if (additionalAddresses.isNotEmpty) 'addresses': additionalAddresses,
       if (facebookHandle != null && facebookHandle!.isNotEmpty)
         'facebookHandle': facebookHandle,
       if (twitterHandle != null && twitterHandle!.isNotEmpty)
@@ -680,7 +707,6 @@ class CustomerContact {
   final String? email;
   final String? workPhone;
   final String? mobilePhone;
-  // Removed isPrimary
 
   CustomerContact({
     this.id,

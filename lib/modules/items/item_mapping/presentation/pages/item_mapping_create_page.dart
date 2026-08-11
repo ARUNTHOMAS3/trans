@@ -622,17 +622,13 @@ class _ItemTradeSetupCreatePageState
           date: DateTime.now(),
           customerId: productId,
           customerName: _selectedProduct!.name,
-          amount: 0.0,
           taxLabel: '',
           taxRate: 0.0,
-          taxAmount: 0.0,
           totalAmount: 0.0,
           amountUsed: 0.0,
           status: RetainerStatus.sent,
           notes: '',
           termsAndConditions: '',
-          attachmentPaths: const [],
-          applications: const [],
         );
         ref.read(retainerInvoicesProvider.notifier).addInvoice(newInvoice);
 

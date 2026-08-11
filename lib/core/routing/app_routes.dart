@@ -182,7 +182,9 @@ class AppRoutes {
   // Sales — Quotations
   static const String salesQuotations = '/sales/quotations';
   static const String salesQuotationsCreate = '/sales/quotations/create';
+  static const String salesQuotationsEdit = '/sales/quotations/:id/edit';
   static const String salesQuotationsDetail = '/sales/quotations/:id';
+  static const String salesQuotationsEmail = '/sales/quotations/:id/email';
 
   // Sales — Retainer Invoices
   static const String salesRetainerInvoices = '/sales/retainer-invoices';

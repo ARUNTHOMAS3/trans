@@ -156,6 +156,18 @@ export class SalesService {
     });
   }
 
+  private sanitizeSaleNumber(value: unknown): string | null {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/^QT-/i.test(trimmed)) {
+      throw new BadRequestException(
+        "Sales order number cannot use quote prefix QT-. Use an SO series number instead.",
+      );
+    }
+    return trimmed;
+  }
+
   async getSalesOrderById(id: string, orgId?: string) {
     const client = this.supabaseService.getClient();
     let query = client
@@ -686,12 +698,16 @@ export class SalesService {
       ? (finalSubTotal + finalShipping + finalAdjustment)
       : (Number(total) || (finalSubTotal + finalTaxTotal + finalShipping + finalAdjustment));
 
+    const sanitizedSaleNumber = documentType === "order"
+      ? this.sanitizeSaleNumber(saleNumber)
+      : (saleNumber || null);
+
     const { data: order, error } = await client
       .from("sales_orders")
       .insert({
         entity_id: orgId,
         customer_id: customerId,
-        sale_number: saleNumber || null,
+        sale_number: sanitizedSaleNumber,
         reference: reference || null,
         sale_date: saleDate || new Date().toISOString(),
         expected_shipment_date: expectedShipmentDate || null,
@@ -747,7 +763,7 @@ export class SalesService {
 
     const { data: existing, error: fetchError } = await client
       .from("sales_orders")
-      .select("id")
+      .select("id, document_type")
       .eq("id", id)
       .eq("entity_id", orgId)
       .single();
@@ -765,6 +781,7 @@ export class SalesService {
       deliveryMethod,
       salesperson,
       status,
+      documentType = existing.document_type,
       shippingCharges,
       adjustment,
       customerNotes,
@@ -889,11 +906,15 @@ export class SalesService {
       ? (finalSubTotal + finalShipping + finalAdjustment)
       : (Number(total) || (finalSubTotal + finalTaxTotal + finalShipping + finalAdjustment));
 
+    const sanitizedSaleNumber = documentType === "order"
+      ? this.sanitizeSaleNumber(saleNumber)
+      : (saleNumber || null);
+
     const { data: order, error: updateError } = await client
       .from("sales_orders")
       .update({
         customer_id: customerId,
-        sale_number: saleNumber || null,
+        sale_number: sanitizedSaleNumber,
         reference: reference || null,
         sale_date: saleDate || null,
         expected_shipment_date: expectedShipmentDate || null,

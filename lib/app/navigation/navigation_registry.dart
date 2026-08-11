@@ -123,7 +123,7 @@ class NavigationRegistry {
           permissionKey: 'customers',
         ),
         AppNavItem(
-          label: 'Quotations',
+          label: 'Quotes',
           listRoute: AppRoutes.salesQuotations,
           createRoute: AppRoutes.salesQuotationsCreate,
           permissionKey: 'quotations',

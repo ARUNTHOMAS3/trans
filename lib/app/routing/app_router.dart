@@ -26,7 +26,9 @@ import 'package:zerpai_erp/modules/sales/sales_orders/data/models/sales_order_mo
 import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
 import 'package:zerpai_erp/modules/sales/invoices/presentation/pages/sales_invoice_create.dart';
 import 'package:zerpai_erp/modules/sales/invoices/presentation/pages/sales_invoice_list.dart';
-import 'package:zerpai_erp/modules/sales/retainer_invoices/presentation/pages/sales_retainer_invoice_create.dart';
+import 'package:zerpai_erp/modules/sales/retainer_invoices/presentation/pages/retainer_invoice_overview.dart';
+import 'package:zerpai_erp/modules/sales/retainer_invoices/presentation/pages/retainer_invoices_create_page.dart';
+import 'package:zerpai_erp/modules/sales/retainer_invoices/presentation/pages/retainer_invoices_list_page.dart';
 import 'package:zerpai_erp/modules/sales/delivery_challans/presentation/pages/sales_delivery_challan_create.dart';
 import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/report_page.dart';
 import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/sales_payment_create.dart';
@@ -34,7 +36,8 @@ import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/sales_pay
 import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/payment_recieves_overview.dart';
 import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_add_page.dart';
 import 'package:zerpai_erp/modules/sales/eway_bills/presentation/pages/sales_eway_bill_create.dart';
-import 'package:zerpai_erp/modules/sales/quotations/presentation/pages/sales_quotation_create.dart';
+import 'package:zerpai_erp/modules/sales/quotations/presentation/pages/sales_quotes_create_page.dart';
+import 'package:zerpai_erp/modules/sales/quotations/presentation/pages/sales_quotes_report_page.dart';
 import 'package:zerpai_erp/modules/sales/documents/presentation/pages/sales_document_detail.dart';
 import 'package:zerpai_erp/modules/sales/customers/presentation/pages/sales_customer_overview.dart';
 import 'package:zerpai_erp/modules/sales/payment_links/presentation/pages/sales_payment_link_create.dart';
@@ -772,8 +775,7 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'sales/quotations',
               name: AppRoutes.salesQuotations,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Quotations'),
+              builder: (context, state) => const SalesQuotationReportPage(),
               routes: [
                 GoRoute(
                   path: 'create',
@@ -795,22 +797,19 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'sales/retainer-invoices',
               name: AppRoutes.salesRetainerInvoices,
-              builder: (context, state) =>
-                  const PlaceholderScreen(title: 'Retainer Invoices'),
+              builder: (context, state) => const RetainerInvoicesListPage(),
               routes: [
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesRetainerInvoicesCreate,
                   builder: (context, state) =>
-                      const SalesRetainerInvoiceCreateScreen(),
+                      const RetainerInvoicesCreatePage(),
                 ),
                 GoRoute(
                   path: ':id',
                   name: AppRoutes.salesRetainerInvoicesDetail,
-                  builder: (context, state) => SalesDocumentDetailScreen(
-                    id: state.pathParameters['id']!,
-                    documentType: 'retainer_invoice',
-                    initialTab: state.uri.queryParameters['tab'],
+                  builder: (context, state) => RetainerInvoiceOverviewScreen(
+                    invoiceId: state.pathParameters['id']!,
                   ),
                 ),
               ],
