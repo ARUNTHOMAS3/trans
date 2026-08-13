@@ -937,6 +937,7 @@ class _SalesOrderOverviewScreenState
             if (ref.watch(entityProvider).type == 'ORG')
               TextButton(
                 onPressed: () {
+                  ref.invalidate(awaitingPoApprovalsProvider);
                   _showRemainingPoApprovalDialog(context);
                 },
                 child: const Text('Purchase Order Approval'),

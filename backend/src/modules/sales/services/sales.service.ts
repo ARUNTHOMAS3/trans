@@ -1861,11 +1861,9 @@ export class SalesService {
 
   async getAwaitingPoApprovals(tenant: TenantContext) {
     const starlexOrgEntityId = "66d79887-be98-40ab-ac40-9e0a008f9d8a";
-    
-    // Only apply if active entity is Starlex ORG itself or organization matches
-    if (tenant.entityId !== starlexOrgEntityId && tenant.orgId !== "00000000-0000-0000-0000-000000000002") {
-      return [];
-    }
+    const targetOrgId = (tenant.entityId && tenant.entityId !== "00000000-0000-0000-0000-000000000002")
+      ? tenant.entityId
+      : starlexOrgEntityId;
 
     const client = this.supabaseService.getClient();
 
@@ -1873,7 +1871,7 @@ export class SalesService {
     const { data: branches, error: branchesError } = await client
       .from("organisation_branch_master")
       .select("id, name, ref_id")
-      .eq("parent_id", starlexOrgEntityId)
+      .eq("parent_id", targetOrgId)
       .eq("type", "BRANCH");
 
     if (branchesError || !branches || branches.length === 0) {
@@ -1898,7 +1896,7 @@ export class SalesService {
         .from("customers")
         .select("associated_branch_id, credit_limit")
         .in("associated_branch_id", branchRefIds)
-        .eq("entity_id", starlexOrgEntityId);
+        .eq("entity_id", targetOrgId);
       if (custs) {
         for (const c of custs) {
           if (c.associated_branch_id) {
@@ -1911,7 +1909,7 @@ export class SalesService {
       }
     }
 
-    // 3. Find POs from these branches that are created against the organization vendor (id: db013159-6ac3-49a6-95b1-eaec10f964db)
+    // 3. Find POs from these branches that are created against the organization vendor
     // whose status is not 'Draft', and is_delete is false.
     const { data: pos, error: posError } = await client
       .from("purchase_orders")
@@ -1944,56 +1942,36 @@ export class SalesService {
     // 4. Get all existing references in sales_orders under the parent organization
     // to filter out POs that have already been converted to Sales Orders.
     const poNumbers = pos.map((p) => p.order_number).filter(Boolean);
-    let usedReferences: string[] = [];
+    let usedPoIds: string[] = [];
 
     if (poNumbers.length > 0) {
       const { data: sos } = await client
         .from("sales_orders")
-        .select("id, reference")
-        .eq("entity_id", starlexOrgEntityId)
-        .in("reference", poNumbers);
+        .select("id, reference, sale_date, created_at, status")
+        .eq("entity_id", targetOrgId)
+        .in("reference", poNumbers)
+        .neq("status", "void");
 
       if (sos && sos.length > 0) {
-        const salesOrderIds = sos.map((so) => so.id);
-        
-        // Fetch picklist items for these Sales Orders
-        const { data: picklistItems } = await client
-          .from("picklist_items")
-          .select("sales_order_id, quantity_picked")
-          .in("sales_order_id", salesOrderIds);
+        for (const po of pos) {
+          const poDate = new Date(po.order_date);
+          const poDateBuffer = new Date(poDate.getTime() - 24 * 60 * 60 * 1000);
 
-        // Group picklist items by Sales Order ID
-        const picklistItemsMap = new Map<string, any[]>();
-        if (picklistItems) {
-          for (const item of picklistItems) {
-            if (!picklistItemsMap.has(item.sales_order_id)) {
-              picklistItemsMap.set(item.sales_order_id, []);
-            }
-            picklistItemsMap.get(item.sales_order_id)!.push(item);
+          const isApproved = sos.some((so) => {
+            if (so.reference !== po.order_number) return false;
+            const soDate = new Date(so.created_at || so.sale_date);
+            return soDate >= poDateBuffer;
+          });
+
+          if (isApproved) {
+            usedPoIds.push(po.id);
           }
-        }
-
-        for (const so of sos) {
-          if (!so.reference) continue;
-          
-          const items = picklistItemsMap.get(so.id) || [];
-          
-          // If a picklist is created for the Sales Order:
-          // Check if quantity picked is 0 (Yet to Start status) or more.
-          // Since the user says: "if picklist is created with quantity picked =0 (yet to start status) then dont show that item"
-          // We exclude the PO if picking is yet to start (picked sum = 0) OR if picking has already started/completed (picked sum > 0).
-          // We also exclude it if no picklist items are found (Sales Order exists).
-          const totalPicked = items.reduce((sum, item) => sum + (parseFloat(item.quantity_picked || "0")), 0);
-          
-          // Therefore, if a Sales Order is created (and by extension its picklist is created with qty_picked >= 0),
-          // we exclude this reference from the awaiting list.
-          usedReferences.push(so.reference);
         }
       }
     }
 
     // Filter out used POs
-    const filteredPos = pos.filter((po) => !po.order_number || !usedReferences.includes(po.order_number));
+    const filteredPos = pos.filter((po) => !usedPoIds.includes(po.id));
 
     const result = filteredPos.map((po) => {
       const refId = branchRefMap.get(po.entity_id);
@@ -2017,9 +1995,12 @@ export class SalesService {
   async approvePurchaseOrders(poIds: string[], tenant: TenantContext) {
     const client = this.supabaseService.getClient();
     const starlexOrgEntityId = "66d79887-be98-40ab-ac40-9e0a008f9d8a";
+    const targetOrgId = (tenant.entityId && tenant.entityId !== "00000000-0000-0000-0000-000000000002")
+      ? tenant.entityId
+      : starlexOrgEntityId;
     
-    // Resolve the default sales account for starlexOrgEntityId
-    const defaultSalesAccountId = await this.resolveDefaultSalesAccountId(starlexOrgEntityId);
+    // Resolve the default sales account for targetOrgId
+    const defaultSalesAccountId = await this.resolveDefaultSalesAccountId(targetOrgId);
     
     const results = [];
     for (const poId of poIds) {
@@ -2034,12 +2015,16 @@ export class SalesService {
         throw new NotFoundException(`Purchase Order ${poId} not found`);
       }
       
-      // 2. Check if Sales Order already exists
+      // 2. Check if Sales Order already exists for this PO (on or after PO order_date)
+      const poDate = new Date(po.order_date);
+      const poDateBuffer = new Date(poDate.getTime() - 24 * 60 * 60 * 1000).toISOString();
       const { data: existingSo } = await client
         .from("sales_orders")
         .select("id")
-        .eq("entity_id", starlexOrgEntityId)
+        .eq("entity_id", targetOrgId)
         .eq("reference", po.order_number)
+        .gte("created_at", poDateBuffer)
+        .neq("status", "void")
         .maybeSingle();
       
       if (existingSo) {

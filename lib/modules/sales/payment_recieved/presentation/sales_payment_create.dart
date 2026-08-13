@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_text_styles.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
@@ -286,6 +287,9 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
 
   String? _selectedTdsTaxAccount = 'Advance Tax';
   String? _selectedTransactionSeries = 'Default Transaction Series';
+  bool _isAutoGeneratePayment = true;
+  String _paymentPrefix = '';
+  String _paymentNextNumber = '305';
 
   @override
   void initState() {
@@ -615,55 +619,37 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
     );
   }
 
-  void _showConfigurePreferencesDialog() {
-    showGeneralDialog(
+  void _showConfigurePreferencesDialog() async {
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      transitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (context, anim1, anim2) {
-        return Align(
-          alignment: Alignment.topCenter,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              margin: const EdgeInsets.only(top: 0, left: 12, right: 12),
-              constraints: const BoxConstraints(maxWidth: 650),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: _ConfigurePaymentPreferencesDialog(
-                location: _selectedLocation ?? '',
-                associatedSeries:
-                    _selectedTransactionSeries ?? 'Default Transaction Series',
-                initialNextNumber: _paymentController.text,
-                onSave: (nextNum) {
-                  setState(() {
-                    _paymentController.text = nextNum;
-                  });
-                },
-              ),
-            ),
-          ),
-        );
-      },
-      transitionBuilder: (context, anim1, anim2, child) {
-        final offsetAnimation = Tween<Offset>(
-          begin: const Offset(0, -1),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut));
-        return SlideTransition(position: offsetAnimation, child: child);
-      },
+      builder: (context) => SalesPaymentPreferencesDialog(
+        currentPrefix: _paymentPrefix,
+        currentNextNumber: () {
+          String currentText = _paymentController.text.trim();
+          if (_paymentPrefix.isNotEmpty &&
+              currentText.startsWith(_paymentPrefix)) {
+            return currentText.substring(_paymentPrefix.length);
+          }
+          final match = RegExp(r'\d+$').firstMatch(currentText);
+          return match != null ? match.group(0)! : _paymentNextNumber;
+        }(),
+        isAutoGenerate: _isAutoGeneratePayment,
+        locationName: _selectedLocation,
+        associatedSeries:
+            _selectedTransactionSeries ?? 'Default Transaction Series',
+      ),
     );
+
+    if (result != null && mounted) {
+      setState(() {
+        _isAutoGeneratePayment = result['isAutoGenerate'] ?? true;
+        _paymentPrefix = result['prefix'] ?? '';
+        _paymentNextNumber = result['nextNumber'] ?? '';
+        if (_isAutoGeneratePayment) {
+          _paymentController.text = '$_paymentPrefix$_paymentNextNumber';
+        }
+      });
+    }
   }
 
   /// Payment # field with two columns: dropdown and input with settings cog icon
@@ -672,9 +658,10 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
     return Row(
       children: [
         Expanded(
-          flex: 3,
+          flex: 4,
           child: FormDropdown<String>(
             value: _selectedTransactionSeries,
+            height: 32,
             items: const ['Default Transaction Series'],
             hint: 'Select Series',
             onChanged: isEditing
@@ -682,24 +669,27 @@ class _InvoicePaymentBodyState extends ConsumerState<_InvoicePaymentBody> {
                 : (val) => setState(() => _selectedTransactionSeries = val),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         Expanded(
-          flex: 2,
+          flex: 3,
           child: CustomTextField(
             controller: _paymentController,
+            height: 32,
             enabled: !isEditing,
             suffixWidget: isEditing
                 ? null
                 : ZTooltip(
                     message:
-                        'Click here to configure auto-generation of payment numbers.',
-                    direction: ZTooltipDirection.bottom,
+                        'Click here to enable or disable auto-generation of payment numbers.',
                     child: InkWell(
                       onTap: _showConfigurePreferencesDialog,
-                      child: const Icon(
-                        Icons.settings_outlined,
-                        color: AppTheme.primaryBlue,
-                        size: 18,
+                      child: const Padding(
+                        padding: EdgeInsets.only(right: 2),
+                        child: Icon(
+                          LucideIcons.settings,
+                          color: Color(0xFF3B82F6),
+                          size: 14,
+                        ),
                       ),
                     ),
                   ),
@@ -2485,38 +2475,42 @@ class _ActionButtons extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Configure Payment Number Preferences Dialog (as shown in screenshot)
+// Configure Payment Number Preferences Dialog
 // ─────────────────────────────────────────────────────────────────────────────
-class _ConfigurePaymentPreferencesDialog extends StatefulWidget {
-  final String location;
+class SalesPaymentPreferencesDialog extends StatefulWidget {
+  final String currentPrefix;
+  final String currentNextNumber;
+  final bool isAutoGenerate;
+  final String? locationName;
   final String associatedSeries;
-  final String initialNextNumber;
-  final ValueChanged<String> onSave;
 
-  const _ConfigurePaymentPreferencesDialog({
-    required this.location,
-    required this.associatedSeries,
-    required this.initialNextNumber,
-    required this.onSave,
+  const SalesPaymentPreferencesDialog({
+    super.key,
+    required this.currentPrefix,
+    required this.currentNextNumber,
+    required this.isAutoGenerate,
+    this.locationName,
+    this.associatedSeries = 'Default Transaction Series',
   });
 
   @override
-  State<_ConfigurePaymentPreferencesDialog> createState() =>
-      _ConfigurePaymentPreferencesDialogState();
+  State<SalesPaymentPreferencesDialog> createState() =>
+      _SalesPaymentPreferencesDialogState();
 }
 
-class _ConfigurePaymentPreferencesDialogState
-    extends State<_ConfigurePaymentPreferencesDialog> {
-  int _mode = 0; // 0: Auto-generate, 1: Manual
-  final TextEditingController _prefixController = TextEditingController();
-  late final TextEditingController _nextNumberController;
-  bool _restartFiscalYear = false;
+class _SalesPaymentPreferencesDialogState
+    extends State<SalesPaymentPreferencesDialog> {
+  late bool _isAutoGenerate;
+  late TextEditingController _prefixController;
+  late TextEditingController _nextNumberController;
 
   @override
   void initState() {
     super.initState();
+    _isAutoGenerate = widget.isAutoGenerate;
+    _prefixController = TextEditingController(text: widget.currentPrefix);
     _nextNumberController = TextEditingController(
-      text: widget.initialNextNumber,
+      text: widget.currentNextNumber,
     );
   }
 
@@ -2529,55 +2523,56 @@ class _ConfigurePaymentPreferencesDialogState
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Title Bar
-        Container(
-          padding: const EdgeInsets.only(
-            left: 24,
-            right: 24,
-            top: 0,
-            bottom: 16,
-          ),
-          decoration: const BoxDecoration(
-            color: Color(0xFFF9FAFB),
-            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-          ),
-          child: Row(
-            children: [
-              const Text(
-                'Configure Payment Number Preferences',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+    return Dialog(
+      alignment: Alignment.topCenter,
+      insetPadding: const EdgeInsets.only(
+        top: 0,
+        left: 24,
+        right: 24,
+        bottom: 24,
+      ),
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        width: 550,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Configure Payment# Preferences',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2937),
+                  ),
                 ),
-              ),
-              const Spacer(),
-              InkWell(
-                onTap: () => Navigator.pop(context),
-                child: const Icon(
-                  Icons.close,
-                  color: Color(0xFFEF4444),
-                  size: 20,
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(
+                    LucideIcons.x,
+                    color: Color(0xFFEF4444),
+                    size: 20,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+            const SizedBox(height: 24),
 
-        // Content
-        Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Info Row
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            // Location & Associated Series
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.locationName != null &&
+                    widget.locationName!.isNotEmpty) ...[
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2585,264 +2580,279 @@ class _ConfigurePaymentPreferencesDialogState
                         const Text(
                           'Location',
                           style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF374151),
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          widget.location,
+                          widget.locationName!,
                           style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
+                            fontSize: 14,
+                            color: Color(0xFF6B7280),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Associated Series',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.associatedSeries,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  const SizedBox(width: 24),
                 ],
-              ),
-
-              const SizedBox(height: 16),
-              const Divider(color: AppTheme.borderColor),
-              const SizedBox(height: 16),
-
-              const Text(
-                'Auto-generating payment numbers can save your time. Would you like to change your current setting?',
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-              ),
-              const SizedBox(height: 16),
-
-              // Option 1: Auto-generate
-              RadioScope<int>(
-                value: _mode,
-                onChanged: (val) => setState(() => _mode = val),
-                child: Row(
-                  children: [
-                    RadioGroupItem<int>(
-                      value: 0,
-                      activeColor: AppTheme.primaryBlue,
-                    ),
-                    const Text(
-                      'Auto-generate payment numbers',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.info_outline,
-                      size: 14,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ],
-                ),
-              ),
-
-              if (_mode == 0) ...[
-                Padding(
-                  padding: const EdgeInsets.only(left: 32, top: 8, bottom: 8),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          // Prefix
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Prefix',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                SizedBox(
-                                  height: 36,
-                                  child: CustomTextField(
-                                    controller: _prefixController,
-                                    suffixWidget: const Icon(
-                                      Icons.add_circle_outline,
-                                      color: AppTheme.primaryBlue,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          // Next Number
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Next Number',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                SizedBox(
-                                  height: 36,
-                                  child: CustomTextField(
-                                    controller: _nextNumberController,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                      const Text(
+                        'Associated Series',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF374151),
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      // Fiscal Year Checkbox
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: Checkbox(
-                              value: _restartFiscalYear,
-                              activeColor: AppTheme.primaryBlue,
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() => _restartFiscalYear = val);
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Restart numbering for payments at the start of each fiscal year.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.associatedSeries,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF6B7280),
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 16),
 
-              // Option 2: Manual
-              RadioScope<int>(
-                value: _mode,
-                onChanged: (val) => setState(() => _mode = val),
-                child: Row(
-                  children: [
-                    RadioGroupItem<int>(
-                      value: 1,
-                      activeColor: AppTheme.primaryBlue,
-                    ),
-                    const Text(
-                      'Add payment number manually for this payment',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
+            // Warning / Info Text
+            const Text(
+              'Your payment numbers are set on auto-generate mode to save your time. Are you sure about changing this setting?',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF4B5563),
+                height: 1.5,
               ),
+            ),
+            const SizedBox(height: 20),
 
-              const SizedBox(height: 24),
-
-              // Actions
-              Row(
+            // Radio Options
+            RadioGroup<bool>(
+              groupValue: _isAutoGenerate,
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() => _isAutoGenerate = val);
+                }
+              },
+              child: Column(
                 children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      widget.onSave(
-                        _mode == 0 ? _nextNumberController.text : '',
-                      );
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981), // green
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
+                  // Option 1: Auto-generate
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: Radio<bool>(
+                          value: true,
+                          activeColor: Color(0xFF3B82F6),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'Continue auto-generating payment numbers',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF1F2937),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                ZTooltip(
+                                  message:
+                                      'The edited prefix and next number will be updated in the transaction number series associated with your payment.',
+                                  child: Icon(
+                                    Icons.info_outline,
+                                    size: 14,
+                                    color: Colors.blue.shade400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_isAutoGenerate) ...[
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Prefix',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF6B7280),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        TextField(
+                                          controller: _prefixController,
+                                          decoration: InputDecoration(
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 8,
+                                                ),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              borderSide: const BorderSide(
+                                                color: Color(0xFFD1D5DB),
+                                              ),
+                                            ),
+                                            isDense: true,
+                                          ),
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Next Number',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF6B7280),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        TextField(
+                                          controller: _nextNumberController,
+                                          decoration: InputDecoration(
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 8,
+                                                ),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              borderSide: const BorderSide(
+                                                color: Color(0xFFD1D5DB),
+                                              ),
+                                            ),
+                                            isDense: true,
+                                          ),
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
-                    child: const Text(
-                      'Save',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.textBody,
-                      side: const BorderSide(color: AppTheme.borderColor),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
+                  const SizedBox(height: 16),
+
+                  // Option 2: Manual
+                  const Row(
+                    children: [
+                      SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: Radio<bool>(
+                          value: false,
+                          activeColor: Color(0xFF3B82F6),
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
+                      SizedBox(width: 8),
+                      Text(
+                        'Enter payment numbers manually',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF1F2937),
+                        ),
                       ),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textBody,
-                      ),
-                    ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 32),
+
+            // Actions
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context, {
+                      'isAutoGenerate': _isAutoGenerate,
+                      'prefix': _prefixController.text,
+                      'nextNumber': _nextNumberController.text,
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF374151),
+                    side: const BorderSide(color: Color(0xFFD1D5DB)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -3313,6 +3323,9 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
   String? _selectedLocation;
   String? _selectedTax = 'Select a Tax';
   String? _selectedSeries = 'Default Transaction Series';
+  bool _isAutoGenerateAdvPayment = true;
+  String _advPaymentPrefix = '';
+  String _advPaymentNextNumber = '305';
   String? _selectedPaymentMode = 'Cash';
   // Holds the selected "Deposit To" account id from the chart of accounts tree.
   String? _selectedDepositToId;
@@ -3646,54 +3659,76 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
     }
   }
 
-  void _showConfigurePreferencesDialog() {
-    showGeneralDialog(
+  void _showConfigurePreferencesDialog() async {
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      transitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (context, anim1, anim2) {
-        return Align(
-          alignment: Alignment.topCenter,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              margin: const EdgeInsets.only(top: 0, left: 12, right: 12),
-              constraints: const BoxConstraints(maxWidth: 650),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
+      builder: (context) => SalesPaymentPreferencesDialog(
+        currentPrefix: _advPaymentPrefix,
+        currentNextNumber: () {
+          String currentText = _paymentNumberController.text.trim();
+          if (_advPaymentPrefix.isNotEmpty &&
+              currentText.startsWith(_advPaymentPrefix)) {
+            return currentText.substring(_advPaymentPrefix.length);
+          }
+          final match = RegExp(r'\d+$').firstMatch(currentText);
+          return match != null ? match.group(0)! : _advPaymentNextNumber;
+        }(),
+        isAutoGenerate: _isAutoGenerateAdvPayment,
+        locationName: _selectedLocation,
+        associatedSeries: _selectedSeries ?? 'Default Transaction Series',
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _isAutoGenerateAdvPayment = result['isAutoGenerate'] ?? true;
+        _advPaymentPrefix = result['prefix'] ?? '';
+        _advPaymentNextNumber = result['nextNumber'] ?? '';
+        if (_isAutoGenerateAdvPayment) {
+          _paymentNumberController.text =
+              '$_advPaymentPrefix$_advPaymentNextNumber';
+        }
+      });
+    }
+  }
+
+  Widget _paymentBar() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 4,
+          child: FormDropdown<String>(
+            value: _selectedSeries,
+            height: 32,
+            items: const ['Default Transaction Series'],
+            hint: 'Select Series',
+            onChanged: (val) => setState(() => _selectedSeries = val),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 3,
+          child: CustomTextField(
+            controller: _paymentNumberController,
+            height: 32,
+            suffixWidget: ZTooltip(
+              message:
+                  'Click here to enable or disable auto-generation of payment numbers.',
+              child: InkWell(
+                onTap: _showConfigurePreferencesDialog,
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 2),
+                  child: Icon(
+                    LucideIcons.settings,
+                    color: Color(0xFF3B82F6),
+                    size: 14,
                   ),
-                ],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: _AdvConfigurePaymentPreferencesDialog(
-                location: _selectedLocation ?? '',
-                associatedSeries:
-                    _selectedSeries ?? 'Default Transaction Series',
-                initialNextNumber: _paymentNumberController.text,
-                onSave: (nextNum) {
-                  setState(() {
-                    _paymentNumberController.text = nextNum;
-                  });
-                },
+                ),
               ),
             ),
           ),
-        );
-      },
-      transitionBuilder: (context, anim1, anim2, child) {
-        final offsetAnimation = Tween<Offset>(
-          begin: const Offset(0, -1),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOut));
-        return SlideTransition(position: offsetAnimation, child: child);
-      },
+        ),
+      ],
     );
   }
 
@@ -4172,42 +4207,6 @@ class _CustomerAdvanceBodyState extends ConsumerState<_CustomerAdvanceBody> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _paymentBar() {
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: FormDropdown<String>(
-            value: _selectedSeries,
-            items: const ['Default Transaction Series'],
-            hint: 'Select Series',
-            onChanged: (val) => setState(() => _selectedSeries = val),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 2,
-          child: CustomTextField(
-            controller: _paymentNumberController,
-            suffixWidget: ZTooltip(
-              message:
-                  'Click here to configure auto-generation of payment numbers.',
-              direction: ZTooltipDirection.bottom,
-              child: InkWell(
-                onTap: _showConfigurePreferencesDialog,
-                child: const Icon(
-                  Icons.settings_outlined,
-                  color: AppTheme.primaryBlue,
-                  size: 18,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 

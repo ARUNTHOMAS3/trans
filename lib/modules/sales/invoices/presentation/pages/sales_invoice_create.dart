@@ -1234,6 +1234,7 @@ class _SalesInvoiceCreateScreenState
       if (mounted) {
         setState(() {
           _salespersonList = persons;
+          _resolveSalespersonUuid();
         });
       }
     } catch (e) {
@@ -1243,17 +1244,43 @@ class _SalesInvoiceCreateScreenState
 
   void _resolveSalespersonUuid() {
     if (salesperson == null || salesperson!.isEmpty) return;
+
+    if (_salespersonList.isNotEmpty) {
+      try {
+        final matched = _salespersonList.firstWhere(
+          (p) =>
+              p['id']?.toString() == salesperson ||
+              p['uuid']?.toString() == salesperson ||
+              p['user_id']?.toString() == salesperson ||
+              (p['full_name'] ?? p['name'] ?? p['display_name'] ?? '')
+                      .toString()
+                      .toLowerCase() ==
+                  salesperson!.toLowerCase(),
+        );
+        final matchedId = (matched['id'] ?? matched['uuid'] ?? matched['user_id'])?.toString();
+        if (matchedId != null && matchedId.isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              salesperson = matchedId;
+            });
+          }
+          return;
+        }
+      } catch (_) {}
+    }
+
     ref.read(allUsersProvider.future).then((users) {
-      if (mounted) {
+      if (!mounted) return;
+      try {
+        final matchedUser = users.firstWhere(
+          (u) =>
+              u.id == salesperson ||
+              u.fullName.toLowerCase() == salesperson!.toLowerCase(),
+        );
         setState(() {
-          try {
-            final matchedUser = users.firstWhere(
-              (u) => u.id == salesperson || u.fullName.toLowerCase() == salesperson!.toLowerCase(),
-            );
-            salesperson = matchedUser.id;
-          } catch (_) {}
+          salesperson = matchedUser.id;
         });
-      }
+      } catch (_) {}
     }).catchError((_) {});
   }
 
@@ -1769,11 +1796,15 @@ class _SalesInvoiceCreateScreenState
           }
         }
       }
-      return options.first.label.isNotEmpty
-          ? options.first.label
-          : '${options.first.code} - ${options.first.name}';
+      final defaultOption = options.firstWhere(
+        (c) => c.code.toUpperCase() == 'INR',
+        orElse: () => options.first,
+      );
+      return defaultOption.label.isNotEmpty
+          ? defaultOption.label
+          : '${defaultOption.code} - ${defaultOption.name}';
     }
-    return '';
+    return 'INR - Indian Rupee';
   }
 
   String _resolveCurrencySymbol(
@@ -1793,9 +1824,13 @@ class _SalesInvoiceCreateScreenState
           }
         }
       }
-      return options.first.symbol;
+      final defaultOption = options.firstWhere(
+        (c) => c.code.toUpperCase() == 'INR',
+        orElse: () => options.first,
+      );
+      return defaultOption.symbol;
     }
-    return '';
+    return '₹';
   }
 
   void _showNewCustomerDialog() {
@@ -2402,10 +2437,10 @@ class _SalesInvoiceCreateScreenState
                             _selectedCustomer;
 
                   if (_selectedCustomerId != null &&
-                      _selectedCustomer == null &&
-                      selectedCustomerFromList != null) {
+                      selectedCustomerFromList != null &&
+                      _selectedCustomer != selectedCustomerFromList) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) {
+                      if (mounted && _selectedCustomer != selectedCustomerFromList) {
                         setState(() {
                           _selectedCustomer = selectedCustomerFromList;
                         });
@@ -2905,24 +2940,44 @@ class _SalesInvoiceCreateScreenState
                   value: salesperson,
                   height: _kDropdownHeight,
                   allowClear: true,
-                  items: _salespersonList
-                      .map((p) => p['id']?.toString() ?? '')
-                      .where((id) => id.isNotEmpty)
-                      .toList(),
+                  items: () {
+                    final list = _salespersonList
+                        .map((p) => (p['id'] ?? p['uuid'] ?? p['user_id'] ?? p['full_name'] ?? p['name'] ?? '').toString())
+                        .where((id) => id.isNotEmpty)
+                        .toList();
+                    if (salesperson != null && salesperson!.isNotEmpty && !list.contains(salesperson)) {
+                      list.insert(0, salesperson!);
+                    }
+                    return list;
+                  }(),
                   displayStringForValue: (val) {
                     final person = _salespersonList.firstWhere(
-                      (p) => p['id']?.toString() == val,
+                      (p) =>
+                          p['id']?.toString() == val ||
+                          p['uuid']?.toString() == val ||
+                          p['user_id']?.toString() == val ||
+                          (p['full_name'] ?? p['name'] ?? p['display_name'])?.toString() == val,
                       orElse: () => <String, dynamic>{},
                     );
-                    return person['full_name']?.toString() ?? val;
+                    return person['full_name']?.toString() ??
+                        person['name']?.toString() ??
+                        person['display_name']?.toString() ??
+                        val;
                   },
                   itemBuilder: (id, isSelected, isHovered) {
                     final sp = _salespersonList.firstWhere(
-                      (s) => s['id']?.toString() == id,
+                      (s) =>
+                          s['id']?.toString() == id ||
+                          s['uuid']?.toString() == id ||
+                          s['user_id']?.toString() == id ||
+                          (s['full_name'] ?? s['name'] ?? s['display_name'])?.toString() == id,
                       orElse: () => <String, dynamic>{},
                     );
                     return _dropdownItemBuilder(
-                      sp['full_name']?.toString() ?? id,
+                      sp['full_name']?.toString() ??
+                          sp['name']?.toString() ??
+                          sp['display_name']?.toString() ??
+                          id,
                       isSelected,
                       isHovered,
                     );

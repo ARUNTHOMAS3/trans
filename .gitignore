@@ -424,6 +424,7 @@ backups/
 
 
 fix
+devops plan
 ios/Runner/GeneratedPluginRegistrant.h
 ios/Flutter/ephemeral/flutter_lldbinit
 ios/Flutter/ephemeral/flutter_lldb_helper.py

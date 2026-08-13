@@ -1619,11 +1619,11 @@ class _ItemTradeSetupOverviewPageState
 
     _bankChargesController.dispose();
 
-    _closeMoreMenu();
+    _closeMoreMenu(updateState: false);
 
-    _closeAttachmentPopover();
+    _closeAttachmentPopover(updateState: false);
 
-    _closePanOverlay();
+    _closePanOverlay(updateState: false);
 
     _panTextController.dispose();
 
@@ -2049,7 +2049,7 @@ class _ItemTradeSetupOverviewPageState
 
 
 
-  void _closePanOverlay() {
+  void _closePanOverlay({bool updateState = true}) {
 
     if (!_isPanOverlayOpen) return;
 
@@ -2057,11 +2057,19 @@ class _ItemTradeSetupOverviewPageState
 
     _panOverlayEntry = null;
 
-    setState(() {
+    if (updateState && mounted) {
+
+      setState(() {
+
+        _isPanOverlayOpen = false;
+
+      });
+
+    } else {
 
       _isPanOverlayOpen = false;
 
-    });
+    }
 
   }
 
@@ -3205,15 +3213,19 @@ class _ItemTradeSetupOverviewPageState
 
 
 
-  void _closeAttachmentPopover() {
+  void _closeAttachmentPopover({bool updateState = true}) {
 
     _attachmentOverlayEntry?.remove();
 
     _attachmentOverlayEntry = null;
 
-    if (mounted && _isAttachmentPopoverOpen) {
+    if (updateState && mounted && _isAttachmentPopoverOpen) {
 
       setState(() => _isAttachmentPopoverOpen = false);
+
+    } else {
+
+      _isAttachmentPopoverOpen = false;
 
     }
 
@@ -4659,13 +4671,13 @@ class _ItemTradeSetupOverviewPageState
 
 
 
-  void _closeMoreMenu() {
+  void _closeMoreMenu({bool updateState = true}) {
 
     _moreMenuOverlayEntry?.remove();
 
     _moreMenuOverlayEntry = null;
 
-    if (mounted) {
+    if (updateState && mounted) {
 
       setState(() {
 
@@ -4674,6 +4686,12 @@ class _ItemTradeSetupOverviewPageState
         _activeSubMenu = null;
 
       });
+
+    } else {
+
+      _isMoreMenuOpen = false;
+
+      _activeSubMenu = null;
 
     }
 

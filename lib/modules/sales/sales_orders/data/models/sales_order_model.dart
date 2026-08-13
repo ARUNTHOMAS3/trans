@@ -124,7 +124,12 @@ class SalesOrder {
           : null,
       paymentTerms: json['payment_terms']?.toString(),
       deliveryMethod: json['delivery_method']?.toString(),
-      salesperson: (json['salesperson'] ?? json['salesperson'])?.toString(),
+      salesperson: (json['salesperson_id'] ??
+              json['salespersonId'] ??
+              json['salesperson_name'] ??
+              json['salespersonName'] ??
+              json['salesperson'])
+          ?.toString(),
       status: json['status'] ?? 'draft',
       documentType: json['document_type'] ?? json['documentType'] ?? 'order',
       subTotal: (json['sub_total'] ?? json['subTotal'] ?? 0.0).toDouble(),

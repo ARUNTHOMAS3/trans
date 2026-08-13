@@ -891,6 +891,19 @@ final GoRouter appRouter = GoRouter(
                   ),
                 ),
                 GoRoute(
+                  path: ':id/edit',
+                  name: AppRoutes.salesInvoicesEdit,
+                  builder: (context, state) {
+                    final initialOrder = state.extra;
+                    return SalesInvoiceCreateScreen(
+                      initialOrder: initialOrder is SalesOrder
+                          ? initialOrder
+                          : null,
+                      initialOrderId: state.pathParameters['id'],
+                    );
+                  },
+                ),
+                GoRoute(
                   path: ':id',
                   name: AppRoutes.salesInvoicesDetail,
                   builder: (context, state) => SalesInvoiceOverviewScreen(
