@@ -1651,29 +1651,36 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     notifier.reset();
 
     try {
+      final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+          .hasMatch(requestNumber);
+
       final fullNumber = requestNumber.startsWith('PR-')
           ? requestNumber
           : 'PR-$requestNumber';
-      _sourcePrNumbers.add(fullNumber);
 
-      final pr = await Supabase.instance.client
+      final query = Supabase.instance.client
           .from('purchase_requests')
-          .select('id, status, expected_date, reference_number, internal_notes, '
+          .select('id, request_number, status, expected_date, reference_number, internal_notes, '
               'purchase_request_items('
               'product_id, required_qty, pending_qty, estimated_rate, '
               'discount_percentage, description, preferred_vendor_id, '
               'products(product_name, item_code, hsn_sac_code)'
-              ')')
-          .eq('request_number', fullNumber)
-          .maybeSingle();
+              ')');
+
+      final pr = isUuid
+          ? await query.eq('id', requestNumber).maybeSingle()
+          : await query.or('request_number.eq.$fullNumber,request_number.eq.$requestNumber').maybeSingle();
 
       if (!mounted) return;
       if (pr == null) {
-        AppLogger.warning('Purchase request $fullNumber not found',
+        AppLogger.warning('Purchase request $requestNumber not found',
             module: 'POCreate');
         setState(() => _isHydratingInitialOrder = false);
         return;
       }
+
+      final reqNum = pr['request_number']?.toString() ?? fullNumber;
+      _sourcePrNumbers.add(reqNum);
 
       final rawItems =
           (pr['purchase_request_items'] as List<dynamic>? ?? <dynamic>[]);
@@ -1708,7 +1715,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
 
       if (poItems.isEmpty) {
         AppLogger.warning(
-            'Purchase request $fullNumber has no orderable lines left',
+            'Purchase request $reqNum has no orderable lines left',
             module: 'POCreate');
         setState(() => _isHydratingInitialOrder = false);
         return;
@@ -1733,7 +1740,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       }
 
       // Trace the order back to the request it came from.
-      _refCtrl.text = fullNumber;
+      _refCtrl.text = reqNum;
       _orderDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
       final expected = pr['expected_date'] as String?;
       if (expected != null && expected.isNotEmpty) {
@@ -1747,16 +1754,20 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       _adjustmentCtrl.text = '0';
       _adjustmentLabelCtrl.text = 'Adjustment';
 
-      // Preselect the vendor only when every line agrees on one — a PO has a
-      // single vendor, so a mixed request must be resolved by the user.
-      final vendorIds = rawItems
+      // Preselect vendor from PR header or line items
+      final mainVendorId = pr['preferred_vendor_id'] as String?;
+      final lineVendorIds = rawItems
           .map((r) => (r as Map<String, dynamic>)['preferred_vendor_id'] as String?)
           .where((v) => v != null && v.isNotEmpty)
           .toSet();
-      if (vendorIds.length == 1) {
+      final targetVendorId = (lineVendorIds.length == 1)
+          ? lineVendorIds.first
+          : (mainVendorId ?? (lineVendorIds.isNotEmpty ? lineVendorIds.first : null));
+
+      if (targetVendorId != null && targetVendorId.isNotEmpty) {
         final vendors = ref.read(vendorProvider).vendors;
         final match =
-            vendors.where((v) => v.id == vendorIds.first).firstOrNull;
+            vendors.where((v) => v.id == targetVendorId).firstOrNull;
         if (match != null) _selectVendor(match, notifier);
       }
     } catch (e, st) {
@@ -1940,6 +1951,8 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     _closeDeliveryOverlay();
     _closeAddressDropdownOverlay();
     _uploadOverlay?.remove();
+    _itemMenuOverlay?.remove();
+    _itemMenuOverlay = null;
     POItemDetailsSidebar.hide();
     super.dispose();
   }
@@ -2054,9 +2067,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       link: link,
       onClose: _closeItemMenu,
       builder: (ctx) {
+        String? hoveredItem;
         return StatefulBuilder(
           builder: (context, setOverlayState) {
-            String? hoveredItem;
             final isHidden = _hiddenDetails.contains(index);
             final notifier = ref.read(
               purchaseOrderFormNotifierProvider.notifier,

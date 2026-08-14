@@ -1477,10 +1477,14 @@ final GoRouter appRouter = GoRouter(
                   name: AppRoutes.purchaseOrdersCreate,
                   builder: (context, state) {
                     final initialOrder = state.extra;
+                    final fromPr = state.uri.queryParameters['from_pr'] ??
+                        state.uri.queryParameters['fromPr'] ??
+                        state.uri.queryParameters['fromPurchaseRequest'];
                     return PurchaseOrderCreateScreen(
                       initialOrder: initialOrder is PurchaseOrder
                           ? initialOrder
                           : null,
+                      fromPurchaseRequest: fromPr,
                       isClone: state.uri.queryParameters['clone'] == 'true',
                       isDropship:
                           state.uri.queryParameters['isDropship'] == 'true',
