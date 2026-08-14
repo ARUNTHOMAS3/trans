@@ -46,6 +46,14 @@ final purchaseRequestProvider = StateNotifierProvider<PurchaseRequestNotifier,
   (ref) => PurchaseRequestNotifier(),
 );
 
+/// Bumped whenever a purchase request is created or edited, so open list pages
+/// reload instead of showing what they fetched when they were first built.
+///
+/// The create/edit page is a child route of the list, so returning to the list
+/// pops back to a State that is still alive — `initState` never runs again and
+/// edits (a newly picked assignee, for example) would need a manual refresh.
+final purchaseRequestListRefreshProvider = StateProvider<int>((ref) => 0);
+
 String prDateToday() {
   final now = DateTime.now();
   return '${now.day.toString().padLeft(2, '0')}-'

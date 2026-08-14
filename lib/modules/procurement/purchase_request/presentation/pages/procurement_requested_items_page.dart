@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_selection_checkbox.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
 // ---------------------------------------------------------------------------
@@ -19,76 +22,48 @@ class _RequestedItem {
     required this.quantity,
     required this.remainingQuantity,
     required this.requestNumber,
+    required this.view,
   });
 
   final String itemName;
   final String expectedDate;
-  final int quantity;
-  final int remainingQuantity;
+  final double quantity;
+  final double remainingQuantity;
   final String requestNumber;
+
+  /// Which saved view this line belongs to, resolved once at load time.
+  final _RiView view;
 }
-
-// ---------------------------------------------------------------------------
-// Hardcoded data
-// ---------------------------------------------------------------------------
-
-const List<_RequestedItem> _kItems = [
-  _RequestedItem(
-    itemName: 'BATCH TARCK ITEM',
-    expectedDate: '19-05-2026',
-    quantity: 50,
-    remainingQuantity: 50,
-    requestNumber: 'PR-00001',
-  ),
-  _RequestedItem(
-    itemName: 'BIN2',
-    expectedDate: '19-05-2026',
-    quantity: 2,
-    remainingQuantity: 2,
-    requestNumber: 'PR-00001',
-  ),
-  _RequestedItem(
-    itemName: 'BATCH TARCK ITEM',
-    expectedDate: '16-05-2026',
-    quantity: 10,
-    remainingQuantity: 10,
-    requestNumber: 'PR-00002',
-  ),
-  _RequestedItem(
-    itemName: 'BATCH TARCK ITEM',
-    expectedDate: '16-05-2026',
-    quantity: 10,
-    remainingQuantity: 10,
-    requestNumber: 'PR-00003',
-  ),
-  _RequestedItem(
-    itemName: 'BATCH TRACK 2',
-    expectedDate: '16-05-2026',
-    quantity: 1,
-    remainingQuantity: 1,
-    requestNumber: 'PR-00003',
-  ),
-  _RequestedItem(
-    itemName: 'BIN2',
-    expectedDate: '16-05-2026',
-    quantity: 1,
-    remainingQuantity: 1,
-    requestNumber: 'PR-00003',
-  ),
-  _RequestedItem(
-    itemName: 'ITEM-3',
-    expectedDate: '16-05-2026',
-    quantity: 1,
-    remainingQuantity: 1,
-    requestNumber: 'PR-00003',
-  ),
-];
 
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
-enum _RiTabFilter { open, onHold, processed }
+/// The saved views offered by the title switcher. A requested item is [open]
+/// while it still needs ordering, [onHold] when its request has been parked,
+/// and [processed] once the line has been fully ordered.
+enum _RiView { open, onHold, processed }
+
+String _viewLabel(_RiView v) => switch (v) {
+      _RiView.open => 'Open Requested Items',
+      _RiView.onHold => 'On Hold Requested Items',
+      _RiView.processed => 'Processed Requested Items',
+    };
+
+/// Rows are bucketed by the parent request's status and the line's own
+/// `line_status`, so a held or finished request never shows up as outstanding.
+_RiView _resolveView(String prStatus, String lineStatus, double remaining) {
+  if (prStatus == 'ON_HOLD' || prStatus == 'ONHOLD') return _RiView.onHold;
+  // A request with a purchase order raised against it is no longer outstanding.
+  if (prStatus == 'ORDERED' ||
+      prStatus == 'PROCESSED' ||
+      lineStatus == 'PROCESSED' ||
+      lineStatus == 'ORDERED' ||
+      remaining <= 0) {
+    return _RiView.processed;
+  }
+  return _RiView.open;
+}
 
 class ProcurementRequestedItemsPage extends ConsumerStatefulWidget {
   const ProcurementRequestedItemsPage({super.key});
@@ -100,13 +75,81 @@ class ProcurementRequestedItemsPage extends ConsumerStatefulWidget {
 
 class _ProcurementRequestedItemsPageState
     extends ConsumerState<ProcurementRequestedItemsPage> {
-  _RiTabFilter _activeTab = _RiTabFilter.open;
+  _RiView _activeView = _RiView.open;
   final Set<int> _selected = {};
   _RiSortField _sortField = _RiSortField.itemName;
   _RiSortDir _sortDir = _RiSortDir.ascending;
 
+  List<_RequestedItem> _allRows = [];
+  bool _isLoading = true;
+  int _page = 0;
+  static const _kPageSize = 100;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRequestedItems();
+  }
+
+  Future<void> _loadRequestedItems() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('purchase_requests')
+          .select('request_number, status, expected_date, '
+              'purchase_request_items('
+              'required_qty, pending_qty, line_status, '
+              'products(product_name)'
+              ')')
+          .order('request_number');
+
+      if (!mounted) return;
+
+      final rows = <_RequestedItem>[];
+      for (final pr in (res as List<dynamic>)) {
+        final prMap = pr as Map<String, dynamic>;
+        final prStatus = (prMap['status'] as String? ?? '').toUpperCase();
+        // A rejected request is a dead end — its lines are not outstanding
+        // work and belong in none of the three views.
+        if (prStatus == 'REJECTED') continue;
+
+        final requestNumber = prMap['request_number'] as String? ?? '';
+        final expected = _fmtDate(prMap['expected_date'] as String?);
+        final items =
+            (prMap['purchase_request_items'] as List<dynamic>?) ?? const [];
+
+        for (final row in items) {
+          final m = row as Map<String, dynamic>;
+          final required = (m['required_qty'] as num?)?.toDouble() ?? 0;
+          final pending = (m['pending_qty'] as num?)?.toDouble() ?? 0;
+          final lineStatus = (m['line_status'] as String? ?? '').toUpperCase();
+          final product = m['products'] as Map<String, dynamic>?;
+
+          rows.add(
+            _RequestedItem(
+              itemName: product?['product_name'] as String? ?? 'Unnamed item',
+              expectedDate: expected,
+              quantity: required,
+              remainingQuantity: pending,
+              requestNumber: requestNumber,
+              view: _resolveView(prStatus, lineStatus, pending),
+            ),
+          );
+        }
+      }
+
+      setState(() {
+        _allRows = rows;
+        _isLoading = false;
+      });
+    } catch (e) {
+      AppLogger.error('Failed to load requested items',
+          error: e, module: 'RequestedItems');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   List<_RequestedItem> get _filtered {
-    final base = List<_RequestedItem>.from(_kItems);
+    final base = _allRows.where((r) => r.view == _activeView).toList();
     base.sort((a, b) {
       final cmp = switch (_sortField) {
         _RiSortField.itemName     => a.itemName.compareTo(b.itemName),
@@ -120,6 +163,14 @@ class _ProcurementRequestedItemsPageState
     return base;
   }
 
+  /// The slice of [_filtered] currently on screen.
+  List<_RequestedItem> get _pageRows {
+    final all = _filtered;
+    final start = (_page * _kPageSize).clamp(0, all.length);
+    final end = (start + _kPageSize).clamp(0, all.length);
+    return all.sublist(start, end);
+  }
+
   void _onSort(_RiSortField field) {
     setState(() {
       if (_sortField == field) {
@@ -130,24 +181,42 @@ class _ProcurementRequestedItemsPageState
         _sortField = field;
         _sortDir = _RiSortDir.ascending;
       }
+      _selected.clear();
     });
   }
 
   void _onRefresh() {
     setState(() {
-      _activeTab = _RiTabFilter.open;
+      _activeView = _RiView.open;
       _sortField = _RiSortField.itemName;
       _sortDir = _RiSortDir.ascending;
       _selected.clear();
+      _page = 0;
+      _isLoading = true;
     });
+    _loadRequestedItems();
   }
 
   @override
   Widget build(BuildContext context) {
+    final rows = _pageRows;
+    final total = _filtered.length;
+    final orgSystemId =
+        GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
+
     return ZerpaiLayout(
       pageTitle: '',
-      titleWidget: _BreadcrumbTitle(
-        onBack: () => context.go(AppRoutes.procurementPurchaseRequests),
+      titleWidget: _ViewSwitcherTitle(
+        activeView: _activeView,
+        onBack: () => context.goNamed(
+          AppRoutes.procurementPurchaseRequests,
+          pathParameters: {'orgSystemId': orgSystemId},
+        ),
+        onViewChanged: (v) => setState(() {
+          _activeView = v;
+          _selected.clear();
+          _page = 0;
+        }),
       ),
       useHorizontalPadding: false,
       titlePadding: const EdgeInsets.only(left: 16),
@@ -161,94 +230,447 @@ class _ProcurementRequestedItemsPageState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Tabs or selection bar — no outer wrapper; _RiTab internal padding (16px)
-          // aligns "Open" with the checkbox at 16px from the left edge
           if (_selected.isNotEmpty)
             _RiSelectionBar(
               count: _selected.length,
               onClear: () => setState(() => _selected.clear()),
+            ),
+          const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 64),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 64),
+              child: Center(
+                child: Text(
+                  'No ${_viewLabel(_activeView).toLowerCase()} found.',
+                  style: const TextStyle(
+                      fontSize: 13, color: AppTheme.textSecondary),
+                ),
+              ),
             )
           else
-            _RiTabBar(
-              active: _activeTab,
-              onChanged: (t) => setState(() {
-                _activeTab = t;
-                _selected.clear();
+            // Table fills full width so the grey header background is
+            // edge-to-edge
+            _ItemsTable(
+              rows: rows,
+              orgSystemId: orgSystemId,
+              selected: _selected,
+              sortField: _sortField,
+              sortDir: _sortDir,
+              onSortChanged: _onSort,
+              onToggleRow: (i) => setState(() {
+                if (_selected.contains(i)) {
+                  _selected.remove(i);
+                } else {
+                  _selected.add(i);
+                }
+              }),
+              onToggleAll: () => setState(() {
+                if (_selected.length == rows.length) {
+                  _selected.clear();
+                } else {
+                  _selected
+                    ..clear()
+                    ..addAll(List.generate(rows.length, (i) => i));
+                }
               }),
             ),
           const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
-          // Table fills full width so the grey header background is edge-to-edge
-          _ItemsTable(
-            rows: _filtered,
-            selected: _selected,
-            sortField: _sortField,
-            sortDir: _sortDir,
-            onSortChanged: _onSort,
-            onToggleRow: (i) => setState(() {
-              if (_selected.contains(i)) {
-                _selected.remove(i);
-              } else {
-                _selected.add(i);
-              }
-            }),
-            onToggleAll: () => setState(() {
-              if (_selected.length == _filtered.length) {
+          if (!_isLoading && total > 0)
+            _RiFooter(
+              total: total,
+              page: _page,
+              pageSize: _kPageSize,
+              onPageChanged: (p) => setState(() {
+                _page = p;
                 _selected.clear();
-              } else {
-                _selected
-                  ..clear()
-                  ..addAll(List.generate(_filtered.length, (i) => i));
-              }
-            }),
-          ),
-          const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
+              }),
+            ),
         ],
       ),
     );
   }
 }
 
+/// Quantities carry a decimal scale in the DB but read as whole units.
+String _fmtQty(double q) =>
+    q == q.roundToDouble() ? q.toStringAsFixed(0) : q.toStringAsFixed(2);
+
+/// `expected_date` arrives as YYYY-MM-DD; the grid shows DD-MM-YYYY.
+String _fmtDate(String? raw) {
+  if (raw == null || raw.isEmpty) return '—';
+  final parts = raw.split('-');
+  if (parts.length != 3) return raw;
+  return '${parts[2]}-${parts[1]}-${parts[0]}';
+}
+
 // ---------------------------------------------------------------------------
 // Breadcrumb title (renders inside ZerpaiLayout titleWidget)
 // ---------------------------------------------------------------------------
 
-class _BreadcrumbTitle extends StatelessWidget {
-  const _BreadcrumbTitle({required this.onBack});
+/// Back chevron + "Purchase Requests" breadcrumb above the active view name,
+/// which itself opens the saved-view switcher.
+class _ViewSwitcherTitle extends StatefulWidget {
+  const _ViewSwitcherTitle({
+    required this.activeView,
+    required this.onBack,
+    required this.onViewChanged,
+  });
 
+  final _RiView activeView;
   final VoidCallback onBack;
+  final ValueChanged<_RiView> onViewChanged;
+
+  @override
+  State<_ViewSwitcherTitle> createState() => _ViewSwitcherTitleState();
+}
+
+class _ViewSwitcherTitleState extends State<_ViewSwitcherTitle> {
+  final _link = LayerLink();
+  OverlayEntry? _overlay;
+
+  @override
+  void dispose() {
+    _overlay?.remove();
+    _overlay = null;
+    super.dispose();
+  }
+
+  void _close() {
+    _overlay?.remove();
+    _overlay = null;
+    if (mounted) setState(() {});
+  }
+
+  void _toggle(BuildContext context) {
+    if (_overlay != null) {
+      _close();
+      return;
+    }
+    _overlay = OverlayEntry(
+      builder: (_) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _close,
+              child: const ColoredBox(color: Colors.transparent),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _link,
+            showWhenUnlinked: false,
+            offset: const Offset(0, 40),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: _RiViewDropdown(
+                active: widget.activeView,
+                onSelect: (v) {
+                  _close();
+                  widget.onViewChanged(v);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_overlay!);
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isOpen = _overlay != null;
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
-          onTap: onBack,
-          child: const Text(
-            'Purchase Requests',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+        _BackChevron(onTap: widget.onBack),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: widget.onBack,
+              child: const MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Text(
+                  'Purchase Requests',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8),
-          child: Icon(
-            LucideIcons.chevronRight,
-            size: 20,
-            color: AppTheme.successGreen,
-          ),
-        ),
-        const Text(
-          'Requested Items',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.successGreen,
-          ),
+            const SizedBox(height: 2),
+            CompositedTransformTarget(
+              link: _link,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () => _toggle(context),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _viewLabel(widget.activeView),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        isOpen
+                            ? LucideIcons.chevronUp
+                            : LucideIcons.chevronDown,
+                        size: 20,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _BackChevron extends StatefulWidget {
+  const _BackChevron({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  State<_BackChevron> createState() => _BackChevronState();
+}
+
+class _BackChevronState extends State<_BackChevron> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _hovered ? AppTheme.bgHover : Colors.white,
+            border: Border.all(color: AppTheme.borderColor),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Icon(
+            LucideIcons.chevronLeft,
+            size: 16,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Saved-view menu hanging off the page title.
+class _RiViewDropdown extends StatefulWidget {
+  const _RiViewDropdown({required this.active, required this.onSelect});
+
+  final _RiView active;
+  final ValueChanged<_RiView> onSelect;
+
+  @override
+  State<_RiViewDropdown> createState() => _RiViewDropdownState();
+}
+
+class _RiViewDropdownState extends State<_RiViewDropdown> {
+  _RiView? _hovered;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 260,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.10),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: _RiView.values.map((view) {
+            final isActive = view == widget.active;
+            final isHovered = _hovered == view;
+            return MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _hovered = view),
+              onExit: (_) => setState(() => _hovered = null),
+              child: GestureDetector(
+                onTap: () => widget.onSelect(view),
+                child: Container(
+                  width: double.infinity,
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: isHovered
+                        ? AppTheme.primaryBlue
+                        : isActive
+                            ? AppTheme.infoBg
+                            : Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isActive && !isHovered
+                          ? AppTheme.primaryBlue
+                          : Colors.transparent,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 11),
+                  child: Text(
+                    _viewLabel(view),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isHovered
+                          ? Colors.white
+                          : isActive
+                              ? AppTheme.primaryBlue
+                              : AppTheme.textPrimary,
+                      fontWeight: isActive || isHovered
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Footer — total count + pagination
+// ---------------------------------------------------------------------------
+
+class _RiFooter extends StatelessWidget {
+  const _RiFooter({
+    required this.total,
+    required this.page,
+    required this.pageSize,
+    required this.onPageChanged,
+  });
+
+  final int total;
+  final int page;
+  final int pageSize;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final start = page * pageSize + 1;
+    final end = ((page + 1) * pageSize).clamp(0, total);
+    final hasPrev = page > 0;
+    final hasNext = end < total;
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Text(
+            'Total Count: $total',
+            style: const TextStyle(
+                fontSize: 12, color: AppTheme.textSecondary),
+          ),
+          const Spacer(),
+          Text(
+            '$start - $end',
+            style: const TextStyle(
+                fontSize: 12, color: AppTheme.textSecondary),
+          ),
+          const SizedBox(width: 8),
+          _PageArrow(
+            icon: LucideIcons.chevronLeft,
+            enabled: hasPrev,
+            onTap: () => onPageChanged(page - 1),
+          ),
+          const SizedBox(width: 4),
+          _PageArrow(
+            icon: LucideIcons.chevronRight,
+            enabled: hasNext,
+            onTap: () => onPageChanged(page + 1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PageArrow extends StatelessWidget {
+  const _PageArrow({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor:
+          enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            border: Border.all(color: AppTheme.borderColor),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(
+            icon,
+            size: 14,
+            color: enabled ? AppTheme.textSecondary : AppTheme.textMuted,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -451,280 +873,13 @@ class _RiCreateDropdownState extends State<_RiCreateDropdown> {
 }
 
 // ---------------------------------------------------------------------------
-// Tab bar
-// ---------------------------------------------------------------------------
-
-class _RiTabBar extends StatefulWidget {
-  const _RiTabBar({required this.active, required this.onChanged});
-
-  final _RiTabFilter active;
-  final ValueChanged<_RiTabFilter> onChanged;
-
-  @override
-  State<_RiTabBar> createState() => _RiTabBarState();
-}
-
-class _RiTabBarState extends State<_RiTabBar> {
-  final _dotsLink = LayerLink();
-  final _dotsKey  = GlobalKey();
-  OverlayEntry? _overlay;
-
-  @override
-  void dispose() {
-    _overlay?.remove();
-    _overlay = null;
-    super.dispose();
-  }
-
-  void _toggle(BuildContext context) {
-    if (_overlay != null) {
-      _overlay!.remove();
-      _overlay = null;
-      setState(() {});
-      return;
-    }
-
-    _overlay = OverlayEntry(
-      builder: (_) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                _overlay?.remove();
-                _overlay = null;
-                if (mounted) setState(() {});
-              },
-              child: const ColoredBox(color: Colors.transparent),
-            ),
-          ),
-          CompositedTransformFollower(
-            link: _dotsLink,
-            showWhenUnlinked: false,
-            offset: const Offset(0, 36),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: _RiTabDropdown(
-                active: widget.active,
-                onSelect: (f) {
-                  _overlay?.remove();
-                  _overlay = null;
-                  if (mounted) setState(() {});
-                  widget.onChanged(f);
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    Overlay.of(context).insert(_overlay!);
-    setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _RiTab(
-          label: 'Open',
-          isActive: widget.active == _RiTabFilter.open,
-          onTap: () => widget.onChanged(_RiTabFilter.open),
-        ),
-        _RiTab(
-          label: 'On Hold',
-          isActive: widget.active == _RiTabFilter.onHold,
-          onTap: () => widget.onChanged(_RiTabFilter.onHold),
-        ),
-        _RiTab(
-          label: 'Processed',
-          isActive: widget.active == _RiTabFilter.processed,
-          onTap: () => widget.onChanged(_RiTabFilter.processed),
-        ),
-        const SizedBox(width: 8),
-        CompositedTransformTarget(
-          link: _dotsLink,
-          child: GestureDetector(
-            key: _dotsKey,
-            onTap: () => _toggle(context),
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: _overlay != null
-                    ? AppTheme.primaryBlue.withValues(alpha: 0.1)
-                    : AppTheme.bgDisabled,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '...',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: _overlay != null
-                      ? AppTheme.primaryBlue
-                      : AppTheme.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Tab filter dropdown ────────────────────────────────────────────────────
-
-class _RiTabDropdown extends StatefulWidget {
-  const _RiTabDropdown({required this.active, required this.onSelect});
-
-  final _RiTabFilter active;
-  final ValueChanged<_RiTabFilter> onSelect;
-
-  @override
-  State<_RiTabDropdown> createState() => _RiTabDropdownState();
-}
-
-class _RiTabDropdownState extends State<_RiTabDropdown> {
-  _RiTabFilter? _hovered;
-
-  static const _kItems = [
-    (_RiTabFilter.open,      'Open'),
-    (_RiTabFilter.onHold,    'On Hold'),
-    (_RiTabFilter.processed, 'Processed'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: 220,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-              child: Text(
-                'DEFAULT',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textMuted,
-                  letterSpacing: 0.6,
-                ),
-              ),
-            ),
-            ..._kItems.map((entry) {
-              final (filter, label) = entry;
-              final isActive  = filter == widget.active;
-              final isHovered = _hovered == filter;
-
-              return MouseRegion(
-                cursor: SystemMouseCursors.click,
-                onEnter: (_) => setState(() => _hovered = filter),
-                onExit:  (_) => setState(() => _hovered = null),
-                child: GestureDetector(
-                  onTap: () => widget.onSelect(filter),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 80),
-                    decoration: BoxDecoration(
-                      color: isHovered
-                          ? AppTheme.primaryBlue
-                          : isActive
-                              ? const Color(0xFFF0F4FF)
-                              : Colors.white,
-                      borderRadius: AppTheme.hoverRadius,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 11),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isHovered
-                              ? Colors.white
-                              : isActive
-                                  ? AppTheme.primaryBlue
-                                  : AppTheme.textPrimary,
-                          fontWeight: isActive || isHovered
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RiTab extends StatelessWidget {
-  const _RiTab({
-    required this.label,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: isActive ? AppTheme.successGreen : Colors.transparent,
-              width: 2,
-            ),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-            color: isActive ? AppTheme.successGreen : AppTheme.textBody,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Table
 // ---------------------------------------------------------------------------
 
 class _ItemsTable extends StatelessWidget {
   const _ItemsTable({
     required this.rows,
+    required this.orgSystemId,
     required this.selected,
     required this.sortField,
     required this.sortDir,
@@ -734,6 +889,7 @@ class _ItemsTable extends StatelessWidget {
   });
 
   final List<_RequestedItem> rows;
+  final String orgSystemId;
   final Set<int> selected;
   final _RiSortField sortField;
   final _RiSortDir sortDir;
@@ -744,11 +900,14 @@ class _ItemsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final allSelected = rows.isNotEmpty && selected.length == rows.length;
+    // Partial selection drives the header's indeterminate dash.
+    final someSelected = selected.isNotEmpty && !allSelected;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _TableHeader(
           allSelected: allSelected,
+          someSelected: someSelected,
           onToggleAll: onToggleAll,
           sortField: sortField,
           sortDir: sortDir,
@@ -760,6 +919,7 @@ class _ItemsTable extends StatelessWidget {
             children: [
               _TableRow(
                 item: rows[i],
+                orgSystemId: orgSystemId,
                 isSelected: selected.contains(i),
                 onToggle: () => onToggleRow(i),
               ),
@@ -776,6 +936,7 @@ class _ItemsTable extends StatelessWidget {
 class _TableHeader extends StatelessWidget {
   const _TableHeader({
     required this.allSelected,
+    required this.someSelected,
     required this.onToggleAll,
     required this.sortField,
     required this.sortDir,
@@ -783,6 +944,7 @@ class _TableHeader extends StatelessWidget {
   });
 
   final bool allSelected;
+  final bool someSelected;
   final VoidCallback onToggleAll;
   final _RiSortField sortField;
   final _RiSortDir sortDir;
@@ -836,12 +998,9 @@ class _TableHeader extends StatelessWidget {
         children: [
           SizedBox(
             width: 32,
-            child: Checkbox(
-              value: allSelected,
+            child: ZSelectionCheckbox(
+              value: someSelected ? null : allSelected,
               onChanged: (_) => onToggleAll(),
-              activeColor: AppTheme.primaryBlue,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              visualDensity: VisualDensity.compact,
             ),
           ),
           const SizedBox(width: 8),
@@ -856,7 +1015,9 @@ class _TableHeader extends StatelessWidget {
           Expanded(
               flex: 2,
               child: _col('REMAINING QUANTITY', _RiSortField.remainingQty)),
-          Expanded(flex: 2, child: _col('REQUEST#', _RiSortField.requestNo)),
+          Expanded(
+              flex: 3,
+              child: _col('PURCHASE REQUEST NUMBER', _RiSortField.requestNo)),
         ],
       ),
     );
@@ -866,11 +1027,13 @@ class _TableHeader extends StatelessWidget {
 class _TableRow extends StatefulWidget {
   const _TableRow({
     required this.item,
+    required this.orgSystemId,
     required this.isSelected,
     required this.onToggle,
   });
 
   final _RequestedItem item;
+  final String orgSystemId;
   final bool isSelected;
   final VoidCallback onToggle;
 
@@ -899,12 +1062,9 @@ class _TableRowState extends State<_TableRow> {
           children: [
             SizedBox(
               width: 32,
-              child: Checkbox(
+              child: ZSelectionCheckbox(
                 value: widget.isSelected,
                 onChanged: (_) => widget.onToggle(),
-                activeColor: AppTheme.primaryBlue,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
               ),
             ),
             const SizedBox(width: 8),
@@ -929,25 +1089,40 @@ class _TableRowState extends State<_TableRow> {
             Expanded(
               flex: 2,
               child: Text(
-                '${widget.item.quantity}',
+                _fmtQty(widget.item.quantity),
                 style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
               ),
             ),
             Expanded(
               flex: 2,
               child: Text(
-                '${widget.item.remainingQuantity}',
+                _fmtQty(widget.item.remainingQuantity),
                 style: const TextStyle(fontSize: 13, color: AppTheme.textBody),
               ),
             ),
             Expanded(
-              flex: 2,
-              child: Text(
-                widget.item.requestNumber,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.primaryBlue,
+              flex: 3,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => context.goNamed(
+                      AppRoutes.procurementPurchaseRequestOverview,
+                      pathParameters: {
+                        'orgSystemId': widget.orgSystemId,
+                        'id': widget.item.requestNumber,
+                      },
+                    ),
+                    child: Text(
+                      widget.item.requestNumber,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

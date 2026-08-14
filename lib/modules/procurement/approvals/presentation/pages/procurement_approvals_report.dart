@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/modules/procurement/approvals/providers/approvals_refresh_provider.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
@@ -137,6 +138,12 @@ class _ProcurementApprovalsReportPageState
 
   @override
   Widget build(BuildContext context) {
+    // Re-read after a decision is recorded on the overview, which sits above
+    // this page in the route stack and leaves this State alive on the way back.
+    ref.listen<int>(approvalsListRefreshProvider, (_, __) {
+      _load();
+    });
+
     return ZerpaiLayout(
       pageTitle: 'All Approvals',
       useHorizontalPadding: false,

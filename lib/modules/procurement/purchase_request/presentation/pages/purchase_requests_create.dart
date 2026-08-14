@@ -11,12 +11,14 @@ import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/hover_reveal_text.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/services/api_client.dart';
 import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
+import 'package:zerpai_erp/modules/procurement/purchase_request/providers/purchase_request_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Demand pool pre-fill payload
@@ -805,7 +807,14 @@ class _ProcurementPurchaseRequestsCreatePageState
               if (context.canPop()) {
                 context.pop();
               } else {
-                context.go(AppRoutes.procurementPurchaseRequests);
+                context.goNamed(
+                  AppRoutes.procurementPurchaseRequests,
+                  pathParameters: {
+                    'orgSystemId': GoRouterState.of(context)
+                            .pathParameters['orgSystemId'] ??
+                        '',
+                  },
+                );
               }
             },
             borderRadius: BorderRadius.circular(6),
@@ -1427,6 +1436,11 @@ class _ProcurementPurchaseRequestsCreatePageState
     return '${parts[2]}-${parts[1]}-${parts[0]}';
   }
 
+  /// Expected Date drives the downstream procurement schedule, so a request
+  /// cannot go for approval without one. Draft saves stay allowed without it —
+  /// a draft is exactly where an unfinished request belongs.
+  bool get _hasExpectedDate => _expectedDateCtrl.text.trim().isNotEmpty;
+
   /// The currently selected delivery address, or null when the user removed the
   /// address block or no warehouses exist.
   _DeliveryAddress? get _selectedAddress {
@@ -1491,7 +1505,7 @@ class _ProcurementPurchaseRequestsCreatePageState
     };
   }
 
-  Future<void> _savePurchaseRequest({String status = 'OPEN'}) async {
+  Future<void> _savePurchaseRequest({String status = 'DRAFT'}) async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
     try {
@@ -1602,7 +1616,7 @@ class _ProcurementPurchaseRequestsCreatePageState
       }
 
       // Create (or refresh) the approval record when sent for approval.
-      if (status == 'PENDING_APPROVAL') {
+      if (status == 'WAITING_FOR_APPROVAL') {
         final existingApproval = await supabase
             .from('purchase_request_approval')
             .select('id')
@@ -1622,6 +1636,9 @@ class _ProcurementPurchaseRequestsCreatePageState
       }
 
       if (!mounted) return;
+      // The list page below us in the route stack is still alive, so tell it to
+      // re-fetch — otherwise it keeps rendering pre-save rows until a refresh.
+      ref.read(purchaseRequestListRefreshProvider.notifier).state++;
       final orgSystemId =
           GoRouterState.of(context).pathParameters['orgSystemId'] ?? '';
       context.goNamed(
@@ -1646,6 +1663,48 @@ class _ProcurementPurchaseRequestsCreatePageState
   // Footer
   // ---------------------------------------------------------------------------
 
+  /// "Save & Send to Approve", gated on Expected Date. When the date is missing
+  /// the button stays visible but greyed and unclickable, so the action is
+  /// discoverable rather than disappearing from the footer.
+  Widget _buildSendForApprovalButton(
+    EdgeInsets btnPadding,
+    BorderRadius btnRadius,
+  ) {
+    final enabled = !_isSaving && _hasExpectedDate;
+
+    final button = ElevatedButton(
+      onPressed: enabled
+          ? () => _savePurchaseRequest(status: 'WAITING_FOR_APPROVAL')
+          : null,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppTheme.successGreen,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: AppTheme.successGreen.withValues(alpha: 0.4),
+        disabledForegroundColor: Colors.white.withValues(alpha: 0.8),
+        padding: btnPadding,
+        elevation: 0,
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        shape: RoundedRectangleBorder(borderRadius: btnRadius),
+      ),
+      child: _isSaving
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child:
+                  CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            )
+          : const Text('Save & Send to Approve'),
+    );
+
+    if (_hasExpectedDate) return button;
+    return ZTooltip(
+      message: 'Select an expected date before sending this request for '
+          'approval. You can still save it as a draft.',
+      direction: ZTooltipDirection.bottom,
+      child: button,
+    );
+  }
+
   Widget _buildFooter() {
     final btnPadding =
         const EdgeInsets.symmetric(horizontal: 20, vertical: 10);
@@ -1655,30 +1714,9 @@ class _ProcurementPurchaseRequestsCreatePageState
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
-          // Primary: save + submit for approval
-          ElevatedButton(
-            onPressed: _isSaving
-                ? null
-                : () => _savePurchaseRequest(status: 'PENDING_APPROVAL'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.successGreen,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: AppTheme.successGreen.withOpacity(0.6),
-              padding: btnPadding,
-              elevation: 0,
-              textStyle:
-                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              shape: RoundedRectangleBorder(borderRadius: btnRadius),
-            ),
-            child: _isSaving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Text('Save & Send to Approve'),
-          ),
+          // Primary: save + submit for approval. Dimmed and inert until an
+          // expected date is picked, with a tooltip saying why.
+          _buildSendForApprovalButton(btnPadding, btnRadius),
           const SizedBox(width: 10),
           // Secondary: save as draft
           OutlinedButton(

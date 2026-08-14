@@ -824,7 +824,17 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
     }
   }
 
-  void addItemsInBulk(List<PurchaseOrderItem> newItems) {
+  /// Adds [newItems] to the item table.
+  ///
+  /// By default a product already on the order is updated in place rather than
+  /// duplicated — right when picking from an item catalogue. Pass
+  /// [mergeByProduct] false when each incoming line is its own document line
+  /// (purchase request lines, where the same product can legitimately arrive
+  /// from two different requests and must stay two rows).
+  void addItemsInBulk(
+    List<PurchaseOrderItem> newItems, {
+    bool mergeByProduct = true,
+  }) {
     final List<PurchaseOrderItem> resolvedItems = [];
     final itemsState = _ref.read(itemsControllerProvider);
     final accountsState = _ref.read(chartOfAccountsProvider);
@@ -912,7 +922,9 @@ class PurchaseOrderNotifier extends StateNotifier<PurchaseOrderState> {
         .toList();
 
     for (final newItem in recalculatedNewItems) {
-      final existingIndex = currentItems.indexWhere((i) => i.productId == newItem.productId);
+      final existingIndex = mergeByProduct
+          ? currentItems.indexWhere((i) => i.productId == newItem.productId)
+          : -1;
       if (existingIndex != -1) {
         final existingItem = currentItems[existingIndex];
         currentItems[existingIndex] = _recalculateItem(

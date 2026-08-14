@@ -44,6 +44,24 @@ Future<DemandPoolPayload?> showDemandPoolDialog(BuildContext context) {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/// Selectable values for the multi-select Status filter, shared by the Items
+/// and Customers group-by layouts.
+///
+/// Covers every state [_normaliseDpStatus] can produce except Fulfilled, which
+/// `_loadRows` excludes from the query outright. "Substituted" is not a pipeline
+/// stage — see `_matchesStatusFilter`.
+const List<String> _kStatusFilterOptions = [
+  'Open',
+  'Partially Planned',
+  'PR Created',
+  'PO Created',
+  'Ordered',
+  'PO Received',
+  'Received',
+  'Substituted',
+  'Cancel',
+];
+
 String _normaliseDpStatus(String raw) => switch (raw.toUpperCase()) {
   'OPEN'              => 'Open',
   'PR_CREATED'        => 'PR Created',
@@ -860,7 +878,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                     value: null,
                     multiSelect: true,
                     selectedValues: _filterStatuses,
-                    items: const ['Open', 'PR Created', 'PO Created', 'PO Received', 'Substituted', 'Cancel'],
+                    items: _kStatusFilterOptions,
                     hint: 'All statuses',
                     displayStringForValue: (v) => v,
                     showSearch: false,
@@ -992,7 +1010,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
                     value: null,
                     multiSelect: true,
                     selectedValues: _filterStatuses,
-                    items: const ['Open', 'PR Created', 'PO Created', 'PO Received', 'Substituted', 'Cancel'],
+                    items: _kStatusFilterOptions,
                     hint: 'All statuses',
                     displayStringForValue: (v) => v,
                     showSearch: false,
@@ -1098,8 +1116,7 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
           !_appliedSos.contains(r.soNo)) return false;
       if (_appliedVendors.isNotEmpty &&
           !r.preferredVendors.any(_appliedVendors.contains)) return false;
-      if (_appliedStatuses.isNotEmpty &&
-          !_appliedStatuses.contains(r.status)) return false;
+      if (_appliedStatuses.isNotEmpty && !_matchesStatusFilter(r)) return false;
       return true;
     }
 
@@ -1306,6 +1323,23 @@ class _DemandPoolDialogState extends ConsumerState<_DemandPoolDialog> {
   // ---------------------------------------------------------------------------
   // Substitution → update the on-screen chain and record it in the DB
   // ---------------------------------------------------------------------------
+
+  /// Whether [r] satisfies the multi-select Status filter. Selecting several
+  /// statuses is an OR — a row matching any one of them is kept.
+  ///
+  /// "Substituted" is deliberately not compared against `status`. Substitution
+  /// is a second dimension, not a pipeline stage: a row can be Open *and*
+  /// substituted, and it keeps progressing to PR Created, PO Created and so on
+  /// afterwards. Writing SUBSTITUTED into `demand_pool.status` would erase
+  /// whichever stage the row was really at, and the next planning round would
+  /// overwrite it straight back. So it is matched on the substitution itself,
+  /// which `_hydrateSubstitutions` rebuilds from `procurement_substitutions`
+  /// on every load.
+  bool _matchesStatusFilter(_DpItem r) {
+    return _appliedStatuses.any(
+      (s) => s == 'Substituted' ? r.replacement != null : r.status == s,
+    );
+  }
 
   /// Applies [substitute] to every demand pool row in [globalIndices] and writes
   /// one `procurement_substitutions` row per demand pool row, so a substitution

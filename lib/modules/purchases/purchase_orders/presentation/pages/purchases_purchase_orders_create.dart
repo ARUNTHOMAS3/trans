@@ -147,6 +147,11 @@ class PurchaseOrderCreateScreen extends ConsumerStatefulWidget {
   final String? dropshipCustomerName;
   final String? dropshipAddress;
 
+  /// Request number (e.g. `PR-00090`) of an approved purchase request to raise
+  /// this order from. Carried as a query param rather than a `state.extra`
+  /// object so the prefilled page survives a browser refresh / direct URL.
+  final String? fromPurchaseRequest;
+
   const PurchaseOrderCreateScreen({
     super.key,
     this.initialOrder,
@@ -155,6 +160,7 @@ class PurchaseOrderCreateScreen extends ConsumerStatefulWidget {
     this.isDropship = false,
     this.dropshipCustomerName,
     this.dropshipAddress,
+    this.fromPurchaseRequest,
   });
 
   @override
@@ -164,6 +170,13 @@ class PurchaseOrderCreateScreen extends ConsumerStatefulWidget {
 class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
   final _poNumberCtrl = TextEditingController();
   final _refCtrl = TextEditingController();
+
+  final Set<String> _addedPrLineKeys = {};
+
+  /// Request numbers this order was built from — whether by raising the PO
+  /// straight off a request or by pulling lines in through the picker. On a
+  /// successful save these move to ORDERED.
+  final Set<String> _sourcePrNumbers = {};
   final _orderDateCtrl = TextEditingController();
   final _deliveryDateCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
@@ -1152,6 +1165,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
         await _saveAttachments(savedPo.id!);
       }
 
+      // 5. The requests this order was built from are now ordered.
+      await _markSourceRequestsOrdered();
+
       if (mounted) {
         final targetId = savedPo?.id ?? _editingOrderId;
         if (targetId != null) {
@@ -1612,6 +1628,147 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     }
   }
 
+  /// Failures here are logged, not surfaced: the purchase order itself is
+  /// already saved, and losing the whole save over a status write would be far
+  /// worse than a request briefly reading as yet-to-be-ordered.
+  Future<void> _markSourceRequestsOrdered() async {
+    if (_sourcePrNumbers.isEmpty) return;
+    try {
+      await Supabase.instance.client
+          .from('purchase_requests')
+          .update({'status': 'ORDERED'})
+          .inFilter('request_number', _sourcePrNumbers.toList())
+          .eq('status', 'YET_TO_BE_ORDERED');
+    } catch (e) {
+      AppLogger.error('Failed to mark purchase requests as ordered',
+          error: e, module: 'POCreate');
+    }
+  }
+
+  Future<void> _hydrateFromPurchaseRequest(String requestNumber) async {
+    setState(() => _isHydratingInitialOrder = true);
+    final notifier = ref.read(purchaseOrderFormNotifierProvider.notifier);
+    notifier.reset();
+
+    try {
+      final fullNumber = requestNumber.startsWith('PR-')
+          ? requestNumber
+          : 'PR-$requestNumber';
+      _sourcePrNumbers.add(fullNumber);
+
+      final pr = await Supabase.instance.client
+          .from('purchase_requests')
+          .select('id, status, expected_date, reference_number, internal_notes, '
+              'purchase_request_items('
+              'product_id, required_qty, pending_qty, estimated_rate, '
+              'discount_percentage, description, preferred_vendor_id, '
+              'products(product_name, item_code, hsn_sac_code)'
+              ')')
+          .eq('request_number', fullNumber)
+          .maybeSingle();
+
+      if (!mounted) return;
+      if (pr == null) {
+        AppLogger.warning('Purchase request $fullNumber not found',
+            module: 'POCreate');
+        setState(() => _isHydratingInitialOrder = false);
+        return;
+      }
+
+      final rawItems =
+          (pr['purchase_request_items'] as List<dynamic>? ?? <dynamic>[]);
+
+      final poItems = <PurchaseOrderItem>[];
+      for (final row in rawItems) {
+        final m = row as Map<String, dynamic>;
+        final productId = m['product_id'] as String?;
+        if (productId == null || productId.isEmpty) continue;
+
+        final required = (m['required_qty'] as num?)?.toDouble() ?? 0;
+        final pending = (m['pending_qty'] as num?)?.toDouble() ?? 0;
+        final qty = pending > 0 ? pending : required;
+        if (qty <= 0) continue;
+
+        final rate = (m['estimated_rate'] as num?)?.toDouble() ?? 0;
+        final discount = (m['discount_percentage'] as num?)?.toDouble() ?? 0;
+        final product = m['products'] as Map<String, dynamic>?;
+
+        poItems.add(PurchaseOrderItem(
+          productId: productId,
+          productName: product?['product_name'] as String?,
+          itemCode: product?['item_code'] as String?,
+          hsnCode: product?['hsn_sac_code'] as String?,
+          description: m['description'] as String?,
+          quantity: qty,
+          rate: rate,
+          discount: discount,
+          amount: qty * rate * (1 - discount / 100),
+        ));
+      }
+
+      if (poItems.isEmpty) {
+        AppLogger.warning(
+            'Purchase request $fullNumber has no orderable lines left',
+            module: 'POCreate');
+        setState(() => _isHydratingInitialOrder = false);
+        return;
+      }
+
+      // reset() seeds one blank row — fill it, then append the rest.
+      notifier.updateItem(0, poItems.first);
+      for (final item in poItems.skip(1)) {
+        notifier.addItemRow(item: item);
+      }
+
+      _rowControllers.clear();
+      _headerTextControllers.clear();
+      for (final item in poItems) {
+        _addRowController(
+          initialName: item.productName,
+          initialQty: item.quantity,
+          initialRate: item.rate,
+          initialDiscount: item.discount,
+          initialDesc: item.description,
+        );
+      }
+
+      // Trace the order back to the request it came from.
+      _refCtrl.text = fullNumber;
+      _orderDateCtrl.text = DateFormat('dd-MM-yyyy').format(DateTime.now());
+      final expected = pr['expected_date'] as String?;
+      if (expected != null && expected.isNotEmpty) {
+        final parsed = DateTime.tryParse(expected);
+        if (parsed != null) {
+          _deliveryDateCtrl.text = DateFormat('dd-MM-yyyy').format(parsed);
+        }
+      }
+      _notesCtrl.text = pr['internal_notes'] as String? ?? '';
+      _discountCtrl.text = '0';
+      _adjustmentCtrl.text = '0';
+      _adjustmentLabelCtrl.text = 'Adjustment';
+
+      // Preselect the vendor only when every line agrees on one — a PO has a
+      // single vendor, so a mixed request must be resolved by the user.
+      final vendorIds = rawItems
+          .map((r) => (r as Map<String, dynamic>)['preferred_vendor_id'] as String?)
+          .where((v) => v != null && v.isNotEmpty)
+          .toSet();
+      if (vendorIds.length == 1) {
+        final vendors = ref.read(vendorProvider).vendors;
+        final match =
+            vendors.where((v) => v.id == vendorIds.first).firstOrNull;
+        if (match != null) _selectVendor(match, notifier);
+      }
+    } catch (e, st) {
+      AppLogger.error('Failed to hydrate PO from purchase request $requestNumber',
+          error: e, stackTrace: st, module: 'POCreate');
+    } finally {
+      if (mounted) {
+        setState(() => _isHydratingInitialOrder = false);
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1639,6 +1796,9 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
       } else if (widget.initialOrderId != null &&
           widget.initialOrderId!.isNotEmpty) {
         _loadInitialOrder(widget.initialOrderId!);
+      } else if (widget.fromPurchaseRequest != null &&
+          widget.fromPurchaseRequest!.isNotEmpty) {
+        _hydrateFromPurchaseRequest(widget.fromPurchaseRequest!);
       } else {
         ref.read(purchaseOrderFormNotifierProvider.notifier).reset();
         setState(() => _selectedPriceListId = null);
@@ -1902,201 +2062,217 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
               purchaseOrderFormNotifierProvider.notifier,
             );
             return Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildSettingsOverlayItem(
-                              label: isHidden
-                                  ? 'Show Additional Information'
-                                  : 'Hide Additional Information',
-                              showHighlight: hoveredItem == 'toggle_info',
-                              onHover: (v) => setOverlayState(
-                                () => hoveredItem = v ? 'toggle_info' : null,
-                              ),
-                              onTap: () {
-                                setState(() {
-                                  if (_hiddenDetails.contains(index)) {
-                                    _hiddenDetails.remove(index);
-                                  } else {
-                                    _hiddenDetails.add(index);
-                                  }
-                                });
-                                _closeItemMenu();
-                              },
-                            ),
-                            const SizedBox(height: 4),
-                            _buildSettingsOverlayItem(
-                              label: 'Clone',
-                              showHighlight: hoveredItem == 'clone',
-                              onHover: (v) => setOverlayState(
-                                () => hoveredItem = v ? 'clone' : null,
-                              ),
-                              onTap: () {
-                                notifier.addItemRow(
-                                  index: index + 1,
-                                  item: item.copyWith(),
-                                );
-                                _closeItemMenu();
-                              },
-                            ),
-                            const SizedBox(height: 4),
-                            _buildSettingsOverlayItem(
-                              label: 'Insert New Row',
-                              showHighlight: hoveredItem == 'insert_row',
-                              onHover: (v) => setOverlayState(
-                                () => hoveredItem = v ? 'insert_row' : null,
-                              ),
-                              onTap: () {
-                                notifier.addItemRow(index: index + 1);
-                                _closeItemMenu();
-                              },
-                            ),
-                            const SizedBox(height: 4),
-                            _buildSettingsOverlayItem(
-                              label: 'Insert Items in Bulk',
-                              showHighlight: hoveredItem == 'bulk',
-                              onHover: (v) => setOverlayState(
-                                () => hoveredItem = v ? 'bulk' : null,
-                              ),
-                              onTap: () {
-                                _closeItemMenu();
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => BulkItemsDialog(
-                                    products: allItems,
-                                    onItemsSelected: (selectedItems) {
-                                      final List<PurchaseOrderItem> newItems =
-                                          [];
-                                      PriceList? pl;
-                                      if (_selectedPriceListId != null) {
-                                        try {
-                                          final activePriceLists = _getCombinedPriceLists();
-                                          pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
-                                        } catch (_) {}
-                                      }
-                                      selectedItems.forEach((item, quantity) {
-                                        double rate = item.costPrice ?? 0.0;
-                                        double discountVal = 0.0;
-                                        String? plId;
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildSettingsOverlayItem(
+                  label: isHidden
+                      ? 'Show Additional Information'
+                      : 'Hide Additional Information',
+                  showHighlight: hoveredItem == 'toggle_info',
+                  onHover: (v) => setOverlayState(
+                    () => hoveredItem = v ? 'toggle_info' : null,
+                  ),
+                  onTap: () {
+                    setState(() {
+                      if (_hiddenDetails.contains(index)) {
+                        _hiddenDetails.remove(index);
+                      } else {
+                        _hiddenDetails.add(index);
+                      }
+                    });
+                    _closeItemMenu();
+                  },
+                ),
+                const SizedBox(height: 4),
+                _buildSettingsOverlayItem(
+                  label: 'Clone',
+                  showHighlight: hoveredItem == 'clone',
+                  onHover: (v) => setOverlayState(
+                    () => hoveredItem = v ? 'clone' : null,
+                  ),
+                  onTap: () {
+                    notifier.addItemRow(
+                      index: index + 1,
+                      item: item.copyWith(),
+                    );
+                    _closeItemMenu();
+                  },
+                ),
+                const SizedBox(height: 4),
+                _buildSettingsOverlayItem(
+                  label: 'Insert New Row',
+                  showHighlight: hoveredItem == 'insert_row',
+                  onHover: (v) => setOverlayState(
+                    () => hoveredItem = v ? 'insert_row' : null,
+                  ),
+                  onTap: () {
+                    notifier.addItemRow(index: index + 1);
+                    _closeItemMenu();
+                  },
+                ),
+                const SizedBox(height: 4),
+                _buildSettingsOverlayItem(
+                  label: 'Insert Items in Bulk',
+                  showHighlight: hoveredItem == 'bulk',
+                  onHover: (v) => setOverlayState(
+                    () => hoveredItem = v ? 'bulk' : null,
+                  ),
+                  onTap: () {
+                    _closeItemMenu();
+                    showDialog(
+                      context: context,
+                      builder: (context) => BulkItemsDialog(
+                        products: allItems,
+                        onItemsSelected: (selectedItems) {
+                          final List<PurchaseOrderItem> newItems = [];
+                          PriceList? pl;
+                          if (_selectedPriceListId != null) {
+                            try {
+                              final activePriceLists = _getCombinedPriceLists();
+                              pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
+                            } catch (_) {}
+                          }
+                          selectedItems.forEach((item, quantity) {
+                            double rate = item.costPrice ?? 0.0;
+                            double discountVal = 0.0;
+                            String? plId;
 
-                                        if (pl != null) {
-                                          rate = pl.calculatePrice(
-                                            item.id ?? '',
-                                            item.costPrice ?? 0.0,
-                                            quantity: quantity.toDouble(),
-                                          );
-                                          plId = pl.id;
-                                          
-                                          final override = pl.itemRates?.firstWhere(
-                                            (r) => r.itemId == item.id,
-                                            orElse: () => const PriceListItemRate(itemId: ''),
-                                          );
-                                          if (override != null && override.itemId.isNotEmpty) {
-                                            if (override.discountPercentage != null) {
-                                              discountVal = override.discountPercentage!;
-                                            }
-                                          }
-                                        }
-                                        newItems.add(
-                                          PurchaseOrderItem(
-                                            productId: item.id ?? '',
-                                            productName: item.productName,
-                                            quantity: quantity.toDouble(),
-                                            rate: rate,
-                                            discount: discountVal,
-                                            discountType: 'percentage',
-                                            priceListId: plId,
-                                            amount: rate * quantity,
-                                          ),
-                                        );
-                                      });
-                                      notifier.addItemsInBulk(newItems);
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 4),
-                            _buildSettingsOverlayItem(
-                              label: 'Insert New Header',
-                              showHighlight: hoveredItem == 'insert_header',
-                              onHover: (v) => setOverlayState(
-                                () => hoveredItem = v ? 'insert_header' : null,
+                            if (pl != null) {
+                              rate = pl.calculatePrice(
+                                item.id ?? '',
+                                item.costPrice ?? 0.0,
+                                quantity: quantity.toDouble(),
+                              );
+                              plId = pl.id;
+                              
+                              final override = pl.itemRates?.firstWhere(
+                                (r) => r.itemId == item.id,
+                                orElse: () => const PriceListItemRate(itemId: ''),
+                              );
+                              if (override != null && override.itemId.isNotEmpty) {
+                                if (override.discountPercentage != null) {
+                                  discountVal = override.discountPercentage!;
+                                }
+                              }
+                            }
+                            newItems.add(
+                              PurchaseOrderItem(
+                                productId: item.id ?? '',
+                                productName: item.productName,
+                                quantity: quantity.toDouble(),
+                                rate: rate,
+                                discount: discountVal,
+                                discountType: 'percentage',
+                                priceListId: plId,
+                                amount: rate * quantity,
                               ),
-                              onTap: () {
-                                notifier.addHeaderRow(index: index + 1);
-                                _closeItemMenu();
-                              },
-                            ),
-                            const SizedBox(height: 4),
-                            _buildSettingsOverlayItem(
-                              label: 'Insert Items From Purchase Requests',
-                              showHighlight: hoveredItem == 'insert_pr_items',
-                              onHover: (v) => setOverlayState(
-                                () => hoveredItem = v ? 'insert_pr_items' : null,
-                              ),
-                              onTap: () {
-                                _closeItemMenu();
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => PurchaseRequestsItemsDialog(
-                                    onItemsSelected: (selectedPrItems) {
-                                      final List<PurchaseOrderItem> newItems = [];
-                                      PriceList? pl;
-                                      if (_selectedPriceListId != null) {
-                                        try {
-                                          final activePriceLists = _getCombinedPriceLists();
-                                          pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
-                                        } catch (_) {}
-                                      }
-                                      for (var prItem in selectedPrItems) {
-                                        double rate = prItem.rate;
-                                        double discountVal = 0.0;
-                                        String? plId;
-
-                                        if (pl != null) {
-                                          rate = pl.calculatePrice(
-                                            prItem.productId,
-                                            prItem.rate,
-                                            quantity: prItem.quantity,
-                                          );
-                                          plId = pl.id;
-
-                                          final override = pl.itemRates?.firstWhere(
-                                            (r) => r.itemId == prItem.productId,
-                                            orElse: () => const PriceListItemRate(itemId: ''),
-                                          );
-                                          if (override != null && override.itemId.isNotEmpty) {
-                                            if (override.discountPercentage != null) {
-                                              discountVal = override.discountPercentage!;
-                                            }
-                                          }
-                                        }
-                                        newItems.add(
-                                          PurchaseOrderItem(
-                                            productId: prItem.productId,
-                                            productName: prItem.productName,
-                                            quantity: prItem.quantity,
-                                            rate: rate,
-                                            discount: discountVal,
-                                            discountType: 'percentage',
-                                            priceListId: plId,
-                                            amount: prItem.quantity * rate,
-                                          ),
-                                        );
-                                      }
-                                      notifier.addItemsInBulk(newItems);
-                                    },
-                                  ),
-                                );
-                               },
-                            ),
-                          ],
-                        );
-                      },
+                            );
+                          });
+                          notifier.addItemsInBulk(newItems);
+                        },
+                      ),
                     );
                   },
-                );
+                ),
+                const SizedBox(height: 4),
+                _buildSettingsOverlayItem(
+                  label: 'Insert New Header',
+                  showHighlight: hoveredItem == 'insert_header',
+                  onHover: (v) => setOverlayState(
+                    () => hoveredItem = v ? 'insert_header' : null,
+                  ),
+                  onTap: () {
+                    notifier.addHeaderRow(index: index + 1);
+                    _closeItemMenu();
+                  },
+                ),
+                const SizedBox(height: 4),
+                _buildSettingsOverlayItem(
+                  label: 'Insert Items From Purchase Requests',
+                  showHighlight: hoveredItem == 'insert_pr_items',
+                  onHover: (v) => setOverlayState(
+                    () => hoveredItem = v ? 'insert_pr_items' : null,
+                  ),
+                  onTap: () {
+                    _closeItemMenu();
+                    showDialog(
+                      context: context,
+                      useSafeArea: false,
+                      builder: (context) => PurchaseRequestsItemsDialog(
+                        initialVendorId: ref
+                            .read(purchaseOrderFormNotifierProvider)
+                            .vendorId,
+                        excludeSourceKeys: _addedPrLineKeys,
+                        onItemsSelected: (selectedPrItems) {
+                          final List<PurchaseOrderItem> newItems = [];
+                          PriceList? pl;
+                          if (_selectedPriceListId != null) {
+                            try {
+                              final activePriceLists = _getCombinedPriceLists();
+                              pl = activePriceLists.firstWhere((p) => p.id == _selectedPriceListId);
+                            } catch (_) {}
+                          }
+                          for (var prItem in selectedPrItems) {
+                            double rate = prItem.rate;
+                            double discountVal = 0.0;
+                            String? plId;
+
+                            if (pl != null) {
+                              rate = pl.calculatePrice(
+                                prItem.productId,
+                                prItem.rate,
+                                quantity: prItem.quantity,
+                              );
+                              plId = pl.id;
+
+                              final override = pl.itemRates?.firstWhere(
+                                (r) => r.itemId == prItem.productId,
+                                orElse: () => const PriceListItemRate(itemId: ''),
+                              );
+                              if (override != null && override.itemId.isNotEmpty) {
+                                if (override.discountPercentage != null) {
+                                  discountVal = override.discountPercentage!;
+                                }
+                              }
+                            }
+                            newItems.add(
+                              PurchaseOrderItem(
+                                productId: prItem.productId,
+                                productName: prItem.productName,
+                                quantity: prItem.quantity,
+                                rate: rate,
+                                discount: discountVal,
+                                discountType: 'percentage',
+                                priceListId: plId,
+                                amount: prItem.quantity * rate,
+                              ),
+                            );
+                          }
+                          notifier.addItemsInBulk(
+                            newItems,
+                            mergeByProduct: false,
+                          );
+                          setState(() {
+                            _addedPrLineKeys.addAll(
+                              selectedPrItems.map((i) => i.sourceKey),
+                            );
+                            _sourcePrNumbers.addAll(
+                              selectedPrItems
+                                  .map((i) => i.requestNumber),
+                            );
+                          });
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _closeGstOverlay() {

@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/procurement/approvals/presentation/widgets/procurement_approvals_flow_panel.dart';
+import 'package:zerpai_erp/modules/procurement/approvals/providers/approvals_refresh_provider.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 
@@ -62,7 +63,7 @@ class _ApprovalItem {
 }
 
 class _ApprovalDetail {
-  const _ApprovalDetail({
+  _ApprovalDetail({
     required this.approvalId,
     required this.submitter,
     required this.submittedOn,
@@ -90,7 +91,10 @@ class _ApprovalDetail {
   /// The PR's own document number (PR-00001) — identifies the request.
   final String referenceNumber;
   final double amount;
-  final _ApprovalStatus status;
+
+  /// Mutable so an approve/reject can flip the badge the instant it is clicked,
+  /// rather than only after the write round-trips and the list re-queries.
+  _ApprovalStatus status;
   final String expectedDate;
   final _ProcessingStatus processingStatus;
   final String approver;
@@ -166,8 +170,11 @@ class _ProcurementApprovalsOverviewPageState
     super.dispose();
   }
 
-  Future<void> _loadApprovals() async {
-    setState(() => _isLoading = true);
+  /// Set [silent] when re-reading after an approve/reject — the page already
+  /// shows the new state optimistically, and raising [_isLoading] would replace
+  /// it with the full-page skeleton and flash the badge away mid-action.
+  Future<void> _loadApprovals({bool silent = false}) async {
+    if (!silent) setState(() => _isLoading = true);
     try {
       final res = await Supabase.instance.client
           .from('purchase_request_approval')
@@ -290,31 +297,57 @@ class _ProcurementApprovalsOverviewPageState
     });
   }
 
-  void _confirmApproved(BuildContext ctx) {
+  Future<void> _confirmApproved(BuildContext ctx) async {
     final selected = _filtered.isEmpty
         ? null
         : _filtered[_selectedIndex.clamp(0, _filtered.length - 1)];
-    if (selected != null) {
-      final supabase = Supabase.instance.client;
-      supabase
-          .from('purchase_request_approval')
-          .update({'status': 'APPROVED', 'approved_at': DateTime.now().toIso8601String()})
-          .eq('id', selected.approvalId)
-          .then((_) => supabase
-              .from('purchase_requests')
-              .update({'status': 'APPROVED'})
-              .eq('request_number', selected.referenceNumber))
-          // Only now (on approval) does this PR's qty count against the demand
-          // pool: planned_qty increases and pending (balance) reduces.
-          .then((_) => _applyApprovedQtyToDemandPool(selected.referenceNumber))
-          .catchError((e) => AppLogger.error('Failed to approve PR', error: e, module: 'ApprovalsOverview'));
-    }
+
+    // Flip the badge before touching the network. The writes below take a full
+    // round-trip plus a re-query, and until this the label only caught up on a
+    // manual refresh.
     setState(() {
+      selected?.status = _ApprovalStatus.approved;
       _isApproved = true;
       _isRejected = false;
       _rejectReason = '';
     });
     _showToast(ctx, 'Purchase request approved');
+
+    if (selected == null) return;
+
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase
+          .from('purchase_request_approval')
+          .update({
+            'status': 'APPROVED',
+            'approved_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', selected.approvalId);
+
+      // An approved PR is not "done" — it is cleared to be ordered but no PO
+      // exists yet, so it moves straight to YET_TO_BE_ORDERED.
+      await supabase
+          .from('purchase_requests')
+          .update({'status': 'YET_TO_BE_ORDERED'})
+          .eq('request_number', selected.referenceNumber);
+
+      // Only now (on approval) does this PR's qty count against the demand
+      // pool: planned_qty increases and pending (balance) reduces.
+      await _applyApprovedQtyToDemandPool(selected.referenceNumber);
+    } catch (e) {
+      AppLogger.error('Failed to approve PR',
+          error: e, module: 'ApprovalsOverview');
+    }
+
+    // Re-read regardless of how the writes went. On success this confirms the
+    // persisted status; on failure it rolls the optimistic badge back to what
+    // the database actually holds, instead of leaving a lie on screen.
+    if (!mounted) return;
+    // The approvals report sits below us in the route stack and is still alive,
+    // so tell it to re-read too.
+    ref.read(approvalsListRefreshProvider.notifier).state++;
+    await _loadApprovals(silent: true);
   }
 
   /// On approval, allocate this PR's procured quantities against its linked
@@ -393,26 +426,48 @@ class _ProcurementApprovalsOverviewPageState
     _showToast(ctx, 'Purchase request processed');
   }
 
-  void _confirmReject(BuildContext ctx, String reason) {
+  Future<void> _confirmReject(BuildContext ctx, String reason) async {
     final selected = _filtered.isEmpty
         ? null
         : _filtered[_selectedIndex.clamp(0, _filtered.length - 1)];
-    if (selected != null) {
-      Supabase.instance.client
+
+    setState(() {
+      selected?.status = _ApprovalStatus.rejected;
+      _isRejected = true;
+      _isApproved = false;
+      _rejectReason = reason;
+    });
+    _showToast(ctx, 'Purchase request rejected');
+
+    if (selected == null) return;
+
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase
           .from('purchase_request_approval')
           .update({
             'status': 'REJECTED',
             'rejection_reason': reason,
             'rejected_at': DateTime.now().toIso8601String(),
           })
-          .eq('id', selected.approvalId)
-          .catchError((e) => AppLogger.error('Failed to reject PR', error: e, module: 'ApprovalsOverview'));
+          .eq('id', selected.approvalId);
+
+      // Mirror the decision onto the PR itself, the same way approving does —
+      // otherwise the request keeps reading as awaiting approval.
+      await supabase
+          .from('purchase_requests')
+          .update({'status': 'REJECTED'})
+          .eq('request_number', selected.referenceNumber);
+    } catch (e) {
+      AppLogger.error('Failed to reject PR',
+          error: e, module: 'ApprovalsOverview');
     }
-    setState(() {
-      _isRejected = true;
-      _rejectReason = reason;
-    });
-    _showToast(ctx, 'Purchase request rejected');
+
+    if (!mounted) return;
+    // The approvals report sits below us in the route stack and is still alive,
+    // so tell it to re-read too.
+    ref.read(approvalsListRefreshProvider.notifier).state++;
+    await _loadApprovals(silent: true);
   }
 
   void _showApprovalFlow(BuildContext context, _ApprovalDetail approval) {
@@ -620,10 +675,18 @@ class _ProcurementApprovalsOverviewPageState
                     onConfirmProcessed: () => _confirmProcessed(context),
                     onUndoProcessed: () =>
                         setState(() => _isProcessed = false),
-                    isApproved: _isApproved,
+                    // A decision already stored on the row counts the same as
+                    // one just made in this session. Without the persisted
+                    // half, re-selecting an approved request cleared the local
+                    // flag and offered Approve/Reject on it all over again.
+                    isApproved: _isApproved ||
+                        selected.status == _ApprovalStatus.approved,
                     onConfirmApproved: () => _confirmApproved(context),
-                    isRejected: _isRejected,
-                    rejectReason: _rejectReason,
+                    isRejected: _isRejected ||
+                        selected.status == _ApprovalStatus.rejected,
+                    rejectReason: _rejectReason.isNotEmpty
+                        ? _rejectReason
+                        : (selected.rejectionReason ?? ''),
                     onConfirmReject: (reason) =>
                         _confirmReject(context, reason),
                   ),

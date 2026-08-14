@@ -16,12 +16,24 @@ import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/widgets/tables/table_header_menu.dart';
 import 'package:zerpai_erp/shared/widgets/tables/col_resize_handle.dart';
 import 'package:zerpai_erp/modules/procurement/purchase_request/presentation/pages/procurement_demand_pool_dialog.dart';
+import 'package:zerpai_erp/modules/procurement/purchase_request/providers/purchase_request_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Model
 // ---------------------------------------------------------------------------
 
-enum _PrStatus { approved, onHold, awaitingApproval, rejected }
+/// Pipeline order: a PR is saved as [draft], sent for approval
+/// ([waitingForApproval]), cleared to buy against once an approver signs off
+/// ([yetToBeOrdered]), and finally [ordered] when a purchase order is raised
+/// from it.
+enum _PrStatus {
+  draft,
+  waitingForApproval,
+  yetToBeOrdered,
+  ordered,
+  onHold,
+  rejected,
+}
 
 class _PurchaseRequest {
   const _PurchaseRequest({
@@ -52,11 +64,19 @@ class _PurchaseRequest {
 // ---------------------------------------------------------------------------
 
 _PrStatus _parsePrStatus(String? raw) => switch ((raw ?? '').toUpperCase()) {
-  'APPROVED'          => _PrStatus.approved,
-  'ON_HOLD' || 'ONHOLD' => _PrStatus.onHold,
-  'AWAITING_APPROVAL' => _PrStatus.awaitingApproval,
-  'REJECTED'          => _PrStatus.rejected,
-  _                   => _PrStatus.awaitingApproval,
+  'DRAFT'                                       => _PrStatus.draft,
+  // PENDING_/AWAITING_ are the pre-rename spellings of the same stage.
+  'WAITING_FOR_APPROVAL' ||
+  'PENDING_APPROVAL' ||
+  'AWAITING_APPROVAL'                           => _PrStatus.waitingForApproval,
+  'YET_TO_BE_ORDERED'                           => _PrStatus.yetToBeOrdered,
+  'ORDERED'                                     => _PrStatus.ordered,
+  // Retired: rows written before approving landed on yet-to-be-ordered. Mapped
+  // rather than dropped so they do not fall through to the draft default.
+  'APPROVED'                                    => _PrStatus.yetToBeOrdered,
+  'ON_HOLD' || 'ONHOLD'                         => _PrStatus.onHold,
+  'REJECTED'                                    => _PrStatus.rejected,
+  _                                             => _PrStatus.draft,
 };
 
 String _fmtDate(String? raw) {
@@ -148,19 +168,22 @@ class _ProcurementPurchaseRequestsListPageState
   List<_PurchaseRequest> get _filtered {
     final base = switch (_activeTab) {
       _TabFilter.all => List<_PurchaseRequest>.from(_allRows),
-      _TabFilter.awaitingApproval => _allRows
-          .where((r) => r.status == _PrStatus.awaitingApproval)
+      _TabFilter.draft =>
+        _allRows.where((r) => r.status == _PrStatus.draft).toList(),
+      _TabFilter.waitingForApproval => _allRows
+          .where((r) => r.status == _PrStatus.waitingForApproval)
           .toList(),
-      _TabFilter.approved =>
-        _allRows.where((r) => r.status == _PrStatus.approved).toList(),
+      _TabFilter.yetToBeOrdered =>
+        _allRows.where((r) => r.status == _PrStatus.yetToBeOrdered).toList(),
+      _TabFilter.ordered =>
+        _allRows.where((r) => r.status == _PrStatus.ordered).toList(),
       _TabFilter.rejected =>
         _allRows.where((r) => r.status == _PrStatus.rejected).toList(),
       _TabFilter.onHold =>
         _allRows.where((r) => r.status == _PrStatus.onHold).toList(),
-      _TabFilter.yetToBeOrdered ||
-      _TabFilter.processed ||
-      _TabFilter.cancelled =>
-        <_PurchaseRequest>[],
+      // No PR status maps to these yet — they stay empty until the pipeline
+      // grows a processed/cancelled stage.
+      _TabFilter.processed || _TabFilter.cancelled => <_PurchaseRequest>[],
     };
 
     base.sort((a, b) {
@@ -199,6 +222,12 @@ class _ProcurementPurchaseRequestsListPageState
 
   @override
   Widget build(BuildContext context) {
+    // Re-fetch after a create/edit saves. Only the rows are reloaded — the
+    // active tab, sort and selection stay as the user left them.
+    ref.listen<int>(purchaseRequestListRefreshProvider, (_, __) {
+      _loadPurchaseRequests();
+    });
+
     return ZerpaiLayout(
       pageTitle: 'Purchase Requests',
       useHorizontalPadding: false,
@@ -308,11 +337,12 @@ enum _SortDir { ascending, descending }
 
 enum _TabFilter {
   all,
-  awaitingApproval,
-  approved,
+  draft,
+  waitingForApproval,
+  yetToBeOrdered,
+  ordered,
   rejected,
   onHold,
-  yetToBeOrdered,
   processed,
   cancelled,
 }
@@ -394,10 +424,12 @@ class _ExportDialogState extends State<_ExportDialog> {
   bool _includePii = false;
 
   static String _statusLabel(_PrStatus s) => switch (s) {
-    _PrStatus.approved        => 'Approved',
-    _PrStatus.onHold          => 'On Hold',
-    _PrStatus.awaitingApproval => 'Draft',
-    _PrStatus.rejected        => 'Rejected',
+    _PrStatus.draft              => 'Draft',
+    _PrStatus.waitingForApproval => 'Waiting For Approval',
+    _PrStatus.yetToBeOrdered     => 'Yet To Be Ordered',
+    _PrStatus.ordered            => 'Ordered',
+    _PrStatus.onHold             => 'On Hold',
+    _PrStatus.rejected           => 'Rejected',
   };
 
   String _buildCsv() {
@@ -786,6 +818,8 @@ class _TabBarState extends State<_TabBar> {
   }
 
   static const _kOverflowFilters = {
+    _TabFilter.waitingForApproval,
+    _TabFilter.ordered,
     _TabFilter.rejected,
     _TabFilter.onHold,
     _TabFilter.yetToBeOrdered,
@@ -794,22 +828,24 @@ class _TabBarState extends State<_TabBar> {
   };
 
   static String _labelFor(_TabFilter f) => switch (f) {
-    _TabFilter.approved        => 'Approved',
+    _TabFilter.waitingForApproval => 'Waiting For Approval',
+    _TabFilter.ordered         => 'Ordered',
     _TabFilter.rejected        => 'Rejected',
     _TabFilter.onHold          => 'On Hold',
     _TabFilter.yetToBeOrdered  => 'Yet To Be Ordered',
     _TabFilter.processed       => 'Processed',
     _TabFilter.cancelled       => 'Cancelled',
-    _                          => 'Approved',
+    _                          => 'Yet To Be Ordered',
   };
 
   @override
   Widget build(BuildContext context) {
-    // 3rd tab slot: show the active overflow tab if one is selected,
-    // otherwise fall back to "Approved".
+    // 3rd tab slot: show the active overflow tab if one is selected, otherwise
+    // fall back to the end of the pipeline — approving now lands a PR on
+    // yet-to-be-ordered, so that is where the cleared requests collect.
     final thirdFilter = _kOverflowFilters.contains(widget.active)
         ? widget.active
-        : _TabFilter.approved;
+        : _TabFilter.yetToBeOrdered;
 
     return Row(
       children: [
@@ -820,8 +856,8 @@ class _TabBarState extends State<_TabBar> {
         ),
         _Tab(
           label: 'Draft',
-          isActive: widget.active == _TabFilter.awaitingApproval,
-          onTap: () => widget.onChanged(_TabFilter.awaitingApproval),
+          isActive: widget.active == _TabFilter.draft,
+          onTap: () => widget.onChanged(_TabFilter.draft),
         ),
         _Tab(
           label: _labelFor(thirdFilter),
@@ -881,11 +917,12 @@ class _TabDropdownPanelState extends State<_TabDropdownPanel> {
 
   static const _kItems = [
     (_TabFilter.all, 'All'),
-    (_TabFilter.awaitingApproval, 'Draft'),
-    (_TabFilter.approved, 'Approved'),
+    (_TabFilter.draft, 'Draft'),
+    (_TabFilter.waitingForApproval, 'Waiting For Approval'),
+    (_TabFilter.yetToBeOrdered, 'Yet To Be Ordered'),
+    (_TabFilter.ordered, 'Ordered'),
     (_TabFilter.rejected, 'Rejected'),
     (_TabFilter.onHold, 'On Hold'),
-    (_TabFilter.yetToBeOrdered, 'Yet To Be Ordered'),
     (_TabFilter.processed, 'Processed'),
     (_TabFilter.cancelled, 'Cancelled'),
   ];
@@ -1530,23 +1567,29 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = switch (status) {
-      _PrStatus.approved => 'APPROVED',
+      _PrStatus.draft => 'DRAFT',
+      _PrStatus.waitingForApproval => 'WAITING FOR APPROVAL',
+      _PrStatus.yetToBeOrdered => 'YET TO BE ORDERED',
+      _PrStatus.ordered => 'ORDERED',
       _PrStatus.onHold => 'ON HOLD',
-      _PrStatus.awaitingApproval => 'DRAFT',
       _PrStatus.rejected => 'REJECTED',
     };
 
     final textColor = switch (status) {
-      _PrStatus.approved => AppTheme.successTextDark,
+      _PrStatus.draft => AppTheme.infoTextDark,
+      _PrStatus.waitingForApproval => AppTheme.warningTextDark,
+      _PrStatus.yetToBeOrdered => AppTheme.successTextDark,
+      _PrStatus.ordered => AppTheme.infoTextDark,
       _PrStatus.onHold => AppTheme.warningTextDark,
-      _PrStatus.awaitingApproval => AppTheme.infoTextDark,
       _PrStatus.rejected => AppTheme.errorTextDark,
     };
 
     final bgColor = switch (status) {
-      _PrStatus.approved => AppTheme.successBg,
+      _PrStatus.draft => AppTheme.infoBg,
+      _PrStatus.waitingForApproval => AppTheme.warningBg,
+      _PrStatus.yetToBeOrdered => AppTheme.successBg,
+      _PrStatus.ordered => AppTheme.infoBg,
       _PrStatus.onHold => AppTheme.warningBg,
-      _PrStatus.awaitingApproval => AppTheme.infoBg,
       _PrStatus.rejected => AppTheme.errorBg,
     };
 
@@ -1631,7 +1674,9 @@ class _DemandPoolButtonState extends State<_DemandPoolButton> {
           .insert({
             'entity_id': entityId,
             'request_number': requestNumber,
-            'status': 'OPEN',
+            // A PR generated from the demand pool starts life unsubmitted, same
+            // as one saved from the create form.
+            'status': 'DRAFT',
             if (payload.expectedDate != null)
               'expected_date': payload.expectedDate!.toIso8601String().substring(0, 10),
             if (validAssigneeId != null)
@@ -1756,7 +1801,16 @@ class _ViewRequestedItemsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => context.go(AppRoutes.procurementRequestedItems),
+      // Every app route sits under /:orgSystemId, so the bare path constant
+      // never matches — it gets parsed with "purchases" as the org segment and
+      // falls through to a different page entirely. Navigate by name instead.
+      onTap: () => context.goNamed(
+        AppRoutes.procurementRequestedItems,
+        pathParameters: {
+          'orgSystemId':
+              GoRouterState.of(context).pathParameters['orgSystemId'] ?? '',
+        },
+      ),
       borderRadius: BorderRadius.circular(6),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

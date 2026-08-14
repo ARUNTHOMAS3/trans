@@ -276,8 +276,19 @@ class _OverviewPageState
         '${dt.year}';
   }
 
+  /// A PR that cleared approval, whether or not a purchase order has been
+  /// raised from it yet. APPROVED is the retired spelling of the same stage.
+  bool get _isApproved =>
+      _prStatus == 'YET_TO_BE_ORDERED' ||
+      _prStatus == 'ORDERED' ||
+      _prStatus == 'APPROVED';
+
+  /// A purchase order has already been raised from this request.
+  bool get _isOrdered => _prStatus == 'ORDERED';
+
   ApprovalFlowStatus get _approvalFlowStatus => switch (_prStatus) {
-        'APPROVED' || 'PROCESSED' => ApprovalFlowStatus.approved,
+        'YET_TO_BE_ORDERED' || 'ORDERED' || 'APPROVED' || 'PROCESSED' =>
+          ApprovalFlowStatus.approved,
         'REJECTED' => ApprovalFlowStatus.rejected,
         _ => ApprovalFlowStatus.pending,
       };
@@ -395,7 +406,7 @@ class _OverviewPageState
   /// param, so the prefilled PO create page is deep-linkable and survives a
   /// refresh — `state.extra` would not.
   void _createPurchaseOrder() {
-    if (_prStatus != 'APPROVED') {
+    if (!_isApproved) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Only an approved purchase request can be ordered.'),
@@ -652,9 +663,11 @@ class _OverviewPageState
         : _prStatus.replaceAll('_', ' ');
     final statusColor = _isOnHold
         ? const Color(0xFFD97706)
-        : (_isProcessed || _prStatus == 'APPROVED')
-            ? AppTheme.successGreen
-            : AppTheme.textSecondary;
+        : _isOrdered
+            ? AppTheme.primaryBlue
+            : (_isProcessed || _isApproved)
+                ? AppTheme.successGreen
+                : AppTheme.textSecondary;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -701,9 +714,11 @@ class _OverviewPageState
   Widget _buildPdfPreview() {
     final ribbonColor = _isOnHold
         ? const Color(0xFFD97706)
-        : (_isProcessed || _prStatus == 'APPROVED')
-            ? AppTheme.successGreen
-            : AppTheme.textSecondary;
+        : _isOrdered
+            ? AppTheme.primaryBlue
+            : (_isProcessed || _isApproved)
+                ? AppTheme.successGreen
+                : AppTheme.textSecondary;
     final ribbonLabel = _prStatus.isEmpty ? '—' : _prStatus.replaceAll('_', ' ');
 
     return ZerpaiDocumentView(
@@ -857,7 +872,7 @@ class _OverviewPageState
                 );
               },
             ),
-            if (_prStatus == 'APPROVED') ...[
+            if (_isApproved) ...[
               const SizedBox(width: 6),
               CompositedTransformTarget(
                 link: _createLink,
@@ -905,7 +920,14 @@ class _OverviewPageState
             color: AppTheme.errorRed,
             onTap: () => context.canPop()
                 ? context.pop()
-                : context.go(AppRoutes.procurementPurchaseRequests),
+                : context.goNamed(
+                    AppRoutes.procurementPurchaseRequests,
+                    pathParameters: {
+                      'orgSystemId': GoRouterState.of(context)
+                              .pathParameters['orgSystemId'] ??
+                          '',
+                    },
+                  ),
           ),
         ],
       ),
@@ -2312,6 +2334,8 @@ class _PrCompactItemState extends State<_PrCompactItem> {
 
   Color _statusColor(String status) {
     return switch (status.toUpperCase()) {
+      'YET_TO_BE_ORDERED' => AppTheme.successGreen,
+      'ORDERED'   => AppTheme.primaryBlue,
       'APPROVED'  => AppTheme.successGreen,
       'ON_HOLD'   => const Color(0xFFD97706),
       'PROCESSED' => AppTheme.successGreen,

@@ -8,19 +8,30 @@ class PurchaseRequestItemSelection {
   final String productName;
   final double quantity;
   final double rate;
+  final String requestNumber;
+  final String sourceKey;
 
   const PurchaseRequestItemSelection({
     required this.productId,
     required this.productName,
     required this.quantity,
     required this.rate,
+    this.requestNumber = '',
+    this.sourceKey = '',
   });
 }
 
 class PurchaseRequestsItemsDialog extends StatelessWidget {
+  final String? initialVendorId;
+  final Set<String>? excludeSourceKeys;
   final ValueChanged<List<PurchaseRequestItemSelection>> onItemsSelected;
 
-  const PurchaseRequestsItemsDialog({super.key, required this.onItemsSelected});
+  const PurchaseRequestsItemsDialog({
+    super.key,
+    this.initialVendorId,
+    this.excludeSourceKeys,
+    required this.onItemsSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
