@@ -1674,6 +1674,9 @@ class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage>
                       const SizedBox(height: 24),
                       // Bills paid sub-table
                       _buildBillsPaidSection(p),
+                      const SizedBox(height: 24),
+                      // Journal section
+                      _buildJournalSection(p),
                     ],
                   ),
                 ),
@@ -2135,6 +2138,442 @@ class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage>
         })
         .where((row) => row.billNumber.isNotEmpty)
         .toList(growable: false);
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchPaymentJournals(
+      String paymentDbId, String paymentNumber) async {
+    final supabase = Supabase.instance.client;
+    var jes = await supabase
+        .from('journal_entries')
+        .select('*')
+        .eq('source_document_type', 'PAYMENT_MADE')
+        .eq('source_document_id', paymentDbId);
+
+    if (jes.isEmpty && paymentNumber.isNotEmpty) {
+      jes = await supabase
+          .from('journal_entries')
+          .select('*')
+          .eq('journal_number', paymentNumber);
+    }
+
+    if (jes.isEmpty) return [];
+
+    final jeId = jes.first['id'];
+    final res = await supabase
+        .from('journal_entry_lines')
+        .select('*, account:accounts(user_account_name, system_account_name)')
+        .eq('journal_entry_id', jeId);
+    return List<Map<String, dynamic>>.from(res);
+  }
+
+  Widget _buildJournalSection(MockPaymentMade p) {
+    final paymentDbId = p.id;
+    final paymentNumber = p.paymentNumber;
+    final locationName = p.location.isNotEmpty
+        ? p.location
+        : 'ZABNIX PRIVATE LIMITED';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.only(bottom: 8),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: AppTheme.primaryBlue,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                child: const Text(
+                  'Journals',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        FutureBuilder<List<Map<String, dynamic>>>(
+          future: _fetchPaymentJournals(paymentDbId, paymentNumber),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            }
+
+            final lines = snapshot.data ?? [];
+
+            if (lines.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(
+                  child: Text(
+                    'No journal entries found for this payment.',
+                    style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
+                  ),
+                ),
+              );
+            }
+
+            final section1Lines = <Map<String, dynamic>>[];
+            final section2Lines = <Map<String, dynamic>>[];
+
+            for (var line in lines) {
+              final desc = (line['description'] ?? '').toString();
+              if (desc.contains('Bill allocation')) {
+                section2Lines.add(line);
+              } else {
+                section1Lines.add(line);
+              }
+            }
+
+            if (section1Lines.isEmpty && lines.isNotEmpty) {
+              section1Lines.addAll(lines.take(2));
+              if (lines.length > 2) {
+                section2Lines.addAll(lines.skip(2));
+              }
+            }
+
+            final Map<String, List<Map<String, dynamic>>> section2Grouped = {};
+            for (var line in section2Lines) {
+              final refNum = (line['reference_number'] ?? '').toString().trim();
+              final desc = (line['description'] ?? '').toString();
+              String billNo = refNum;
+              if (billNo.isEmpty || billNo == paymentNumber) {
+                if (desc.contains('Bill allocation - ')) {
+                  billNo = desc.split('Bill allocation - ').last.trim();
+                }
+              }
+              if (billNo.isEmpty) billNo = paymentNumber;
+              section2Grouped.putIfAbsent(billNo, () => []).add(line);
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text(
+                      'Amount is displayed in your base currency ',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                    ),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF16A34A),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: const Text(
+                        'INR',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFFD1D5DB)),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE5E7EB),
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(3),
+                                bottomLeft: Radius.circular(3),
+                              ),
+                            ),
+                            child: const Text(
+                              'Accrual',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF374151),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            child: const Text(
+                              'Cash',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (section1Lines.isNotEmpty) ...[
+                  Text(
+                    'Vendor Payment - $paymentNumber',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildJournalTable(section1Lines, locationName),
+                  const SizedBox(height: 24),
+                ],
+                if (section2Grouped.isNotEmpty) ...[
+                  ...section2Grouped.entries.map((entry) {
+                    final billNo = entry.key;
+                    final billLines = entry.value;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Payments Made - $billNo',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildJournalTable(billLines, locationName),
+                        const SizedBox(height: 24),
+                      ],
+                    );
+                  }),
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildJournalTable(
+    List<Map<String, dynamic>> rows,
+    String locationName,
+  ) {
+    double totalDebit = 0;
+    double totalCredit = 0;
+
+    for (var r in rows) {
+      totalDebit += double.tryParse(r['debit']?.toString() ?? '0') ?? 0;
+      totalCredit += double.tryParse(r['credit']?.toString() ?? '0') ?? 0;
+    }
+
+    return Table(
+      columnWidths: const {
+        0: FlexColumnWidth(4),
+        1: FlexColumnWidth(4),
+        2: FlexColumnWidth(2),
+        3: FlexColumnWidth(2),
+      },
+      children: [
+        TableRow(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF9FAFB),
+            border: Border(
+              top: BorderSide(color: Color(0xFFE5E7EB)),
+              bottom: BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+          ),
+          children: const [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                'ACCOUNT',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF4B5563),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                'WAREHOUSE',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF4B5563),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                'DEBIT',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF4B5563),
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                'CREDIT',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF4B5563),
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+        ...rows.map((tx) {
+          final rawSys = tx['account']?['system_account_name']?.toString() ?? '';
+          final rawUser = tx['account']?['user_account_name']?.toString() ?? '';
+          final accountName = rawSys.isNotEmpty
+              ? rawSys
+              : (rawUser.isNotEmpty ? rawUser : '-');
+          final debit = double.tryParse(tx['debit']?.toString() ?? '0') ?? 0;
+          final credit = double.tryParse(tx['credit']?.toString() ?? '0') ?? 0;
+
+          return TableRow(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFF3F4F6)),
+              ),
+            ),
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                child: Text(
+                  accountName,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                child: Text(
+                  locationName,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF4B5563),
+                  ),
+                ),
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                child: Text(
+                  debit > 0 ? debit.toStringAsFixed(2) : '0.00',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF1F2937),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                child: Text(
+                  credit > 0 ? credit.toStringAsFixed(2) : '0.00',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF1F2937),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
+          );
+        }),
+        TableRow(
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
+            ),
+          ),
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              child: Text(
+                'Total',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+            ),
+            const SizedBox.shrink(),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              child: Text(
+                totalDebit.toStringAsFixed(2),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              child: Text(
+                totalCredit.toStringAsFixed(2),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 

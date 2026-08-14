@@ -486,46 +486,37 @@ export class PaymentsMadeService {
 
     // Post/Confirm stage: Generate journal_entries and journal_entry_lines
 
-    // 1. Resolve Accounts Payable Account ID
+    // 1. Resolve Accounts Payable Account ID (prioritize exact system_account_name = 'Accounts Payable')
     let accountsPayableAccountId: string | null = null;
-    const { data: apAccountRow } = await supabase
+    const { data: apSysRow } = await supabase
       .from("accounts")
       .select("id")
-      .or("system_account_name.eq.Accounts Payable,user_account_name.eq.Accounts Payable,account_name.eq.Accounts Payable,account_type.eq.Accounts Payable")
+      .eq("system_account_name", "Accounts Payable")
       .limit(1)
       .maybeSingle();
 
-    if (apAccountRow) {
-      accountsPayableAccountId = apAccountRow.id;
+    if (apSysRow) {
+      accountsPayableAccountId = apSysRow.id;
     } else {
-      const { data: apFallback } = await supabase
+      const { data: apUserRow } = await supabase
         .from("accounts")
         .select("id")
-        .eq("account_type", "Accounts Payable")
+        .or("user_account_name.eq.Accounts Payable,account_name.eq.Accounts Payable,account_type.eq.Accounts Payable")
         .limit(1)
         .maybeSingle();
-      if (apFallback) {
-        accountsPayableAccountId = apFallback.id;
+      if (apUserRow) {
+        accountsPayableAccountId = apUserRow.id;
+      } else {
+        const { data: apFallback } = await supabase
+          .from("accounts")
+          .select("id")
+          .eq("account_type", "Accounts Payable")
+          .limit(1)
+          .maybeSingle();
+        if (apFallback) {
+          accountsPayableAccountId = apFallback.id;
+        }
       }
-    }
-
-    if (!accountsPayableAccountId) {
-      const { data: anyLiability } = await supabase
-        .from("accounts")
-        .select("id")
-        .eq("account_group", "Liabilities")
-        .limit(1)
-        .maybeSingle();
-      accountsPayableAccountId = anyLiability?.id || null;
-    }
-
-    if (!accountsPayableAccountId) {
-      const { data: anyAccount } = await supabase
-        .from("accounts")
-        .select("id")
-        .limit(1)
-        .maybeSingle();
-      accountsPayableAccountId = anyAccount?.id || null;
     }
 
     if (!accountsPayableAccountId) {
@@ -533,7 +524,38 @@ export class PaymentsMadeService {
       return;
     }
 
-    // 2. Resolve Paid Through Account ID
+    // 2. Resolve Prepaid Expenses Account ID (prioritize exact system_account_name = 'Prepaid Expenses')
+    let prepaidExpensesAccountId: string | null = null;
+    const { data: prepaidSysRow } = await supabase
+      .from("accounts")
+      .select("id")
+      .eq("system_account_name", "Prepaid Expenses")
+      .limit(1)
+      .maybeSingle();
+
+    if (prepaidSysRow) {
+      prepaidExpensesAccountId = prepaidSysRow.id;
+    } else {
+      const { data: prepaidUserRow } = await supabase
+        .from("accounts")
+        .select("id")
+        .or("user_account_name.eq.Prepaid Expenses,account_name.eq.Prepaid Expenses")
+        .limit(1)
+        .maybeSingle();
+      if (prepaidUserRow) {
+        prepaidExpensesAccountId = prepaidUserRow.id;
+      } else {
+        const { data: assetFallback } = await supabase
+          .from("accounts")
+          .select("id")
+          .eq("account_type", "Other Current Asset")
+          .limit(1)
+          .maybeSingle();
+        prepaidExpensesAccountId = assetFallback?.id || accountsPayableAccountId;
+      }
+    }
+
+    // 3. Resolve Paid Through Account ID
     let paidThroughAccountId: string | null = paymentData.paid_through_account_id || null;
     if (!paidThroughAccountId) {
       const incomingPaidThrough = dto.paidThroughAccountId || dto.paid_through_account_id || "Petty Cash";
@@ -579,7 +601,7 @@ export class PaymentsMadeService {
     const paymentNumber = paymentData.payment_number || dto.paymentNumber || dto.payment_number || `PM-${Date.now()}`;
     const vendorId = paymentData.vendor_id || dto.vendorId || dto.vendor_id || null;
 
-    // 3. Find or Create Header in journal_entries
+    // 4. Find or Create Header in journal_entries
     const { data: existingJE } = await supabase
       .from("journal_entries")
       .select("id, created_by")
@@ -623,13 +645,13 @@ export class PaymentsMadeService {
       org_id: tenant.orgId || defaultOrgId,
       entity_id: tenant.entityId,
       fiscal_year_id: null,
-      journal_number: `JE-${paymentNumber}`,
-      journal_type: "PAYMENT_MADE",
+      journal_number: paymentNumber,
+      journal_type: "payment made",
       journal_date: paymentDate,
       posting_date: paymentDate,
       reference_number: paymentNumber,
       narration: paymentData.notes || dto.notes || `Payment Made ${paymentNumber}`,
-      source_module: "PURCHASES",
+      source_module: "purchase",
       source_document_type: "PAYMENT_MADE",
       source_document_id: paymentId,
       currency_code: paymentData.currency_code || dto.currencyCode || "INR",
@@ -656,28 +678,10 @@ export class PaymentsMadeService {
       }
     }
 
-    // 4. Insert double-entry lines into journal_entry_lines
+    // 5. Insert double-entry lines into journal_entry_lines
     if (paymentAmount > 0) {
-      const lines = [
-        // Line 1: Debit Accounts Payable
-        {
-          id: uuidv4(),
-          journal_entry_id: journalEntryId,
-          account_id: accountsPayableAccountId,
-          transaction_date: paymentDate,
-          reference_number: paymentNumber,
-          description: "Payment Made to Vendor - Accounts Payable",
-          debit: paymentAmount,
-          credit: 0,
-          source_id: paymentId,
-          source_type: "PAYMENT_MADE",
-          contact_id: vendorId,
-          contact_type: "VENDOR",
-          entity_id: tenant.entityId,
-          org_id: tenant.orgId || defaultOrgId,
-          line_number: null,
-        },
-        // Line 2: Credit Paid Through (Petty Cash / Bank)
+      const lines: any[] = [
+        // Row 1: Paid Through (Credit)
         {
           id: uuidv4(),
           journal_entry_id: journalEntryId,
@@ -690,12 +694,88 @@ export class PaymentsMadeService {
           source_id: paymentId,
           source_type: "PAYMENT_MADE",
           contact_id: vendorId,
-          contact_type: "VENDOR",
+          contact_type: "vendor",
+          entity_id: tenant.entityId,
+          org_id: tenant.orgId || defaultOrgId,
+          line_number: null,
+        },
+        // Row 2: Prepaid Expenses (Debit)
+        {
+          id: uuidv4(),
+          journal_entry_id: journalEntryId,
+          account_id: prepaidExpensesAccountId,
+          transaction_date: paymentDate,
+          reference_number: paymentNumber,
+          description: "Payment Made - Prepaid Expenses",
+          debit: paymentAmount,
+          credit: 0,
+          source_id: paymentId,
+          source_type: "PAYMENT_MADE",
+          contact_id: vendorId,
+          contact_type: "vendor",
           entity_id: tenant.entityId,
           org_id: tenant.orgId || defaultOrgId,
           line_number: null,
         },
       ];
+
+      // Fetch applied bill allocations with bills(bill_number) to generate Row 3 & Row 4 per applied bill
+      const { data: dbAllocations } = await supabase
+        .from("payment_made_bill_allocations")
+        .select("*, bills(bill_number)")
+        .eq("payment_made_id", paymentId);
+
+      const allocationsList = (dbAllocations && dbAllocations.length > 0)
+        ? dbAllocations
+        : (dto.billAllocations || dto.bill_allocations || []);
+
+      for (const alloc of allocationsList) {
+        const allocatedAmt = parseFloat(alloc.allocated_amount?.toString() || alloc.allocatedAmount?.toString() || alloc.amount?.toString() || "0");
+        const rawBill = alloc.bills || alloc.bill;
+        const billNumber = (rawBill && typeof rawBill === 'object' && rawBill.bill_number)
+          ? rawBill.bill_number
+          : (alloc.bill_number || alloc.billNumber || paymentNumber);
+
+        if (allocatedAmt > 0) {
+          // Row 3: Accounts Payable (Debit) per applied bill
+          lines.push({
+            id: uuidv4(),
+            journal_entry_id: journalEntryId,
+            account_id: accountsPayableAccountId,
+            transaction_date: paymentDate,
+            reference_number: billNumber,
+            description: `Bill allocation - ${billNumber}`,
+            debit: allocatedAmt,
+            credit: 0,
+            source_id: paymentId,
+            source_type: "PAYMENT_MADE",
+            contact_id: vendorId,
+            contact_type: "vendor",
+            entity_id: tenant.entityId,
+            org_id: tenant.orgId || defaultOrgId,
+            line_number: null,
+          });
+
+          // Row 4: Prepaid Expenses (Credit) per applied bill
+          lines.push({
+            id: uuidv4(),
+            journal_entry_id: journalEntryId,
+            account_id: prepaidExpensesAccountId,
+            transaction_date: paymentDate,
+            reference_number: billNumber,
+            description: `Bill allocation - ${billNumber}`,
+            debit: 0,
+            credit: allocatedAmt,
+            source_id: paymentId,
+            source_type: "PAYMENT_MADE",
+            contact_id: vendorId,
+            contact_type: "vendor",
+            entity_id: tenant.entityId,
+            org_id: tenant.orgId || defaultOrgId,
+            line_number: null,
+          });
+        }
+      }
 
       const { error: linesErr } = await supabase
         .from("journal_entry_lines")
@@ -705,7 +785,7 @@ export class PaymentsMadeService {
       }
     }
 
-    // 5. Link journal_entry_id back to payment_made_master if column exists
+    // 6. Link journal_entry_id back to payment_made_master if column exists
     try {
       await supabase
         .from("payment_made_master")

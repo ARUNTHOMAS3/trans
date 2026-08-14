@@ -6,7 +6,7 @@ import { SupabaseService } from "../../supabase/supabase.service";
 export class PicklistsService {
   private readonly logger = new Logger(PicklistsService.name);
 
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(private readonly supabaseService: SupabaseService) { }
 
   async findAll(
     tenant: TenantContext,
@@ -424,6 +424,14 @@ export class PicklistsService {
             );
             throw batchError;
           }
+
+          // Increment reserved_qty in batch_stock_layers for each layer
+          for (const ba of item.batch_allocations) {
+            if (ba.layer_id) {
+              const allocatedQty = (Number(ba.qty) || 0) + (Number(ba.foc_qty) || 0);
+              await this.updateLayerReservedQty(client, ba.layer_id, allocatedQty);
+            }
+          }
         }
       }
     }
@@ -482,8 +490,20 @@ export class PicklistsService {
 
       const oldItemIds = (oldItems || []).map((i: any) => i.id);
 
-      // Delete batch allocations for old items
+      // Release reserved_qty for old batch allocations before deleting
       if (oldItemIds.length > 0) {
+        const { data: oldAllocations } = await client
+          .from("picklist_batch_allocation")
+          .select("layer_id, qty, foc_qty")
+          .in("picklist_item_id", oldItemIds);
+
+        for (const oldBa of oldAllocations || []) {
+          if (oldBa.layer_id) {
+            const oldQty = (Number(oldBa.qty) || 0) + (Number(oldBa.foc_qty) || 0);
+            await this.updateLayerReservedQty(client, oldBa.layer_id, -oldQty);
+          }
+        }
+
         await client
           .from("picklist_batch_allocation")
           .delete()
@@ -531,6 +551,13 @@ export class PicklistsService {
             .insert(batchRows);
 
           if (batchError) throw batchError;
+
+          for (const ba of item.batch_allocations) {
+            if (ba.layer_id) {
+              const allocatedQty = (Number(ba.qty) || 0) + (Number(ba.foc_qty) || 0);
+              await this.updateLayerReservedQty(client, ba.layer_id, allocatedQty);
+            }
+          }
         }
       }
     }
@@ -545,6 +572,27 @@ export class PicklistsService {
 
   async remove(id: string, tenant: TenantContext) {
     const client = this.supabaseService.getClient();
+
+    // Release reserved_qty on batch_stock_layers for all items under this picklist
+    const { data: items } = await client
+      .from("picklist_items")
+      .select("id")
+      .eq("picklist_id", id);
+
+    const itemIds = (items || []).map((i: any) => i.id);
+    if (itemIds.length > 0) {
+      const { data: allocations } = await client
+        .from("picklist_batch_allocation")
+        .select("layer_id, qty, foc_qty")
+        .in("picklist_item_id", itemIds);
+
+      for (const ba of allocations || []) {
+        if (ba.layer_id) {
+          const allocatedQty = (Number(ba.qty) || 0) + (Number(ba.foc_qty) || 0);
+          await this.updateLayerReservedQty(client, ba.layer_id, -allocatedQty);
+        }
+      }
+    }
 
     // Soft-delete: set is_delete = true instead of removing from DB
     const { data, error } = await client
@@ -950,6 +998,37 @@ export class PicklistsService {
         `Error fetching bins for warehouse ${warehouseId}: ${error instanceof Error ? error.message : String(error)}`,
       );
       return { data: [], success: false };
+    }
+  }
+
+  /**
+   * Helper method to safely update reserved_qty in batch_stock_layers
+   * by adding deltaQty (positive to reserve, negative to release).
+   */
+  private async updateLayerReservedQty(client: any, layerId: string, deltaQty: number) {
+    if (!layerId || !deltaQty) return;
+    try {
+      const { data: layer, error: fetchErr } = await client
+        .from("batch_stock_layers")
+        .select("reserved_qty")
+        .eq("id", layerId)
+        .maybeSingle();
+
+      if (!fetchErr && layer) {
+        const currentReserved = Number(layer.reserved_qty ?? 0);
+        const newReserved = Math.max(0, currentReserved + deltaQty);
+        await client
+          .from("batch_stock_layers")
+          .update({
+            reserved_qty: newReserved,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", layerId);
+      }
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to update reserved_qty for layer ${layerId}: ${err?.message || err}`,
+      );
     }
   }
 }
