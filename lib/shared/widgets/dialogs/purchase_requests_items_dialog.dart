@@ -9,7 +9,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../modules/purchases/vendors/providers/vendor_provider.dart';
 import '../inputs/custom_text_field.dart';
 import '../inputs/dropdown_input.dart';
-import '../z_button.dart';
 
 class PurchaseRequestItemSelection {
   final String productId;
@@ -134,61 +133,61 @@ class _PurchaseRequestsItemsDialogState
           .order('request_number', ascending: false);
 
       final List<_PrItemRow> rows = [];
-      for (final pr in (response as List<dynamic>)) {
+      for (final pr in (response as List)) {
         final prMap = pr as Map<String, dynamic>;
-        final prId = prMap['id']?.toString() ?? '';
-        final reqNum = prMap['request_number']?.toString() ?? '';
-        final itemsList =
-            prMap['purchase_request_items'] as List<dynamic>? ?? [];
+          final prId = prMap['id']?.toString() ?? '';
+          final reqNum = prMap['request_number']?.toString() ?? '';
+          final itemsList =
+              prMap['purchase_request_items'] as List<dynamic>? ?? [];
 
-        for (int i = 0; i < itemsList.length; i++) {
-          final itemMap = itemsList[i] as Map<String, dynamic>;
-          final productId = itemMap['product_id']?.toString() ?? '';
-          if (productId.isEmpty) continue;
+          for (int i = 0; i < itemsList.length; i++) {
+            final itemMap = itemsList[i] as Map<String, dynamic>;
+            final productId = itemMap['product_id']?.toString() ?? '';
+            if (productId.isEmpty) continue;
 
-          final required =
-              (itemMap['required_qty'] as num?)?.toDouble() ?? 0.0;
-          final pending =
-              (itemMap['pending_qty'] as num?)?.toDouble() ?? 0.0;
-          final qty = pending > 0 ? pending : required;
-          if (qty <= 0) continue;
+            final required =
+                (itemMap['required_qty'] as num?)?.toDouble() ?? 0.0;
+            final pending =
+                (itemMap['pending_qty'] as num?)?.toDouble() ?? 0.0;
+            final qty = pending > 0 ? pending : required;
+            if (qty <= 0) continue;
 
-          final rate = (itemMap['estimated_rate'] as num?)?.toDouble() ?? 0.0;
-          final product = itemMap['products'] as Map<String, dynamic>?;
-          final productName =
-              product?['product_name']?.toString() ?? 'Unnamed Product';
-          final itemCode = product?['item_code']?.toString();
-          final hsnCode = product?['hsn_sac_code']?.toString();
-          final description = itemMap['description']?.toString();
-          final prefVendorId = itemMap['preferred_vendor_id']?.toString();
-          final itemId = itemMap['id']?.toString() ?? i.toString();
+            final rate = (itemMap['estimated_rate'] as num?)?.toDouble() ?? 0.0;
+            final product = itemMap['products'] as Map<String, dynamic>?;
+            final productName =
+                product?['product_name']?.toString() ?? 'Unnamed Product';
+            final itemCode = product?['item_code']?.toString();
+            final hsnCode = product?['hsn_sac_code']?.toString();
+            final description = itemMap['description']?.toString();
+            final prefVendorId = itemMap['preferred_vendor_id']?.toString();
+            final itemId = itemMap['id']?.toString() ?? i.toString();
 
-          final sourceKey = '${prId}_${productId}_$itemId';
-          if (widget.excludeSourceKeys != null &&
-              widget.excludeSourceKeys!.contains(sourceKey)) {
-            continue;
+            final sourceKey = '${prId}_${productId}_$itemId';
+            if (widget.excludeSourceKeys != null &&
+                widget.excludeSourceKeys!.contains(sourceKey)) {
+              continue;
+            }
+
+            final vendorName =
+                prefVendorId != null ? vendorMap[prefVendorId] : null;
+
+            rows.add(_PrItemRow(
+              sourceKey: sourceKey,
+              prId: prId,
+              requestNumber: reqNum,
+              productId: productId,
+              productName: productName,
+              itemCode: itemCode,
+              hsnCode: hsnCode,
+              description: description,
+              requiredQty: required,
+              pendingQty: qty,
+              estimatedRate: rate,
+              preferredVendorId: prefVendorId,
+              preferredVendorName: vendorName,
+            ));
           }
-
-          final vendorName =
-              prefVendorId != null ? vendorMap[prefVendorId] : null;
-
-          rows.add(_PrItemRow(
-            sourceKey: sourceKey,
-            prId: prId,
-            requestNumber: reqNum,
-            productId: productId,
-            productName: productName,
-            itemCode: itemCode,
-            hsnCode: hsnCode,
-            description: description,
-            requiredQty: required,
-            pendingQty: qty,
-            estimatedRate: rate,
-            preferredVendorId: prefVendorId,
-            preferredVendorName: vendorName,
-          ));
         }
-      }
 
       if (mounted) {
         setState(() {
@@ -270,37 +269,32 @@ class _PurchaseRequestsItemsDialogState
     final allSelected = filtered.isNotEmpty &&
         filtered.every((r) => _selectedKeys.contains(r.sourceKey));
 
+    final selectedRows =
+        _allRows.where((r) => _selectedKeys.contains(r.sourceKey)).toList();
+
     double totalSelectedAmount = 0.0;
-    int selectedCount = 0;
-    for (final row in _allRows) {
-      if (_selectedKeys.contains(row.sourceKey)) {
-        selectedCount++;
-        totalSelectedAmount += (row.pendingQty * row.estimatedRate);
-      }
+    for (final row in selectedRows) {
+      totalSelectedAmount += (row.pendingQty * row.estimatedRate);
     }
 
     return Dialog(
+      alignment: Alignment.topCenter,
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.white,
+      insetPadding: const EdgeInsets.fromLTRB(40, 0, 40, 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Container(
-        width: 960,
+        width: 920,
         height: 640,
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // Top Header: Title + Red Close Button
             Row(
               children: [
-                const Icon(
-                  LucideIcons.fileText,
-                  size: 20,
-                  color: AppTheme.primaryBlue,
-                ),
-                const SizedBox(width: 10),
                 const Text(
-                  'Insert Items From Purchase Requests',
+                  'Add Items From Purchase Requests',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -310,35 +304,36 @@ class _PurchaseRequestsItemsDialogState
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(LucideIcons.x, size: 18),
+                  icon: const Icon(LucideIcons.x, size: 20, color: Colors.red),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Close',
-                  hoverColor: const Color(0xFFF3F4F6),
-                  color: const Color(0xFF6B7280),
+                  hoverColor: const Color(0xFFFEE2E2),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // Controls Bar: Search + Vendor Filter
+            // Filter Bar: Vendor Dropdown (Left) & Total Count (Right)
             Row(
               children: [
-                Expanded(
-                  child: CustomTextField(
-                    controller: _searchCtrl,
-                    hintText: 'Search by PR #, Product Name or Item Code...',
-                    onChanged: (_) => setState(() {}),
+                const Text(
+                  'Vendor',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                    fontFamily: 'Inter',
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 SizedBox(
-                  width: 240,
+                  width: 220,
+                  height: 34,
                   child: FormDropdown<String?>(
                     value: _selectedVendorId,
-                    hint: 'All Preferred Vendors',
+                    hint: 'All vendors',
                     items: [null, ...vendors.map((v) => v.id)],
                     displayStringForValue: (id) {
-                      if (id == null || id.isEmpty) return 'All Preferred Vendors';
+                      if (id == null || id.isEmpty) return 'All vendors';
                       final match = vendors.where((v) => v.id == id).firstOrNull;
                       return match?.displayName ?? id;
                     },
@@ -347,229 +342,334 @@ class _PurchaseRequestsItemsDialogState
                     },
                   ),
                 ),
-                if (_selectedVendorId != null || _searchCtrl.text.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(LucideIcons.filterX, size: 16),
-                    tooltip: 'Clear Filters',
-                    onPressed: () {
-                      setState(() {
-                        _selectedVendorId = null;
-                        _searchCtrl.clear();
-                      });
-                    },
+                const Spacer(),
+                Text(
+                  '${_allRows.length} item(s) yet to be ordered',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                    fontFamily: 'Inter',
                   ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
 
-            // Main Table Area
+            // Two-Pane Split Layout
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: const Color(0xFFE5E7EB)),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: _isLoading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppTheme.primaryBlue,
-                        ),
-                      )
-                    : filtered.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
+                child: Row(
+                  children: [
+                    // LEFT PANE: Search + Select All + Items Card List (~54%)
+                    Expanded(
+                      flex: 54,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Search Input
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: CustomTextField(
+                              controller: _searchCtrl,
+                              hintText:
+                                  'Type to search purchase requests items',
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+
+                          // Select All Bar
+                          Container(
+                            color: const Color(0xFFF9FAFB),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
                               children: [
-                                const Icon(
-                                  LucideIcons.inbox,
-                                  size: 36,
-                                  color: Color(0xFF9CA3AF),
+                                SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: Checkbox(
+                                    value: allSelected,
+                                    activeColor: AppTheme.primaryBlue,
+                                    onChanged: (v) =>
+                                        _toggleSelectAll(v, filtered),
+                                  ),
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(width: 8),
                                 Text(
-                                  _allRows.isEmpty
-                                      ? 'No approved purchase request items available to order.'
-                                      : 'No items match the selected filter.',
+                                  'Select all ${filtered.length}',
                                   style: const TextStyle(
                                     fontSize: 13,
-                                    color: Color(0xFF6B7280),
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF374151),
+                                    fontFamily: 'Inter',
                                   ),
                                 ),
                               ],
                             ),
-                          )
-                        : Column(
-                            children: [
-                              // Table Header
-                              Container(
-                                color: const Color(0xFFF9FAFB),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
-                                child: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 32,
-                                      child: Checkbox(
-                                        value: allSelected,
-                                        activeColor: AppTheme.primaryBlue,
-                                        onChanged: (v) =>
-                                            _toggleSelectAll(v, filtered),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const SizedBox(
-                                      width: 110,
-                                      child: Text(
-                                        'PR NUMBER',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF4B5563),
-                                        ),
-                                      ),
-                                    ),
-                                    const Expanded(
-                                      flex: 3,
-                                      child: Text(
-                                        'PRODUCT DETAILS',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF4B5563),
-                                        ),
-                                      ),
-                                    ),
-                                    const Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        'PREFERRED VENDOR',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF4B5563),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(
-                                      width: 90,
-                                      child: Text(
-                                        'QTY TO ORDER',
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF4B5563),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(
-                                      width: 100,
-                                      child: Text(
-                                        'EST. RATE',
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF4B5563),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(
-                                      width: 110,
-                                      child: Text(
-                                        'EST. AMOUNT',
-                                        textAlign: TextAlign.right,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF4B5563),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Divider(
-                                height: 1,
-                                color: Color(0xFFE5E7EB),
-                              ),
+                          ),
+                          const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-                              // Table ListView Rows
-                              Expanded(
-                                child: ListView.separated(
-                                  itemCount: filtered.length,
-                                  separatorBuilder: (_, __) => const Divider(
-                                    height: 1,
-                                    color: Color(0xFFF3F4F6),
+                          // Items List
+                          Expanded(
+                            child: _isLoading
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.primaryBlue,
+                                    ),
+                                  )
+                                : filtered.isEmpty
+                                    ? const Center(
+                                        child: Text(
+                                          'No items found.',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Color(0xFF9CA3AF),
+                                          ),
+                                        ),
+                                      )
+                                    : ListView.separated(
+                                        itemCount: filtered.length,
+                                        separatorBuilder: (_, __) =>
+                                            const Divider(
+                                          height: 1,
+                                          color: Color(0xFFF3F4F6),
+                                        ),
+                                        itemBuilder: (context, index) {
+                                          final row = filtered[index];
+                                          final isSelected = _selectedKeys
+                                              .contains(row.sourceKey);
+                                          final qtyStr = row.pendingQty
+                                                      .truncateToDouble() ==
+                                                  row.pendingQty
+                                              ? row.pendingQty
+                                                  .toInt()
+                                                  .toString()
+                                              : row.pendingQty.toStringAsFixed(2);
+
+                                          return InkWell(
+                                            onTap: () {
+                                              setState(() {
+                                                if (isSelected) {
+                                                  _selectedKeys
+                                                      .remove(row.sourceKey);
+                                                } else {
+                                                  _selectedKeys
+                                                      .add(row.sourceKey);
+                                                }
+                                              });
+                                            },
+                                            hoverColor: const Color(0xFFF9FAFB),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 10,
+                                              ),
+                                              color: isSelected
+                                                  ? const Color(0xFFEFF6FF)
+                                                  : Colors.transparent,
+                                              child: Row(
+                                                children: [
+                                                  SizedBox(
+                                                    width: 24,
+                                                    height: 24,
+                                                    child: Checkbox(
+                                                      value: isSelected,
+                                                      activeColor:
+                                                          AppTheme.primaryBlue,
+                                                      onChanged: (v) {
+                                                        setState(() {
+                                                          if (v == true) {
+                                                            _selectedKeys.add(
+                                                                row.sourceKey);
+                                                          } else {
+                                                            _selectedKeys
+                                                                .remove(
+                                                                    row.sourceKey);
+                                                          }
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        Text(
+                                                          row.productName,
+                                                          style: const TextStyle(
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color:
+                                                                Color(0xFF1F2937),
+                                                            fontFamily: 'Inter',
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 2),
+                                                        Text(
+                                                          '${row.requestNumber} · ${row.preferredVendorName ?? "No vendor"}',
+                                                          style: const TextStyle(
+                                                            fontSize: 11,
+                                                            color:
+                                                                Color(0xFF6B7280),
+                                                            fontFamily: 'Inter',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.end,
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        'Qty $qtyStr',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color:
+                                                              Color(0xFF1F2937),
+                                                          fontFamily: 'Inter',
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        CurrencyFormat.format(
+                                                            row.estimatedRate),
+                                                        style: const TextStyle(
+                                                          fontSize: 11,
+                                                          color:
+                                                              Color(0xFF6B7280),
+                                                          fontFamily: 'Inter',
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const VerticalDivider(width: 1, color: Color(0xFFE5E7EB)),
+
+                    // RIGHT PANE: Selected Items Panel (~46%)
+                    Expanded(
+                      flex: 46,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Pane Header
+                          Container(
+                            color: const Color(0xFFF9FAFB),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              children: [
+                                const Text(
+                                  'Selected Items',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1F2937),
+                                    fontFamily: 'Inter',
                                   ),
-                                  itemBuilder: (context, index) {
-                                    final row = filtered[index];
-                                    final isSelected = _selectedKeys
-                                        .contains(row.sourceKey);
-                                    final lineAmount =
-                                        row.pendingQty * row.estimatedRate;
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE5E7EB),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${selectedRows.length}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF374151),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-                                    return InkWell(
-                                      onTap: () {
-                                        setState(() {
-                                          if (isSelected) {
-                                            _selectedKeys.remove(row.sourceKey);
-                                          } else {
-                                            _selectedKeys.add(row.sourceKey);
-                                          }
-                                        });
-                                      },
-                                      hoverColor: const Color(0xFFF9FAFB),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 10,
+                          // Pane Content (Empty or List)
+                          Expanded(
+                            child: selectedRows.isEmpty
+                                ? const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(24),
+                                      child: Text(
+                                        'Click the item names from the left pane to select them',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF9CA3AF),
+                                          fontFamily: 'Inter',
                                         ),
-                                        color: isSelected
-                                            ? const Color(0xFFEFF6FF)
-                                            : Colors.transparent,
+                                      ),
+                                    ),
+                                  )
+                                : ListView.separated(
+                                    padding: const EdgeInsets.all(12),
+                                    itemCount: selectedRows.length,
+                                    separatorBuilder: (_, __) =>
+                                        const SizedBox(height: 8),
+                                    itemBuilder: (context, index) {
+                                      final row = selectedRows[index];
+                                      final qtyStr = row.pendingQty
+                                                  .truncateToDouble() ==
+                                              row.pendingQty
+                                          ? row.pendingQty.toInt().toString()
+                                          : row.pendingQty.toStringAsFixed(2);
+                                      final lineTotal =
+                                          row.pendingQty * row.estimatedRate;
+
+                                      return Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF9FAFB),
+                                          border: Border.all(
+                                            color: const Color(0xFFE5E7EB),
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
                                         child: Row(
                                           children: [
-                                            SizedBox(
-                                              width: 32,
-                                              child: Checkbox(
-                                                value: isSelected,
-                                                activeColor:
-                                                    AppTheme.primaryBlue,
-                                                onChanged: (v) {
-                                                  setState(() {
-                                                    if (v == true) {
-                                                      _selectedKeys.add(
-                                                          row.sourceKey);
-                                                    } else {
-                                                      _selectedKeys.remove(
-                                                          row.sourceKey);
-                                                    }
-                                                  });
-                                                },
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            SizedBox(
-                                              width: 110,
-                                              child: Text(
-                                                row.requestNumber,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppTheme.primaryBlue,
-                                                ),
-                                              ),
-                                            ),
                                             Expanded(
-                                              flex: 3,
                                               child: Column(
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
-                                                mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   Text(
                                                     row.productName,
@@ -578,112 +678,149 @@ class _PurchaseRequestsItemsDialogState
                                                       fontWeight:
                                                           FontWeight.w600,
                                                       color: Color(0xFF1F2937),
+                                                      fontFamily: 'Inter',
                                                     ),
                                                   ),
-                                                  if (row.itemCode != null &&
-                                                      row.itemCode!.isNotEmpty)
-                                                    Text(
-                                                      'SKU: ${row.itemCode}',
-                                                      style: const TextStyle(
-                                                        fontSize: 11,
-                                                        color: Color(0xFF6B7280),
-                                                      ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    '${row.requestNumber}  •  Qty $qtyStr @ ${CurrencyFormat.format(row.estimatedRate)}',
+                                                    style: const TextStyle(
+                                                      fontSize: 11,
+                                                      color: Color(0xFF6B7280),
+                                                      fontFamily: 'Inter',
                                                     ),
+                                                  ),
                                                 ],
                                               ),
                                             ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Text(
-                                                row.preferredVendorName ?? '-',
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Color(0xFF374151),
-                                                ),
+                                            Text(
+                                              CurrencyFormat.format(lineTotal),
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF1F2937),
+                                                fontFamily: 'Inter',
                                               ),
                                             ),
-                                            SizedBox(
-                                              width: 90,
-                                              child: Text(
-                                                row.pendingQty.toStringAsFixed(
-                                                    row.pendingQty
-                                                                .truncateToDouble() ==
-                                                            row.pendingQty
-                                                        ? 0
-                                                        : 2),
-                                                textAlign: TextAlign.right,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Color(0xFF1F2937),
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              width: 100,
-                                              child: Text(
-                                                CurrencyFormat.format(
-                                                    row.estimatedRate),
-                                                textAlign: TextAlign.right,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  color: Color(0xFF374151),
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              width: 110,
-                                              child: Text(
-                                                CurrencyFormat.format(
-                                                    lineAmount),
-                                                textAlign: TextAlign.right,
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFF1F2937),
+                                            const SizedBox(width: 6),
+                                            InkWell(
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedKeys
+                                                      .remove(row.sourceKey);
+                                                });
+                                              },
+                                              child: const Padding(
+                                                padding: EdgeInsets.all(4),
+                                                child: Icon(
+                                                  LucideIcons.x,
+                                                  size: 14,
+                                                  color: Color(0xFF9CA3AF),
                                                 ),
                                               ),
                                             ),
                                           ],
                                         ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
+                                      );
+                                    },
+                                  ),
                           ),
+
+                          // Right Pane Bottom Summary
+                          if (selectedRows.isNotEmpty) ...[
+                            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              color: const Color(0xFFF9FAFB),
+                              child: Row(
+                                children: [
+                                  const Text(
+                                    'Total Selected Amount:',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFF6B7280),
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    CurrencyFormat.format(
+                                        totalSelectedAmount),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1F2937),
+                                      fontFamily: 'Inter',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
 
-            // Footer Summary & Action Buttons
+            // Dialog Footer Actions
             Row(
               children: [
-                Text(
-                  selectedCount > 0
-                      ? '$selectedCount item(s) selected  •  Total: ${CurrencyFormat.format(totalSelectedAmount)}'
-                      : 'Select items to insert into Purchase Order',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selectedCount > 0
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    color: selectedCount > 0
-                        ? const Color(0xFF1F2937)
-                        : const Color(0xFF6B7280),
+                ElevatedButton(
+                  onPressed: selectedRows.isNotEmpty
+                      ? _onConfirmSelection
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFFE5E7EB),
+                    disabledForegroundColor: const Color(0xFF9CA3AF),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  child: const Text(
+                    'Add items',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Inter',
+                    ),
                   ),
                 ),
-                const Spacer(),
-                ZButton.secondary(
-                  onPressed: () => Navigator.of(context).pop(),
-                  label: 'Cancel',
-                ),
                 const SizedBox(width: 12),
-                ZButton.primary(
-                  onPressed:
-                      selectedCount > 0 ? _onConfirmSelection : null,
-                  label: 'Insert Items ($selectedCount)',
+                OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF374151),
+                    side: const BorderSide(color: Color(0xFFD1D5DB)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
                 ),
               ],
             ),
