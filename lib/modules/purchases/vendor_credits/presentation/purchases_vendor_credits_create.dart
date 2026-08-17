@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 import 'package:zerpai_erp/core/providers/entity_provider.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
@@ -1160,6 +1161,7 @@ class _VendorCreditsCreatePageState
       final vendorCreditId = await _ensureVendorCreditDraftId(status: status);
       await _persistVendorCreditItems(vendorCreditId);
       await _persistVendorCreditAttachments(vendorCreditId);
+      await _saveVendorCreditJournals(vendorCreditId);
       if (!mounted) return;
       ZerpaiToast.success(context, successMessage);
       if (redirectRoute != null && redirectRoute.isNotEmpty) {
@@ -1171,6 +1173,183 @@ class _VendorCreditsCreatePageState
           ? 'save and approve'
           : 'save draft';
       ZerpaiToast.error(context, 'Failed to $actionLabel: $e');
+    }
+  }
+
+  Future<void> _saveVendorCreditJournals(String vendorCreditId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final entityId = ref.read(entityProvider).entityId;
+      if (entityId == null || entityId.isEmpty) return;
+
+      final vcNumber = _vcNumberController.text.trim().isEmpty
+          ? 'VC-00001'
+          : _vcNumberController.text.trim();
+      final vcDate = DateFormat('yyyy-MM-dd').format(_vcDate);
+      final vendorId = _selectedVendorObj?.id;
+      const orgId = '00000000-0000-0000-0000-000000000000';
+
+      final accountsRes = await supabase
+          .from('accounts')
+          .select('id, user_account_name, system_account_name, account_type')
+          .eq('entity_id', entityId);
+
+      final accountsList = (accountsRes as List)
+          .map((a) => Map<String, dynamic>.from(a as Map))
+          .toList(growable: false);
+
+      String? apAccountId;
+      String? fallbackItemAccountId;
+
+      for (final acc in accountsList) {
+        final uName = acc['user_account_name']?.toString().toLowerCase() ?? '';
+        final sName = acc['system_account_name']?.toString().toLowerCase() ?? '';
+        final aType = acc['account_type']?.toString().toLowerCase() ?? '';
+
+        if (uName == 'accounts payable' || sName == 'accounts payable' || aType == 'accounts payable') {
+          apAccountId = acc['id']?.toString();
+        } else if (uName.contains('discount') || sName.contains('discount') || uName.contains('cost of goods sold') || sName.contains('cost of goods sold')) {
+          fallbackItemAccountId ??= acc['id']?.toString();
+        }
+      }
+
+      fallbackItemAccountId ??= accountsList.firstOrNull?['id']?.toString();
+
+      final existingJe = await supabase
+          .from('journal_entries')
+          .select('id')
+          .eq('entity_id', entityId)
+          .eq('source_document_type', 'vendor_credits')
+          .eq('source_document_id', vendorCreditId)
+          .maybeSingle();
+
+      final journalEntryId = existingJe?['id']?.toString() ?? const Uuid().v4();
+
+      if (existingJe != null) {
+        await supabase
+            .from('journal_entry_lines')
+            .delete()
+            .eq('journal_entry_id', journalEntryId);
+      }
+
+      final jeHeader = <String, dynamic>{
+        'id': journalEntryId,
+        'org_id': orgId,
+        'entity_id': entityId,
+        'journal_number': vcNumber,
+        'journal_type': 'vendor credit',
+        'journal_date': vcDate,
+        'posting_date': vcDate,
+        'reference_number': vcNumber,
+        'narration': _notesController.text.trim().isNotEmpty
+            ? _notesController.text.trim()
+            : 'Vendor Credit $vcNumber',
+        'source_module': 'purchase',
+        'source_document_type': 'vendor_credits',
+        'source_document_id': vendorCreditId,
+        'currency_code': 'INR',
+        'exchange_rate': 1.0,
+        'status': 'POSTED',
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+
+      if (existingJe != null) {
+        await supabase.from('journal_entries').update(jeHeader).eq('id', journalEntryId);
+      } else {
+        await supabase.from('journal_entries').insert({
+          ...jeHeader,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        });
+      }
+
+      final linesToInsert = <Map<String, dynamic>>[];
+      double totalCreditSum = 0;
+
+      final activeItems = _items
+          .where((item) => item.sourceItem?.id?.trim().isNotEmpty ?? false)
+          .toList(growable: false);
+
+      for (final item in activeItems) {
+        final itemAccId = _asUuidOrNull(item.selectedAccount) ?? fallbackItemAccountId;
+        final itemSubtotal = _lineSubtotal(item);
+
+        if (itemAccId != null && itemSubtotal > 0.0001) {
+          totalCreditSum += itemSubtotal;
+          linesToInsert.add(<String, dynamic>{
+            'id': const Uuid().v4(),
+            'journal_entry_id': journalEntryId,
+            'entity_id': entityId,
+            'org_id': orgId,
+            'account_id': itemAccId,
+            'transaction_date': vcDate,
+            'reference_number': vcNumber,
+            'description': item.descriptionController.text.trim().isNotEmpty
+                ? item.descriptionController.text.trim()
+                : 'Vendor Credit line item',
+            'debit': 0.0,
+            'credit': itemSubtotal,
+            'source_id': vendorCreditId,
+            'source_type': 'VENDOR_CREDIT',
+            'contact_id': vendorId,
+            'contact_type': vendorId != null ? 'vendor' : null,
+            'line_number': null,
+          });
+        }
+      }
+
+      if (linesToInsert.isEmpty && _grandTotal > 0.0001 && fallbackItemAccountId != null) {
+        totalCreditSum = _grandTotal;
+        linesToInsert.add(<String, dynamic>{
+          'id': const Uuid().v4(),
+          'journal_entry_id': journalEntryId,
+          'entity_id': entityId,
+          'org_id': orgId,
+          'account_id': fallbackItemAccountId,
+          'transaction_date': vcDate,
+          'reference_number': vcNumber,
+          'description': 'Vendor Credit transaction',
+          'debit': 0.0,
+          'credit': _grandTotal,
+          'source_id': vendorCreditId,
+          'source_type': 'VENDOR_CREDIT',
+          'contact_id': vendorId,
+          'contact_type': vendorId != null ? 'vendor' : null,
+          'line_number': null,
+        });
+      }
+
+      if (apAccountId != null && totalCreditSum > 0.0001) {
+        linesToInsert.insert(0, <String, dynamic>{
+          'id': const Uuid().v4(),
+          'journal_entry_id': journalEntryId,
+          'entity_id': entityId,
+          'org_id': orgId,
+          'account_id': apAccountId,
+          'transaction_date': vcDate,
+          'reference_number': vcNumber,
+          'description': 'Accounts Payable debit for Vendor Credit',
+          'debit': totalCreditSum,
+          'credit': 0.0,
+          'source_id': vendorCreditId,
+          'source_type': 'VENDOR_CREDIT',
+          'contact_id': vendorId,
+          'contact_type': vendorId != null ? 'vendor' : null,
+          'line_number': null,
+        });
+      }
+
+      if (linesToInsert.isNotEmpty) {
+        await supabase.from('journal_entry_lines').insert(linesToInsert);
+      }
+
+      try {
+        await supabase
+            .from('vendor_credits')
+            .update({'journal_id': journalEntryId})
+            .eq('id', vendorCreditId);
+      } catch (_) {}
+    } catch (e) {
+      debugPrint('Error saving vendor credit journals: $e');
     }
   }
 

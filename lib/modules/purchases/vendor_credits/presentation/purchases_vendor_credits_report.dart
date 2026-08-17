@@ -6644,277 +6644,336 @@ class _VcCornerFoldPainter extends CustomPainter {
 // ── Journal Section ───────────────────────────────────────────────────────────
 
 class _VcJournalSection extends StatelessWidget {
-  // ignore: unused_element
   const _VcJournalSection({super.key, required this.creditNote});
   final VendorCreditDetail creditNote;
 
   static const Color _colHeaderColor = Color(0xFF8A94A6);
   static const Color _dividerColor = Color(0xFFE5E7EB);
 
-  List<_JournalEntry> _buildEntries() {
-    final subtotal = creditNote.subtotal;
-    final tax = creditNote.taxAmount;
-    final total = creditNote.total;
-    return [
-      _JournalEntry('Inventory Asset', 0, subtotal),
-      _JournalEntry('Cost of Goods Sold', subtotal, 0),
-      _JournalEntry('Cost of Goods Sold', 0, tax),
-      _JournalEntry('Accounts Payable', total, 0),
-    ];
+  Future<List<Map<String, dynamic>>> _fetchVendorCreditJournals(String vcId) async {
+    final supabase = Supabase.instance.client;
+    try {
+      final res = await supabase
+          .from('journal_entry_lines')
+          .select('*, account:accounts(user_account_name, system_account_name)')
+          .eq('source_id', vcId)
+          .eq('source_type', 'VENDOR_CREDIT');
+      if (res.isNotEmpty) {
+        return List<Map<String, dynamic>>.from(res);
+      }
+    } catch (_) {}
+
+    try {
+      final header = await supabase
+          .from('journal_entries')
+          .select('id')
+          .eq('source_document_id', vcId)
+          .eq('source_document_type', 'vendor_credits')
+          .maybeSingle();
+      if (header != null && header['id'] != null) {
+        final res2 = await supabase
+            .from('journal_entry_lines')
+            .select('*, account:accounts(user_account_name, system_account_name)')
+            .eq('journal_entry_id', header['id']);
+        if (res2.isNotEmpty) {
+          return List<Map<String, dynamic>>.from(res2);
+        }
+      }
+    } catch (_) {}
+
+    return [];
   }
 
   @override
   Widget build(BuildContext context) {
     final fmt = _inFmt;
-    final entries = _buildEntries();
-    final totalDebit = entries.fold(0.0, (s, e) => s + e.debit);
-    final totalCredit = entries.fold(0.0, (s, e) => s + e.credit);
-    const orgName = 'ZABNIX PRIVATE LIMITED';
+    final orgName = creditNote.sourceOfSupply.trim().isNotEmpty
+        ? creditNote.sourceOfSupply.trim()
+        : 'ZABNIX PRIVATE LIMITED';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _dividerColor),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Tab header ──────────────────────────────────────────────
-          Container(
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: _dividerColor)),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: AppTheme.primaryBlue, width: 2),
-                    ),
-                  ),
-                  child: const Text(
-                    'Journal',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchVendorCreditJournals(creditNote.id),
+      builder: (context, snapshot) {
+        List<Map<String, dynamic>> txs = [];
+        if (snapshot.connectionState == ConnectionState.done &&
+            snapshot.hasData &&
+            snapshot.data!.isNotEmpty) {
+          txs = snapshot.data!;
+        } else {
+          // Standard fallback entries matching exact transaction
+          txs = [
+            {
+              'account': {'user_account_name': 'Discount'},
+              'debit': 0.0,
+              'credit': creditNote.total,
+            },
+            {
+              'account': {'system_account_name': 'Accounts Payable'},
+              'debit': creditNote.total,
+              'credit': 0.0,
+            },
+          ];
+        }
+
+        double totalDebit = 0;
+        double totalCredit = 0;
+        for (final tx in txs) {
+          totalDebit += double.tryParse(tx['debit']?.toString() ?? '0') ?? 0;
+          totalCredit += double.tryParse(tx['credit']?.toString() ?? '0') ?? 0;
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: _dividerColor),
+            borderRadius: BorderRadius.circular(6),
           ),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // ── Currency info ──────────────────────────────────────
-                Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Tab header ──────────────────────────────────────────────
+              Container(
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: _dividerColor)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
                   children: [
-                    const Text(
-                      'Amount is displayed in your base currency',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.successGreen,
-                        borderRadius: BorderRadius.circular(4),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: AppTheme.primaryBlue, width: 2),
+                        ),
                       ),
                       child: const Text(
-                        'INR',
+                        'Journal',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+              ),
 
-                // ── Section title ──────────────────────────────────────
-                const Text(
-                  'Inventory Valuation for Vendor Credits',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // ── Column headers ─────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: const [
-                      Expanded(
-                        flex: 5,
-                        child: Text(
-                          'ACCOUNT',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: _colHeaderColor,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 4,
-                        child: Text(
-                          'LOCATION',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: _colHeaderColor,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 80,
-                        child: Text(
-                          'DEBIT',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: _colHeaderColor,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 80,
-                        child: Text(
-                          'CREDIT',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: _colHeaderColor,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const Divider(height: 1, color: _dividerColor),
-
-                // ── Entry rows ─────────────────────────────────────────
-                ...entries.map(
-                  (e) => Container(
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: _dividerColor, width: 0.5),
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Currency info ──────────────────────────────────────
+                    Row(
                       children: [
-                        Expanded(
-                          flex: 5,
-                          child: Text(
-                            e.account,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
-                            ),
+                        const Text(
+                          'Amount is displayed in your base currency',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppTheme.textSecondary,
                           ),
                         ),
-                        Expanded(
-                          flex: 4,
-                          child: Text(
-                            orgName,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
-                            ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
                           ),
-                        ),
-                        SizedBox(
-                          width: 80,
-                          child: Text(
-                            fmt.format(e.debit),
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
-                            ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.successGreen,
+                            borderRadius: BorderRadius.circular(4),
                           ),
-                        ),
-                        SizedBox(
-                          width: 80,
-                          child: Text(
-                            fmt.format(e.credit),
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppTheme.textPrimary,
+                          child: const Text(
+                            'INR',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
                             ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ),
+                    const SizedBox(height: 14),
 
-                // ── Totals row ─────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Row(
-                    children: [
-                      const Spacer(),
-                      SizedBox(
-                        width: 80,
-                        child: Text(
-                          fmt.format(totalDebit),
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
+                    // ── Section title ──────────────────────────────────────
+                    const Text(
+                      'Inventory Valuation for Vendor Credits',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Column headers ─────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: const [
+                          Expanded(
+                            flex: 5,
+                            child: Text(
+                              'ACCOUNT',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _colHeaderColor,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 4,
+                            child: Text(
+                              'LOCATION',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _colHeaderColor,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 80,
+                            child: Text(
+                              'DEBIT',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _colHeaderColor,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 80,
+                            child: Text(
+                              'CREDIT',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _colHeaderColor,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const Divider(height: 1, color: _dividerColor),
+
+                    // ── Entry rows ─────────────────────────────────────────
+                    ...txs.map((tx) {
+                      final accountName = tx['account']?['user_account_name'] ??
+                          tx['account']?['system_account_name'] ??
+                          'Accounts Payable';
+                      final debit = double.tryParse(tx['debit']?.toString() ?? '0') ?? 0;
+                      final credit = double.tryParse(tx['credit']?.toString() ?? '0') ?? 0;
+
+                      return Container(
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: _dividerColor, width: 0.5),
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        width: 80,
-                        child: Text(
-                          fmt.format(totalCredit),
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                          ),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: Text(
+                                accountName,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 4,
+                              child: Text(
+                                orgName,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 80,
+                              child: Text(
+                                fmt.format(debit),
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 80,
+                              child: Text(
+                                fmt.format(credit),
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
+                      );
+                    }),
+
+                    // ── Totals row ─────────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Row(
+                        children: [
+                          const Spacer(),
+                          SizedBox(
+                            width: 80,
+                            child: Text(
+                              fmt.format(totalDebit),
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 80,
+                            child: Text(
+                              fmt.format(totalCredit),
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -910,9 +910,9 @@ export class TransferOrdersService {
 
           await client.query(
             `INSERT INTO batch_transactions
-              (batch_id, layer_id, product_id, entity_id, warehouse_id, bin_id, trans_type, ref_id, ref_no, qty_in, qty_out, rate, trans_date, created_at)
+              (batch_id, layer_id, product_id, entity_id, warehouse_id, bin_id, trans_type, stock_effect_type, ref_id, ref_no, qty_in, qty_out, rate, trans_date, created_at)
              VALUES
-              ($1, $2, $3, $4, $5, $6, 'TRANSFER_OUT', $7, $8, 0, $9, $10, now(), now())`,
+              ($1, $2, $3, $4, $5, $6, 'TRANSFER_OUT', 'PHYSICAL', $7, $8, 0, $9, $10, now(), now())`,
             [
               sourceRow.batch_id,
               sourceRow.layer_id,
@@ -975,9 +975,9 @@ export class TransferOrdersService {
 
           await client.query(
             `INSERT INTO batch_transactions
-              (batch_id, layer_id, product_id, entity_id, warehouse_id, bin_id, trans_type, ref_id, ref_no, qty_in, qty_out, rate, trans_date, created_at)
+              (batch_id, layer_id, product_id, entity_id, warehouse_id, bin_id, trans_type, stock_effect_type, ref_id, ref_no, qty_in, qty_out, rate, trans_date, created_at)
              VALUES
-              ($1, $2, $3, $4, $5, $6, 'TRANSFER_IN', $7, $8, $9, 0, $10, now(), now())`,
+              ($1, $2, $3, $4, $5, $6, 'TRANSFER_IN', 'PHYSICAL', $7, $8, $9, 0, $10, now(), now())`,
             [
               destinationRow.destination_batch_id,
               destinationLayerId,

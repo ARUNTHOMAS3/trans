@@ -332,6 +332,7 @@ export class PurchaseReceivesService {
               batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId,
             bin_id: resolvedBinId,
             trans_type: "PURCHASE_RECEIVE",
+            stock_effect_type: "PHYSICAL",
             qty_in: batch.quantity,
             rate: batch.ptr ?? 0,
             ref_id: receiveId,

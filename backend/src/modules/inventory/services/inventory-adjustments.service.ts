@@ -826,6 +826,8 @@ export class InventoryAdjustmentsService {
         }
       } else {
         try {
+          const isValueAdjustment =
+            (adjustment as any)?.adjustment_type?.toString().toLowerCase() === "value";
           await this.insertWithSchemaFallback("batch_transactions", {
             batch_id: batchId,
             layer_id: layerId,
@@ -834,6 +836,7 @@ export class InventoryAdjustmentsService {
             warehouse_id: warehouseId,
             bin_id: binId,
             trans_type: "ADJUSTMENT",
+            stock_effect_type: isValueAdjustment ? "ACCOUNTING" : "PHYSICAL",
             ref_id: adjustmentId,
             ref_no: adjustment.reference_number ?? null,
             qty_in: Math.max(0, qIn),

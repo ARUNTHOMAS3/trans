@@ -1591,6 +1591,7 @@ export const batchTransactions = pgTable("batch_transactions", {
     .references(() => warehouses.id),
   binId: uuid("bin_id"),
   transType: varchar("trans_type").notNull(),
+  stockEffectType: varchar("stock_effect_type"),
   refId: uuid("ref_id"),
   refNo: varchar("ref_no"),
   qtyIn: numeric("qty_in").default("0"),
