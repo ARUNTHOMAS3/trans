@@ -20,13 +20,13 @@ export class PurchaseReceivesService {
     const safePrefix = prefix || "PR-";
     // We want to match exactly prefix + digits. e.g. PR-00001
     // In SQL, we use ~ for POSIX regex. Supabase filter uses 'match' for this.
+    // Query globally across table since purchase_receives_purchase_receive_number_key is table-wide unique
     const regexPattern = `^${this.escapeRegExp(safePrefix)}[0-9]+$`;
 
     const { data, error } = await this.supabaseService
       .getClient()
       .from("purchase_receives")
       .select("purchase_receive_number")
-      .eq("entity_id", tenant.entityId)
       .filter("purchase_receive_number", "match", regexPattern)
       .order("purchase_receive_number", { ascending: false })
       .limit(1000);
@@ -68,11 +68,11 @@ export class PurchaseReceivesService {
       return generated.formatted;
     }
 
+    // Query globally across table since purchase_receives_purchase_receive_number_key is table-wide unique
     const { count, error } = await this.supabaseService
       .getClient()
       .from("purchase_receives")
       .select("id", { count: "exact", head: true })
-      .eq("entity_id", tenant.entityId)
       .eq("purchase_receive_number", requested);
 
     if (error) {
@@ -769,32 +769,58 @@ export class PurchaseReceivesService {
       }
     }
 
-    const insertPayload = {
-      purchase_receive_number: resolvedReceiveNumber,
-      received_date: createDto.received_date,
-      vendor_name: createDto.vendor_name ?? null,
-      purchase_order_id: createDto.purchase_order_id ?? null,
-      purchase_order_number: createDto.purchase_order_number ?? null,
-      warehouse_id: resolvedWarehouseId,
-      status: createDto.status ?? "draft",
-      notes: createDto.notes ?? null,
-      bill_no: createDto.bill_no ?? null,
-      bill_date: createDto.bill_date ?? null,
-      bill_invoice_total: createDto.invoice_total ?? null,
-      entity_id: tenant.entityId,
-      is_delete: false,
-    };
+    let receive: any = null;
+    let receiveError: any = null;
+    let currentReceiveNumber = resolvedReceiveNumber;
+    let attempts = 0;
 
-    const { data: receive, error: receiveError } = await this.supabaseService
-      .getClient()
-      .from("purchase_receives")
-      .insert([insertPayload])
-      .select()
-      .single();
+    while (attempts < 5) {
+      attempts++;
+      const insertPayload = {
+        purchase_receive_number: currentReceiveNumber,
+        received_date: createDto.received_date,
+        vendor_name: createDto.vendor_name ?? null,
+        purchase_order_id: createDto.purchase_order_id ?? null,
+        purchase_order_number: createDto.purchase_order_number ?? null,
+        warehouse_id: resolvedWarehouseId,
+        status: createDto.status ?? "draft",
+        notes: createDto.notes ?? null,
+        bill_no: createDto.bill_no ?? null,
+        bill_date: createDto.bill_date ?? null,
+        bill_invoice_total: createDto.invoice_total ?? null,
+        entity_id: tenant.entityId,
+        is_delete: false,
+      };
 
-    if (receiveError) {
+      const res = await this.supabaseService
+        .getClient()
+        .from("purchase_receives")
+        .insert([insertPayload])
+        .select()
+        .single();
+
+      if (!res.error) {
+        receive = res.data;
+        receiveError = null;
+        break;
+      }
+
+      receiveError = res.error;
+      if (
+        (res.error as any).code === "23505" ||
+        res.error.message?.includes("purchase_receives_purchase_receive_number_key")
+      ) {
+        const prefix = currentReceiveNumber.match(/^(.*?)(\d+)$/)?.[1] || "PR-";
+        const nextGen = await this.getNextReceiveNumber(tenant, prefix);
+        currentReceiveNumber = nextGen.formatted;
+      } else {
+        break;
+      }
+    }
+
+    if (receiveError || !receive) {
       throw new Error(
-        `Failed to create purchase receive: ${receiveError.message}`,
+        `Failed to create purchase receive: ${receiveError?.message || 'Unknown error'}`,
       );
     }
 

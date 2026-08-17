@@ -42,8 +42,8 @@ export class CreateProductDto {
   billing_name?: string;
 
   @IsString()
-  @IsNotEmpty()
-  item_code: string;
+  @IsOptional()
+  item_code?: string;
 
   @IsString()
   @IsOptional()

@@ -16,6 +16,11 @@ class ProductsApiService {
     for (final key in _removedProductKeys) {
       payload.remove(key);
     }
+    if (payload['item_code'] != null &&
+        payload['item_code'] is String &&
+        (payload['item_code'] as String).trim().isEmpty) {
+      payload.remove('item_code');
+    }
     return payload;
   }
 

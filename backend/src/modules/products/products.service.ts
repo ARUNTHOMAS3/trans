@@ -453,6 +453,15 @@ export class ProductsService {
     delete (insertPayload as any).reorder_point;
     delete (insertPayload as any).reorder_term_id;
 
+    if (
+      !insertPayload.item_code ||
+      (typeof insertPayload.item_code === "string" &&
+        insertPayload.item_code.trim() === "")
+    ) {
+      const codeSuffix = Math.floor(100000 + Math.random() * 900000);
+      insertPayload.item_code = `ITEM-${codeSuffix}`;
+    }
+
     // Strip null/undefined to let DB defaults work
     Object.keys(insertPayload).forEach(
       (key) =>
