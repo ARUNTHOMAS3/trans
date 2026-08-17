@@ -102,6 +102,7 @@ import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/pu
 import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_report.dart';
 import 'package:zerpai_erp/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_create.dart';
 import 'package:zerpai_erp/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_report.dart';
+import 'package:zerpai_erp/modules/purchases/vendor_credits/presentation/vendor_credit_refund_page.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/pages/purchases_bills_list.dart';
 import 'package:zerpai_erp/modules/purchases/bills/presentation/pages/purchases_bills_create.dart';
 import 'package:zerpai_erp/modules/purchases/expenses/presentation/pages/purchases_expenses_create_page.dart';
@@ -1698,6 +1699,19 @@ final GoRouter appRouter = GoRouter(
                 final vendorCreditId =
                     state.uri.queryParameters['vendorCreditId'];
                 return VendorCreditsCreatePage(vendorCreditId: vendorCreditId);
+              },
+            ),
+            GoRoute(
+              path: 'purchases/vendor-credits/refund',
+              name: AppRoutes.vendorCreditsRefund,
+              builder: (context, state) {
+                final vendorCreditId =
+                    state.uri.queryParameters['vendorCreditId'] ??
+                    state.uri.queryParameters['id'] ??
+                    '';
+                return VendorCreditRefundPage(
+                  vendorCreditId: vendorCreditId,
+                );
               },
             ),
             GoRoute(

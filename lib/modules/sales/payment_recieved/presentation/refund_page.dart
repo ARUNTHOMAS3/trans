@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
@@ -451,38 +453,7 @@ class _RefundPageState extends ConsumerState<RefundPage> {
               child: Row(
                 children: [
                   ElevatedButton(
-                    onPressed: () {
-                      final amtText = _amountController.text.trim();
-                      if (amtText.isEmpty) {
-                        ZerpaiToast.error(context, 'Amount is required');
-                        return;
-                      }
-                      final amtVal = double.tryParse(amtText);
-                      if (amtVal == null || amtVal <= 0) {
-                        ZerpaiToast.error(
-                          context,
-                          'Please enter a valid amount',
-                        );
-                        return;
-                      }
-                      if (amtVal > record.unusedAmount) {
-                        ZerpaiToast.error(
-                          context,
-                          'Refund amount cannot exceed remaining balance of ${_fmt(record.unusedAmount)}',
-                        );
-                        return;
-                      }
-                      ref
-                          .read(paymentRecievesProvider.notifier)
-                          .refundRecord(record.paymentNo, amtVal);
-                      ZerpaiToast.success(
-                        context,
-                        'Refund processed successfully',
-                      );
-                      context.go(
-                        '/$orgSystemId/sales/payments-received/${record.paymentNo}',
-                      );
-                    },
+                    onPressed: () => _saveRefund(record, orgSystemId),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF10B981),
                       foregroundColor: Colors.white,
@@ -541,6 +512,161 @@ class _RefundPageState extends ConsumerState<RefundPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _saveRefund(PaymentRecord record, String orgSystemId) async {
+    final amtText = _amountController.text.trim();
+    if (amtText.isEmpty) {
+      ZerpaiToast.error(context, 'Amount is required');
+      return;
+    }
+    final amtVal = double.tryParse(amtText);
+    if (amtVal == null || amtVal <= 0) {
+      ZerpaiToast.error(context, 'Please enter a valid amount');
+      return;
+    }
+    if (amtVal > record.unusedAmount) {
+      ZerpaiToast.error(
+        context,
+        'Refund amount cannot exceed remaining balance of ${_fmt(record.unusedAmount)}',
+      );
+      return;
+    }
+
+    try {
+      final supabase = Supabase.instance.client;
+      final paymentNumber = record.paymentNo;
+      final paymentDbId = record.id ?? '';
+
+      var jes = await supabase
+          .from('journal_entries')
+          .select('*')
+          .or('source_document_type.eq.payments_received,source_document_type.eq.PAYMENT_RECEIVED')
+          .or('source_document_id.eq.${paymentDbId.isNotEmpty ? paymentDbId : "00000000-0000-0000-0000-000000000000"},journal_number.eq.$paymentNumber');
+
+      String? jeId = jes.isNotEmpty ? jes.first['id']?.toString() : null;
+
+      if (jeId == null || jeId.isEmpty) {
+        jeId = const Uuid().v4();
+        await supabase.from('journal_entries').insert({
+          'id': jeId,
+          'org_id': '00000000-0000-0000-0000-000000000000',
+          'journal_number': paymentNumber,
+          'journal_type': 'payments received',
+          'journal_date': DateTime.now().toIso8601String().split('T')[0],
+          'posting_date': DateTime.now().toIso8601String().split('T')[0],
+          'reference_number': record.reference.isNotEmpty ? record.reference : paymentNumber,
+          'narration': 'Payment Received $paymentNumber',
+          'source_module': 'sales',
+          'source_document_type': 'payments_received',
+          'source_document_id': paymentDbId.isNotEmpty ? paymentDbId : jeId,
+          'status': 'POSTED',
+        });
+      }
+
+      final allAccs = await supabase
+          .from('accounts')
+          .select('id, user_account_name, system_account_name, account_type');
+
+      String? fromAccountId;
+      String? unearnedRevId;
+      final targetFrom = _fromAccount.trim().toLowerCase();
+
+      for (final raw in (allAccs as List)) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final accId = (row['id'] ?? '').toString();
+        final userAcc = (row['user_account_name'] ?? '').toString().trim().toLowerCase();
+        final sysAcc = (row['system_account_name'] ?? '').toString().trim().toLowerCase();
+
+        if (fromAccountId == null && targetFrom.isNotEmpty) {
+          if (userAcc == targetFrom || sysAcc == targetFrom || userAcc.contains(targetFrom) || sysAcc.contains(targetFrom)) {
+            fromAccountId = accId;
+          }
+        }
+
+        if (unearnedRevId == null) {
+          if (sysAcc == 'unearned revenue' || userAcc == 'unearned revenue' ||
+              sysAcc.contains('unearned') || userAcc.contains('unearned') ||
+              sysAcc.contains('advance') || userAcc.contains('advance')) {
+            unearnedRevId = accId;
+          }
+        }
+      }
+
+      if (fromAccountId == null || fromAccountId.isEmpty) {
+        for (final raw in (allAccs as List)) {
+          final row = Map<String, dynamic>.from(raw as Map);
+          final accId = (row['id'] ?? '').toString();
+          final userAcc = (row['user_account_name'] ?? '').toString().trim().toLowerCase();
+          final sysAcc = (row['system_account_name'] ?? '').toString().trim().toLowerCase();
+          if (userAcc.contains('cash') || sysAcc.contains('cash') || userAcc.contains('bank') || sysAcc.contains('bank')) {
+            fromAccountId = accId;
+            break;
+          }
+        }
+      }
+      fromAccountId ??= (allAccs as List).isNotEmpty ? ((allAccs as List).first as Map)['id']?.toString() : null;
+
+      if (unearnedRevId == null || unearnedRevId.isEmpty) {
+        for (final raw in (allAccs as List)) {
+          final row = Map<String, dynamic>.from(raw as Map);
+          final accId = (row['id'] ?? '').toString();
+          final accType = (row['account_type'] ?? '').toString().trim().toLowerCase();
+          if (accType.contains('liability')) {
+            unearnedRevId = accId;
+            break;
+          }
+        }
+      }
+      unearnedRevId ??= fromAccountId;
+
+      final rNo = _referenceController.text.isNotEmpty ? _referenceController.text : '1';
+      final rDesc = 'Payment Refund - $rNo';
+      final rawDate = _refundedOnController.text.trim();
+      final isoDate = rawDate.isNotEmpty ? rawDate : DateTime.now().toIso8601String().split('T')[0];
+      final safeSourceId = paymentDbId.isNotEmpty ? paymentDbId : jeId;
+
+      final line1 = {
+        'id': const Uuid().v4(),
+        'journal_entry_id': jeId,
+        'account_id': fromAccountId,
+        'transaction_date': isoDate,
+        'reference_number': rNo,
+        'description': rDesc,
+        'debit': 0.0,
+        'credit': amtVal,
+        'source_id': safeSourceId,
+        'source_type': 'payments_received',
+        'contact_type': 'customer',
+        'org_id': '00000000-0000-0000-0000-000000000000',
+        'line_number': null,
+      };
+
+      final line2 = {
+        'id': const Uuid().v4(),
+        'journal_entry_id': jeId,
+        'account_id': unearnedRevId,
+        'transaction_date': isoDate,
+        'reference_number': rNo,
+        'description': rDesc,
+        'debit': amtVal,
+        'credit': 0.0,
+        'source_id': safeSourceId,
+        'source_type': 'payments_received',
+        'contact_type': 'customer',
+        'org_id': '00000000-0000-0000-0000-000000000000',
+        'line_number': null,
+      };
+
+      await supabase.from('journal_entry_lines').insert([line1, line2]);
+    } catch (e) {
+      debugPrint('Error writing refund journal lines to Supabase: $e');
+    }
+
+    ref.read(paymentRecievesProvider.notifier).refundRecord(record.paymentNo, amtVal);
+    if (!mounted) return;
+    ZerpaiToast.success(context, 'Refund processed successfully');
+    context.go('/$orgSystemId/sales/payments-received/${record.paymentNo}');
   }
 
   Widget _buildFormRow({

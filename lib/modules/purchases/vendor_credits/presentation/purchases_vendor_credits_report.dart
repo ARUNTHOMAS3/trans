@@ -23,6 +23,7 @@ import 'package:zerpai_erp/core/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/shared/models/column_config.dart';
 import 'package:zerpai_erp/shared/services/storage_service.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
@@ -33,13 +34,21 @@ import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/zerpai_confirmation_dialog.dart';
 import 'package:zerpai_erp/modules/purchases/vendor_credits/models/vendor_credit_models.dart';
 import 'package:zerpai_erp/modules/purchases/vendor_credits/providers/vendor_credits_providers.dart';
+import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart';
+import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accountant_chart_of_accounts_provider.dart';
+import 'package:zerpai_erp/modules/purchases/payments_made/presentation/pages/purchases_payments_made_create.dart';
 import 'package:zerpai_erp/modules/purchases/vendor_credits/presentation/purchases_vendor_credits_overview.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/models/purchases_vendors_vendor_model.dart';
 import 'package:zerpai_erp/modules/purchases/vendors/providers/vendor_provider.dart';
 
 class VendorCreditsOverviewPage extends ConsumerStatefulWidget {
   final String? initialCreditNoteNumber;
-  const VendorCreditsOverviewPage({super.key, this.initialCreditNoteNumber});
+  final bool showRefundMode;
+  const VendorCreditsOverviewPage({
+    super.key,
+    this.initialCreditNoteNumber,
+    this.showRefundMode = false,
+  });
 
   @override
   ConsumerState<VendorCreditsOverviewPage> createState() =>
@@ -211,6 +220,7 @@ class _VendorCreditsOverviewPageState
   }
 
   String _selectedView = 'All';
+  bool _showRefundView = false;
   bool _dropdownOpen = false;
   bool _columnMenuOpen = false;
   bool _favoritesExpanded = true;
@@ -675,6 +685,7 @@ class _VendorCreditsOverviewPageState
   @override
   void initState() {
     super.initState();
+    _showRefundView = widget.showRefundMode;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _loadSavedVendorCredits();
@@ -684,6 +695,9 @@ class _VendorCreditsOverviewPageState
   @override
   void didUpdateWidget(VendorCreditsOverviewPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.showRefundMode != widget.showRefundMode) {
+      setState(() => _showRefundView = widget.showRefundMode);
+    }
     if (oldWidget.initialCreditNoteNumber != widget.initialCreditNoteNumber) {
       setState(_syncDetailSelection);
     }
@@ -1806,6 +1820,20 @@ class _VendorCreditsOverviewPageState
           );
         }
 
+        if (_showRefundView) {
+          return _VendorCreditRefundInlineView(
+            creditNote: creditNote,
+            onCancel: () => setState(() => _showRefundView = false),
+            onSaved: () {
+              setState(() => _showRefundView = false);
+              ref.invalidate(
+                vendorCreditDetailProvider(creditNote.creditNoteNumber),
+              );
+              _loadSavedVendorCredits();
+            },
+          );
+        }
+
         return Container(
           color: AppTheme.backgroundColor,
           child: Row(
@@ -1968,7 +1996,7 @@ class _VendorCreditsOverviewPageState
                             const _DetailActionDivider(),
                           ],
                           _DetailMoreBtn(
-                            onRefund: () => _updateVcStatus(rawRow, 'open'),
+                            onRefund: () => setState(() => _showRefundView = true),
                             onVoid: () => _voidCredit(rawRow),
                             onClone: () => _cloneCredit(context, rawRow),
                             onClose: () => _closeCredit(rawRow),
@@ -2009,6 +2037,10 @@ class _VendorCreditsOverviewPageState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
+                                _VendorCreditRefundHistorySection(
+                                  vendorCreditId: creditNote.id,
+                                ),
+                                const SizedBox(height: 16),
                                 _buildAssociatedBillRow(creditNote),
                                 const SizedBox(height: 16),
                                 _VcPdfPreview(creditNote: creditNote),
@@ -5406,7 +5438,7 @@ class _VendorCreditHistorySidebarState
           .select('id,action,actor_name,new_values,created_at')
           .eq('table_name', 'vendor_credits')
           .eq('record_id', widget.rawRow.id)
-          .eq('action', 'COMMENT')
+          .inFilter('action', const ['COMMENT', 'REFUND'])
           .order('created_at', ascending: false);
       if (!mounted) return;
       setState(() {
@@ -5517,7 +5549,42 @@ class _VendorCreditHistorySidebarState
     }
 
     for (final comment in _comments) {
+      final action = comment['action']?.toString();
       final newValues = comment['new_values'];
+      if (action == 'REFUND' && newValues is Map) {
+        final amount = double.tryParse(
+          newValues['refund_amount']?.toString() ?? '',
+        );
+        final refundNumber = newValues['refund_number']?.toString();
+        final refundDate = newValues['refund_date']?.toString();
+        final paymentMode = newValues['payment_mode']?.toString();
+        final depositTo = newValues['deposit_to']?.toString();
+        final createdAt = DateTime.tryParse(
+          comment['created_at']?.toString() ?? '',
+        );
+        final actorName = comment['actor_name']?.toString().trim();
+        final refundLabel = refundNumber?.isNotEmpty == true
+            ? 'Refund #$refundNumber'
+            : 'Refund';
+        final amountLabel = amount == null ? '' : ' for ₹${amount.toStringAsFixed(2)}';
+        final viaLabel = paymentMode?.isNotEmpty == true
+            ? ' via $paymentMode'
+            : '';
+        final depositLabel = depositTo?.isNotEmpty == true
+            ? ' to $depositTo'
+            : '';
+        events.add(
+          _VcHistoryEvent(
+            username: actorName?.isNotEmpty == true ? actorName! : 'system',
+            time: createdAt ?? widget.creditNote.date,
+            content: '$refundLabel recorded$amountLabel$viaLabel$depositLabel'
+                '${refundDate?.isNotEmpty == true ? ' on $refundDate' : ''}.',
+            icon: LucideIcons.undo2,
+          ),
+        );
+        continue;
+      }
+
       String content = '';
       if (newValues is Map) {
         content = newValues['comment']?.toString().trim() ?? '';
@@ -7165,4 +7232,978 @@ pw.Widget _vcPdfTotal(String label, String value, {bool bold = false}) {
     ),
   );
 }
+
+// ── Refund History Section ───────────────────────────────────────────────────
+
+class _VendorCreditRefundHistorySection extends StatefulWidget {
+  const _VendorCreditRefundHistorySection({required this.vendorCreditId});
+
+  final String vendorCreditId;
+
+  @override
+  State<_VendorCreditRefundHistorySection> createState() =>
+      _VendorCreditRefundHistorySectionState();
+}
+
+class _VendorCreditRefundHistorySectionState
+    extends State<_VendorCreditRefundHistorySection> {
+  bool _isExpanded = true;
+
+  Future<List<_VendorCreditRefundHistoryRow>> _loadRefunds() async {
+    final rows = await Supabase.instance.client
+        .from('audit_logs')
+        .select('new_values')
+        .eq('table_name', 'vendor_credits')
+        .eq('record_id', widget.vendorCreditId)
+        .eq('action', 'REFUND')
+        .order('created_at', ascending: false);
+
+    return (rows as List)
+        .map((row) {
+          final values = row['new_values'];
+          if (values is! Map) return null;
+          final amount = double.tryParse(
+            values['refund_amount']?.toString() ?? '',
+          );
+          if (amount == null || amount <= 0) return null;
+          return _VendorCreditRefundHistoryRow(
+            date: values['refund_date']?.toString() ?? '',
+            paymentMode: values['payment_mode']?.toString() ?? '',
+            amount: amount,
+          );
+        })
+        .whereType<_VendorCreditRefundHistoryRow>()
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<_VendorCreditRefundHistoryRow>>(
+      future: _loadRefunds(),
+      builder: (context, snapshot) {
+        final rows = snapshot.data ?? const <_VendorCreditRefundHistoryRow>[];
+        if (rows.isEmpty) return const SizedBox.shrink();
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: AppTheme.borderLight),
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: Column(
+            children: [
+              InkWell(
+                onTap: () => setState(() => _isExpanded = !_isExpanded),
+                hoverColor: Colors.transparent,
+                child: SizedBox(
+                  height: 62,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: Row(
+                      children: [
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Text(
+                                  'Refund History',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textBody,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  width: 15,
+                                  height: 15,
+                                  alignment: Alignment.center,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFEFF6FF),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    '${rows.length}',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.primaryBlue,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_isExpanded)
+                              Container(
+                                margin: const EdgeInsets.only(top: 8),
+                                width: 104,
+                                height: 3,
+                                color: AppTheme.primaryBlue,
+                              ),
+                          ],
+                        ),
+                        const Spacer(),
+                        Icon(
+                          _isExpanded
+                              ? LucideIcons.chevronDown
+                              : LucideIcons.chevronRight,
+                          size: 16,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (_isExpanded) ...[
+                const Divider(height: 1, color: AppTheme.borderLight),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 10, 22, 14),
+                  child: Column(
+                    children: [
+                      const Row(
+                        children: [
+                          SizedBox(
+                            width: 180,
+                            child: Text('Date', style: _refundHeaderStyle),
+                          ),
+                          SizedBox(
+                            width: 180,
+                            child: Text(
+                              'Payment Mode',
+                              style: _refundHeaderStyle,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 160,
+                            child: Text(
+                              'Amount Refunded',
+                              style: _refundHeaderStyle,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ...rows.map(
+                        (row) => Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: AppTheme.borderLight),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 180,
+                                child: Text(
+                                  row.date.isEmpty ? '-' : row.date,
+                                  style: _refundValueStyle,
+                                ),
+                              ),
+                              SizedBox(
+                                width: 180,
+                                child: Text(
+                                  row.paymentMode.isEmpty
+                                      ? '-'
+                                      : row.paymentMode,
+                                  style: _refundValueStyle,
+                                ),
+                              ),
+                              SizedBox(
+                                width: 160,
+                                child: Text(
+                                  '₹${_inFmt.format(row.amount)}',
+                                  style: _refundAmountStyle,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+const _refundHeaderStyle = TextStyle(
+  fontSize: 12.5,
+  fontWeight: FontWeight.w600,
+  color: AppTheme.textSecondary,
+);
+
+const _refundValueStyle = TextStyle(
+  fontSize: 12.5,
+  color: AppTheme.textPrimary,
+);
+
+const _refundAmountStyle = TextStyle(
+  fontSize: 12.5,
+  fontWeight: FontWeight.w600,
+  color: AppTheme.textPrimary,
+);
+
+class _VendorCreditRefundHistoryRow {
+  const _VendorCreditRefundHistoryRow({
+    required this.date,
+    required this.paymentMode,
+    required this.amount,
+  });
+
+  final String date;
+  final String paymentMode;
+  final double amount;
+}
+
+// ── Inline Refund View ────────────────────────────────────────────────────────
+
+class _VendorCreditRefundInlineView extends ConsumerStatefulWidget {
+  final VendorCreditDetail creditNote;
+  final VoidCallback onCancel;
+  final VoidCallback onSaved;
+
+  const _VendorCreditRefundInlineView({
+    required this.creditNote,
+    required this.onCancel,
+    required this.onSaved,
+  });
+
+  @override
+  ConsumerState<_VendorCreditRefundInlineView> createState() =>
+      __VendorCreditRefundInlineViewState();
+}
+
+class __VendorCreditRefundInlineViewState
+    extends ConsumerState<_VendorCreditRefundInlineView> {
+  final GlobalKey _datePickerKey = GlobalKey();
+
+  late final TextEditingController _refundedOnController;
+  late final TextEditingController _referenceController;
+  late final TextEditingController _amountController;
+  late final TextEditingController _descriptionController;
+
+  String _paymentMode = 'Cash';
+  PaidThroughItem? _depositTo;
+  DateTime _refundedOnDate = DateTime.now();
+  bool _isSaving = false;
+
+  List<String> _paymentModes = [
+    'Cash',
+    'Cheque',
+    'Credit Card',
+    'Debit Card',
+    'Netbanking',
+    'UPI',
+  ];
+
+  List<PaidThroughItem> _buildPaidThroughOptions(List<AccountNode> roots) {
+    final List<PaidThroughItem> options = [];
+
+    final List<AccountNode> allAccounts = [];
+    void flatten(List<AccountNode> nodes) {
+      for (final node in nodes) {
+        allAccounts.add(node);
+        if (node.children.isNotEmpty) {
+          flatten(node.children);
+        }
+      }
+    }
+
+    flatten(roots);
+
+    final Map<String, AccountNode> accountMap = {
+      for (final acc in allAccounts) acc.id: acc,
+    };
+
+    final Set<String> parentIds = {};
+    for (final acc in allAccounts) {
+      if (acc.parentId != null && acc.parentId!.isNotEmpty) {
+        parentIds.add(acc.parentId!);
+      }
+    }
+
+    final Set<String> processedIds = {};
+
+    for (final parentId in parentIds) {
+      final parentNode = accountMap[parentId];
+      if (parentNode == null) continue;
+
+      options.add(
+        PaidThroughItem(parentNode.systemAccountName, isHeader: true),
+      );
+      processedIds.add(parentId);
+
+      final children = allAccounts
+          .where((acc) => acc.parentId == parentId)
+          .toList();
+      for (final child in children) {
+        options.add(
+          PaidThroughItem(
+            child.systemAccountName,
+            id: child.id,
+            isBullet: true,
+          ),
+        );
+        processedIds.add(child.id);
+      }
+    }
+
+    for (final acc in allAccounts) {
+      if (processedIds.contains(acc.id)) continue;
+
+      final String nameLower = acc.systemAccountName.toLowerCase();
+      if (nameLower == 'assets' ||
+          nameLower == 'liabilities' ||
+          nameLower == 'income' ||
+          nameLower == 'expenses' ||
+          nameLower == 'equity') {
+        continue;
+      }
+
+      options.add(
+        PaidThroughItem(
+          acc.systemAccountName,
+          id: acc.id,
+          isHeader: false,
+          isBullet: false,
+        ),
+      );
+    }
+
+    if (options.isEmpty) {
+      return const [
+        PaidThroughItem('Cash', isHeader: true),
+        PaidThroughItem('Petty Cash', isBullet: true),
+        PaidThroughItem('Undeposited Funds', isBullet: true),
+        PaidThroughItem('Bank', isHeader: true),
+        PaidThroughItem('Bank Account', isBullet: true),
+      ];
+    }
+
+    return options;
+  }
+
+  Future<void> _loadPaymentModesFromDb() async {
+    final entityId = ref.read(entityProvider).entityId ?? '';
+    if (entityId.isEmpty) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+      var response = await supabase
+          .from('payment_made_payment_mode')
+          .select('name, is_default')
+          .eq('entity_id', entityId)
+          .eq('is_deleted', false)
+          .order('name');
+
+      if (response.isEmpty) {
+        final List<String> seedDefaults = [
+          'Cash',
+          'Cheque',
+          'Credit Card',
+          'Debit Card',
+          'Netbanking',
+          'UPI',
+        ];
+        final seedRows = seedDefaults
+            .map(
+              (mode) => {
+                'entity_id': entityId,
+                'name': mode,
+                'is_default': mode.toLowerCase() == 'cash',
+                'is_deleted': false,
+              },
+            )
+            .toList();
+
+        await supabase.from('payment_made_payment_mode').insert(seedRows);
+
+        response = await supabase
+            .from('payment_made_payment_mode')
+            .select('name, is_default')
+            .eq('entity_id', entityId)
+            .eq('is_deleted', false)
+            .order('name');
+      }
+
+      if (response.isNotEmpty) {
+        final List<String> loadedModes = List<String>.from(
+          response.map((e) => e['name'] as String),
+        );
+        String defaultMode = _paymentMode;
+        for (final row in response) {
+          if (row['is_default'] == true && row['name'] != null) {
+            defaultMode = row['name'] as String;
+            break;
+          }
+        }
+        if (mounted) {
+          setState(() {
+            _paymentModes = loadedModes;
+            if (_paymentModes.contains(defaultMode)) {
+              _paymentMode = defaultMode;
+            } else if (_paymentModes.isNotEmpty) {
+              _paymentMode = _paymentModes.first;
+            }
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _showConfigurePaymentModeDialog() async {
+    final entityId = ref.read(entityProvider).entityId ?? '';
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => ConfigurePaymentModeDialog(
+        entityId: entityId,
+        initialModes: _paymentModes,
+        onSave: (updatedModes) {
+          if (updatedModes.isNotEmpty) {
+            setState(() {
+              _paymentModes = updatedModes;
+              if (!_paymentModes.contains(_paymentMode)) {
+                _paymentMode = _paymentModes.first;
+              }
+            });
+            _loadPaymentModesFromDb();
+          }
+        },
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _refundedOnController = TextEditingController(
+      text: DateFormat('dd-MM-yyyy').format(_refundedOnDate),
+    );
+    _referenceController = TextEditingController();
+    final balanceAmount = widget.creditNote.balance > 0
+        ? widget.creditNote.balance
+        : (widget.creditNote.total > 0 ? widget.creditNote.total : 950.0);
+    _amountController = TextEditingController(
+      text: balanceAmount.toStringAsFixed(0),
+    );
+    _descriptionController = TextEditingController();
+    _loadPaymentModesFromDb();
+  }
+
+  @override
+  void dispose() {
+    _refundedOnController.dispose();
+    _referenceController.dispose();
+    _amountController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDate() async {
+    final picked = await ZerpaiDatePicker.show(
+      context,
+      initialDate: _refundedOnDate,
+      targetKey: _datePickerKey,
+    );
+    if (picked != null) {
+      setState(() {
+        _refundedOnDate = picked;
+        _refundedOnController.text = DateFormat('dd-MM-yyyy').format(picked);
+      });
+    }
+  }
+
+  Future<void> _handleSave() async {
+    if (_refundedOnController.text.trim().isEmpty) {
+      ZerpaiToast.error(context, 'Please select the refund date.');
+      return;
+    }
+
+    final rawAmount = double.tryParse(_amountController.text.trim());
+    if (rawAmount == null || rawAmount <= 0) {
+      ZerpaiToast.error(context, 'Please enter a valid refund amount.');
+      return;
+    }
+
+    if (_depositTo == null || _depositTo!.isHeader) {
+      ZerpaiToast.error(context, 'Please select an account to deposit the refund.');
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final supabase = Supabase.instance.client;
+      final creditRows = await supabase
+          .from('vendor_credits')
+          .select('id, entity_id')
+          .eq('id', widget.creditNote.id)
+          .limit(1);
+      if (creditRows.isEmpty) {
+        ZerpaiToast.error(context, 'Vendor credit not found for refund save.');
+        return;
+      }
+
+      final creditRow = Map<String, dynamic>.from(creditRows.first as Map);
+      final entityId = creditRow['entity_id']?.toString().trim() ?? '';
+      if (entityId.isEmpty) {
+        ZerpaiToast.error(context, 'Entity is not selected.');
+        return;
+      }
+
+      final existingRefunds = await supabase
+          .from('audit_logs')
+          .select('id')
+          .eq('table_name', 'vendor_credits')
+          .eq('record_id', widget.creditNote.id)
+          .eq('action', 'REFUND');
+      final user = supabase.auth.currentUser;
+      final refundNumber = (existingRefunds as List).length + 1;
+
+      await supabase.from('audit_logs').insert({
+        'table_name': 'vendor_credits',
+        'record_id': widget.creditNote.id,
+        'action': 'REFUND',
+        'old_values': null,
+        'new_values': {
+          'refund_date': _refundedOnController.text.trim(),
+          'refund_number': refundNumber.toString(),
+          'payment_mode': _paymentMode,
+          'deposit_to': _depositTo!.label,
+          'deposit_to_account_id': _depositTo!.id,
+          'refund_amount': rawAmount,
+          'reference_number': _referenceController.text.trim(),
+          'description': _descriptionController.text.trim(),
+        },
+        'user_id':
+            user?.id ?? '00000000-0000-0000-0000-000000000000',
+        'org_id': '00000000-0000-0000-0000-000000000000',
+        'entity_id': entityId,
+        'actor_name': user?.email?.split('@').first ?? 'system',
+        'schema_name': 'public',
+        'record_pk': widget.creditNote.creditNoteNumber,
+        'changed_columns': const ['status'],
+        'source': 'ui',
+        'module_name': 'vendor_credits',
+      });
+
+      await supabase
+          .from('vendor_credits')
+          .update({
+            'status': 'closed',
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('vendor_credit_number', widget.creditNote.creditNoteNumber);
+
+      if (!mounted) return;
+      ZerpaiToast.success(
+        context,
+        'Refund recorded for ${widget.creditNote.creditNoteNumber}.',
+      );
+      widget.onSaved();
+    } catch (e) {
+      if (!mounted) return;
+      ZerpaiToast.error(context, 'Failed to save refund: $e');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  String _fmt(double v) {
+    final parts = v.toStringAsFixed(2).split('.');
+    final intPart = parts[0].replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (m) => ',',
+    );
+    return '₹$intPart.${parts[1]}';
+  }
+
+  Widget _buildFormRow({
+    required String label,
+    bool isRequired = false,
+    required Widget field,
+    Widget? extraRight,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 160,
+            child: RichText(
+              text: TextSpan(
+                text: label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isRequired
+                      ? AppTheme.errorRed
+                      : AppTheme.textPrimary,
+                ),
+                children: [
+                  if (isRequired)
+                    const TextSpan(
+                      text: '*',
+                      style: TextStyle(
+                        color: AppTheme.errorRed,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          SizedBox(width: 360, child: field),
+          if (extraRight != null) ...[
+            const SizedBox(width: 16),
+            extraRight,
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final balanceAmount = widget.creditNote.balance > 0
+        ? widget.creditNote.balance
+        : (widget.creditNote.total > 0 ? widget.creditNote.total : 950.0);
+    final titleText = 'Refund (${widget.creditNote.creditNoteNumber})';
+
+    final accountsState = ref.watch(chartOfAccountsProvider);
+    final depositOptions = _buildPaidThroughOptions(accountsState.roots);
+
+    if (_depositTo == null && depositOptions.isNotEmpty) {
+      for (final opt in depositOptions) {
+        if (!opt.isHeader &&
+            (opt.label == 'Petty Cash' ||
+                opt.label == 'Undeposited Funds' ||
+                opt.label.contains('Cash'))) {
+          _depositTo = opt;
+          break;
+        }
+      }
+      if (_depositTo == null) {
+        final firstValid = depositOptions.firstWhere(
+          (opt) => !opt.isHeader,
+          orElse: () => depositOptions.first,
+        );
+        _depositTo = firstValid;
+      }
+    }
+
+    return Container(
+      color: Colors.white,
+      width: double.infinity,
+      height: double.infinity,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              titleText,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            _buildFormRow(
+              label: 'Refunded On',
+              isRequired: true,
+              field: GestureDetector(
+                key: _datePickerKey,
+                onTap: _selectDate,
+                child: AbsorbPointer(
+                  child: CustomTextField(
+                    controller: _refundedOnController,
+                    hintText: 'dd-MM-yyyy',
+                    suffixWidget: const Icon(
+                      LucideIcons.calendar,
+                      size: 16,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            _buildFormRow(
+              label: 'Payment Mode',
+              field: FormDropdown<String>(
+                value: _paymentMode,
+                items: _paymentModes,
+                height: 36,
+                showSearch: true,
+                forceDownward: true,
+                showSettings: true,
+                settingsLabel: 'Configure Payment Mode',
+                settingsIcon: Icons.add_circle_outline,
+                onSettingsTap: _showConfigurePaymentModeDialog,
+                onChanged: (val) {
+                  if (val != null) setState(() => _paymentMode = val);
+                },
+                displayStringForValue: (val) => val,
+                itemBuilder: (item, isSelected, isHovered) {
+                  final Color bg = isHovered
+                      ? AppTheme.primaryBlue
+                      : (isSelected
+                            ? const Color(0xFFF3F4F6)
+                            : Colors.transparent);
+                  final Color textColor = isHovered
+                      ? Colors.white
+                      : AppTheme.textPrimary;
+
+                  return Container(
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    color: bg,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: textColor,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isSelected)
+                          Icon(
+                            LucideIcons.check,
+                            size: 16,
+                            color: isHovered
+                                ? Colors.white
+                                : AppTheme.primaryBlue,
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            _buildFormRow(
+              label: 'Reference#',
+              field: CustomTextField(
+                controller: _referenceController,
+              ),
+            ),
+
+            _buildFormRow(
+              label: 'Amount',
+              isRequired: true,
+              field: CustomTextField(
+                controller: _amountController,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                ],
+                prefixWidget: const Padding(
+                  padding: EdgeInsets.only(left: 12, right: 8),
+                  child: Text(
+                    'INR',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              extraRight: Text(
+                'Balance : ${_fmt(balanceAmount)}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ),
+
+            _buildFormRow(
+              label: 'Deposit To',
+              isRequired: true,
+              field: FormDropdown<PaidThroughItem>(
+                value: _depositTo,
+                items: depositOptions,
+                height: 36,
+                showSearch: true,
+                forceDownward: true,
+                isItemEnabled: (item) => !item.isHeader,
+                onChanged: (val) {
+                  if (val != null && !val.isHeader) {
+                    setState(() => _depositTo = val);
+                  }
+                },
+                displayStringForValue: (v) => v.label,
+                searchStringForValue: (v) => v.label,
+                itemBuilder: (item, isSelected, isHovered) {
+                  if (item.isHeader) {
+                    return Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      color: Colors.transparent,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        item.label,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    );
+                  }
+
+                  final Color bg = isHovered
+                      ? AppTheme.primaryBlue
+                      : (isSelected
+                            ? const Color(0xFFF3F4F6)
+                            : Colors.transparent);
+                  final Color textColor = isHovered
+                      ? Colors.white
+                      : (isSelected
+                            ? AppTheme.textPrimary
+                            : (item.isBullet
+                                  ? AppTheme.textSecondary
+                                  : AppTheme.textPrimary));
+                  final String displayLabel = item.isBullet
+                      ? '• ${item.label}'
+                      : item.label;
+
+                  return Container(
+                    height: 36,
+                    padding: EdgeInsets.only(
+                      left: item.isBullet ? 24 : 12,
+                      right: 12,
+                    ),
+                    color: bg,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            displayLabel,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: textColor,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isSelected)
+                          Icon(
+                            LucideIcons.check,
+                            size: 16,
+                            color: isHovered
+                                ? Colors.white
+                                : AppTheme.primaryBlue,
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            _buildFormRow(
+              label: 'Description',
+              field: CustomTextField(
+                controller: _descriptionController,
+                maxLines: 3,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: _isSaving ? null : _handleSave,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF22C55E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Save',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton(
+                  onPressed: widget.onCancel,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textPrimary,
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: AppTheme.borderLight),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 

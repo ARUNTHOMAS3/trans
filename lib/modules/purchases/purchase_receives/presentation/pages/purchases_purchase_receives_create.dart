@@ -4392,7 +4392,11 @@ class _PRCreateState
     Widget content = Container(
       height: height,
       alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: EdgeInsets.symmetric(
+        vertical: height != null
+            ? (height >= 140.0 ? 12.0 : (height > 60.0 ? 6.0 : 4.0))
+            : 12.0,
+      ),
       decoration: BoxDecoration(
         border: Border(
           right: (isLastColumn || hideRightBorder)
@@ -4775,7 +4779,8 @@ class _PRCreateState
                   .firstOrNull
             : null);
     final hasBatches = !isEphemeral && item.batches.isNotEmpty;
-    final double rowHeight = hasBatches ? 140.0 : 60.0;
+    final bool needsAddBatchesLink = !isEphemeral && !hasBatches && item.quantityToReceive > 0;
+    final double rowHeight = hasBatches ? 140.0 : (needsAddBatchesLink ? 84.0 : 60.0);
 
     if (ctrl.qtyCtrl.text == '0') {
       ctrl.qtyCtrl.text = '';
@@ -5056,6 +5061,7 @@ class _PRCreateState
                     SizedBox(
                       width: 110,
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildQtyControl(
@@ -5172,7 +5178,8 @@ class _PRCreateState
         ? _rowControllers[index]
         : _ReceiveItemRowController();
     final hasBatches = item.batches.isNotEmpty;
-    final double rowHeight = hasBatches ? 140.0 : 60.0;
+    final bool needsAddBatchesLink = !hasBatches && item.quantityToReceive > 0;
+    final double rowHeight = hasBatches ? 140.0 : (needsAddBatchesLink ? 84.0 : 60.0);
 
     if (ctrl.qtyCtrl.text == '0') {
       ctrl.qtyCtrl.text = '';
@@ -5334,6 +5341,7 @@ class _PRCreateState
                     SizedBox(
                       width: 110,
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildQtyInputField(
@@ -7250,227 +7258,75 @@ class _SelectBatchDialogState extends State<SelectBatchDialog> {
     );
   }
 
-  double _calculateBatchItemEstimatedHeight(
-    List<Map<String, dynamic>> batches,
-  ) {
-    if (batches.isEmpty) return 38;
-    double maxLen = 0;
-    for (final b in batches) {
-      final batchNo = (b['batch_no'] ?? b['batchNo'])?.toString() ?? '-';
-      final balance = b['balance']?.toString() ?? '0';
-      final expDate = (b['expiry_date'] ?? b['expiryDate'])?.toString() ?? '-';
-      final mrp = b['mrp']?.toString() ?? '0.00';
-      final ptr = (b['prate'] ?? b['ptr'])?.toString() ?? '0.00';
-      final len =
-          '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr'
-              .length
-              .toDouble();
-      if (len > maxLen) {
-        maxLen = len;
-      }
-    }
-    if (maxLen > 40) {
-      return 52;
-    }
-    return 38;
+
+
+  DateTime? _parseDateTime(String? str) {
+    if (str == null || str.trim().isEmpty || str.trim() == '-') return null;
+    final s = str.trim();
+    DateTime? dt = DateTime.tryParse(s);
+    if (dt != null) return dt;
+    try {
+      return DateFormat('dd-MM-yyyy').parse(s);
+    } catch (_) {}
+    try {
+      return DateFormat('dd/MM/yyyy').parse(s);
+    } catch (_) {}
+    try {
+      return DateFormat('yyyy-MM-dd').parse(s);
+    } catch (_) {}
+    return null;
   }
 
   Widget _buildBatchNoDropdown(_BatchItemRowController row) {
-    final current = row.batchNoCtrl.text.trim();
-    final hasBinSelected = row.binLabel != null && row.binLabel!.trim().isNotEmpty;
-    final selectedBinCode = row.binLabel?.trim() ?? '';
-    final selectedBinId = (row.binId ?? '').trim();
-
-    final batchItems = <String>{...widget.batchOptions};
-    if (current.isNotEmpty) {
-      batchItems.add(current);
-    }
-    final sortedBatchNames = batchItems.toList()..sort();
-
-    final List<Map<String, dynamic>> dropdownItems = sortedBatchNames.map((
-      name,
-    ) {
-      final existing = widget.batchDetails.firstWhere(
-        (b) =>
-            (b['batch_no'] ?? b['batchNo'])?.toString().trim() == name.trim(),
-        orElse: () => <String, dynamic>{},
-      );
-      if (existing.isNotEmpty) {
-        return existing;
-      }
-      return <String, dynamic>{
-        'batch_no': name,
-        'batchNo': name,
-        'balance': '0',
-        'expiry_date': '-',
-        'expiryDate': '-',
-        'mrp': '0.00',
-        'prate': '0.00',
-        'ptr': '0.00',
-      };
-    }).where((item) {
-      if (!hasBinSelected) return false;
-
-      final bId = (item['id'] ?? item['batchId'] ?? item['batch_id'])
-          ?.toString()
-          .trim() ??
-          '';
-      final bName = (item['batch_no'] ?? item['batchNo'])
-          ?.toString()
-          .trim()
-          .toLowerCase() ??
-          '';
-      final bBinId = (item['bin_id'] ?? item['binId'] ?? item['bin_master_id'])
-          ?.toString()
-          .trim();
-      final bBinCode = (item['bin_code'] ?? item['binCode'] ?? item['bin_location'])
-          ?.toString()
-          .trim();
-
-      if (selectedBinId.isNotEmpty && bBinId != null && bBinId.isNotEmpty) {
-        if (bBinId == selectedBinId) return true;
-      }
-      if (selectedBinCode.isNotEmpty && bBinCode != null && bBinCode.isNotEmpty) {
-        if (bBinCode.toLowerCase() == selectedBinCode.toLowerCase()) return true;
-      }
-
-      Set<String>? allowedBatchKeys;
-      if (selectedBinId.isNotEmpty && _batchIdsByBinId.containsKey(selectedBinId)) {
-        allowedBatchKeys = _batchIdsByBinId[selectedBinId];
-      } else if (selectedBinCode.isNotEmpty && _batchIdsByBin.containsKey(selectedBinCode.toLowerCase())) {
-        allowedBatchKeys = _batchIdsByBin[selectedBinCode.toLowerCase()];
-      }
-
-      if (allowedBatchKeys != null && allowedBatchKeys.isNotEmpty) {
-        if ((bId.isNotEmpty && allowedBatchKeys.contains(bId)) ||
-            (bName.isNotEmpty && allowedBatchKeys.contains(bName))) {
-          return true;
-        }
-      }
-
-      return false;
-    }).toList();
-
-    final selectedValue = dropdownItems.firstWhere(
-      (b) => (b['batch_no'] ?? b['batchNo'])?.toString().trim() == current,
-      orElse: () => <String, dynamic>{},
-    );
-
     return Expanded(
       flex: 3,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: SizedBox(
-          height: 38,
-          child: FormDropdown<Map<String, dynamic>>(
-            height: 38,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: _fieldBorder, width: 1),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            fillColor: widget.readOnly ? const Color(0xFFF3F4F6) : Colors.white,
-            enabled: !widget.readOnly,
-            value: selectedValue.isEmpty ? null : selectedValue,
-            items: dropdownItems,
-            hint: 'Select Batch',
-            showSearch: true,
-            menuMaxHeight: 400,
-            menuWidth: 260,
-            itemEstimatedHeight:
-                _calculateBatchItemEstimatedHeight(dropdownItems),
-            itemBuilder: (item, isSelected, isHovered) {
-              final batchNo =
-                  (item['batch_no'] ?? item['batchNo'])?.toString() ?? '-';
-              final balance = item['balance']?.toString() ?? '0';
-              final expDate =
-                  (item['expiry_date'] ?? item['expiryDate'])?.toString() ?? '-';
-              final mrp = item['mrp']?.toString() ?? '0.00';
-              final ptr =
-                  (item['ptr'] ?? item['prate'])?.toString() ?? '0.00';
-
-              final displayText =
-                  '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr';
-
-              return Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                color: isHovered
-                    ? const Color(0xFF3B82F6)
-                    : (isSelected
-                        ? const Color(0xFFF3F4F6)
-                        : Colors.transparent),
-                child: Text(
-                  displayText,
-                  softWrap: true,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isHovered ? Colors.white : const Color(0xFF1F2937),
-                    fontFamily: 'Inter',
-                  ),
-                ),
-              );
-            },
-            displayStringForValue: (v) =>
-                (v['batch_no'] ?? v['batchNo'])?.toString() ?? '',
-            searchStringForValue: (v) =>
-                (v['batch_no'] ?? v['batchNo'])?.toString() ?? '',
-            onChanged: (details) {
-              if (details != null) {
-                final selection =
-                    (details['batch_no'] ?? details['batchNo'])
-                        ?.toString()
-                        .trim() ??
-                    '';
-                row.batchNoCtrl.text = selection;
-
-                setState(() {
-                  row.mrpCtrl.text = details['mrp']?.toString() ?? '';
-                  row.ptrCtrl.text =
-                      details['ptr']?.toString() ??
-                      details['prate']?.toString() ??
-                      '';
-
-                  final expDateStr =
-                      details['expiry_date']?.toString() ??
-                      details['expiryDate']?.toString();
-                  if (expDateStr != null && expDateStr.isNotEmpty) {
-                    final expDate = DateTime.tryParse(expDateStr);
-                    if (expDate != null) {
-                      row.expDate = expDate;
-                      row.expDateCtrl.text = DateFormat(
-                        'dd-MM-yyyy',
-                      ).format(expDate);
-                    }
-                  }
-
-                  final mfgDateStr =
-                      details['manufacture_date']?.toString() ??
-                      details['manufactureDate']?.toString();
-                  if (mfgDateStr != null && mfgDateStr.isNotEmpty) {
-                    final mfgDate = DateTime.tryParse(mfgDateStr);
-                    if (mfgDate != null) {
-                      row.mfgDate = mfgDate;
-                      row.mfgDateCtrl.text = DateFormat(
-                        'dd-MM-yyyy',
-                      ).format(mfgDate);
-                    }
-                  }
-
-                  row.mfgBatchCtrl.text =
-                      details['manufacture_batch']?.toString() ??
-                      details['manufactureBatch']?.toString() ??
-                      '';
-                  row.unitPackCtrl.text =
-                      (_productUnitPackId != null &&
-                          _productUnitPackId!.isNotEmpty)
-                      ? _productUnitPackId!
-                      : (details['unit_pack']?.toString() ??
-                            details['unitPack']?.toString() ??
-                            '');
-                });
+        child: _BatchNoTextFieldWithSuggestions(
+          row: row,
+          batchOptions: widget.batchOptions,
+          batchDetails: widget.batchDetails,
+          batchIdsByBinId: _batchIdsByBinId,
+          batchIdsByBin: _batchIdsByBin,
+          productUnitPackId: _productUnitPackId,
+          readOnly: widget.readOnly,
+          onBatchSelectedOrAutoloaded: ({
+            String? mrp,
+            String? ptr,
+            String? expDateStr,
+            String? mfgDateStr,
+            String? mfgBatch,
+            String? unitPack,
+          }) {
+            setState(() {
+              if (mrp != null && mrp.isNotEmpty) row.mrpCtrl.text = mrp;
+              if (ptr != null && ptr.isNotEmpty) row.ptrCtrl.text = ptr;
+              if (expDateStr != null && expDateStr.isNotEmpty) {
+                final expDate = _parseDateTime(expDateStr);
+                if (expDate != null) {
+                  row.expDate = expDate;
+                  row.expDateCtrl.text = DateFormat('dd-MM-yyyy').format(expDate);
+                }
               }
-            },
-          ),
+              if (mfgDateStr != null && mfgDateStr.isNotEmpty) {
+                final mfgDate = _parseDateTime(mfgDateStr);
+                if (mfgDate != null) {
+                  row.mfgDate = mfgDate;
+                  row.mfgDateCtrl.text = DateFormat('dd-MM-yyyy').format(mfgDate);
+                }
+              }
+              if (mfgBatch != null && mfgBatch.isNotEmpty) {
+                row.mfgBatchCtrl.text = mfgBatch;
+              }
+              if (unitPack != null && unitPack.isNotEmpty) {
+                row.unitPackCtrl.text = unitPack;
+              } else if (row.unitPackCtrl.text.isEmpty &&
+                  _productUnitPackId != null &&
+                  _productUnitPackId!.isNotEmpty) {
+                row.unitPackCtrl.text = _productUnitPackId!;
+              }
+            });
+          },
         ),
       ),
     );
@@ -8366,6 +8222,363 @@ class _HoverOverlayWrapperState extends State<_HoverOverlayWrapper> {
         onEnter: (_) => _showOverlay(),
         onExit: (_) => _hideOverlay(),
         child: widget.child,
+      ),
+    );
+  }
+}
+
+// ── Batch No Text Field with Inline Suggestions Overlay ──────────────────────
+class _BatchNoTextFieldWithSuggestions extends StatefulWidget {
+  final _BatchItemRowController row;
+  final List<String> batchOptions;
+  final List<Map<String, dynamic>> batchDetails;
+  final Map<String, Set<String>> batchIdsByBinId;
+  final Map<String, Set<String>> batchIdsByBin;
+  final String? productUnitPackId;
+  final bool readOnly;
+  final void Function({
+    String? mrp,
+    String? ptr,
+    String? expDateStr,
+    String? mfgDateStr,
+    String? mfgBatch,
+    String? unitPack,
+  }) onBatchSelectedOrAutoloaded;
+
+  const _BatchNoTextFieldWithSuggestions({
+    required this.row,
+    required this.batchOptions,
+    required this.batchDetails,
+    required this.batchIdsByBinId,
+    required this.batchIdsByBin,
+    this.productUnitPackId,
+    this.readOnly = false,
+    required this.onBatchSelectedOrAutoloaded,
+  });
+
+  @override
+  State<_BatchNoTextFieldWithSuggestions> createState() =>
+      _BatchNoTextFieldWithSuggestionsState();
+}
+
+class _BatchNoTextFieldWithSuggestionsState
+    extends State<_BatchNoTextFieldWithSuggestions> {
+  final LayerLink _layerLink = LayerLink();
+  final FocusNode _focusNode = FocusNode();
+  OverlayEntry? _overlayEntry;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChanged);
+    _focusNode.dispose();
+    _hideOverlay();
+    super.dispose();
+  }
+
+  void _onFocusChanged() {
+    if (_focusNode.hasFocus) {
+      _showOverlay();
+    } else {
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted && !_focusNode.hasFocus) {
+          _hideOverlay();
+        }
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> _getMatchingBatches() {
+    final query = widget.row.batchNoCtrl.text.trim().toLowerCase();
+    final selectedBinCode = (widget.row.binLabel ?? '').trim().toLowerCase();
+    final selectedBinId = (widget.row.binId ?? '').trim();
+
+    final allDetailsMap = <String, Map<String, dynamic>>{};
+    for (final b in widget.batchDetails) {
+      final bNo = (b['batch_no'] ?? b['batchNo'])?.toString().trim();
+      if (bNo != null && bNo.isNotEmpty) {
+        allDetailsMap[bNo.toLowerCase()] = Map<String, dynamic>.from(b);
+      }
+    }
+    for (final opt in widget.batchOptions) {
+      final optTrim = opt.trim();
+      if (optTrim.isNotEmpty && !allDetailsMap.containsKey(optTrim.toLowerCase())) {
+        allDetailsMap[optTrim.toLowerCase()] = {
+          'batch_no': optTrim,
+          'batchNo': optTrim,
+          'balance': '0',
+          'expiry_date': '-',
+          'expiryDate': '-',
+          'mrp': '0.00',
+          'prate': '0.00',
+          'ptr': '0.00',
+        };
+      }
+    }
+
+    Set<String>? allowedBatchKeys;
+    if (selectedBinId.isNotEmpty && widget.batchIdsByBinId.containsKey(selectedBinId)) {
+      allowedBatchKeys = widget.batchIdsByBinId[selectedBinId];
+    } else if (selectedBinCode.isNotEmpty && widget.batchIdsByBin.containsKey(selectedBinCode)) {
+      allowedBatchKeys = widget.batchIdsByBin[selectedBinCode];
+    }
+
+    final candidates = <Map<String, dynamic>>[];
+    for (final entry in allDetailsMap.entries) {
+      final item = entry.value;
+      final bNo = (item['batch_no'] ?? item['batchNo'])?.toString() ?? '';
+      final bId = (item['id'] ?? item['batchId'] ?? item['batch_id'])?.toString() ?? '';
+      final bBinId = (item['bin_id'] ?? item['binId'] ?? item['bin_master_id'])?.toString() ?? '';
+      final bBinCode = (item['bin_code'] ?? item['binCode'] ?? item['bin_location'])?.toString() ?? '';
+
+      bool matchesBin = true;
+      if (selectedBinId.isNotEmpty || selectedBinCode.isNotEmpty) {
+        matchesBin = false;
+        if (selectedBinId.isNotEmpty && bBinId == selectedBinId) matchesBin = true;
+        if (selectedBinCode.isNotEmpty && bBinCode.toLowerCase() == selectedBinCode) matchesBin = true;
+        if (allowedBatchKeys != null) {
+          if ((bId.isNotEmpty && allowedBatchKeys.contains(bId)) ||
+              (bNo.isNotEmpty && allowedBatchKeys.contains(bNo.toLowerCase()))) {
+            matchesBin = true;
+          }
+        }
+      }
+
+      if (matchesBin) {
+        if (query.isEmpty || bNo.toLowerCase().contains(query)) {
+          candidates.add(item);
+        }
+      }
+    }
+
+    if (candidates.isEmpty) {
+      for (final entry in allDetailsMap.entries) {
+        final item = entry.value;
+        final bNo = (item['batch_no'] ?? item['batchNo'])?.toString() ?? '';
+        if (query.isEmpty || bNo.toLowerCase().contains(query)) {
+          candidates.add(item);
+        }
+      }
+    }
+
+    return candidates;
+  }
+
+  void _showOverlay() {
+    _hideOverlay();
+
+    final initialCandidates = _getMatchingBatches();
+    if (initialCandidates.isEmpty) {
+      return;
+    }
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) {
+        final currentCandidates = _getMatchingBatches();
+        if (currentCandidates.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Positioned(
+          width: 320,
+          child: CompositedTransformFollower(
+            link: _layerLink,
+            showWhenUnlinked: false,
+            offset: const Offset(0, 40),
+            child: Material(
+              elevation: 6,
+              borderRadius: BorderRadius.circular(4),
+              color: Colors.white,
+              child: Container(
+                constraints: const BoxConstraints(maxHeight: 220),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ListView.builder(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  itemCount: currentCandidates.length,
+                  itemBuilder: (context, index) {
+                    final item = currentCandidates[index];
+                    final batchNo = (item['batch_no'] ?? item['batchNo'])?.toString() ?? '';
+                    final balance = item['balance']?.toString() ?? '0';
+                    final expDate = (item['expiry_date'] ?? item['expiryDate'])?.toString() ?? '-';
+                    final mrp = (item['mrp'] ?? '0.00').toString();
+                    final ptr = (item['ptr'] ?? item['prate'] ?? '0.00').toString();
+
+                    final displayText = '$batchNo | Bal: $balance | Exp: $expDate | MRP: $mrp | prate: $ptr';
+
+                    return _BatchSuggestionTile(
+                      text: displayText,
+                      onTap: () {
+                        _selectBatchItem(item);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  void _selectBatchItem(Map<String, dynamic> item) {
+    final batchNo = (item['batch_no'] ?? item['batchNo'])?.toString().trim() ?? '';
+    widget.row.batchNoCtrl.text = batchNo;
+
+    final mrp = item['mrp']?.toString();
+    final ptr = item['ptr']?.toString() ?? item['prate']?.toString();
+    final expDateStr = item['expiry_date']?.toString() ?? item['expiryDate']?.toString();
+    final mfgDateStr = item['manufacture_date']?.toString() ?? item['manufactureDate']?.toString();
+    final mfgBatch = item['manufacture_batch']?.toString() ?? item['manufactureBatch']?.toString();
+    final unitPack = item['unit_pack']?.toString() ?? item['unitPack']?.toString();
+
+    widget.onBatchSelectedOrAutoloaded(
+      mrp: mrp,
+      ptr: ptr,
+      expDateStr: expDateStr,
+      mfgDateStr: mfgDateStr,
+      mfgBatch: mfgBatch,
+      unitPack: unitPack,
+    );
+
+    _focusNode.unfocus();
+    _hideOverlay();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: SizedBox(
+        height: 38,
+        child: TextField(
+          controller: widget.row.batchNoCtrl,
+          focusNode: _focusNode,
+          readOnly: widget.readOnly,
+          style: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFF1F2937),
+            fontFamily: 'Inter',
+          ),
+          onChanged: (text) {
+            final val = text.trim();
+            final candidates = _getMatchingBatches();
+            if (candidates.isEmpty) {
+              _hideOverlay();
+            } else if (_overlayEntry != null) {
+              _overlayEntry!.markNeedsBuild();
+            } else if (_focusNode.hasFocus) {
+              _showOverlay();
+            }
+
+            final match = widget.batchDetails.firstWhere(
+              (b) => (b['batch_no'] ?? b['batchNo'])?.toString().trim().toLowerCase() == val.toLowerCase(),
+              orElse: () => <String, dynamic>{},
+            );
+
+            if (match.isNotEmpty) {
+              final mrp = match['mrp']?.toString();
+              final ptr = match['ptr']?.toString() ?? match['prate']?.toString();
+              final expDateStr = match['expiry_date']?.toString() ?? match['expiryDate']?.toString();
+              final mfgDateStr = match['manufacture_date']?.toString() ?? match['manufactureDate']?.toString();
+              final mfgBatch = match['manufacture_batch']?.toString() ?? match['manufactureBatch']?.toString();
+              final unitPack = match['unit_pack']?.toString() ?? match['unitPack']?.toString();
+
+              widget.onBatchSelectedOrAutoloaded(
+                mrp: mrp,
+                ptr: ptr,
+                expDateStr: expDateStr,
+                mfgDateStr: mfgDateStr,
+                mfgBatch: mfgBatch,
+                unitPack: unitPack,
+              );
+            }
+          },
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: widget.readOnly ? const Color(0xFFF3F4F6) : Colors.white,
+            isDense: false,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            constraints: const BoxConstraints(minHeight: 38, maxHeight: 38),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+            ),
+            hintText: 'Select or enter Batch',
+            hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BatchSuggestionTile extends StatefulWidget {
+  final String text;
+  final VoidCallback onTap;
+
+  const _BatchSuggestionTile({
+    required this.text,
+    required this.onTap,
+  });
+
+  @override
+  State<_BatchSuggestionTile> createState() => _BatchSuggestionTileState();
+}
+
+class _BatchSuggestionTileState extends State<_BatchSuggestionTile> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (_) {
+          widget.onTap();
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: _isHovered ? const Color(0xFF3B82F6) : Colors.transparent,
+          child: Text(
+            widget.text,
+            style: TextStyle(
+              fontSize: 12,
+              color: _isHovered ? Colors.white : const Color(0xFF1F2937),
+              fontFamily: 'Inter',
+            ),
+          ),
+        ),
       ),
     );
   }

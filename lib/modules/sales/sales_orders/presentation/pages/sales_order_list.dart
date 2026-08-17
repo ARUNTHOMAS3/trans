@@ -316,7 +316,7 @@ class _SalesOrderOverviewScreenState
   FavoriteFilterOption _activeOption = _soFilterOptions.first;
   _SalesOrderView _activeView = _salesOrderViews.first;
   _SalesOrderSortField _activeSortField = _SalesOrderSortField.salesOrderNumber;
-  bool _isAscending = true;
+  bool _isAscending = false;
   bool _clipText = true;
   Set<String> _selectedSaleIds = <String>{};
   late List<_SalesOrderColumnConfig> _columnConfigs;
@@ -4556,7 +4556,7 @@ class _SalesOrderOverviewScreenState
       _isAscending = !_isAscending;
     } else {
       _activeSortField = field;
-      _isAscending = true;
+      _isAscending = false;
     }
   }
 

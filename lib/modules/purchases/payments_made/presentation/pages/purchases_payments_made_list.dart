@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/shared/utils/org_scope_resolver.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
+import 'package:uuid/uuid.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
@@ -35,6 +36,28 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
+
+String _toIsoDateString(String rawDate) {
+  final trimmed = rawDate.trim();
+  if (trimmed.isEmpty) return DateTime.now().toIso8601String().split('T')[0];
+  if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(trimmed)) {
+    return trimmed.split('T')[0];
+  }
+  final parts = trimmed.split(RegExp(r'[-/]'));
+  if (parts.length == 3) {
+    if (parts[0].length == 2 && parts[2].length == 4) {
+      final day = parts[0].padLeft(2, '0');
+      final month = parts[1].padLeft(2, '0');
+      final year = parts[2];
+      return '$year-$month-$day';
+    }
+  }
+  final parsed = DateTime.tryParse(trimmed);
+  if (parsed != null) {
+    return parsed.toIso8601String().split('T')[0];
+  }
+  return DateTime.now().toIso8601String().split('T')[0];
+}
 
 // ─── Models ───────────────────────────────────────────────────────────────────
 
@@ -1166,6 +1189,166 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
           })
           .eq('id', dbPaymentId);
 
+      // Create double-entry journal lines for the refund
+      try {
+        final jeHeaderRes = await supabase
+            .from('journal_entries')
+            .select('id')
+            .eq('source_document_type', 'PAYMENT_MADE')
+            .eq('source_document_id', dbPaymentId)
+            .maybeSingle();
+
+        String? jeId = jeHeaderRes != null ? jeHeaderRes['id']?.toString() : null;
+        final safeOrgId = '00000000-0000-0000-0000-000000000000';
+        final rawEntId = (paymentRow['entity_id'] ?? _selectedPayment.entityId).toString().trim();
+        final safeEntityId = (rawEntId.isNotEmpty && rawEntId != 'null') ? rawEntId : null;
+
+        if (jeId == null || jeId.isEmpty) {
+          final newJeId = const Uuid().v4();
+          await supabase.from('journal_entries').insert({
+            'id': newJeId,
+            'org_id': safeOrgId,
+            if (safeEntityId != null) 'entity_id': safeEntityId,
+            'journal_number': _selectedPayment.id,
+            'journal_type': 'payment made',
+            'journal_date': refundDateText.isNotEmpty
+                ? refundDateText
+                : DateTime.now().toIso8601String().split('T')[0],
+            'posting_date': refundDateText.isNotEmpty
+                ? refundDateText
+                : DateTime.now().toIso8601String().split('T')[0],
+            'reference_number': _selectedPayment.id,
+            'narration': 'Payment Made ${_selectedPayment.id}',
+            'source_module': 'purchase',
+            'source_document_type': 'PAYMENT_MADE',
+            'source_document_id': dbPaymentId,
+            'status': 'POSTED',
+          });
+          jeId = newJeId;
+        }
+
+        if (jeId.isNotEmpty) {
+          final allAccs = await supabase
+              .from('accounts')
+              .select('id, user_account_name, system_account_name, account_type');
+
+          String? toAccountId;
+          String? prepaidExpensesAccountId;
+          final targetName = accountName.trim().toLowerCase();
+
+          for (final raw in (allAccs as List)) {
+            final row = Map<String, dynamic>.from(raw as Map);
+            final accId = (row['id'] ?? '').toString();
+            final userAcc = (row['user_account_name'] ?? '').toString().trim().toLowerCase();
+            final sysAcc = (row['system_account_name'] ?? '').toString().trim().toLowerCase();
+
+            if (targetName.isNotEmpty &&
+                (userAcc == targetName || sysAcc == targetName)) {
+              toAccountId = accId;
+            }
+            if (sysAcc == 'prepaid expenses' || userAcc == 'prepaid expenses') {
+              prepaidExpensesAccountId = accId;
+            }
+          }
+
+          toAccountId ??= _selectedPayment.depositToAccountId.isNotEmpty
+              ? _selectedPayment.depositToAccountId
+              : null;
+          if (toAccountId == null || toAccountId.isEmpty) {
+            for (final raw in allAccs) {
+              final row = Map<String, dynamic>.from(raw as Map);
+              final accId = (row['id'] ?? '').toString();
+              final userAcc = (row['user_account_name'] ?? '').toString().trim().toLowerCase();
+              final sysAcc = (row['system_account_name'] ?? '').toString().trim().toLowerCase();
+              final accType = (row['account_type'] ?? '').toString().trim().toLowerCase();
+              if (userAcc.contains('petty') || sysAcc.contains('petty') ||
+                  userAcc.contains('cash') || sysAcc.contains('cash') ||
+                  accType.contains('cash')) {
+                toAccountId = accId;
+                break;
+              }
+            }
+          }
+          if (toAccountId == null || toAccountId.isEmpty) {
+            if ((allAccs as List).isNotEmpty) {
+              toAccountId = ((allAccs as List).first as Map)['id']?.toString();
+            }
+          }
+
+          if (prepaidExpensesAccountId == null || prepaidExpensesAccountId.isEmpty) {
+            for (final raw in allAccs) {
+              final row = Map<String, dynamic>.from(raw as Map);
+              final accId = (row['id'] ?? '').toString();
+              final sysAcc = (row['system_account_name'] ?? '').toString().trim().toLowerCase();
+              final userAcc = (row['user_account_name'] ?? '').toString().trim().toLowerCase();
+              final accType = (row['account_type'] ?? '').toString().trim().toLowerCase();
+              if (sysAcc.contains('prepaid') || userAcc.contains('prepaid') ||
+                  sysAcc.contains('advance') || userAcc.contains('advance') ||
+                  accType.contains('asset')) {
+                prepaidExpensesAccountId = accId;
+                break;
+              }
+            }
+          }
+          prepaidExpensesAccountId ??= toAccountId;
+
+          if (toAccountId != null && prepaidExpensesAccountId != null) {
+            final refundDesc = 'Vendor Payment Refund - $refundNumber';
+
+            await supabase
+                .from('journal_entry_lines')
+                .delete()
+                .eq('journal_entry_id', jeId)
+                .eq('description', refundDesc);
+
+            final rawVendorId = _selectedPayment.vendorId.trim();
+            final safeVendorId = (rawVendorId.isNotEmpty && rawVendorId != 'null')
+                ? rawVendorId
+                : null;
+
+            final line1 = {
+              'id': const Uuid().v4(),
+              'journal_entry_id': jeId,
+              'account_id': toAccountId,
+              'transaction_date': _toIsoDateString(refundDateText),
+              'reference_number': refundNumber,
+              'description': refundDesc,
+              'debit': refundAmount,
+              'credit': 0.0,
+              'source_id': dbPaymentId,
+              'source_type': 'PAYMENT_MADE',
+              if (safeVendorId != null) 'contact_id': safeVendorId,
+              'contact_type': 'vendor',
+              if (safeEntityId != null) 'entity_id': safeEntityId,
+              'org_id': safeOrgId,
+            };
+
+            final line2 = {
+              'id': const Uuid().v4(),
+              'journal_entry_id': jeId,
+              'account_id': prepaidExpensesAccountId,
+              'transaction_date': _toIsoDateString(refundDateText),
+              'reference_number': refundNumber,
+              'description': refundDesc,
+              'debit': 0.0,
+              'credit': refundAmount,
+              'source_id': dbPaymentId,
+              'source_type': 'PAYMENT_MADE',
+              if (safeVendorId != null) 'contact_id': safeVendorId,
+              'contact_type': 'vendor',
+              if (safeEntityId != null) 'entity_id': safeEntityId,
+              'org_id': safeOrgId,
+            };
+
+            await supabase.from('journal_entry_lines').insert([line1, line2]);
+          }
+        }
+      } catch (jeErr, stack) {
+        debugPrint('Error generating refund journal entry lines: $jeErr\n$stack');
+      }
+
+      _cachedPaymentIdForJournal = null;
+      _journalsFuture = null;
       await _loadPaymentsFromDb();
       _refreshRefundDetailsFuture(force: true);
 
@@ -5188,11 +5371,151 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
     if (jes.isEmpty) return [];
 
     final jeId = jes.first['id'];
-    final res = await supabase
+    var res = await supabase
         .from('journal_entry_lines')
         .select('*, account:accounts(user_account_name, system_account_name)')
         .eq('journal_entry_id', jeId);
-    return List<Map<String, dynamic>>.from(res);
+    var linesList = List<Map<String, dynamic>>.from(res);
+
+    // Auto-sync any existing refunds from audit logs if their journal lines were missing
+    try {
+      final activeRefunds = await _loadRefundDetailsForPayment(_selectedPayment);
+      if (activeRefunds.isNotEmpty) {
+        final existingDescs = linesList
+            .map((l) => (l['description'] ?? '').toString())
+            .toSet();
+
+        List<dynamic>? allAccs;
+        bool backfilledAny = false;
+
+        for (final ref in activeRefunds) {
+          final rNo = ref.refundNumber;
+          final rDesc = 'Vendor Payment Refund - $rNo';
+          if (!existingDescs.contains(rDesc) && ref.refundAmount > 0) {
+            allAccs ??= await supabase
+                .from('accounts')
+                .select('id, user_account_name, system_account_name');
+
+            String? toAccountId;
+            String? prepaidExpensesAccountId;
+            final targetName = ref.accountName.trim().toLowerCase();
+
+            for (final raw in allAccs) {
+              final row = Map<String, dynamic>.from(raw as Map);
+              final accId = (row['id'] ?? '').toString();
+              final userAcc = (row['user_account_name'] ?? '').toString().trim().toLowerCase();
+              final sysAcc = (row['system_account_name'] ?? '').toString().trim().toLowerCase();
+
+              if (targetName.isNotEmpty &&
+                  (userAcc == targetName || sysAcc == targetName)) {
+                toAccountId = accId;
+              }
+              if (sysAcc == 'prepaid expenses' || userAcc == 'prepaid expenses') {
+                prepaidExpensesAccountId = accId;
+              }
+            }
+
+            toAccountId ??= _selectedPayment.depositToAccountId.isNotEmpty
+                ? _selectedPayment.depositToAccountId
+                : null;
+            if (toAccountId == null || toAccountId.isEmpty) {
+              for (final raw in allAccs) {
+                final row = Map<String, dynamic>.from(raw as Map);
+                final accId = (row['id'] ?? '').toString();
+                final userAcc = (row['user_account_name'] ?? '').toString().trim().toLowerCase();
+                final sysAcc = (row['system_account_name'] ?? '').toString().trim().toLowerCase();
+                if (userAcc.contains('petty') || sysAcc.contains('petty') ||
+                    userAcc.contains('cash') || sysAcc.contains('cash')) {
+                  toAccountId = accId;
+                  break;
+                }
+              }
+            }
+            if (toAccountId == null || toAccountId.isEmpty) {
+              if (allAccs.isNotEmpty) {
+                toAccountId = (allAccs.first as Map)['id']?.toString();
+              }
+            }
+
+            if (prepaidExpensesAccountId == null || prepaidExpensesAccountId.isEmpty) {
+              for (final raw in allAccs) {
+                final row = Map<String, dynamic>.from(raw as Map);
+                final accId = (row['id'] ?? '').toString();
+                final sysAcc = (row['system_account_name'] ?? '').toString().trim().toLowerCase();
+                final userAcc = (row['user_account_name'] ?? '').toString().trim().toLowerCase();
+                if (sysAcc.contains('prepaid') || userAcc.contains('prepaid') ||
+                    sysAcc.contains('advance') || userAcc.contains('advance')) {
+                  prepaidExpensesAccountId = accId;
+                  break;
+                }
+              }
+            }
+            prepaidExpensesAccountId ??= toAccountId;
+
+            if (toAccountId != null && prepaidExpensesAccountId != null) {
+              final rawVendorId = _selectedPayment.vendorId.trim();
+              final safeVendorId = (rawVendorId.isNotEmpty && rawVendorId != 'null')
+                  ? rawVendorId
+                  : null;
+              final rawEntityId = _selectedPayment.entityId.trim();
+              final safeEntityId = (rawEntityId.isNotEmpty && rawEntityId != 'null')
+                  ? rawEntityId
+                  : null;
+              final safeOrgId = '00000000-0000-0000-0000-000000000000';
+
+              final line1 = {
+                'id': const Uuid().v4(),
+                'journal_entry_id': jeId,
+                'account_id': toAccountId,
+                'transaction_date': _toIsoDateString(ref.refundDate),
+                'reference_number': rNo,
+                'description': rDesc,
+                'debit': ref.refundAmount,
+                'credit': 0.0,
+                'source_id': paymentDbId,
+                'source_type': 'PAYMENT_MADE',
+                if (safeVendorId != null) 'contact_id': safeVendorId,
+                'contact_type': 'vendor',
+                if (safeEntityId != null) 'entity_id': safeEntityId,
+                'org_id': safeOrgId,
+              };
+
+              final line2 = {
+                'id': const Uuid().v4(),
+                'journal_entry_id': jeId,
+                'account_id': prepaidExpensesAccountId,
+                'transaction_date': _toIsoDateString(ref.refundDate),
+                'reference_number': rNo,
+                'description': rDesc,
+                'debit': 0.0,
+                'credit': ref.refundAmount,
+                'source_id': paymentDbId,
+                'source_type': 'PAYMENT_MADE',
+                if (safeVendorId != null) 'contact_id': safeVendorId,
+                'contact_type': 'vendor',
+                if (safeEntityId != null) 'entity_id': safeEntityId,
+                'org_id': safeOrgId,
+              };
+
+              await supabase.from('journal_entry_lines').insert([line1, line2]);
+              backfilledAny = true;
+            }
+          }
+        }
+
+        if (backfilledAny) {
+          res = await supabase
+              .from('journal_entry_lines')
+              .select('*, account:accounts(user_account_name, system_account_name)')
+              .eq('journal_entry_id', jeId);
+          linesList = List<Map<String, dynamic>>.from(res);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error syncing missing refund journal entries: $e');
+    }
+
+    return linesList;
   }
 
   Widget _buildJournalTabBody(NumberFormat currencyFormat) {
@@ -5234,17 +5557,20 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
 
         final section1Lines = <Map<String, dynamic>>[];
         final section2Lines = <Map<String, dynamic>>[];
+        final refundLines = <Map<String, dynamic>>[];
 
         for (var line in lines) {
           final desc = (line['description'] ?? '').toString();
-          if (desc.contains('Bill allocation')) {
+          if (desc.contains('Vendor Payment Refund')) {
+            refundLines.add(line);
+          } else if (desc.contains('Bill allocation')) {
             section2Lines.add(line);
           } else {
             section1Lines.add(line);
           }
         }
 
-        if (section1Lines.isEmpty && lines.isNotEmpty) {
+        if (section1Lines.isEmpty && lines.isNotEmpty && refundLines.isEmpty) {
           section1Lines.addAll(lines.take(2));
           if (lines.length > 2) {
             section2Lines.addAll(lines.skip(2));
@@ -5263,6 +5589,17 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
           }
           if (billNo.isEmpty) billNo = paymentNumber;
           section2Grouped.putIfAbsent(billNo, () => []).add(line);
+        }
+
+        final Map<String, List<Map<String, dynamic>>> refundGrouped = {};
+        for (var line in refundLines) {
+          final desc = (line['description'] ?? '').toString();
+          String refundNo = (line['reference_number'] ?? '').toString().trim();
+          if (refundNo.isEmpty && desc.contains('Vendor Payment Refund - ')) {
+            refundNo = desc.split('Vendor Payment Refund - ').last.trim();
+          }
+          if (refundNo.isEmpty) refundNo = '1';
+          refundGrouped.putIfAbsent(refundNo, () => []).add(line);
         }
 
         return Column(
@@ -5336,7 +5673,7 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
               ],
             ),
             const SizedBox(height: 16),
-            if (section1Lines.isNotEmpty) ...[
+            if (section1Lines.isNotEmpty && section2Grouped.length != 1) ...[
               Text(
                 'Vendor Payment - $paymentNumber',
                 style: const TextStyle(
@@ -5366,6 +5703,28 @@ class _PaymentsMadeOverviewPageState extends ConsumerState<PaymentsMadeOverviewP
                     ),
                     const SizedBox(height: 10),
                     _buildJournalTable(billLines, locationName, currencyFormat),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              }),
+            ],
+            if (refundGrouped.isNotEmpty) ...[
+              ...refundGrouped.entries.map((entry) {
+                final refundNo = entry.key;
+                final rLines = entry.value;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Vendor Payment Refund - $refundNo',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildJournalTable(rLines, locationName, currencyFormat),
                     const SizedBox(height: 24),
                   ],
                 );

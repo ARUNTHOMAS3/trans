@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { v4 as uuidv4 } from "uuid";
 import { TenantContext } from "../../../common/middleware/tenant.middleware";
 import { SupabaseService } from "../../supabase/supabase.service";
 import { R2StorageService } from "../../accountant/r2-storage.service";
@@ -115,9 +116,13 @@ export class PaymentsReceivedService {
         .eq("id", data.id)
         .select("*")
         .single();
-      if (updated) return updated;
+      if (updated) {
+        await this.syncJournalEntries(tenant, updated);
+        return updated;
+      }
     }
 
+    await this.syncJournalEntries(tenant, data);
     return data;
   }
 
@@ -337,9 +342,13 @@ export class PaymentsReceivedService {
         .eq("entity_id", entityId)
         .select("*")
         .single();
-      if (updated) return updated;
+      if (updated) {
+        await this.syncJournalEntries(tenant, updated);
+        return updated;
+      }
     }
 
+    await this.syncJournalEntries(tenant, data);
     return data;
   }
 
@@ -626,5 +635,280 @@ export class PaymentsReceivedService {
         };
       })
       .filter((inv) => inv.amount_due > 0);
+  }
+
+  async syncJournalEntries(tenant: TenantContext, paymentData: any) {
+    try {
+      const client = this.supabaseService.getClient();
+      const entityId = this.ensureEntityId(tenant);
+      const paymentId = paymentData.id;
+      const paymentNumber = String(paymentData.payment_number || "");
+      const customerId = paymentData.customer_id || null;
+      const amountReceived = Number(paymentData.amount_received || 0);
+      const paymentDate = paymentData.payment_date || new Date().toISOString().split("T")[0];
+      const depositAccountIdRef = paymentData.deposit_account_id || null;
+
+      if (!paymentId) return;
+
+      // 1. Fetch Accounts to resolve depositToId, unearnedRevenueId, accountsReceivableId
+      const { data: allAccs } = await client
+        .from("accounts")
+        .select("id, user_account_name, system_account_name, account_type");
+
+      let depositToId: string | null = null;
+      let unearnedRevId: string | null = null;
+      let accountsReceivableId: string | null = null;
+
+      const targetDeposit = depositAccountIdRef ? String(depositAccountIdRef).trim().toLowerCase() : "";
+
+      for (const row of (allAccs || [])) {
+        const accId = String(row.id || "");
+        const userAcc = String(row.user_account_name || "").trim().toLowerCase();
+        const sysAcc = String(row.system_account_name || "").trim().toLowerCase();
+        const accType = String(row.account_type || "").trim().toLowerCase();
+
+        if (!depositToId && targetDeposit) {
+          if (accId === depositAccountIdRef || userAcc === targetDeposit || sysAcc === targetDeposit) {
+            depositToId = accId;
+          }
+        }
+
+        if (!unearnedRevId) {
+          if (sysAcc === "unearned revenue" || userAcc === "unearned revenue" || sysAcc.includes("unearned") || userAcc.includes("unearned") || sysAcc.includes("advance") || userAcc.includes("advance") || sysAcc.includes("deferred") || userAcc.includes("deferred")) {
+            unearnedRevId = accId;
+          }
+        }
+
+        if (!accountsReceivableId) {
+          if (
+            sysAcc === "accounts receivable" ||
+            userAcc === "accounts receivable" ||
+            sysAcc === "accounts_receivable" ||
+            userAcc === "accounts_receivable"
+          ) {
+            accountsReceivableId = accId;
+          }
+        }
+      }
+
+      if (!depositToId) {
+        depositToId = depositAccountIdRef ? String(depositAccountIdRef) : (allAccs?.[0]?.id || null);
+      }
+      if (!unearnedRevId) {
+        unearnedRevId = depositToId;
+      }
+      if (!accountsReceivableId) {
+        for (const row of (allAccs || [])) {
+          const accId = String(row.id || "");
+          const userAcc = String(row.user_account_name || "").trim().toLowerCase();
+          const sysAcc = String(row.system_account_name || "").trim().toLowerCase();
+          const isTdsOrTcs = userAcc.includes("tds") || sysAcc.includes("tds") || userAcc.includes("tcs") || sysAcc.includes("tcs");
+          if (!isTdsOrTcs && (sysAcc.includes("accounts") && sysAcc.includes("receivable"))) {
+            accountsReceivableId = accId;
+            break;
+          }
+        }
+        accountsReceivableId ??= depositToId;
+      }
+
+      // 2. Find existing journal entry header
+      const { data: existingJE } = await client
+        .from("journal_entries")
+        .select("id")
+        .or(`source_document_type.eq.payments_received,source_document_type.eq.PAYMENT_RECEIVED`)
+        .or(`source_document_id.eq.${paymentId},journal_number.eq.${paymentNumber}`)
+        .maybeSingle();
+
+      const journalEntryId = existingJE?.id || uuidv4();
+      const defaultOrgId = tenant.orgId || "00000000-0000-0000-0000-000000000000";
+
+      const jeHeader = {
+        id: journalEntryId,
+        org_id: defaultOrgId,
+        entity_id: entityId,
+        journal_number: paymentNumber,
+        journal_type: "payments received",
+        journal_date: paymentDate,
+        posting_date: paymentDate,
+        reference_number: paymentData.reference_number || paymentNumber,
+        narration: paymentData.notes || `Payment Received ${paymentNumber}`,
+        source_module: "sales",
+        source_document_type: "payments_received",
+        source_document_id: paymentId,
+        status: "POSTED",
+        created_by: tenant.userId || null,
+        updated_by: tenant.userId || null,
+      };
+
+      if (existingJE?.id) {
+        await client.from("journal_entries").update(jeHeader).eq("id", journalEntryId);
+        await client.from("journal_entry_lines").delete().eq("journal_entry_id", journalEntryId);
+      } else {
+        await client.from("journal_entries").insert(jeHeader);
+      }
+
+      // 3. Build journal_entry_lines
+      const lines: Array<Record<string, unknown>> = [];
+      const mainDesc = `Customer Payment - ${paymentNumber}`;
+
+      if (amountReceived > 0) {
+        // Line 1: Deposit To (Debit)
+        lines.push({
+          id: uuidv4(),
+          journal_entry_id: journalEntryId,
+          account_id: depositToId,
+          transaction_date: paymentDate,
+          reference_number: paymentNumber,
+          description: mainDesc,
+          debit: amountReceived,
+          credit: 0,
+          source_id: paymentId,
+          source_type: "payments_received",
+          contact_id: customerId,
+          contact_type: "customer",
+          entity_id: entityId,
+          org_id: defaultOrgId,
+          line_number: null,
+        });
+
+        // Line 2: Unearned Revenue (Credit)
+        lines.push({
+          id: uuidv4(),
+          journal_entry_id: journalEntryId,
+          account_id: unearnedRevId,
+          transaction_date: paymentDate,
+          reference_number: paymentNumber,
+          description: mainDesc,
+          debit: 0,
+          credit: amountReceived,
+          source_id: paymentId,
+          source_type: "payments_received",
+          contact_id: customerId,
+          contact_type: "customer",
+          entity_id: entityId,
+          org_id: defaultOrgId,
+          line_number: null,
+        });
+      }
+
+      // 4. Fetch invoice allocations
+      const { data: allocRes } = await client
+        .from("payment_received_allocations")
+        .select("*, invoice:invoice_master(invoice_number)")
+        .eq("payment_received_id", paymentId);
+
+      for (const row of (allocRes || [])) {
+        let invNo = String(row.invoice?.invoice_number || row.invoice_number || "");
+        if (!invNo && row.invoice_id) {
+          const { data: invData } = await client
+            .from("invoice_master")
+            .select("invoice_number")
+            .eq("id", row.invoice_id)
+            .maybeSingle();
+          if (invData?.invoice_number) {
+            invNo = String(invData.invoice_number);
+          }
+        }
+        if (!invNo) invNo = paymentNumber;
+
+        const invAmt = Number(row.allocated_amount || 0);
+        if (invAmt > 0) {
+          const invDesc = `Invoice Payment - ${invNo}`;
+          // Line 3: Accounts Receivable (Credit)
+          lines.push({
+            id: uuidv4(),
+            journal_entry_id: journalEntryId,
+            account_id: accountsReceivableId,
+            transaction_date: paymentDate,
+            reference_number: invNo,
+            description: invDesc,
+            debit: 0,
+            credit: invAmt,
+            source_id: paymentId,
+            source_type: "payments_received",
+            contact_id: customerId,
+            contact_type: "customer",
+            entity_id: entityId,
+            org_id: defaultOrgId,
+            line_number: null,
+          });
+          // Line 4: Unearned Revenue (Debit)
+          lines.push({
+            id: uuidv4(),
+            journal_entry_id: journalEntryId,
+            account_id: unearnedRevId,
+            transaction_date: paymentDate,
+            reference_number: invNo,
+            description: invDesc,
+            debit: invAmt,
+            credit: 0,
+            source_id: paymentId,
+            source_type: "payments_received",
+            contact_id: customerId,
+            contact_type: "customer",
+            entity_id: entityId,
+            org_id: defaultOrgId,
+            line_number: null,
+          });
+        }
+      }
+
+      // 5. Fetch refunds if any
+      const { data: refundRes } = await client
+        .from("payment_received_refunds")
+        .select("*")
+        .eq("payment_received_id", paymentId);
+
+      for (const refRow of (refundRes || [])) {
+        const rNo = String(refRow.refund_number || refRow.reference_number || "1");
+        const rAmt = Number(refRow.amount_refunded || refRow.amount || 0);
+        const rDesc = `Payment Refund - ${rNo}`;
+        const fromAccId = refRow.from_account_id || depositToId;
+        if (rAmt > 0) {
+          // Line 5: Refund From Account (Credit)
+          lines.push({
+            id: uuidv4(),
+            journal_entry_id: journalEntryId,
+            account_id: fromAccId,
+            transaction_date: paymentDate,
+            reference_number: rNo,
+            description: rDesc,
+            debit: 0,
+            credit: rAmt,
+            source_id: paymentId,
+            source_type: "payments_received",
+            contact_id: customerId,
+            contact_type: "customer",
+            entity_id: entityId,
+            org_id: defaultOrgId,
+            line_number: null,
+          });
+          // Line 6: Unearned Revenue (Debit)
+          lines.push({
+            id: uuidv4(),
+            journal_entry_id: journalEntryId,
+            account_id: unearnedRevId,
+            transaction_date: paymentDate,
+            reference_number: rNo,
+            description: rDesc,
+            debit: rAmt,
+            credit: 0,
+            source_id: paymentId,
+            source_type: "payments_received",
+            contact_id: customerId,
+            contact_type: "customer",
+            entity_id: entityId,
+            org_id: defaultOrgId,
+            line_number: null,
+          });
+        }
+      }
+
+      if (lines.length > 0) {
+        await client.from("journal_entry_lines").insert(lines);
+      }
+    } catch (err: any) {
+      console.error("Failed to sync journal entries for payment received:", err?.message || err);
+    }
   }
 }

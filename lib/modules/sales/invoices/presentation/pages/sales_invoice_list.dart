@@ -300,7 +300,7 @@ class _SalesInvoiceOverviewScreenState
   FavoriteFilterOption _activeOption = _invFilterOptions.first;
   _InvoiceView _activeView = _invoiceViews.first;
   _InvSortField _activeSortField = _InvSortField.invoiceNumber;
-  bool _isAscending = true;
+  bool _isAscending = false;
   bool _clipText = true;
   Set<String> _selectedIds = <String>{};
   late List<_InvColumnConfig> _columnConfigs;
@@ -2718,9 +2718,12 @@ class _SalesInvoiceOverviewScreenState
     return Column(
       children: List.generate(items.length, (index) {
         final item = items[index];
+        final double lineAmount = item.itemTotal > 0
+            ? item.itemTotal
+            : (item.quantity * item.rate);
         double taxPct = item.taxPercentage;
-        if (taxPct == 0 && item.taxAmount > 0 && item.itemTotal > 0) {
-          taxPct = (item.taxAmount / (item.itemTotal - item.taxAmount)) * 100;
+        if (taxPct == 0 && item.taxAmount > 0 && lineAmount > 0) {
+          taxPct = (item.taxAmount / (lineAmount - item.taxAmount)) * 100;
         }
         final halfTax = taxPct / 2;
         final taxLabel = halfTax == halfTax.toInt() ? '${halfTax.toInt()}%' : '${halfTax.toStringAsFixed(1)}%';
@@ -2784,7 +2787,7 @@ class _SalesInvoiceOverviewScreenState
                 _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(cgstAmt), 65, alignRight: true),
                 _cellBox(sgstPercent, 45),
                 _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(sgstAmt), 65, alignRight: true),
-                _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(item.itemTotal), 85, alignRight: true, last: true),
+                _cellBox(NumberFormat('#,##,##0.00', 'en_IN').format(lineAmount), 85, alignRight: true, last: true),
               ],
             ),
           ),
@@ -4098,7 +4101,7 @@ class _SalesInvoiceOverviewScreenState
       _isAscending = !_isAscending;
     } else {
       _activeSortField = field;
-      _isAscending = true;
+      _isAscending = false;
     }
   }
 

@@ -1,6 +1,9 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+import 'package:intl/intl.dart' hide TextDirection;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:dotted_border/dotted_border.dart';
@@ -40,6 +43,8 @@ class PaymentRecievesOverview extends ConsumerStatefulWidget {
 
 class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOverview> {
   bool _isDisposed = false;
+  String _activeJournalTab = 'journals';
+  bool _isJournalCardExpanded = true;
   OverlayEntry? _moreMenuOverlayEntry;
   final LayerLink _moreMenuLayerLink = LayerLink();
   bool _isMoreMenuOpen = false;
@@ -1510,6 +1515,8 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
                         ],
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    _buildBottomJournalCardSection(r),
                   ],
                 ),
               ),
@@ -1519,6 +1526,1037 @@ class _PaymentRecievesOverviewState extends ConsumerState<PaymentRecievesOvervie
       ),
     );
   }
+
+  Widget _buildBottomJournalCardSection(PaymentRecord r) {
+    return Container(
+      width: 850,
+      margin: const EdgeInsets.only(top: 24, bottom: 32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Bar with Tab & Expand/Collapse Icon
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+            ),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: () => setState(() {
+                    _activeJournalTab = 'batches';
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: _activeJournalTab == 'batches'
+                              ? AppTheme.primaryBlue
+                              : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'Batches',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: _activeJournalTab == 'batches'
+                            ? AppTheme.primaryBlue
+                            : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 24),
+                InkWell(
+                  onTap: () => setState(() {
+                    _activeJournalTab = 'journals';
+                    _isJournalCardExpanded = true;
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: _activeJournalTab == 'journals'
+                              ? AppTheme.primaryBlue
+                              : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'Journals',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: _activeJournalTab == 'journals'
+                            ? AppTheme.primaryBlue
+                            : const Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                    _isJournalCardExpanded
+                        ? LucideIcons.chevronUp
+                        : LucideIcons.chevronDown,
+                    size: 18,
+                    color: const Color(0xFF6B7280),
+                  ),
+                  onPressed: () => setState(() {
+                    _isJournalCardExpanded = !_isJournalCardExpanded;
+                  }),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+
+          // Body Content when Expanded
+          if (_isJournalCardExpanded) ...[
+            if (_activeJournalTab == 'batches')
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Text(
+                  'No batch tracking information available for this payment.',
+                  style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+                ),
+              )
+            else
+              _buildJournalsTableContent(r),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJournalsTableContent(PaymentRecord r) {
+    final currencyFormat = NumberFormat('#,##0.00', 'en_US');
+    final orgSettings = ref.watch(orgSettingsProvider).asData?.value;
+    final locationName = r.location.isNotEmpty
+        ? r.location
+        : (orgSettings?.name.isNotEmpty == true ? orgSettings!.name : 'STARLEX HEALTHCARE PVT. LTD.');
+
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchPaymentJournals(r),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+
+        final lines = snapshot.data ?? [];
+
+        if (lines.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(
+              child: Text(
+                'No journal entries found for this payment.',
+                style: TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+              ),
+            ),
+          );
+        }
+
+        double totalDebit = 0;
+        double totalCredit = 0;
+        for (var tx in lines) {
+          totalDebit += double.tryParse(tx['debit']?.toString() ?? '0') ?? 0;
+          totalCredit += double.tryParse(tx['credit']?.toString() ?? '0') ?? 0;
+        }
+
+        final bool isBalanced = (totalDebit - totalCredit).abs() < 0.01;
+
+        // Group lines by section
+        final section1Lines = <Map<String, dynamic>>[];
+        final section2Lines = <Map<String, dynamic>>[];
+        final refundLines = <Map<String, dynamic>>[];
+
+        for (var line in lines) {
+          final desc = (line['description'] ?? '').toString();
+          if (desc.contains('Payment Refund')) {
+            refundLines.add(line);
+          } else if (desc.contains('Invoice Payment')) {
+            section2Lines.add(line);
+          } else {
+            section1Lines.add(line);
+          }
+        }
+
+        if (section1Lines.isEmpty && lines.isNotEmpty && refundLines.isEmpty) {
+          section1Lines.addAll(lines.take(2));
+          if (lines.length > 2) {
+            section2Lines.addAll(lines.skip(2));
+          }
+        }
+
+        final Map<String, List<Map<String, dynamic>>> section2Grouped = {};
+        for (var line in section2Lines) {
+          final refNum = (line['reference_number'] ?? '').toString().trim();
+          final desc = (line['description'] ?? '').toString();
+          String invNo = refNum;
+          if (invNo.isEmpty || invNo == r.paymentNo) {
+            if (desc.contains('Invoice Payment - ')) {
+              invNo = desc.split('Invoice Payment - ').last.trim();
+            }
+          }
+          if (invNo.isEmpty) invNo = r.paymentNo;
+          section2Grouped.putIfAbsent(invNo, () => []).add(line);
+        }
+
+        final Map<String, List<Map<String, dynamic>>> refundGrouped = {};
+        for (var line in refundLines) {
+          final desc = (line['description'] ?? '').toString();
+          String refundNo = (line['reference_number'] ?? '').toString().trim();
+          if (refundNo.isEmpty && desc.contains('Payment Refund - ')) {
+            refundNo = desc.split('Payment Refund - ').last.trim();
+          }
+          if (refundNo.isEmpty) refundNo = '1';
+          refundGrouped.putIfAbsent(refundNo, () => []).add(line);
+        }
+
+        return Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Top Sub-header line (Currency indicator & Accrual / Cash toggle)
+              Row(
+                children: [
+                  const Text(
+                    'Amount is displayed in your base currency ',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF16A34A),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: const Text(
+                      'INR',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFD1D5DB)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFE5E7EB),
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(3),
+                              bottomLeft: Radius.circular(3),
+                            ),
+                          ),
+                          child: const Text(
+                            'Accrual',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF374151), fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          child: const Text(
+                            'Cash',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF374151)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              if (isBalanced) ...[
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD1FAE5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            LucideIcons.checkCircle2,
+                            size: 13,
+                            color: Color(0xFF065F46),
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Debits/Credits match',
+                            style: TextStyle(
+                              color: Color(0xFF065F46),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Section 1: Customer Payment - <payment_number>
+              if (section1Lines.isNotEmpty) ...[
+                Text(
+                  'Customer Payment  - ${r.paymentNo}',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildSectionTable(section1Lines, locationName, currencyFormat),
+                const SizedBox(height: 24),
+              ],
+
+              // Section 2: Invoice Payment - <invoice_number>
+              for (final entry in section2Grouped.entries) ...[
+                Text(
+                  'Invoice Payment  - ${entry.key}',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildSectionTable(entry.value, locationName, currencyFormat),
+                const SizedBox(height: 24),
+              ],
+
+              // Section 3: Payment Refund - <refund_number>
+              for (final entry in refundGrouped.entries) ...[
+                Text(
+                  'Payment Refund  - ${entry.key}',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildSectionTable(entry.value, locationName, currencyFormat),
+                const SizedBox(height: 24),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionTable(
+    List<Map<String, dynamic>> rows,
+    String locationName,
+    NumberFormat currencyFormat,
+  ) {
+    double secDebit = 0;
+    double secCredit = 0;
+    for (var tx in rows) {
+      secDebit += double.tryParse(tx['debit']?.toString() ?? '0') ?? 0;
+      secCredit += double.tryParse(tx['credit']?.toString() ?? '0') ?? 0;
+    }
+
+    return Table(
+      columnWidths: const {
+        0: FlexColumnWidth(4),
+        1: FlexColumnWidth(4),
+        2: FlexColumnWidth(2),
+        3: FlexColumnWidth(2),
+      },
+      children: [
+        TableRow(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF9FAFB),
+            border: Border(
+              top: BorderSide(color: Color(0xFFE5E7EB)),
+              bottom: BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+          ),
+          children: const [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                'ACCOUNT',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF4B5563),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                'LOCATION',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF4B5563),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                'DEBIT',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF4B5563),
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                'CREDIT',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF4B5563),
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+        ...rows.map((tx) {
+          final rawAccountName = tx['account']?['user_account_name'] ??
+              tx['account']?['system_account_name'] ??
+              tx['account_name'] ??
+              '-';
+          final desc = (tx['description'] ?? '').toString();
+          final debit = double.tryParse(tx['debit']?.toString() ?? '0') ?? 0;
+          final credit = double.tryParse(tx['credit']?.toString() ?? '0') ?? 0;
+
+          // Invoice Payment credit line corresponds to Accounts Receivable
+          String accountName = rawAccountName;
+          if (desc.startsWith('Invoice Payment') && credit > 0 && debit == 0) {
+            accountName = 'Accounts Receivable';
+          }
+
+          return TableRow(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFF3F4F6)),
+              ),
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                child: Text(
+                  accountName,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                child: Text(
+                  locationName,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF4B5563),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                child: Text(
+                  currencyFormat.format(debit),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF4B5563),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                child: Text(
+                  currencyFormat.format(credit),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF4B5563),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
+          );
+        }),
+        TableRow(
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+            ),
+          ),
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              child: Text(
+                'Total',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+            ),
+            const SizedBox.shrink(),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              child: Text(
+                currencyFormat.format(secDebit),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+              child: Text(
+                currencyFormat.format(secCredit),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _toIsoDateString(String rawDate) {
+    final trimmed = rawDate.trim();
+    if (trimmed.isEmpty) return DateTime.now().toIso8601String().split('T')[0];
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(trimmed)) {
+      return trimmed.split('T')[0];
+    }
+    final parts = trimmed.split(RegExp(r'[-/]'));
+    if (parts.length == 3) {
+      if (parts[0].length == 2 && parts[2].length == 4) {
+        final day = parts[0].padLeft(2, '0');
+        final month = parts[1].padLeft(2, '0');
+        final year = parts[2];
+        return '$year-$month-$day';
+      }
+    }
+    final parsed = DateTime.tryParse(trimmed);
+    if (parsed != null) {
+      return parsed.toIso8601String().split('T')[0];
+    }
+    return DateTime.now().toIso8601String().split('T')[0];
+  }
+
+  Future<Map<String, String>> _resolvePaymentReceivedAccounts(
+    SupabaseClient supabase,
+    String depositToNameOrId,
+  ) async {
+    final allAccs = await supabase
+        .from('accounts')
+        .select('id, user_account_name, system_account_name, account_type');
+
+    String? depositToId;
+    String? unearnedRevenueId;
+    String? accountsReceivableId;
+
+    final targetDeposit = depositToNameOrId.trim().toLowerCase();
+
+    for (final raw in (allAccs as List)) {
+      final row = Map<String, dynamic>.from(raw as Map);
+      final accId = (row['id'] ?? '').toString();
+      final userAcc = (row['user_account_name'] ?? '').toString().trim().toLowerCase();
+      final sysAcc = (row['system_account_name'] ?? '').toString().trim().toLowerCase();
+
+      if (depositToId == null) {
+        if (accId == depositToNameOrId ||
+            (targetDeposit.isNotEmpty && (userAcc == targetDeposit || sysAcc == targetDeposit))) {
+          depositToId = accId;
+        }
+      }
+
+      if (unearnedRevenueId == null) {
+        if (sysAcc == 'unearned revenue' || userAcc == 'unearned revenue' ||
+            sysAcc.contains('unearned') || userAcc.contains('unearned') ||
+            sysAcc.contains('advance') || userAcc.contains('advance') ||
+            sysAcc.contains('deferred') || userAcc.contains('deferred')) {
+          unearnedRevenueId = accId;
+        }
+      }
+
+      if (accountsReceivableId == null) {
+        if (sysAcc == 'accounts receivable' || userAcc == 'accounts receivable' ||
+            sysAcc == 'accounts_receivable' || userAcc == 'accounts_receivable') {
+          accountsReceivableId = accId;
+        }
+      }
+    }
+
+    if (depositToId == null || depositToId.isEmpty) {
+      for (final raw in (allAccs as List)) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final accId = (row['id'] ?? '').toString();
+        final userAcc = (row['user_account_name'] ?? '').toString().trim().toLowerCase();
+        final sysAcc = (row['system_account_name'] ?? '').toString().trim().toLowerCase();
+        final accType = (row['account_type'] ?? '').toString().trim().toLowerCase();
+        if (userAcc.contains('cash') || sysAcc.contains('cash') || accType.contains('cash') ||
+            userAcc.contains('bank') || sysAcc.contains('bank') || accType.contains('bank')) {
+          depositToId = accId;
+          break;
+        }
+      }
+    }
+    depositToId ??= (allAccs as List).isNotEmpty ? ((allAccs as List).first as Map)['id']?.toString() : null;
+
+    if (unearnedRevenueId == null || unearnedRevenueId.isEmpty) {
+      for (final raw in (allAccs as List)) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final accId = (row['id'] ?? '').toString();
+        final accType = (row['account_type'] ?? '').toString().trim().toLowerCase();
+        if (accType.contains('liability')) {
+          unearnedRevenueId = accId;
+          break;
+        }
+      }
+    }
+    unearnedRevenueId ??= depositToId;
+
+    if (accountsReceivableId == null || accountsReceivableId.isEmpty) {
+      for (final raw in (allAccs as List)) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final accId = (row['id'] ?? '').toString();
+        final userAcc = (row['user_account_name'] ?? '').toString().trim().toLowerCase();
+        final sysAcc = (row['system_account_name'] ?? '').toString().trim().toLowerCase();
+        final isTdsOrTcs = userAcc.contains('tds') || sysAcc.contains('tds') || userAcc.contains('tcs') || sysAcc.contains('tcs');
+        if (!isTdsOrTcs && (sysAcc.contains('accounts') && sysAcc.contains('receivable'))) {
+          accountsReceivableId = accId;
+          break;
+        }
+      }
+    }
+    accountsReceivableId ??= depositToId;
+
+    return {
+      'depositToId': depositToId ?? '',
+      'unearnedRevenueId': unearnedRevenueId ?? '',
+      'accountsReceivableId': accountsReceivableId ?? '',
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchPaymentJournals(PaymentRecord p) async {
+    final supabase = Supabase.instance.client;
+
+    String paymentDbId = p.id ?? '';
+    String paymentNumber = p.paymentNo;
+
+    final jes = await supabase
+        .from('journal_entries')
+        .select('*')
+        .or('source_document_type.eq.payments_received,source_document_type.eq.PAYMENT_RECEIVED')
+        .or('source_document_id.eq.${paymentDbId.isNotEmpty ? paymentDbId : "00000000-0000-0000-0000-000000000000"},journal_number.eq.$paymentNumber');
+
+      String? jeId = jes.isNotEmpty ? jes.first['id']?.toString() : null;
+
+      if (jeId == null || jeId.isEmpty) {
+        final newJeId = const Uuid().v4();
+        await supabase.from('journal_entries').insert({
+          'id': newJeId,
+          'org_id': '00000000-0000-0000-0000-000000000000',
+          'journal_number': paymentNumber,
+          'journal_type': 'payments received',
+          'journal_date': _toIsoDateString(p.date),
+          'posting_date': _toIsoDateString(p.date),
+          'reference_number': p.reference.isNotEmpty ? p.reference : paymentNumber,
+          'narration': 'Payment Received $paymentNumber',
+          'source_module': 'sales',
+          'source_document_type': 'payments_received',
+          'source_document_id': paymentDbId.isNotEmpty ? paymentDbId : newJeId,
+          'status': 'POSTED',
+        });
+        jeId = newJeId;
+      }
+
+    var res = await supabase
+        .from('journal_entry_lines')
+        .select('*, account:accounts(user_account_name, system_account_name)')
+        .eq('journal_entry_id', jeId);
+    var linesList = List<Map<String, dynamic>>.from(res);
+
+    if (linesList.isEmpty && p.amount > 0) {
+      Map<String, dynamic>? pmRow;
+      if (paymentDbId.isNotEmpty) {
+        final pmRes = await supabase
+            .from('payments_received')
+            .select('*, deposit_account:accounts(user_account_name, system_account_name)')
+            .eq('id', paymentDbId)
+            .maybeSingle();
+        if (pmRes != null) pmRow = Map<String, dynamic>.from(pmRes);
+      }
+      if (pmRow == null && paymentNumber.isNotEmpty) {
+        final pmRes = await supabase
+            .from('payments_received')
+            .select('*, deposit_account:accounts(user_account_name, system_account_name)')
+            .eq('payment_number', paymentNumber)
+            .maybeSingle();
+        if (pmRes != null) pmRow = Map<String, dynamic>.from(pmRes);
+      }
+
+      final depositAccRef = pmRow?['deposit_account_id']?.toString() ??
+          pmRow?['deposit_account']?['user_account_name']?.toString() ??
+          p.mode;
+
+      final accsMap = await _resolvePaymentReceivedAccounts(supabase, depositAccRef);
+      final depositToId = accsMap['depositToId']!;
+      final unearnedRevId = accsMap['unearnedRevenueId']!;
+      final arId = accsMap['accountsReceivableId']!;
+
+      final isoDate = _toIsoDateString(p.date);
+      final safeOrgId = '00000000-0000-0000-0000-000000000000';
+      final safeCustomerId = pmRow?['customer_id']?.toString();
+      final safeSourceId = pmRow?['id']?.toString() ?? (paymentDbId.isNotEmpty ? paymentDbId : jeId);
+
+      final newLines = <Map<String, dynamic>>[];
+
+      // 1. Customer Payment lines
+      final mainDesc = 'Customer Payment - $paymentNumber';
+      newLines.add({
+        'id': const Uuid().v4(),
+        'journal_entry_id': jeId,
+        'account_id': depositToId,
+        'transaction_date': isoDate,
+        'reference_number': paymentNumber,
+        'description': mainDesc,
+        'debit': p.amount,
+        'credit': 0.0,
+        'source_id': safeSourceId,
+        'source_type': 'payments_received',
+        if (safeCustomerId != null) 'contact_id': safeCustomerId,
+        'contact_type': 'customer',
+        'org_id': safeOrgId,
+        'line_number': null,
+      });
+      newLines.add({
+        'id': const Uuid().v4(),
+        'journal_entry_id': jeId,
+        'account_id': unearnedRevId,
+        'transaction_date': isoDate,
+        'reference_number': paymentNumber,
+        'description': mainDesc,
+        'debit': 0.0,
+        'credit': p.amount,
+        'source_id': safeSourceId,
+        'source_type': 'payments_received',
+        if (safeCustomerId != null) 'contact_id': safeCustomerId,
+        'contact_type': 'customer',
+        'org_id': safeOrgId,
+        'line_number': null,
+      });
+
+      // 2. Query Invoice Allocations
+      if (safeSourceId.isNotEmpty) {
+        final allocRes = await supabase
+            .from('payment_received_allocations')
+            .select('*, invoice:invoice_master(invoice_number)')
+            .eq('payment_received_id', safeSourceId);
+
+        for (final raw in (allocRes as List)) {
+          final row = Map<String, dynamic>.from(raw as Map);
+          final invNo = (row['invoice']?['invoice_number'] ?? row['invoice_number'] ?? '').toString();
+          final invAmt = (row['allocated_amount'] as num?)?.toDouble() ?? 0.0;
+          if (invAmt > 0) {
+            final invDesc = 'Invoice Payment - ${invNo.isNotEmpty ? invNo : paymentNumber}';
+            newLines.add({
+              'id': const Uuid().v4(),
+              'journal_entry_id': jeId,
+              'account_id': arId,
+              'transaction_date': isoDate,
+              'reference_number': invNo.isNotEmpty ? invNo : paymentNumber,
+              'description': invDesc,
+              'debit': 0.0,
+              'credit': invAmt,
+              'source_id': safeSourceId,
+              'source_type': 'payments_received',
+              if (safeCustomerId != null) 'contact_id': safeCustomerId,
+              'contact_type': 'customer',
+              'org_id': safeOrgId,
+              'line_number': null,
+            });
+            newLines.add({
+              'id': const Uuid().v4(),
+              'journal_entry_id': jeId,
+              'account_id': unearnedRevId,
+              'transaction_date': isoDate,
+              'reference_number': invNo.isNotEmpty ? invNo : paymentNumber,
+              'description': invDesc,
+              'debit': invAmt,
+              'credit': 0.0,
+              'source_id': safeSourceId,
+              'source_type': 'payments_received',
+              if (safeCustomerId != null) 'contact_id': safeCustomerId,
+              'contact_type': 'customer',
+              'org_id': safeOrgId,
+              'line_number': null,
+            });
+          }
+        }
+      }
+
+      if (newLines.length == 2 && p.invoiceNo.isNotEmpty) {
+        final invNo = p.invoiceNo;
+        final invAmt = p.amount - p.unusedAmount;
+        if (invAmt > 0) {
+          final invDesc = 'Invoice Payment - $invNo';
+          newLines.add({
+            'id': const Uuid().v4(),
+            'journal_entry_id': jeId,
+            'account_id': arId,
+            'transaction_date': isoDate,
+            'reference_number': invNo,
+            'description': invDesc,
+            'debit': 0.0,
+            'credit': invAmt,
+            'source_id': safeSourceId,
+            'source_type': 'payments_received',
+            if (safeCustomerId != null) 'contact_id': safeCustomerId,
+            'contact_type': 'customer',
+            'org_id': safeOrgId,
+            'line_number': null,
+          });
+          newLines.add({
+            'id': const Uuid().v4(),
+            'journal_entry_id': jeId,
+            'account_id': unearnedRevId,
+            'transaction_date': isoDate,
+            'reference_number': invNo,
+            'description': invDesc,
+            'debit': invAmt,
+            'credit': 0.0,
+            'source_id': safeSourceId,
+            'source_type': 'payments_received',
+            if (safeCustomerId != null) 'contact_id': safeCustomerId,
+            'contact_type': 'customer',
+            'org_id': safeOrgId,
+            'line_number': null,
+          });
+        }
+      }
+
+      if (newLines.isNotEmpty) {
+        await supabase.from('journal_entry_lines').insert(newLines);
+        res = await supabase
+            .from('journal_entry_lines')
+            .select('*, account:accounts(user_account_name, system_account_name)')
+            .eq('journal_entry_id', jeId);
+        linesList = List<Map<String, dynamic>>.from(res);
+      }
+    }
+
+    try {
+      if (jeId.isNotEmpty) {
+        final existingDescs = linesList
+            .map((l) => (l['description'] ?? '').toString())
+            .toSet();
+
+        final safeSourceId = paymentDbId.isNotEmpty ? paymentDbId : jeId;
+
+        // Backfill Invoice Payment lines if allocation exists in payment_received_allocations
+        final allocRes = await supabase
+            .from('payment_received_allocations')
+            .select('*, invoice:invoice_master(invoice_number)')
+            .eq('payment_received_id', safeSourceId);
+
+        final extraAllocLines = <Map<String, dynamic>>[];
+        for (final raw in (allocRes as List)) {
+          final row = Map<String, dynamic>.from(raw as Map);
+          String invNo = (row['invoice']?['invoice_number'] ?? row['invoice_number'] ?? '').toString();
+          final invId = (row['invoice_id'] ?? '').toString();
+          if (invNo.isEmpty && invId.isNotEmpty) {
+            final invRes = await supabase
+                .from('invoice_master')
+                .select('invoice_number')
+                .eq('id', invId)
+                .maybeSingle();
+            if (invRes != null) {
+              invNo = (invRes['invoice_number'] ?? '').toString();
+            }
+          }
+          final invAmt = (row['allocated_amount'] as num?)?.toDouble() ?? 0.0;
+          final invDesc = 'Invoice Payment - ${invNo.isNotEmpty ? invNo : paymentNumber}';
+
+          if (!existingDescs.contains(invDesc) && invAmt > 0) {
+            final accsMap = await _resolvePaymentReceivedAccounts(supabase, p.mode);
+            final unearnedRevId = accsMap['unearnedRevenueId']!;
+            final arId = accsMap['accountsReceivableId']!;
+            final isoDate = _toIsoDateString(p.date);
+
+            extraAllocLines.add({
+              'id': const Uuid().v4(),
+              'journal_entry_id': jeId,
+              'account_id': arId,
+              'transaction_date': isoDate,
+              'reference_number': invNo.isNotEmpty ? invNo : paymentNumber,
+              'description': invDesc,
+              'debit': 0.0,
+              'credit': invAmt,
+              'source_id': safeSourceId,
+              'source_type': 'payments_received',
+              'contact_type': 'customer',
+              'org_id': '00000000-0000-0000-0000-000000000000',
+              'line_number': null,
+            });
+            extraAllocLines.add({
+              'id': const Uuid().v4(),
+              'journal_entry_id': jeId,
+              'account_id': unearnedRevId,
+              'transaction_date': isoDate,
+              'reference_number': invNo.isNotEmpty ? invNo : paymentNumber,
+              'description': invDesc,
+              'debit': invAmt,
+              'credit': 0.0,
+              'source_id': safeSourceId,
+              'source_type': 'payments_received',
+              'contact_type': 'customer',
+              'org_id': '00000000-0000-0000-0000-000000000000',
+              'line_number': null,
+            });
+          }
+        }
+        if (extraAllocLines.isNotEmpty) {
+          await supabase.from('journal_entry_lines').insert(extraAllocLines);
+          res = await supabase
+              .from('journal_entry_lines')
+              .select('*, account:accounts(user_account_name, system_account_name)')
+              .eq('journal_entry_id', jeId);
+          linesList = List<Map<String, dynamic>>.from(res);
+          existingDescs.addAll(extraAllocLines.map((l) => (l['description'] ?? '').toString()));
+        }
+
+        final refundRes = await supabase
+            .from('payment_received_refunds')
+            .select('*')
+            .eq('payment_received_id', safeSourceId);
+
+        if ((refundRes as List).isNotEmpty) {
+          final accsMap = await _resolvePaymentReceivedAccounts(supabase, 'Petty Cash');
+          final defaultFromId = accsMap['depositToId']!;
+          final unearnedRevId = accsMap['unearnedRevenueId']!;
+          final isoDate = _toIsoDateString(p.date);
+          final safeSourceId = paymentDbId.isNotEmpty ? paymentDbId : jeId;
+          bool backfilledAny = false;
+
+          for (final raw in refundRes) {
+            final refRow = Map<String, dynamic>.from(raw as Map);
+            final rNo = (refRow['refund_number'] ?? refRow['reference_number'] ?? '1').toString();
+            final rAmt = (refRow['amount_refunded'] ?? refRow['amount'] ?? 0.0) as num;
+            final rDesc = 'Payment Refund - $rNo';
+
+            if (!existingDescs.contains(rDesc) && rAmt > 0) {
+              final rDate = _toIsoDateString((refRow['refund_date'] ?? refRow['created_at'] ?? isoDate).toString());
+              final line1 = {
+                'id': const Uuid().v4(),
+                'journal_entry_id': jeId,
+                'account_id': defaultFromId,
+                'transaction_date': rDate,
+                'reference_number': rNo,
+                'description': rDesc,
+                'debit': 0.0,
+                'credit': rAmt.toDouble(),
+                'source_id': safeSourceId,
+                'source_type': 'payments_received',
+                'contact_type': 'customer',
+                'org_id': '00000000-0000-0000-0000-000000000000',
+                'line_number': null,
+              };
+              final line2 = {
+                'id': const Uuid().v4(),
+                'journal_entry_id': jeId,
+                'account_id': unearnedRevId,
+                'transaction_date': rDate,
+                'reference_number': rNo,
+                'description': rDesc,
+                'debit': rAmt.toDouble(),
+                'credit': 0.0,
+                'source_id': safeSourceId,
+                'source_type': 'payments_received',
+                'contact_type': 'customer',
+                'org_id': '00000000-0000-0000-0000-000000000000',
+                'line_number': null,
+              };
+              await supabase.from('journal_entry_lines').insert([line1, line2]);
+              backfilledAny = true;
+            }
+          }
+
+          if (backfilledAny) {
+            res = await supabase
+                .from('journal_entry_lines')
+                .select('*, account:accounts(user_account_name, system_account_name)')
+                .eq('journal_entry_id', jeId);
+            linesList = List<Map<String, dynamic>>.from(res);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error syncing refund journal lines: $e');
+    }
+
+    return linesList;
+  }
+
+
 
   Widget _buildReceiptField(String label, String value, {bool isBoldValue = false}) {
     return Padding(

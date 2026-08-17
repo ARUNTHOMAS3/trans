@@ -784,12 +784,17 @@ class _PaymentRecievesReportPageState extends ConsumerState<PaymentRecievesRepor
                                                                   ? Row(
                                                                       mainAxisSize: MainAxisSize.min,
                                                                       children: [
-                                                                        Text(
-                                                                          val,
-                                                                          style: const TextStyle(
-                                                                            fontSize: 13,
-                                                                            color: AppTheme.primaryBlue,
-                                                                            fontWeight: FontWeight.w500,
+                                                                        Flexible(
+                                                                          child: Text(
+                                                                            val,
+                                                                            overflow: _clipText ? TextOverflow.ellipsis : TextOverflow.visible,
+                                                                            maxLines: _clipText ? 1 : null,
+                                                                            softWrap: !_clipText,
+                                                                            style: const TextStyle(
+                                                                              fontSize: 13,
+                                                                              color: AppTheme.primaryBlue,
+                                                                              fontWeight: FontWeight.w500,
+                                                                            ),
                                                                           ),
                                                                         ),
                                                                         const SizedBox(width: 4),

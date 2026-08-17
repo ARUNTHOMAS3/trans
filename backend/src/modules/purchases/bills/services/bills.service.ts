@@ -1297,8 +1297,8 @@ export class BillsService {
     const grandTotal = parseFloat(dto.total?.toString() || dto.grandTotal?.toString() || '0');
 
     // Resolve accounts
+    // Resolve accounts
     const accountsPayableId = findAccount(['Accounts Payable'], ['Accounts Payable']);
-    const accountsPayableDiscountId = findAccount(['Accounts Payable (discount)', 'Accounts Payable discount'], ['Accounts Payable']) || accountsPayableId;
     const purchaseDiscountId = findAccount(['Purchase Discount', 'Purchase Discounts', 'Discount'], ['Income', 'Other Income', 'Expense', 'Other Expense']);
     const otherExpensesId = findAccount(['Other Expenses', 'Other Expense', 'Adjustment'], ['Expense', 'Other Expense']);
     const tdsPayableId = findAccount(['TDS Payable', 'TDS'], ['Other Current Liability', 'Other Liability']);
@@ -1346,19 +1346,58 @@ export class BillsService {
       }
     }
 
-    // 8. Determine if GST is applied
+    // 8. Determine if GST is applied and whether it's IGST vs CGST/SGST
     const isGstBill = taxAmount > 0.0001;
     let isIGST = false;
 
-    if (isGstBill && dto.lineItems?.length > 0) {
-      const taxIds = dto.lineItems.map((item: any) => item.tax_id || item.taxId).filter(Boolean);
-      if (taxIds.length > 0) {
-        const { data: rates } = await supabase
+    if (isGstBill) {
+      const headerTaxName = (dto.taxName || dto.tax_name || dto.tax_rate_name || dto.taxRateName || '').toUpperCase();
+      const headerTaxType = (dto.taxType || dto.tax_type || dto.tax_rate_type || dto.taxRateType || '').toUpperCase();
+
+      if (headerTaxName.includes('IGST') || headerTaxType.includes('IGST')) {
+        isIGST = true;
+      }
+
+      const headerTaxId = dto.tax_id || dto.taxId;
+      if (!isIGST && headerTaxId) {
+        const { data: headerRate } = await supabase
           .from('tax_rates')
-          .select('tax_type')
-          .in('id', taxIds);
-        if (rates && rates.some((r: any) => r.tax_type === 'IGST')) {
-          isIGST = true;
+          .select('tax_type, tax_name')
+          .eq('id', headerTaxId)
+          .maybeSingle();
+        if (headerRate) {
+          const rateType = (headerRate.tax_type || '').toUpperCase();
+          const rateName = (headerRate.tax_name || '').toUpperCase();
+          if (rateType === 'IGST' || rateName.includes('IGST')) {
+            isIGST = true;
+          }
+        }
+      }
+
+      if (!isIGST && dto.lineItems?.length > 0) {
+        for (const item of dto.lineItems) {
+          const itemTaxName = (item.taxName || item.tax_name || item.tax_rate_name || '').toUpperCase();
+          const itemTaxType = (item.taxType || item.tax_type || '').toUpperCase();
+          if (itemTaxName.includes('IGST') || itemTaxType.includes('IGST')) {
+            isIGST = true;
+            break;
+          }
+        }
+
+        if (!isIGST) {
+          const taxIds = dto.lineItems.map((item: any) => item.tax_id || item.taxId).filter(Boolean);
+          if (taxIds.length > 0) {
+            const { data: rates } = await supabase
+              .from('tax_rates')
+              .select('tax_type, tax_name')
+              .in('id', taxIds);
+            if (rates && rates.some((r: any) =>
+              (r.tax_type || '').toUpperCase() === 'IGST' ||
+              (r.tax_name || '').toUpperCase().includes('IGST')
+            )) {
+              isIGST = true;
+            }
+          }
         }
       }
     }
@@ -1393,11 +1432,6 @@ export class BillsService {
       // Scenario 1: Non GST Bill
       
       // DEBITS:
-      // Accounts Payable (discount) (Dr)
-      if (discountAmount > 0.0001) {
-        addEntry(accountsPayableDiscountId, 'Accounts Payable (discount)', discountAmount, 0);
-      }
-
       // Inventory Asset (selected Purchase a/c in item registration) (Dr)
       for (const [accId, amt] of itemAccountsMap.entries()) {
         addEntry(accId, 'Inventory Asset', amt, 0);
@@ -1416,7 +1450,7 @@ export class BillsService {
             addEntry(accId, 'Purchase Discount', 0, amt);
           }
         } else {
-          const transDiscountAccId = dto.discountAccountId || purchaseDiscountId;
+          const transDiscountAccId = dto.discountAccountId || dto.discount_account_id || purchaseDiscountId;
           addEntry(transDiscountAccId, 'Purchase Discount', 0, discountAmount);
         }
       }
@@ -1443,12 +1477,6 @@ export class BillsService {
 
       addEntry(accountsPayableId, 'Accounts Payable', 0, apCredit);
 
-      // Sanity warning
-      const expectedAPCr = grandTotal + (discountAmount > 0 ? discountAmount : 0);
-      if (Math.abs(apCredit - expectedAPCr) > 0.05) {
-        console.warn(`[postBillTransactions] Non-GST AP Credit mismatch: computed=${apCredit}, expected=${expectedAPCr}`);
-      }
-
     } else {
       // Scenario 2: GST Bill
       
@@ -1464,11 +1492,6 @@ export class BillsService {
       } else {
         addEntry(inputCgstId, 'Input CGST', taxAmount / 2, 0);
         addEntry(inputSgstId, 'Input SGST', taxAmount / 2, 0);
-      }
-
-      // Accounts Payable (discount) (Dr)
-      if (discountAmount > 0.0001) {
-        addEntry(accountsPayableDiscountId, 'Accounts Payable (discount)', discountAmount, 0);
       }
 
       // Other Expenses (Adjustment) (Dr)
@@ -1494,7 +1517,7 @@ export class BillsService {
             addEntry(accId, 'Purchase Discounts', 0, amt);
           }
         } else {
-          const transDiscountAccId = dto.discountAccountId || purchaseDiscountId;
+          const transDiscountAccId = dto.discountAccountId || dto.discount_account_id || purchaseDiscountId;
           addEntry(transDiscountAccId, 'Purchase Discounts', 0, discountAmount);
         }
       }
@@ -1510,12 +1533,6 @@ export class BillsService {
       const apCredit = Math.max(0, totalDebits - totalOtherCredits);
 
       addEntry(accountsPayableId, 'Accounts Payable', 0, apCredit);
-
-      // Sanity warning
-      const expectedAPCr = grandTotal + (discountAmount > 0 ? discountAmount : 0);
-      if (Math.abs(apCredit - expectedAPCr) > 0.05) {
-        console.warn(`[postBillTransactions] GST AP Credit mismatch: computed=${apCredit}, expected=${expectedAPCr}`);
-      }
     }
 
     // 10. Bulk Insert & Save journal_id backlink

@@ -391,6 +391,7 @@ class AppRoutes {
   static const String vendorCredits = '/purchases/vendor-credits';
   static const String vendorCreditsCreate = '/purchases/vendor-credits/create';
   static const String vendorCreditsReport = '/purchases/vendor-credits/report';
+  static const String vendorCreditsRefund = '/purchases/vendor-credits/refund';
 
   // Reports
   static const String reports = '/reports';

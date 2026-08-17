@@ -2239,17 +2239,20 @@ class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage>
 
             final section1Lines = <Map<String, dynamic>>[];
             final section2Lines = <Map<String, dynamic>>[];
+            final refundLines = <Map<String, dynamic>>[];
 
             for (var line in lines) {
               final desc = (line['description'] ?? '').toString();
-              if (desc.contains('Bill allocation')) {
+              if (desc.contains('Vendor Payment Refund')) {
+                refundLines.add(line);
+              } else if (desc.contains('Bill allocation')) {
                 section2Lines.add(line);
               } else {
                 section1Lines.add(line);
               }
             }
 
-            if (section1Lines.isEmpty && lines.isNotEmpty) {
+            if (section1Lines.isEmpty && lines.isNotEmpty && refundLines.isEmpty) {
               section1Lines.addAll(lines.take(2));
               if (lines.length > 2) {
                 section2Lines.addAll(lines.skip(2));
@@ -2268,6 +2271,17 @@ class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage>
               }
               if (billNo.isEmpty) billNo = paymentNumber;
               section2Grouped.putIfAbsent(billNo, () => []).add(line);
+            }
+
+            final Map<String, List<Map<String, dynamic>>> refundGrouped = {};
+            for (var line in refundLines) {
+              final desc = (line['description'] ?? '').toString();
+              String refundNo = (line['reference_number'] ?? '').toString().trim();
+              if (refundNo.isEmpty && desc.contains('Vendor Payment Refund - ')) {
+                refundNo = desc.split('Vendor Payment Refund - ').last.trim();
+              }
+              if (refundNo.isEmpty) refundNo = '1';
+              refundGrouped.putIfAbsent(refundNo, () => []).add(line);
             }
 
             return Column(
@@ -2341,7 +2355,7 @@ class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage>
                   ],
                 ),
                 const SizedBox(height: 16),
-                if (section1Lines.isNotEmpty) ...[
+                if (section1Lines.isNotEmpty && section2Grouped.length != 1) ...[
                   Text(
                     'Vendor Payment - $paymentNumber',
                     style: const TextStyle(
@@ -2371,6 +2385,28 @@ class _PaymentsMadeReportPageState extends ConsumerState<PaymentsMadeReportPage>
                         ),
                         const SizedBox(height: 10),
                         _buildJournalTable(billLines, locationName),
+                        const SizedBox(height: 24),
+                      ],
+                    );
+                  }),
+                ],
+                if (refundGrouped.isNotEmpty) ...[
+                  ...refundGrouped.entries.map((entry) {
+                    final refundNo = entry.key;
+                    final rLines = entry.value;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Vendor Payment Refund - $refundNo',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _buildJournalTable(rLines, locationName),
                         const SizedBox(height: 24),
                       ],
                     );
