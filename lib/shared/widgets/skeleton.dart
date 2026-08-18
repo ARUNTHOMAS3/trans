@@ -699,9 +699,10 @@ class CustomerDetailSkeleton extends StatelessWidget {
               const Divider(height: 1, color: AppTheme.borderColor),
               // Content
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Row(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
@@ -893,7 +894,8 @@ class CustomerDetailSkeleton extends StatelessWidget {
                   ),
                 ),
               ),
-            ],
+            ),
+          ],
           ),
         ),
       ],

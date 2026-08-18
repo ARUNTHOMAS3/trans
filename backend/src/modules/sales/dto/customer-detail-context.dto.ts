@@ -5,6 +5,17 @@ export interface CustomerDetailTransactionItemDto {
   status: string;
   amount: number;
   date: string | null;
+  location: string | null;
+  orderNumber: string | null;
+  referenceNumber: string | null;
+  paymentMode: string | null;
+  balanceDue: number | null;
+  unusedAmount: number | null;
+  dueDate: string | null;
+  shipmentDate: string | null;
+  trackingNumber: string | null;
+  vendorName: string | null;
+  lineItemsTotal: number | null;
 }
 
 export interface CustomerDetailTransactionGroupDto {

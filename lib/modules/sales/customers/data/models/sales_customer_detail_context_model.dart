@@ -72,6 +72,18 @@ class CustomerTransactionItem {
   final String status;
   final double amount;
   final DateTime? date;
+  final String? location;
+  final String? orderNumber;
+  final String? referenceNumber;
+  final String? paymentMode;
+  final double? balanceDue;
+  final double? unusedAmount;
+  final DateTime? dueDate;
+
+  final DateTime? shipmentDate;
+  final String? trackingNumber;
+  final String? vendorName;
+  final double? lineItemsTotal;
 
   const CustomerTransactionItem({
     required this.id,
@@ -80,6 +92,17 @@ class CustomerTransactionItem {
     required this.status,
     required this.amount,
     this.date,
+    this.location,
+    this.orderNumber,
+    this.referenceNumber,
+    this.paymentMode,
+    this.balanceDue,
+    this.unusedAmount,
+    this.dueDate,
+    this.shipmentDate,
+    this.trackingNumber,
+    this.vendorName,
+    this.lineItemsTotal,
   });
 
   factory CustomerTransactionItem.fromJson(Map<String, dynamic> json) {
@@ -91,6 +114,27 @@ class CustomerTransactionItem {
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       date: json['date'] != null
           ? DateTime.tryParse(json['date'].toString())
+          : null,
+      location: json['location']?.toString(),
+      orderNumber: json['orderNumber']?.toString(),
+      referenceNumber: json['referenceNumber']?.toString(),
+      paymentMode: json['paymentMode']?.toString(),
+      balanceDue: json['balanceDue'] != null
+          ? (json['balanceDue'] as num).toDouble()
+          : null,
+      unusedAmount: json['unusedAmount'] != null
+          ? (json['unusedAmount'] as num).toDouble()
+          : null,
+      dueDate: json['dueDate'] != null
+          ? DateTime.tryParse(json['dueDate'].toString())
+          : null,
+      shipmentDate: json['shipmentDate'] != null
+          ? DateTime.tryParse(json['shipmentDate'].toString())
+          : null,
+      trackingNumber: json['trackingNumber']?.toString(),
+      vendorName: json['vendorName']?.toString(),
+      lineItemsTotal: json['lineItemsTotal'] != null
+          ? (json['lineItemsTotal'] as num).toDouble()
           : null,
     );
   }

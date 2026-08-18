@@ -1279,84 +1279,94 @@ class _FormDropdownState<T> extends State<FormDropdown<T>> {
                                 : BorderSide.none,
                           )),
               ),
-              child: Row(
-                children: [
-                  if (widget.prefixWidget != null) ...[
-                    widget.prefixWidget!,
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: widget.multiSelect
-                        ? _buildMultiSelectValue()
-                        : Text(
-                            hasValue
-                                ? (widget.displayStringForValue != null
-                                      ? widget.displayStringForValue!(
-                                          widget.value as T,
-                                        )
-                                      : widget.value.toString())
-                                : (widget.hintText ?? widget.hint ?? ''),
-                            textAlign: widget.textAlign,
-                            overflow: TextOverflow.ellipsis,
-                            style:
-                                widget.textStyle ??
-                                TextStyle(
-                                  fontSize: 13,
-                                  color: hasValue
-                                      ? AppTheme.textPrimary
-                                      : AppTheme.textMuted,
-                                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final bool isBounded = constraints.hasBoundedWidth;
+                  final Widget textChild = widget.multiSelect
+                      ? _buildMultiSelectValue()
+                      : Text(
+                          hasValue
+                              ? (widget.displayStringForValue != null
+                                    ? widget.displayStringForValue!(
+                                        widget.value as T,
+                                      )
+                                    : widget.value.toString())
+                              : (widget.hintText ?? widget.hint ?? ''),
+                          textAlign: widget.textAlign,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              widget.textStyle ??
+                              TextStyle(
+                                fontSize: 13,
+                                color: hasValue
+                                    ? AppTheme.textPrimary
+                                    : AppTheme.textMuted,
+                              ),
+                        );
+
+                  return Row(
+                    mainAxisSize:
+                        isBounded ? MainAxisSize.max : MainAxisSize.min,
+                    children: [
+                      if (widget.prefixWidget != null) ...[
+                        widget.prefixWidget!,
+                        const SizedBox(width: 8),
+                      ],
+                      if (isBounded)
+                        Expanded(child: textChild)
+                      else
+                        Flexible(fit: FlexFit.loose, child: textChild),
+                      if (widget.onEdit != null && hasValue) ...[
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            _blockToggleOnce = true;
+                            widget.onEdit!();
+                          },
+                          child: const Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: AppTheme.primaryBlueDark,
                           ),
-                  ),
-                  if (widget.onEdit != null && hasValue) ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () {
-                        _blockToggleOnce = true;
-                        widget.onEdit!();
-                      },
-                      child: const Icon(
-                        Icons.edit,
-                        size: 14,
-                        color: AppTheme.primaryBlueDark,
-                      ),
-                    ),
-                  ],
-                  if ((widget.allowClear || widget.alwaysShowClear) &&
-                      hasValue &&
-                      (_isHoveredField || widget.isHovered)) ...[
-                    const SizedBox(width: 8),
-                    if (widget.showClearDivider)
-                      Container(
-                        width: 1,
-                        height: 18,
-                        color: AppTheme.borderColor,
-                      ),
-                    GestureDetector(
-                      onTap: _handleClear,
-                      child: const Icon(
-                        Icons.close,
-                        size: 14,
-                        color: AppTheme.errorRed,
-                      ),
-                    ),
-                  ],
-                  if (widget.suffixWidget != null) ...[
-                    const SizedBox(width: 6),
-                    widget.suffixWidget!,
-                  ] else if (widget.showArrowOnSelection || !hasValue) ...[
-                    const SizedBox(width: 6),
-                    Icon(
-                      _isOpen
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      size: widget.iconSize ?? 18,
-                      color: _isOpen
-                          ? AppTheme.primaryBlueDark
-                          : AppTheme.textSecondary,
-                    ),
-                  ],
-                ],
+                        ),
+                      ],
+                      if ((widget.allowClear || widget.alwaysShowClear) &&
+                          hasValue &&
+                          (_isHoveredField || widget.isHovered)) ...[
+                        const SizedBox(width: 8),
+                        if (widget.showClearDivider)
+                          Container(
+                            width: 1,
+                            height: 18,
+                            color: AppTheme.borderColor,
+                          ),
+                        GestureDetector(
+                          onTap: _handleClear,
+                          child: const Icon(
+                            Icons.close,
+                            size: 14,
+                            color: AppTheme.errorRed,
+                          ),
+                        ),
+                      ],
+                      if (widget.suffixWidget != null) ...[
+                        const SizedBox(width: 6),
+                        widget.suffixWidget!,
+                      ] else if (widget.showArrowOnSelection || !hasValue) ...[
+                        const SizedBox(width: 6),
+                        Icon(
+                          _isOpen
+                              ? Icons.keyboard_arrow_up
+                              : Icons.keyboard_arrow_down,
+                          size: widget.iconSize ?? 18,
+                          color: _isOpen
+                              ? AppTheme.primaryBlueDark
+                              : AppTheme.textSecondary,
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
           ),

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -120,13 +121,13 @@ class _SalesCustomerOverviewScreenState
   void _onTabChanged() {
     if (!_tabController.indexIsChanging) return;
     final tab = _tabs[_tabController.index];
-      context.go(
-        context.namedLocation(
-          AppRoutes.salesCustomersDetail,
-          pathParameters: {'orgSystemId': _orgSystemId, 'id': widget.id},
-          queryParameters: tab == 'overview' ? {} : {'tab': tab},
-        ),
-      );
+    context.go(
+      context.namedLocation(
+        AppRoutes.salesCustomersDetail,
+        pathParameters: {'orgSystemId': _orgSystemId, 'id': widget.id},
+        queryParameters: tab == 'overview' ? {} : {'tab': tab},
+      ),
+    );
   }
 
   @override
@@ -153,8 +154,10 @@ class _SalesCustomerOverviewScreenState
     );
 
     return ZerpaiLayout(
-      pageTitle: 'Customer Details',
+      pageTitle: '',
       enableBodyScroll: false,
+      useHorizontalPadding: false,
+      useTopPadding: false,
       child: customersAsync.when(
         data: (customers) {
           final fallbackSelectedCustomer = customers.firstWhere(
@@ -399,4 +402,3 @@ class TableCellWidget extends StatelessWidget {
     );
   }
 }
-

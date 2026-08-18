@@ -107,7 +107,6 @@ class _VendorsOverviewPageState extends ConsumerState<VendorsOverviewPage> {
   bool _associateTagsExpanded = true;
   bool _recordInfoExpanded = true;
   bool _isPortalStatusHovered = false;
-  String? _hoveredTransactionSection;
   bool _isCommentBold = false;
   bool _isCommentItalic = false;
   bool _isCommentUnderlined = false;
@@ -3109,16 +3108,21 @@ class _VendorsOverviewPageState extends ConsumerState<VendorsOverviewPage> {
 
   // Active expanded sections state map
   final Map<String, bool> _expandedSections = {
-    'Bills': false,
+    'Bills': true,
+    'Bill Payments': true,
   };
-  final Map<String, bool> _showTransactionCounts = <String, bool>{};
   final Map<String, int> _transactionPageIndexes = <String, int>{};
   final Map<String, String> _transactionStatusFilters = <String, String>{};
+  final Map<String, int> _vendorSectionSortCol = {};
+  final Map<String, bool> _vendorSectionSortAsc = {};
 
   String _transactionStatusFor(String section) =>
       _transactionStatusFilters[section] ?? _transactionStatusOptions.first;
 
-
+  double _parseCurrencyVal(String raw) {
+    final cleaned = raw.replaceAll(RegExp(r'[^\d.]'), '');
+    return double.tryParse(cleaned) ?? 0.0;
+  }
 
   List<_VendorTransactionRow> _transactionRowsFor(
     String section, {
@@ -3164,146 +3168,464 @@ class _VendorsOverviewPageState extends ConsumerState<VendorsOverviewPage> {
           statusColor: Color(0xFF16A34A),
         ),
       ],
-      'Expenses': <_VendorTransactionRow>[
-        _VendorTransactionRow(
-          date: '20-06-2026',
-          location: 'ZABNIX PRIVATE LIMITED',
-          billNo: 'EXP-101',
-          orderNumber: '-',
-          vendorName: 'FIRST LOGIC META LAB PRIVATE LIMITED',
-          amount: 'Rs. 980.00',
-          balanceDue: 'Rs. 0.00',
-          status: 'Paid',
-          statusColor: Color(0xFF16A34A),
-        ),
-      ],
-      'Purchase Orders': <_VendorTransactionRow>[
-        _VendorTransactionRow(
-          date: '14-06-2026',
-          location: 'ZABNIX PRIVATE LIMITED',
-          billNo: 'PO-00046',
-          orderNumber: 'PO-00046',
-          vendorName: 'FIRST LOGIC META LAB PRIVATE LIMITED',
-          amount: 'Rs. 2,100.00',
-          balanceDue: 'Rs. 2,100.00',
-          status: 'Open',
-          statusColor: Color(0xFF2563EB),
-        ),
-      ],
-      'Purchase Receives': <_VendorTransactionRow>[
-        _VendorTransactionRow(
-          date: '16-06-2026',
-          location: 'ZABNIX PRIVATE LIMITED',
-          billNo: 'PR-0009',
-          orderNumber: 'PO-00046',
-          vendorName: 'FIRST LOGIC META LAB PRIVATE LIMITED',
-          amount: 'Rs. 2,100.00',
-          balanceDue: 'Rs. 0.00',
-          status: 'Partially Paid',
-          statusColor: Color(0xFFD97706),
-        ),
-      ],
-      'Vendor Credits': <_VendorTransactionRow>[
-        _VendorTransactionRow(
-          date: '21-06-2026',
-          location: 'ZABNIX PRIVATE LIMITED',
-          billNo: 'VC-0003',
-          orderNumber: 'PO-00046',
-          vendorName: 'FIRST LOGIC META LAB PRIVATE LIMITED',
-          amount: 'Rs. 300.00',
-          balanceDue: 'Rs. 0.00',
-          status: 'Void',
-          statusColor: Color(0xFF64748B),
-        ),
-      ],
+      'Expenses': <_VendorTransactionRow>[],
+      'Purchase Orders': <_VendorTransactionRow>[],
+      'Purchase Receives': <_VendorTransactionRow>[],
+      'Vendor Credits': <_VendorTransactionRow>[],
     };
 
-    final rows = allRows[section] ?? const <_VendorTransactionRow>[];
+    List<_VendorTransactionRow> rows = List.from(allRows[section] ?? const <_VendorTransactionRow>[]);
     final selectedStatus = _transactionStatusFor(section);
-    if (selectedStatus == 'All') return rows;
-    return rows.where((row) => row.status == selectedStatus).toList();
+    if (selectedStatus != 'All') {
+      rows = rows.where((row) => row.status == selectedStatus).toList();
+    }
+
+    final sortCol = _vendorSectionSortCol[section];
+    final sortAsc = _vendorSectionSortAsc[section] ?? true;
+
+    if (sortCol != null) {
+      rows.sort((a, b) {
+        int cmp = 0;
+        switch (sortCol) {
+          case 0:
+            cmp = a.date.compareTo(b.date);
+            break;
+          case 1:
+            cmp = a.location.compareTo(b.location);
+            break;
+          case 2:
+            cmp = a.billNo.compareTo(b.billNo);
+            break;
+          case 3:
+            cmp = a.orderNumber.compareTo(b.orderNumber);
+            break;
+          case 4:
+            cmp = a.vendorName.compareTo(b.vendorName);
+            break;
+          case 5:
+            cmp = _parseCurrencyVal(a.amount).compareTo(_parseCurrencyVal(b.amount));
+            break;
+          case 6:
+            cmp = _parseCurrencyVal(a.balanceDue).compareTo(_parseCurrencyVal(b.balanceDue));
+            break;
+          case 7:
+            cmp = a.status.compareTo(b.status);
+            break;
+        }
+        return sortAsc ? cmp : -cmp;
+      });
+    }
+
+    return rows;
   }
 
   Widget _buildTransactionStatusDropdown(String section) {
     final selectedStatus = _transactionStatusFor(section);
 
-    return FormDropdown<String>(
-      value: selectedStatus,
-      items: _transactionStatusOptions,
-      onChanged: (value) {
-        if (value == null) return;
+    return PopupMenuButton<String>(
+      initialValue: selectedStatus,
+      onSelected: (val) {
         setState(() {
-          _transactionStatusFilters[section] = value;
+          _transactionStatusFilters[section] = val;
         });
       },
-      displayStringForValue: (value) => value,
-      showSearch: false,
-      menuWidth: 200,
-      itemHeight: 37.617,
-      menuMaxHeight: 265.32,
-      maxVisibleItems: _transactionStatusOptions.length,
-      textStyle: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: Color(0xFF64748B),
-      ),
-      prefixWidget: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: const [
-          Icon(
-            LucideIcons.filter,
-            size: 12,
-            color: Color(0xFF2563EB),
-          ),
-          SizedBox(width: 4),
-          Text(
-            'Status:',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF475569),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              LucideIcons.filter,
+              size: 13,
+              color: Color(0xFF6B7280),
             ),
-          ),
-        ],
+            const SizedBox(width: 4),
+            Text(
+              'Status: $selectedStatus',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF374151),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(
+              LucideIcons.chevronDown,
+              size: 13,
+              color: Color(0xFF6B7280),
+            ),
+          ],
+        ),
       ),
-      itemBuilder: (item, isSelected, isHovered) {
-        final isActive = isHovered;
-        return SizedBox(
-          height: 37.617,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                item,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  color: isActive ? Colors.white : const Color(0xFF475569),
+      itemBuilder: (context) {
+        return _transactionStatusOptions.map((status) {
+          return PopupMenuItem<String>(
+            value: status,
+            height: 32,
+            child: Text(
+              status,
+              style: TextStyle(
+                fontSize: 12,
+                color: selectedStatus == status
+                    ? AppTheme.primaryBlue
+                    : const Color(0xFF374151),
+                fontWeight: selectedStatus == status
+                    ? FontWeight.w600
+                    : FontWeight.normal,
+              ),
+            ),
+          );
+        }).toList();
+      },
+    );
+  }
+
+  Widget _buildVendorTableHeader(
+    String section,
+    List<String> titles,
+    List<int> flexes,
+  ) {
+    final currentSortCol = _vendorSectionSortCol[section];
+    return Container(
+      color: const Color(0xFFF9FAFB),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: List.generate(titles.length, (i) {
+          final isSorted = currentSortCol == i;
+          return Expanded(
+            flex: flexes[i],
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  if (_vendorSectionSortCol[section] == i) {
+                    _vendorSectionSortAsc[section] =
+                        !(_vendorSectionSortAsc[section] ?? true);
+                  } else {
+                    _vendorSectionSortCol[section] = i;
+                    _vendorSectionSortAsc[section] = true;
+                  }
+                });
+              },
+              child: Center(
+                child: Text(
+                  titles[i],
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isSorted
+                        ? AppTheme.primaryBlue
+                        : const Color(0xFF6B7280),
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        }),
+      ),
+    );
+  }
+
+  List<String> _getVendorRowColValues(String section, _VendorTransactionRow row) {
+    switch (section) {
+      case 'Bills':
+        return [
+          row.date,
+          row.location,
+          row.billNo,
+          row.orderNumber,
+          row.vendorName,
+          row.amount,
+          row.balanceDue,
+          row.status,
+        ];
+      case 'Bill Payments':
+        return [
+          row.date,
+          row.location,
+          row.billNo,
+          row.orderNumber,
+          row.vendorName,
+          row.amount,
+          row.balanceDue,
+          row.status,
+        ];
+      case 'Expenses':
+        return [
+          row.date,
+          row.location,
+          row.billNo,
+          row.orderNumber,
+          row.vendorName,
+          row.amount,
+          row.status,
+        ];
+      case 'Purchase Orders':
+        return [
+          row.date,
+          row.location,
+          row.billNo,
+          row.orderNumber,
+          row.amount,
+          row.status,
+        ];
+      case 'Purchase Receives':
+        return [
+          row.date,
+          row.location,
+          row.billNo,
+          row.orderNumber,
+          row.amount,
+          row.status,
+        ];
+      case 'Vendor Credits':
+        return [
+          row.date,
+          row.location,
+          row.billNo,
+          row.orderNumber,
+          row.balanceDue,
+          row.amount,
+          row.status,
+        ];
+      default:
+        return [
+          row.date,
+          row.location,
+          row.billNo,
+          row.orderNumber,
+          row.amount,
+          row.status,
+        ];
+    }
+  }
+
+  Widget _buildVendorStatusBadge(String status) {
+    Color bg = const Color(0xFFF3F4F6);
+    Color fg = const Color(0xFF374151);
+
+    switch (status.toLowerCase()) {
+      case 'paid':
+      case 'completed':
+        bg = const Color(0xFFDCFCE7);
+        fg = const Color(0xFF15803D);
+        break;
+      case 'overdue':
+        bg = const Color(0xFFFEE2E2);
+        fg = const Color(0xFFB91C1C);
+        break;
+      case 'open':
+      case 'active':
+        bg = const Color(0xFFDBEAFE);
+        fg = const Color(0xFF1D4ED8);
+        break;
+      case 'partially paid':
+      case 'partially_paid':
+        bg = const Color(0xFFFEF3C7);
+        fg = const Color(0xFFB45309);
+        break;
+      case 'void':
+      case 'draft':
+        bg = const Color(0xFFF1F5F9);
+        fg = const Color(0xFF475569);
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVendorTableContent(
+    String section,
+    List<_VendorTransactionRow> items,
+  ) {
+    List<String> titles;
+    List<int> flexes;
+
+    switch (section) {
+      case 'Bills':
+        titles = [
+          'DATE',
+          'LOCATION',
+          'BILL#',
+          'ORDER NUMBER',
+          'VENDOR NAME',
+          'AMOUNT',
+          'BALANCE DUE',
+          'STATUS',
+        ];
+        flexes = [2, 3, 2, 2, 3, 2, 2, 2];
+        break;
+      case 'Bill Payments':
+        titles = [
+          'DATE',
+          'LOCATION',
+          'BILL#',
+          'ORDER NUMBER',
+          'VENDOR NAME',
+          'AMOUNT',
+          'BALANCE DUE',
+          'STATUS',
+        ];
+        flexes = [2, 3, 2, 2, 3, 2, 2, 2];
+        break;
+      case 'Expenses':
+        titles = [
+          'DATE',
+          'LOCATION',
+          'EXPENSE#',
+          'REFERENCE NUMBER',
+          'VENDOR NAME',
+          'AMOUNT',
+          'STATUS',
+        ];
+        flexes = [2, 3, 2, 2, 3, 2, 2];
+        break;
+      case 'Purchase Orders':
+        titles = [
+          'DATE',
+          'LOCATION',
+          'PURCHASE ORDER#',
+          'REFERENCE NUMBER',
+          'AMOUNT',
+          'STATUS',
+        ];
+        flexes = [2, 3, 3, 2, 2, 2];
+        break;
+      case 'Purchase Receives':
+        titles = [
+          'DATE',
+          'LOCATION',
+          'PURCHASE RECEIVE#',
+          'ORDER NUMBER',
+          'AMOUNT',
+          'STATUS',
+        ];
+        flexes = [2, 3, 3, 2, 2, 2];
+        break;
+      case 'Vendor Credits':
+        titles = [
+          'CREDIT DATE',
+          'LOCATION',
+          'VENDOR CREDIT#',
+          'REFERENCE NUMBER',
+          'BALANCE',
+          'AMOUNT',
+          'STATUS',
+        ];
+        flexes = [2, 3, 3, 2, 2, 2, 2];
+        break;
+      default:
+        titles = [
+          'DATE',
+          'LOCATION',
+          'NUMBER',
+          'REFERENCE NUMBER',
+          'AMOUNT',
+          'STATUS',
+        ];
+        flexes = [2, 3, 3, 2, 2, 2];
+    }
+
+    return Column(
+      children: [
+        _buildVendorTableHeader(section, titles, flexes),
+        if (items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Text(
+                'No ${section.toLowerCase()} found for this vendor.',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ),
+          )
+        else
+          ...items.map((row) {
+            final colValues = _getVendorRowColValues(section, row);
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 10,
+              ),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: Color(0xFFF3F4F6))),
+              ),
+              child: Row(
+                children: List.generate(titles.length, (idx) {
+                  final String val =
+                      idx < colValues.length ? colValues[idx] : '-';
+                  final bool isStatusCol = idx == titles.length - 1;
+                  final bool isNumberCol = (section == 'Bills' && idx == 2) ||
+                      (section == 'Bill Payments' && idx == 2) ||
+                      (section == 'Expenses' && idx == 2) ||
+                      (section == 'Purchase Orders' && idx == 2) ||
+                      (section == 'Purchase Receives' && idx == 2) ||
+                      (section == 'Vendor Credits' && idx == 2);
+
+                  Widget content;
+                  if (isStatusCol) {
+                    content = _buildVendorStatusBadge(val);
+                  } else if (isNumberCol) {
+                    content = Text(
+                      val,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    );
+                  } else {
+                    content = Text(
+                      val,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF374151),
+                      ),
+                    );
+                  }
+
+                  return Expanded(
+                    flex: flexes[idx],
+                    child: Center(child: content),
+                  );
+                }),
+              ),
+            );
+          }),
+      ],
     );
   }
 
   Widget _buildTransactionSection(String section, {bool hasData = false}) {
     final isExpanded = _expandedSections[section] ?? false;
-    final showCount = _showTransactionCounts[section] ?? false;
     final transactionRows = _transactionRowsFor(section, hasData: hasData);
     final transactionCount = transactionRows.length;
     final currentPageIndex = (_transactionPageIndexes[section] ?? 0).clamp(
       0,
       transactionCount == 0 ? 0 : transactionCount - 1,
     );
-    final currentRow = transactionCount == 0
-        ? null
-        : transactionRows[currentPageIndex];
-    final isRowHovered = _hoveredTransactionSection == section;
-    final hasPreviousPage = currentPageIndex > 0;
-    final hasNextPage = currentPageIndex < transactionCount - 1;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -3328,11 +3650,14 @@ class _VendorsOverviewPageState extends ConsumerState<VendorsOverviewPage> {
                 });
               },
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
                     Icon(
-                      isExpanded ? LucideIcons.chevronDown : LucideIcons.chevronRight,
+                      isExpanded
+                          ? LucideIcons.chevronDown
+                          : LucideIcons.chevronRight,
                       size: 16,
                       color: const Color(0xFF64748B),
                     ),
@@ -3340,56 +3665,62 @@ class _VendorsOverviewPageState extends ConsumerState<VendorsOverviewPage> {
                     Text(
                       section,
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1E293B),
+                        color: Color(0xFF111827),
                       ),
                     ),
                     const Spacer(),
                     if (isExpanded) ...[
                       _buildTransactionStatusDropdown(section),
                       const SizedBox(width: 10),
-                      Container(
-                        width: 1,
-                        height: 14,
-                        color: const Color(0xFFE2E8F0),
-                      ),
-                      const SizedBox(width: 10),
                     ],
-                    TextButton(
-                      onPressed: () {},
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Color(0xFF2563EB),
-                              shape: BoxShape.circle,
+                    InkWell(
+                      onTap: () {
+                        const orgId = '00000000-0000-0000-0000-000000000002';
+                        if (section == 'Bills') {
+                          context.go('/$orgId/purchases/bills/create');
+                        } else if (section == 'Bill Payments') {
+                          context.go('/$orgId/purchases/payments-made/create');
+                        } else if (section == 'Expenses') {
+                          context.go('/$orgId/purchases/expenses/create');
+                        } else if (section == 'Purchase Orders') {
+                          context.go('/$orgId/purchases/orders/create');
+                        } else if (section == 'Purchase Receives') {
+                          context.go('/$orgId/purchases/receives/create');
+                        } else if (section == 'Vendor Credits') {
+                          context.go('/$orgId/purchases/vendor-credits/create');
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: const Color(0xFFD1D5DB)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.plus,
+                              size: 13,
+                              color: AppTheme.primaryBlue,
                             ),
-                            child: Padding(
-                              padding: EdgeInsets.all(2),
-                              child: Icon(
-                                LucideIcons.plus,
-                                size: 10,
-                                color: Colors.white,
+                            SizedBox(width: 4),
+                            Text(
+                              'New',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryBlue,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Text(
-                            'New',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF2563EB),
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -3400,244 +3731,84 @@ class _VendorsOverviewPageState extends ConsumerState<VendorsOverviewPage> {
           // Expanded Content
           if (isExpanded) ...[
             const Divider(height: 1, color: Color(0xFFE2E8F0)),
-            if (hasData)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            _buildVendorTableContent(section, transactionRows),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            // Footer pagination bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
                 children: [
-                  // Bills Data Table
-                  StatefulBuilder(
-                    builder: (tableCtx, setTableState) {
-                      return MouseRegion(
-                        onEnter: (_) => setTableState(() {
-                          _hoveredTransactionSection = section;
-                        }),
-                        onExit: (_) => setTableState(() {
-                          if (_hoveredTransactionSection == section) {
-                            _hoveredTransactionSection = null;
-                          }
-                        }),
-                        child: Table(
-                          columnWidths: const {
-                            0: FlexColumnWidth(1.2), // DATE
-                            1: FlexColumnWidth(1.5), // LOCATION
-                            2: FlexColumnWidth(0.8), // BILL#
-                            3: FlexColumnWidth(1.5), // ORDER NUMBER
-                            4: FlexColumnWidth(1.8), // VENDOR NAME
-                            5: FlexColumnWidth(1.2), // AMOUNT
-                            6: FlexColumnWidth(1.2), // BALANCE DUE
-                            7: FlexColumnWidth(1.0), // STATUS
-                          },
-                          children: [
-                            // Table Header
-                            const TableRow(
-                              decoration: BoxDecoration(
-                                color: Color(0xFFF9F9FB),
-                                border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-                              ),
-                              children: [
-                                Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                                  child: Text('DATE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-                                  child: Text('LOCATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-                                  child: Text('BILL#', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-                                  child: Text('ORDER NUMBER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-                                  child: Text('VENDOR NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-                                  child: Text('AMOUNT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-                                  child: Text('BALANCE DUE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                                  child: Text('STATUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
-                                ),
-                              ],
-                            ),
-                            // Data Row
-                            TableRow(
-                              decoration: BoxDecoration(
-                                color: isRowHovered
-                                    ? const Color(0xFFF1F5F9)
-                                    : Colors.transparent,
-                              ),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-                                  child: Text(currentRow?.date ?? '-', style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B))),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
-                                  child: Text(currentRow?.location ?? '-', style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B))),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
-                                  child: Text(currentRow?.billNo ?? '-', style: const TextStyle(fontSize: 13, color: Color(0xFF2563EB), fontWeight: FontWeight.w500)),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
-                                  child: Text(currentRow?.orderNumber ?? '-', style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B))),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
-                                  child: Text(currentRow?.vendorName ?? '-', style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B))),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
-                                  child: Text(currentRow?.amount ?? '-', style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), fontWeight: FontWeight.w500)),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 4.0),
-                                  child: Text(currentRow?.balanceDue ?? '-', style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B), fontWeight: FontWeight.w500)),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-                                  child: Container(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      currentRow?.status ?? '-',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: currentRow?.statusColor ??
-                                            const Color(0xFF1E293B),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                  Text(
+                    'Total Count: $transactionCount',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF4B5563),
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Divider(height: 1, color: Color(0xFFE2E8F0)),
-                  ),
-                  const SizedBox(height: 12),
-                  // Footer pagination
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
+                  const Spacer(),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'Total Count: ',
-                              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                        InkWell(
+                          onTap: currentPageIndex > 0
+                              ? () => setState(
+                                    () => _transactionPageIndexes[section] =
+                                        currentPageIndex - 1,
+                                  )
+                              : null,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
                             ),
-                            InkWell(
-                              onTap: () {
-                                setState(() {
-                                  _showTransactionCounts[section] = !showCount;
-                                });
-                              },
-                              child: Text(
-                                showCount ? '$transactionCount' : 'View',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: showCount
-                                      ? const Color(0xFF1E293B)
-                                      : const Color(0xFF2563EB),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                            child: Icon(
+                              LucideIcons.chevronLeft,
+                              size: 14,
+                              color: currentPageIndex > 0
+                                  ? const Color(0xFF374151)
+                                  : const Color(0xFFD1D5DB),
                             ),
-                          ],
+                          ),
                         ),
-                        // Page buttons
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                children: [
-                                  InkWell(
-                                    onTap: hasPreviousPage
-                                        ? () {
-                                            setState(() {
-                                              _transactionPageIndexes[section] =
-                                                  currentPageIndex - 1;
-                                            });
-                                          }
-                                        : null,
-                                    child: Icon(
-                                      LucideIcons.chevronLeft,
-                                      size: 12,
-                                      color: hasPreviousPage
-                                          ? const Color(0xFF64748B)
-                                          : Colors.grey[400],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    transactionCount == 0
-                                        ? '0-0'
-                                        : '${currentPageIndex + 1}-$transactionCount',
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  InkWell(
-                                    onTap: hasNextPage
-                                        ? () {
-                                            setState(() {
-                                              _transactionPageIndexes[section] =
-                                                  currentPageIndex + 1;
-                                            });
-                                          }
-                                        : null,
-                                    child: Icon(
-                                      LucideIcons.chevronRight,
-                                      size: 12,
-                                      color: hasNextPage
-                                          ? const Color(0xFF64748B)
-                                          : Colors.grey[400],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            transactionCount == 0
+                                ? '0-0'
+                                : '1-$transactionCount',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF374151),
                             ),
-                          ],
+                          ),
+                        ),
+                        InkWell(
+                          onTap: null,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            child: Icon(
+                              LucideIcons.chevronRight,
+                              size: 14,
+                              color: Color(0xFFD1D5DB),
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
-              )
-            else
-              const Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Center(
-                  child: Text(
-                    'No records found.',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-                  ),
-                ),
               ),
+            ),
           ],
         ],
       ),

@@ -93,55 +93,73 @@ export class CustomersService {
     }
 
     const client = this.supabaseService.getClient();
-    const [salesOrdersResult, salesPaymentsResult, auditLogsResult] =
-      await Promise.all([
-        client
-          .from("sales_orders")
-          .select(
-            "id, sale_number, reference, sale_date, created_at, status, total, document_type",
-          )
-          .eq("customer_id", id)
-          .eq("entity_id", tenant.entityId)
-          .order("sale_date", { ascending: false }),
-        client
-          .from("sales_payments")
-          .select(
-            "id, payment_number, payment_date, payment_mode, reference, amount, notes, created_at",
-          )
-          .eq("customer_id", id)
-          .eq("entity_id", tenant.entityId)
-          .order("payment_date", { ascending: false }),
-        client
-          .from("audit_logs")
-          .select(
-            "id, table_name, record_id, action, actor_name, created_at, changed_columns, new_values, old_values",
-          )
-          .eq("entity_id", tenant.entityId)
-          .in("table_name", ["customers", "sales_orders", "sales_payments"])
-          .order("created_at", { ascending: false })
-          .limit(200),
-      ]);
-
-    if (salesOrdersResult.error) {
-      throw new Error(
-        `Failed to fetch customer sales documents: ${salesOrdersResult.error.message}`,
-      );
-    }
-
-    if (salesPaymentsResult.error) {
-      throw new Error(
-        `Failed to fetch customer payments: ${salesPaymentsResult.error.message}`,
-      );
-    }
-
-    if (auditLogsResult.error) {
-      throw new Error(
-        `Failed to fetch customer activity logs: ${auditLogsResult.error.message}`,
-      );
-    }
+    const [
+      salesOrdersResult,
+      salesPaymentsResult,
+      invoicesResult,
+      paymentsReceivedResult,
+      allocationsResult,
+      linkedOrdersResult,
+      auditLogsResult,
+    ] = await Promise.all([
+      client
+        .from("sales_orders")
+        .select(
+          "id, sale_number, reference, sale_date, created_at, status, total, document_type, place_of_supply",
+        )
+        .eq("customer_id", id)
+        .eq("entity_id", tenant.entityId)
+        .order("sale_date", { ascending: false }),
+      client
+        .from("sales_payments")
+        .select(
+          "id, payment_number, payment_date, payment_mode, reference, amount, notes, created_at",
+        )
+        .eq("customer_id", id)
+        .eq("entity_id", tenant.entityId)
+        .order("payment_date", { ascending: false }),
+      client
+        .from("invoice_master")
+        .select(
+          "id, invoice_number, invoice_date, due_date, grand_total, status, place_of_supply, is_delete, created_at",
+        )
+        .eq("customer_id", id)
+        .eq("entity_id", tenant.entityId)
+        .eq("is_delete", false)
+        .order("invoice_date", { ascending: false }),
+      client
+        .from("payments_received")
+        .select(
+          "id, payment_number, payment_date, payment_mode, reference_number, amount_received, amount_used_for_payments, excess_amount, status, place_of_supply, is_delete, created_at",
+        )
+        .eq("customer_id", id)
+        .eq("entity_id", tenant.entityId)
+        .eq("is_delete", false)
+        .order("payment_date", { ascending: false }),
+      client
+        .from("payment_received_allocations")
+        .select("invoice_id, allocated_amount"),
+      client
+        .from("invoice_sales_orders")
+        .select("invoice_id, sales_order_id"),
+      client
+        .from("audit_logs")
+        .select(
+          "id, table_name, record_id, action, actor_name, created_at, changed_columns, new_values, old_values",
+        )
+        .eq("entity_id", tenant.entityId)
+        .in("table_name", ["customers", "sales_orders", "sales_payments", "invoice_master", "payments_received"])
+        .order("created_at", { ascending: false })
+        .limit(200),
+    ]);
 
     const salesOrders = salesOrdersResult.data ?? [];
     const salesPayments = salesPaymentsResult.data ?? [];
+    const invoices = invoicesResult.data ?? [];
+    const paymentsReceived = paymentsReceivedResult.data ?? [];
+    const allocations = allocationsResult.data ?? [];
+    const linkedOrders = linkedOrdersResult.data ?? [];
+
     const auditLogs = (auditLogsResult.data ?? []).filter((log: any) => {
       if (log.record_id === id && log.table_name === "customers") {
         return true;
@@ -152,7 +170,14 @@ export class CustomersService {
     });
 
     return {
-      transactions: this.buildTransactionGroups(salesOrders, salesPayments),
+      transactions: this.buildTransactionGroups(
+        salesOrders,
+        salesPayments,
+        invoices,
+        paymentsReceived,
+        allocations,
+        linkedOrders,
+      ),
       activities: this.buildActivities(auditLogs),
       comments: this.buildComments(),
       mails: this.buildMails(),
@@ -884,34 +909,147 @@ export class CustomersService {
   private buildTransactionGroups(
     salesOrders: any[],
     salesPayments: any[],
+    invoices: any[] = [],
+    paymentsReceived: any[] = [],
+    allocations: any[] = [],
+    linkedOrders: any[] = [],
   ): CustomerDetailTransactionGroupDto[] {
+    // Build allocation map per invoice_id
+    const allocatedByInvoice = new Map<string, number>();
+    for (const alloc of allocations) {
+      if (alloc.invoice_id) {
+        const current = allocatedByInvoice.get(alloc.invoice_id) ?? 0;
+        allocatedByInvoice.set(
+          alloc.invoice_id,
+          current + Number(alloc.allocated_amount ?? 0),
+        );
+      }
+    }
+
+    // Build sales order number map per sales_order_id for linked orders
+    const soNumberMap = new Map<string, string>();
+    for (const so of salesOrders) {
+      if (so.id && so.sale_number) {
+        soNumberMap.set(so.id, so.sale_number);
+      }
+    }
+
+    // Build order number map per invoice_id from linked orders
+    const invoiceOrderNumMap = new Map<string, string>();
+    for (const link of linkedOrders) {
+      if (link.invoice_id && link.sales_order_id) {
+        const num = soNumberMap.get(link.sales_order_id);
+        if (num) {
+          invoiceOrderNumMap.set(link.invoice_id, num);
+        }
+      }
+    }
+
     const groups = [
       { key: "invoice", label: "Invoices" },
       { key: "payment", label: "Customer Payments" },
       { key: "retainer_invoice", label: "Retainer Invoices" },
       { key: "order", label: "Sales Orders" },
+      { key: "package", label: "Packages" },
+      { key: "shipment", label: "Shipments" },
       { key: "challan", label: "Delivery Challans" },
+      { key: "bill", label: "Bills" },
       { key: "credit_note", label: "Credit Notes" },
       { key: "recurring_invoice", label: "Recurring Invoices" },
       { key: "payment_link", label: "Payment Links" },
     ];
 
     return groups.map((group) => {
+      if (group.key === "invoice") {
+        const items = invoices.map((inv: any) => {
+          const total = Number(inv.grand_total ?? 0);
+          const allocated = allocatedByInvoice.get(inv.id) ?? 0;
+          const due = Math.max(0, total - allocated);
+          const orderNum = invoiceOrderNumMap.get(inv.id) || "-";
+          const rawStatus = (inv.status ?? "Draft").toString();
+          const status =
+            rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
+
+          return {
+            id: inv.id?.toString() ?? "",
+            number: inv.invoice_number?.toString() ?? "Invoice",
+            title: "Invoice",
+            status: status,
+            amount: total,
+            date:
+              inv.invoice_date?.toString() ?? inv.created_at?.toString() ?? null,
+            location: inv.place_of_supply?.toString() ?? "-",
+            orderNumber: orderNum,
+            referenceNumber: null,
+            paymentMode: null,
+            balanceDue: due,
+            unusedAmount: null,
+            dueDate: inv.due_date?.toString() ?? null,
+            shipmentDate: null,
+            trackingNumber: null,
+            vendorName: null,
+            lineItemsTotal: null,
+          };
+        });
+
+        return {
+          key: group.key,
+          label: group.label,
+          count: items.length,
+          items,
+        };
+      }
+
       if (group.key === "payment") {
-        const items = salesPayments.map((payment: any) => ({
-          id: payment.id?.toString() ?? "",
-          number: payment.payment_number?.toString() ?? "Payment",
-          title:
-            payment.notes?.toString().trim() ||
-            payment.payment_mode?.toString() ||
-            "Customer payment",
-          status: "Recorded",
-          amount: Number(payment.amount ?? 0),
-          date:
-            payment.payment_date?.toString() ??
-            payment.created_at?.toString() ??
-            null,
-        }));
+        // Prefer payments_received table if populated, fallback to sales_payments
+        const sourceList =
+          paymentsReceived.length > 0 ? paymentsReceived : salesPayments;
+
+        const items = sourceList.map((p: any) => {
+          const isPR = "amount_received" in p;
+          const amount = isPR
+            ? Number(p.amount_received ?? 0)
+            : Number(p.amount ?? 0);
+          const used = isPR ? Number(p.amount_used_for_payments ?? 0) : 0;
+          const excess = isPR ? Number(p.excess_amount ?? 0) : 0;
+          const unused = excess > 0 ? excess : Math.max(0, amount - used);
+          const pNumber = isPR
+            ? p.payment_number?.toString() ?? "Payment"
+            : p.payment_number?.toString() ?? "Payment";
+          const pDate = isPR
+            ? p.payment_date?.toString() ?? p.created_at?.toString() ?? null
+            : p.payment_date?.toString() ?? p.created_at?.toString() ?? null;
+          const pMode = isPR
+            ? p.payment_mode?.toString() ?? "Cash"
+            : p.payment_mode?.toString() ?? "Cash";
+          const pRef = isPR
+            ? p.reference_number?.toString() ?? "-"
+            : p.reference?.toString() ?? "-";
+          const loc = isPR ? p.place_of_supply?.toString() ?? "-" : "-";
+          const rawStatus = (p.status ?? "Recorded").toString();
+          const status =
+            rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
+
+          return {
+            id: p.id?.toString() ?? "",
+            number: pNumber,
+            title: "Customer Payment",
+            status: status,
+            amount: amount,
+            date: pDate,
+            location: loc,
+            orderNumber: null,
+            referenceNumber: pRef,
+            paymentMode: pMode,
+            balanceDue: null,
+            unusedAmount: unused,
+            dueDate: null,
+            shipmentDate: null,
+            trackingNumber: null,
+            vendorName: null,
+            lineItemsTotal: null,
+          };
+        });
 
         return {
           key: group.key,
@@ -932,18 +1070,36 @@ export class CustomersService {
 
       const items = salesOrders
         .filter((order: any) => order.document_type === group.key)
-        .map((order: any) => ({
-          id: order.id?.toString() ?? "",
-          number:
-            order.sale_number?.toString() ??
-            order.id?.toString() ??
-            group.label,
-          title: this.documentTitleFromType(order.document_type),
-          status: order.status?.toString() ?? "Draft",
-          amount: Number(order.total ?? 0),
-          date:
-            order.sale_date?.toString() ?? order.created_at?.toString() ?? null,
-        }));
+        .map((order: any) => {
+          const total = Number(order.total ?? 0);
+          const rawStatus = (order.status ?? "Draft").toString();
+          const status =
+            rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase();
+
+          return {
+            id: order.id?.toString() ?? "",
+            number:
+              order.sale_number?.toString() ??
+              order.id?.toString() ??
+              group.label,
+            title: this.documentTitleFromType(order.document_type),
+            status: status,
+            amount: total,
+            date:
+              order.sale_date?.toString() ?? order.created_at?.toString() ?? null,
+            location: order.place_of_supply?.toString() ?? "-",
+            orderNumber: null,
+            referenceNumber: order.reference?.toString() ?? "-",
+            paymentMode: null,
+            balanceDue: total,
+            unusedAmount: null,
+            dueDate: null,
+            shipmentDate: null,
+            trackingNumber: null,
+            vendorName: null,
+            lineItemsTotal: null,
+          };
+        });
 
       return {
         key: group.key,
