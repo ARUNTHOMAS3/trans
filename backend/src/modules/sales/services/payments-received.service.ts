@@ -9,6 +9,7 @@ import {
   PaymentAttachmentDto,
 } from "../dto/create-payment-received.dto";
 import { UpdatePaymentReceivedDto } from "../dto/update-payment-received.dto";
+import { client } from "../../../db/db";
 
 @Injectable()
 export class PaymentsReceivedService {
@@ -25,62 +26,56 @@ export class PaymentsReceivedService {
   }
 
   async create(tenant: TenantContext, dto: CreatePaymentReceivedDto) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
     const nowIso = new Date().toISOString();
-
     const status = (dto.status ?? "draft").trim().toLowerCase();
 
-    const payload = {
-      entity_id: entityId,
-      customer_id: dto.customer_id,
-      payment_number: dto.payment_number,
-      payment_type: dto.payment_type ?? "INVOICE_PAYMENT",
-      payment_date: dto.payment_date,
-      location_id: dto.location_id ?? null,
-      place_of_supply: dto.place_of_supply ?? null,
-      description_of_supply: dto.description_of_supply ?? null,
-      payment_mode: dto.payment_mode ?? null,
-      deposit_account_id: dto.deposit_account_id,
-      reference_number: dto.reference_number ?? null,
-      amount_received: dto.amount_received ?? 0,
-      bank_charges: dto.bank_charges ?? 0,
-      is_tds_deducted: dto.is_tds_deducted ?? false,
-      tds_tax_id: dto.tds_tax_id ?? null,
-      tds_amount: dto.tds_amount ?? 0,
-      tax_id: dto.tax_id ?? null,
-      tax_amount: dto.tax_amount ?? 0,
-      excess_amount: dto.excess_amount ?? 0,
-      status,
-      is_delete: false,
-      notes: dto.notes ?? null,
-      created_by: tenant.userId || null,
-      created_at: nowIso,
-      updated_at: nowIso,
-    };
+    const createdRows = await client.unsafe(
+      `INSERT INTO payments_received (
+        entity_id, customer_id, payment_number, payment_type, payment_date,
+        location_id, place_of_supply, description_of_supply, payment_mode,
+        deposit_account_id, reference_number, amount_received, bank_charges,
+        is_tds_deducted, tds_tax_id, tds_amount, tax_id, tax_amount,
+        excess_amount, status, is_delete, notes, created_by, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, false, $21, $22, $23, $24)
+      RETURNING *`,
+      [
+        entityId,
+        dto.customer_id,
+        dto.payment_number,
+        dto.payment_type ?? "INVOICE_PAYMENT",
+        dto.payment_date,
+        dto.location_id ?? null,
+        dto.place_of_supply ?? null,
+        dto.description_of_supply ?? null,
+        dto.payment_mode ?? null,
+        dto.deposit_account_id,
+        dto.reference_number ?? null,
+        dto.amount_received ?? 0,
+        dto.bank_charges ?? 0,
+        dto.is_tds_deducted ?? false,
+        dto.tds_tax_id ?? null,
+        dto.tds_amount ?? 0,
+        dto.tax_id ?? null,
+        dto.tax_amount ?? 0,
+        dto.excess_amount ?? 0,
+        status,
+        dto.notes ?? null,
+        tenant.userId || null,
+        nowIso,
+        nowIso,
+      ],
+    );
 
-    const { data, error } = await client
-      .from("payments_received")
-      .insert([payload])
-      .select("*")
-      .single();
+    const data = createdRows[0];
+    if (!data) throw new Error("Failed to create payment received");
 
-    if (error || !data) {
-      throw new Error(
-        `Failed to create payment received: ${
-          (error as any)?.message ?? "Unknown error"
-        }`,
-      );
-    }
-
-    // Upload + link attachments first so a storage failure rolls back cleanly
-    // (before any allocations exist).
     const attachments = dto.attachments ?? [];
     if (attachments.length > 0) {
       try {
         await this.insertAttachments(data.id, attachments, tenant.userId);
       } catch (attachErr) {
-        await client.from("payments_received").delete().eq("id", data.id);
+        await client.unsafe(`DELETE FROM payments_received WHERE id = $1`, [data.id]);
         throw attachErr;
       }
     }
@@ -97,25 +92,23 @@ export class PaymentsReceivedService {
           allocations,
         );
       } catch (allocErr) {
-        // Roll back the header (and any attachments) so we never leave an
-        // orphaned payment.
-        await client
-          .from("payment_received_attachments")
-          .delete()
-          .eq("payment_received_id", data.id);
-        await client.from("payments_received").delete().eq("id", data.id);
+        await client.unsafe(
+          `DELETE FROM payment_received_attachments WHERE payment_received_id = $1`,
+          [data.id],
+        );
+        await client.unsafe(`DELETE FROM payments_received WHERE id = $1`, [data.id]);
         throw allocErr;
       }
       const used = allocations.reduce(
         (sum, a) => sum + (a.allocated_amount ?? 0),
         0,
       );
-      const { data: updated } = await client
-        .from("payments_received")
-        .update({ amount_used_for_payments: used, updated_at: nowIso })
-        .eq("id", data.id)
-        .select("*")
-        .single();
+
+      const updatedRows = await client.unsafe(
+        `UPDATE payments_received SET amount_used_for_payments = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+        [used, data.id],
+      );
+      const updated = updatedRows[0];
       if (updated) {
         await this.syncJournalEntries(tenant, updated);
         return updated;
@@ -126,51 +119,35 @@ export class PaymentsReceivedService {
     return data;
   }
 
-  /// Inserts allocation rows for a payment. `defaultDate` is used when an entry
-  /// omits its own payment_received_on.
   private async insertAllocations(
     entityId: string,
     paymentReceivedId: string,
     defaultDate: string,
     allocations: CreatePaymentAllocationDto[],
   ) {
-    const client = this.supabaseService.getClient();
-    const rows = allocations.map((a) => ({
-      entity_id: entityId,
-      payment_received_id: paymentReceivedId,
-      invoice_id: a.invoice_id,
-      invoice_amount: a.invoice_amount ?? 0,
-      amount_due: a.amount_due ?? 0,
-      allocated_amount: a.allocated_amount ?? 0,
-      payment_received_on: a.payment_received_on || defaultDate,
-      remarks: a.remarks ?? null,
-    }));
-
-    const { error } = await client
-      .from("payment_received_allocations")
-      .insert(rows);
-
-    if (error) {
-      throw new Error(
-        `Failed to save payment allocations: ${
-          (error as any)?.message ?? "Unknown error"
-        }`,
+    for (const a of allocations) {
+      await client.unsafe(
+        `INSERT INTO payment_received_allocations (entity_id, payment_received_id, invoice_id, invoice_amount, amount_due, allocated_amount, payment_received_on, remarks)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          entityId,
+          paymentReceivedId,
+          a.invoice_id,
+          a.invoice_amount ?? 0,
+          a.amount_due ?? 0,
+          a.allocated_amount ?? 0,
+          a.payment_received_on || defaultDate,
+          a.remarks ?? null,
+        ],
       );
     }
   }
 
-  /// Uploads each attachment's bytes to Cloudflare R2 and inserts a linking row
-  /// into `payment_received_attachments`. `file_url` stores the R2 key; a
-  /// presigned URL is generated on read. This table has no `entity_id` — tenant
-  /// scoping is inherited through the parent payment.
   private async insertAttachments(
     paymentReceivedId: string,
     attachments: PaymentAttachmentDto[],
     userId?: string | null,
   ) {
-    const client = this.supabaseService.getClient();
-    const rows: Array<Record<string, unknown>> = [];
-
     for (const att of attachments) {
       const base64 = (att.data_base64 ?? "").replace(/^data:[^;]+;base64,/, "");
       if (!base64) continue;
@@ -182,29 +159,20 @@ export class PaymentsReceivedService {
         mimeType,
         "payments-received",
       );
-      rows.push({
-        payment_received_id: paymentReceivedId,
-        file_name: att.file_name,
-        original_file_name: att.file_name,
-        file_url: key,
-        file_type: att.file_type ?? mimeType,
-        file_size: att.file_size ?? buffer.length,
-        uploaded_by: userId || null,
-        remarks: att.remarks ?? null,
-      });
-    }
 
-    if (!rows.length) return;
-
-    const { error } = await client
-      .from("payment_received_attachments")
-      .insert(rows);
-
-    if (error) {
-      throw new Error(
-        `Failed to save payment attachments: ${
-          (error as any)?.message ?? "Unknown error"
-        }`,
+      await client.unsafe(
+        `INSERT INTO payment_received_attachments (payment_received_id, file_name, original_file_name, file_url, file_type, file_size, uploaded_by, remarks)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          paymentReceivedId,
+          att.file_name,
+          att.file_name,
+          key,
+          att.file_type ?? mimeType,
+          att.file_size ?? buffer.length,
+          userId || null,
+          att.remarks ?? null,
+        ],
       );
     }
   }
@@ -244,78 +212,83 @@ export class PaymentsReceivedService {
     tenant: TenantContext,
     dto: UpdatePaymentReceivedDto,
   ) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
-
-    // Ensure the row exists and belongs to this tenant before updating.
     const existing = await this.findOne(id, tenant);
 
-    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    const assign = (key: string, value: unknown) => {
-      if (value !== undefined) updates[key] = value;
-    };
-
-    if (dto.is_delete === true) {
-      updates.is_delete = true;
+    const isDeleteVal = dto.is_delete;
+    let paymentNumberVal = dto.payment_number;
+    if (isDeleteVal === true) {
       const currentNum = (existing as any).payment_number || "";
       if (currentNum && !currentNum.startsWith("SD-")) {
-        updates.payment_number = `SD-${currentNum}`;
+        paymentNumberVal = `SD-${currentNum}`;
       }
-    } else {
-      assign("is_delete", dto.is_delete);
     }
 
-    assign("customer_id", dto.customer_id);
-    assign("payment_number", dto.payment_number);
-    assign("payment_type", dto.payment_type);
-    assign("payment_date", dto.payment_date);
-    assign("location_id", dto.location_id);
-    assign("place_of_supply", dto.place_of_supply);
-    assign("description_of_supply", dto.description_of_supply);
-    assign("payment_mode", dto.payment_mode);
-    assign("deposit_account_id", dto.deposit_account_id);
-    assign("reference_number", dto.reference_number);
-    assign("amount_received", dto.amount_received);
-    assign("bank_charges", dto.bank_charges);
-    assign("is_tds_deducted", dto.is_tds_deducted);
-    assign("tds_tax_id", dto.tds_tax_id);
-    assign("tds_amount", dto.tds_amount);
-    assign("tax_id", dto.tax_id);
-    assign("tax_amount", dto.tax_amount);
-    assign("excess_amount", dto.excess_amount);
-    if (dto.status !== undefined) {
-      updates.status = dto.status.trim().toLowerCase();
-    }
-    assign("notes", dto.notes);
+    const updatedRows = await client.unsafe(
+      `UPDATE payments_received SET
+         customer_id = COALESCE($1, customer_id),
+         payment_number = COALESCE($2, payment_number),
+         payment_type = COALESCE($3, payment_type),
+         payment_date = COALESCE($4, payment_date),
+         location_id = COALESCE($5, location_id),
+         place_of_supply = COALESCE($6, place_of_supply),
+         description_of_supply = COALESCE($7, description_of_supply),
+         payment_mode = COALESCE($8, payment_mode),
+         deposit_account_id = COALESCE($9, deposit_account_id),
+         reference_number = COALESCE($10, reference_number),
+         amount_received = COALESCE($11, amount_received),
+         bank_charges = COALESCE($12, bank_charges),
+         is_tds_deducted = COALESCE($13, is_tds_deducted),
+         tds_tax_id = COALESCE($14, tds_tax_id),
+         tds_amount = COALESCE($15, tds_amount),
+         tax_id = COALESCE($16, tax_id),
+         tax_amount = COALESCE($17, tax_amount),
+         excess_amount = COALESCE($18, excess_amount),
+         status = COALESCE($19, status),
+         notes = COALESCE($20, notes),
+         is_delete = COALESCE($21, is_delete),
+         updated_at = NOW()
+       WHERE id = $22 AND entity_id = $23
+       RETURNING *`,
+      [
+        dto.customer_id ?? null,
+        paymentNumberVal ?? null,
+        dto.payment_type ?? null,
+        dto.payment_date ?? null,
+        dto.location_id ?? null,
+        dto.place_of_supply ?? null,
+        dto.description_of_supply ?? null,
+        dto.payment_mode ?? null,
+        dto.deposit_account_id ?? null,
+        dto.reference_number ?? null,
+        dto.amount_received ?? null,
+        dto.bank_charges ?? null,
+        dto.is_tds_deducted ?? null,
+        dto.tds_tax_id ?? null,
+        dto.tds_amount ?? null,
+        dto.tax_id ?? null,
+        dto.tax_amount ?? null,
+        dto.excess_amount ?? null,
+        dto.status ? dto.status.trim().toLowerCase() : null,
+        dto.notes ?? null,
+        isDeleteVal ?? null,
+        id,
+        entityId,
+      ],
+    );
 
-    const { data, error } = await client
-      .from("payments_received")
-      .update(updates)
-      .eq("id", id)
-      .eq("entity_id", entityId)
-      .select("*")
-      .single();
+    const data = updatedRows[0];
+    if (!data) throw new Error("Failed to update payment received");
 
-    if (error || !data) {
-      throw new Error(
-        `Failed to update payment received: ${
-          (error as any)?.message ?? "Unknown error"
-        }`,
-      );
-    }
-
-    // Append any newly attached files (existing ones are not resent).
     if (dto.attachments && dto.attachments.length > 0) {
       await this.insertAttachments(id, dto.attachments, tenant.userId);
     }
 
-    // Replace allocations when the caller supplies them (omit to leave as-is).
     if (dto.allocations !== undefined) {
-      await client
-        .from("payment_received_allocations")
-        .delete()
-        .eq("payment_received_id", id)
-        .eq("entity_id", entityId);
+      await client.unsafe(
+        `DELETE FROM payment_received_allocations WHERE payment_received_id = $1 AND entity_id = $2`,
+        [id, entityId],
+      );
 
       const allocations = (dto.allocations ?? []).filter(
         (a) => (a.allocated_amount ?? 0) > 0,
@@ -332,16 +305,12 @@ export class PaymentsReceivedService {
         (sum, a) => sum + (a.allocated_amount ?? 0),
         0,
       );
-      const { data: updated } = await client
-        .from("payments_received")
-        .update({
-          amount_used_for_payments: used,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .eq("entity_id", entityId)
-        .select("*")
-        .single();
+
+      const refreshRows = await client.unsafe(
+        `UPDATE payments_received SET amount_used_for_payments = $1, updated_at = NOW() WHERE id = $2 AND entity_id = $3 RETURNING *`,
+        [used, id, entityId],
+      );
+      const updated = refreshRows[0];
       if (updated) {
         await this.syncJournalEntries(tenant, updated);
         return updated;
@@ -359,54 +328,50 @@ export class PaymentsReceivedService {
     search?: string,
     status?: string,
   ) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
 
     const safePage = page < 1 ? 1 : page;
     const safeLimit = limit < 1 ? 100 : limit;
-    const from = (safePage - 1) * safeLimit;
-    const to = from + safeLimit - 1;
+    const offset = (safePage - 1) * safeLimit;
 
-    let query = client
-      .from("payments_received")
-      .select("*", { count: "exact" })
-      .eq("entity_id", entityId)
-      .eq("is_delete", false)
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    let sqlQuery = `SELECT * FROM payments_received WHERE entity_id = $1 AND is_delete = false`;
+    let countQuery = `SELECT COUNT(*)::int as count FROM payments_received WHERE entity_id = $1 AND is_delete = false`;
+    const params: any[] = [entityId];
 
     if (status && status.trim()) {
-      query = query.eq("status", status.trim().toLowerCase());
+      params.push(status.trim().toLowerCase());
+      const stIdx = params.length;
+      sqlQuery += ` AND status = $${stIdx}`;
+      countQuery += ` AND status = $${stIdx}`;
     }
     if (search && search.trim()) {
-      const term = `%${search.trim()}%`;
-      query = query.or(
-        `payment_number.ilike.${term},reference_number.ilike.${term}`,
-      );
+      params.push(`%${search.trim()}%`);
+      const sIdx = params.length;
+      sqlQuery += ` AND (payment_number ILIKE $${sIdx} OR reference_number ILIKE $${sIdx})`;
+      countQuery += ` AND (payment_number ILIKE $${sIdx} OR reference_number ILIKE $${sIdx})`;
     }
 
-    const { data, error, count } = await query;
+    sqlQuery += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 
-    if (error) {
-      throw new Error(
-        `Failed to load payments received: ${(error as any)?.message ?? "Unknown error"}`,
-      );
-    }
+    const [data, countRes] = await Promise.all([
+      client.unsafe(sqlQuery, [...params, safeLimit, offset]),
+      client.unsafe(countQuery, params),
+    ]);
 
-    const enrichedWithCustomers = await this.attachCustomers(client, data ?? []);
-    const enriched = await this.attachLocations(client, enrichedWithCustomers);
+    const totalCount = countRes[0]?.count ?? 0;
+
+    const enrichedWithCustomers = await this.attachCustomers((data as any[]) ?? []);
+    const enriched = await this.attachLocations(enrichedWithCustomers as any);
 
     return {
       data: enriched,
       page: safePage,
       limit: safeLimit,
-      total: count ?? 0,
+      total: totalCount,
     };
   }
 
-  /// Attaches a resolved customer display name to each row as `customer_name`.
   private async attachCustomers(
-    client: ReturnType<SupabaseService["getClient"]>,
     rows: Array<{ customer_id?: string | null }>,
   ): Promise<Array<Record<string, unknown>>> {
     if (!rows.length) return rows as Array<Record<string, unknown>>;
@@ -423,10 +388,10 @@ export class PaymentsReceivedService {
       return rows.map((row) => ({ ...row, customer_name: null }));
     }
 
-    const { data: customers } = await client
-      .from("customers")
-      .select("id, display_name, first_name, last_name, company_name")
-      .in("id", customerIds);
+    const customers = await client.unsafe(
+      `SELECT id, display_name, first_name, last_name, company_name FROM customers WHERE id = ANY($1)`,
+      [customerIds],
+    );
 
     const nameById = new Map<string, string>();
     for (const c of customers ?? []) {
@@ -445,9 +410,7 @@ export class PaymentsReceivedService {
     }));
   }
 
-  /// Attaches a resolved warehouse/location display name to each row as `location_name`.
   private async attachLocations(
-    client: ReturnType<SupabaseService["getClient"]>,
     rows: Array<{ location_id?: string | null; entity_id?: string | null }>,
   ): Promise<Array<Record<string, unknown>>> {
     if (!rows.length) return rows as Array<Record<string, unknown>>;
@@ -455,11 +418,10 @@ export class PaymentsReceivedService {
     const entityId = rows[0].entity_id;
     let defaultWarehouseName: string | null = null;
     if (entityId) {
-      const { data: wh } = await client
-        .from("warehouses")
-        .select("name")
-        .eq("entity_id", entityId)
-        .limit(1);
+      const wh = await client.unsafe(
+        `SELECT name FROM warehouses WHERE entity_id = $1 LIMIT 1`,
+        [entityId],
+      );
       if (wh && wh.length > 0) {
         defaultWarehouseName = wh[0].name;
       }
@@ -475,10 +437,10 @@ export class PaymentsReceivedService {
 
     const nameById = new Map<string, string>();
     if (locationIds.length > 0) {
-      const { data: warehouses } = await client
-        .from("warehouses")
-        .select("id, name")
-        .in("id", locationIds);
+      const warehouses = await client.unsafe(
+        `SELECT id, name FROM warehouses WHERE id = ANY($1)`,
+        [locationIds],
+      );
 
       for (const w of warehouses ?? []) {
         if (w.id) nameById.set(w.id, w.name || "");
@@ -494,72 +456,52 @@ export class PaymentsReceivedService {
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
 
-    const { data, error } = await client
-      .from("payments_received")
-      .select("*")
-      .eq("id", id)
-      .eq("entity_id", entityId)
-      .maybeSingle();
+    const rows = await client.unsafe(
+      `SELECT * FROM payments_received WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+      [id, entityId],
+    );
 
-    if (error) {
-      throw new Error(
-        `Failed to load payment received: ${(error as any)?.message ?? "Unknown error"}`,
-      );
-    }
+    const data = rows[0];
     if (!data) {
       throw new NotFoundException("Payment received not found");
     }
 
-    const { data: allocations } = await client
-      .from("payment_received_allocations")
-      .select("*")
-      .eq("payment_received_id", id)
-      .eq("entity_id", entityId);
+    const allocations = await client.unsafe(
+      `SELECT * FROM payment_received_allocations WHERE payment_received_id = $1 AND entity_id = $2`,
+      [id, entityId],
+    );
 
-    const enriched = await this.attachLocations(client, [data]);
+    const enriched = await this.attachLocations([data] as any);
 
     return { ...enriched[0], allocations: allocations ?? [] };
   }
 
-  /// Returns the distinct customers that appear in `invoice_master` for the
-  /// active tenant, with their display name / number / email resolved from the
-  /// `customers` table. Used to populate the "Customer Name" dropdown on the
-  /// payment-create page so only customers who actually have invoices are shown.
   async getInvoiceCustomers(tenant: TenantContext) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
 
-    const { data: invoices, error } = await client
-      .from("invoice_master")
-      .select("customer_id")
-      .eq("entity_id", entityId)
-      .eq("is_delete", false);
-
-    if (error) {
-      throw new Error(
-        `Failed to load invoice customers: ${(error as any)?.message ?? "Unknown error"}`,
-      );
-    }
+    const invoices = await client.unsafe(
+      `SELECT customer_id FROM invoice_master WHERE entity_id = $1 AND is_delete = false`,
+      [entityId],
+    );
 
     const customerIds = Array.from(
       new Set(
         (invoices ?? [])
-          .map((row) => row.customer_id)
-          .filter((id): id is string => typeof id === "string" && id.length > 0),
+          .map((row: any) => row.customer_id)
+          .filter((id: unknown): id is string => typeof id === "string" && id.length > 0),
       ),
     );
     if (!customerIds.length) return [];
 
-    const { data: customers } = await client
-      .from("customers")
-      .select("id, display_name, first_name, last_name, company_name, customer_number, email")
-      .in("id", customerIds);
+    const customers = await client.unsafe(
+      `SELECT id, display_name, first_name, last_name, company_name, customer_number, email FROM customers WHERE id = ANY($1)`,
+      [customerIds],
+    );
 
     return (customers ?? [])
-      .map((c) => ({
+      .map((c: any) => ({
         id: c.id,
         name:
           c.display_name ||
@@ -569,42 +511,29 @@ export class PaymentsReceivedService {
         customer_number: c.customer_number ?? null,
         email: c.email ?? null,
       }))
-      .filter((c) => c.name)
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .filter((c: any) => c.name)
+      .sort((a: any, b: any) => a.name.localeCompare(b.name));
   }
 
-  /// Returns the customer's invoices that still have a balance due, computed as
-  /// grand_total minus everything already allocated to each invoice. Used to
-  /// populate the "Unpaid Invoices" table on the payment-create page.
   async getUnpaidInvoices(tenant: TenantContext, customerId: string) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
 
-    const { data: invoices, error } = await client
-      .from("invoice_master")
-      .select(
-        "id, invoice_number, invoice_date, due_date, grand_total, status, place_of_supply",
-      )
-      .eq("entity_id", entityId)
-      .eq("customer_id", customerId)
-      .eq("is_delete", false)
-      .order("invoice_date", { ascending: true });
-
-    if (error) {
-      throw new Error(
-        `Failed to load unpaid invoices: ${(error as any)?.message ?? "Unknown error"}`,
-      );
-    }
+    const invoices = await client.unsafe(
+      `SELECT id, invoice_number, invoice_date, due_date, grand_total, status, place_of_supply
+       FROM invoice_master
+       WHERE entity_id = $1 AND customer_id = $2 AND is_delete = false
+       ORDER BY invoice_date ASC`,
+      [entityId, customerId],
+    );
 
     const list = invoices ?? [];
     if (!list.length) return [];
 
-    // Sum existing allocations per invoice to derive the remaining balance.
-    const invoiceIds = list.map((i) => i.id);
-    const { data: allocations } = await client
-      .from("payment_received_allocations")
-      .select("invoice_id, allocated_amount")
-      .in("invoice_id", invoiceIds);
+    const invoiceIds = list.map((i: any) => i.id);
+    const allocations = await client.unsafe(
+      `SELECT invoice_id, allocated_amount FROM payment_received_allocations WHERE invoice_id = ANY($1)`,
+      [invoiceIds],
+    );
 
     const allocatedByInvoice = new Map<string, number>();
     for (const a of allocations ?? []) {
@@ -617,11 +546,11 @@ export class PaymentsReceivedService {
     }
 
     return list
-      .filter((inv) => {
+      .filter((inv: any) => {
         const status = (inv.status ?? "").toString().toLowerCase();
         return status !== "draft" && status !== "void" && status !== "cancelled";
       })
-      .map((inv) => {
+      .map((inv: any) => {
         const total = Number(inv.grand_total ?? 0);
         const due = total - (allocatedByInvoice.get(inv.id) ?? 0);
         return {
@@ -634,12 +563,11 @@ export class PaymentsReceivedService {
           amount_due: due,
         };
       })
-      .filter((inv) => inv.amount_due > 0);
+      .filter((inv: any) => inv.amount_due > 0);
   }
 
   async syncJournalEntries(tenant: TenantContext, paymentData: any) {
     try {
-      const client = this.supabaseService.getClient();
       const entityId = this.ensureEntityId(tenant);
       const paymentId = paymentData.id;
       const paymentNumber = String(paymentData.payment_number || "");
@@ -650,10 +578,9 @@ export class PaymentsReceivedService {
 
       if (!paymentId) return;
 
-      // 1. Fetch Accounts to resolve depositToId, unearnedRevenueId, accountsReceivableId
-      const { data: allAccs } = await client
-        .from("accounts")
-        .select("id, user_account_name, system_account_name, account_type");
+      const allAccs = await client.unsafe(
+        `SELECT id, user_account_name, system_account_name, account_type FROM accounts`,
+      );
 
       let depositToId: string | null = null;
       let unearnedRevId: string | null = null;
@@ -665,7 +592,6 @@ export class PaymentsReceivedService {
         const accId = String(row.id || "");
         const userAcc = String(row.user_account_name || "").trim().toLowerCase();
         const sysAcc = String(row.system_account_name || "").trim().toLowerCase();
-        const accType = String(row.account_type || "").trim().toLowerCase();
 
         if (!depositToId && targetDeposit) {
           if (accId === depositAccountIdRef || userAcc === targetDeposit || sysAcc === targetDeposit) {
@@ -711,48 +637,62 @@ export class PaymentsReceivedService {
         accountsReceivableId ??= depositToId;
       }
 
-      // 2. Find existing journal entry header
-      const { data: existingJE } = await client
-        .from("journal_entries")
-        .select("id")
-        .or(`source_document_type.eq.payments_received,source_document_type.eq.PAYMENT_RECEIVED`)
-        .or(`source_document_id.eq.${paymentId},journal_number.eq.${paymentNumber}`)
-        .maybeSingle();
+      const existingJE = await client.unsafe(
+        `SELECT id FROM journal_entries
+         WHERE (source_document_type = 'payments_received' OR source_document_type = 'PAYMENT_RECEIVED')
+         AND (source_document_id = $1 OR journal_number = $2) LIMIT 1`,
+        [paymentId, paymentNumber],
+      );
 
-      const journalEntryId = existingJE?.id || uuidv4();
+      const journalEntryId = existingJE[0]?.id || uuidv4();
       const defaultOrgId = tenant.orgId || "00000000-0000-0000-0000-000000000000";
 
-      const jeHeader = {
-        id: journalEntryId,
-        org_id: defaultOrgId,
-        entity_id: entityId,
-        journal_number: paymentNumber,
-        journal_type: "payments received",
-        journal_date: paymentDate,
-        posting_date: paymentDate,
-        reference_number: paymentData.reference_number || paymentNumber,
-        narration: paymentData.notes || `Payment Received ${paymentNumber}`,
-        source_module: "sales",
-        source_document_type: "payments_received",
-        source_document_id: paymentId,
-        status: "POSTED",
-        created_by: tenant.userId || null,
-        updated_by: tenant.userId || null,
-      };
-
-      if (existingJE?.id) {
-        await client.from("journal_entries").update(jeHeader).eq("id", journalEntryId);
-        await client.from("journal_entry_lines").delete().eq("journal_entry_id", journalEntryId);
+      if (existingJE[0]?.id) {
+        await client.unsafe(
+          `UPDATE journal_entries SET
+             org_id = $1, entity_id = $2, journal_number = $3, journal_type = 'payments received',
+             journal_date = $4, posting_date = $4, reference_number = $5, narration = $6,
+             source_module = 'sales', source_document_type = 'payments_received', source_document_id = $7,
+             status = 'POSTED', updated_by = $8
+           WHERE id = $9`,
+          [
+            defaultOrgId,
+            entityId,
+            paymentNumber,
+            paymentDate,
+            paymentData.reference_number || paymentNumber,
+            paymentData.notes || `Payment Received ${paymentNumber}`,
+            paymentId,
+            tenant.userId || null,
+            journalEntryId,
+          ],
+        );
+        await client.unsafe(
+          `DELETE FROM journal_entry_lines WHERE journal_entry_id = $1`,
+          [journalEntryId],
+        );
       } else {
-        await client.from("journal_entries").insert(jeHeader);
+        await client.unsafe(
+          `INSERT INTO journal_entries (id, org_id, entity_id, journal_number, journal_type, journal_date, posting_date, reference_number, narration, source_module, source_document_type, source_document_id, status, created_by, updated_by)
+           VALUES ($1, $2, $3, $4, 'payments received', $5, $5, $6, $7, 'sales', 'payments_received', $8, 'POSTED', $9, $9)`,
+          [
+            journalEntryId,
+            defaultOrgId,
+            entityId,
+            paymentNumber,
+            paymentDate,
+            paymentData.reference_number || paymentNumber,
+            paymentData.notes || `Payment Received ${paymentNumber}`,
+            paymentId,
+            tenant.userId || null,
+          ],
+        );
       }
 
-      // 3. Build journal_entry_lines
-      const lines: Array<Record<string, unknown>> = [];
+      const lines: Array<Record<string, any>> = [];
       const mainDesc = `Customer Payment - ${paymentNumber}`;
 
       if (amountReceived > 0) {
-        // Line 1: Deposit To (Debit)
         lines.push({
           id: uuidv4(),
           journal_entry_id: journalEntryId,
@@ -768,10 +708,8 @@ export class PaymentsReceivedService {
           contact_type: "customer",
           entity_id: entityId,
           org_id: defaultOrgId,
-          line_number: null,
         });
 
-        // Line 2: Unearned Revenue (Credit)
         lines.push({
           id: uuidv4(),
           journal_entry_id: journalEntryId,
@@ -787,34 +725,23 @@ export class PaymentsReceivedService {
           contact_type: "customer",
           entity_id: entityId,
           org_id: defaultOrgId,
-          line_number: null,
         });
       }
 
-      // 4. Fetch invoice allocations
-      const { data: allocRes } = await client
-        .from("payment_received_allocations")
-        .select("*, invoice:invoice_master(invoice_number)")
-        .eq("payment_received_id", paymentId);
+      const allocRes = await client.unsafe(
+        `SELECT pra.*, im.invoice_number FROM payment_received_allocations pra
+         LEFT JOIN invoice_master im ON im.id = pra.invoice_id
+         WHERE pra.payment_received_id = $1`,
+        [paymentId],
+      );
 
       for (const row of (allocRes || [])) {
-        let invNo = String(row.invoice?.invoice_number || row.invoice_number || "");
-        if (!invNo && row.invoice_id) {
-          const { data: invData } = await client
-            .from("invoice_master")
-            .select("invoice_number")
-            .eq("id", row.invoice_id)
-            .maybeSingle();
-          if (invData?.invoice_number) {
-            invNo = String(invData.invoice_number);
-          }
-        }
+        let invNo = String(row.invoice_number || "");
         if (!invNo) invNo = paymentNumber;
 
         const invAmt = Number(row.allocated_amount || 0);
         if (invAmt > 0) {
           const invDesc = `Invoice Payment - ${invNo}`;
-          // Line 3: Accounts Receivable (Credit)
           lines.push({
             id: uuidv4(),
             journal_entry_id: journalEntryId,
@@ -830,9 +757,7 @@ export class PaymentsReceivedService {
             contact_type: "customer",
             entity_id: entityId,
             org_id: defaultOrgId,
-            line_number: null,
           });
-          // Line 4: Unearned Revenue (Debit)
           lines.push({
             id: uuidv4(),
             journal_entry_id: journalEntryId,
@@ -848,16 +773,14 @@ export class PaymentsReceivedService {
             contact_type: "customer",
             entity_id: entityId,
             org_id: defaultOrgId,
-            line_number: null,
           });
         }
       }
 
-      // 5. Fetch refunds if any
-      const { data: refundRes } = await client
-        .from("payment_received_refunds")
-        .select("*")
-        .eq("payment_received_id", paymentId);
+      const refundRes = await client.unsafe(
+        `SELECT * FROM payment_received_refunds WHERE payment_received_id = $1`,
+        [paymentId],
+      );
 
       for (const refRow of (refundRes || [])) {
         const rNo = String(refRow.refund_number || refRow.reference_number || "1");
@@ -865,7 +788,6 @@ export class PaymentsReceivedService {
         const rDesc = `Payment Refund - ${rNo}`;
         const fromAccId = refRow.from_account_id || depositToId;
         if (rAmt > 0) {
-          // Line 5: Refund From Account (Credit)
           lines.push({
             id: uuidv4(),
             journal_entry_id: journalEntryId,
@@ -881,9 +803,7 @@ export class PaymentsReceivedService {
             contact_type: "customer",
             entity_id: entityId,
             org_id: defaultOrgId,
-            line_number: null,
           });
-          // Line 6: Unearned Revenue (Debit)
           lines.push({
             id: uuidv4(),
             journal_entry_id: journalEntryId,
@@ -899,13 +819,31 @@ export class PaymentsReceivedService {
             contact_type: "customer",
             entity_id: entityId,
             org_id: defaultOrgId,
-            line_number: null,
           });
         }
       }
 
-      if (lines.length > 0) {
-        await client.from("journal_entry_lines").insert(lines);
+      for (const line of lines) {
+        await client.unsafe(
+          `INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, transaction_date, reference_number, description, debit, credit, source_id, source_type, contact_id, contact_type, entity_id, org_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+          [
+            line.id,
+            line.journal_entry_id,
+            line.account_id,
+            line.transaction_date,
+            line.reference_number,
+            line.description,
+            line.debit,
+            line.credit,
+            line.source_id,
+            line.source_type,
+            line.contact_id,
+            line.contact_type,
+            line.entity_id,
+            line.org_id,
+          ],
+        );
       }
     } catch (err: any) {
       console.error("Failed to sync journal entries for payment received:", err?.message || err);

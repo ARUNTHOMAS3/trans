@@ -7,13 +7,13 @@ import {
 } from "@nestjs/common";
 import * as crypto from "crypto";
 import { SupabaseService } from "../supabase/supabase.service";
+import { db, client } from "../../db/db";
+import { shipmentPreferences } from "../../db/schema";
+import { eq } from "drizzle-orm";
 
 @Controller("shipment-preferences")
 export class ShipmentPreferencesController {
   constructor(private readonly supabaseService: SupabaseService) {}
-
-  private readonly primaryTable = "carrier";
-  private readonly fallbackTable = "shipment_preferences";
 
   private cleanItems(items: Array<Record<string, any>>) {
     return items.map((item) => {
@@ -47,24 +47,31 @@ export class ShipmentPreferencesController {
 
   @Get()
   async list() {
-    const client = this.supabaseService.getClient();
-    const primary = await client
-      .from(this.primaryTable)
-      .select("*")
-      .order("name", { ascending: true });
-
-    if (!primary.error) {
-      return primary.data ?? [];
+    try {
+      const carriers = await client.unsafe(
+        `SELECT * FROM carrier ORDER BY name ASC`,
+      );
+      if (carriers && carriers.length > 0) return carriers;
+    } catch {
+      // Fallback if carrier table doesn't exist
     }
 
-    const fallback = await client
-      .from(this.fallbackTable)
-      .select("*")
-      .eq("is_active", true)
-      .order("name", { ascending: true });
+    try {
+      const prefs = await db
+        .select()
+        .from(shipmentPreferences)
+        .where(eq(shipmentPreferences.isActive, true));
 
-    if (fallback.error) throw fallback.error;
-    return fallback.data ?? [];
+      return prefs.map((p) => ({
+        id: p.id,
+        name: p.name,
+        created_at: p.createdAt,
+        is_active: p.isActive,
+      }));
+    } catch (err) {
+      console.error("[ShipmentPreferencesController] list error:", err);
+      return [];
+    }
   }
 
   @Post("sync")
@@ -75,28 +82,42 @@ export class ShipmentPreferencesController {
     if (items.length === 0) return [];
 
     const cleanedItems = this.cleanItems(items);
-    const client = this.supabaseService.getClient();
-    const primary = await client
-      .from(this.primaryTable)
-      .upsert(cleanedItems)
-      .select();
 
-    if (!primary.error) {
-      return primary.data ?? [];
+    try {
+      const synced = await client.unsafe(
+        `INSERT INTO carrier (id, name, created_at)
+         SELECT id, name, created_at FROM json_populate_recordset(null::carrier, $1::json)
+         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+         RETURNING *`,
+        [JSON.stringify(cleanedItems)],
+      );
+      if (synced && synced.length > 0) return synced;
+    } catch {
+      // Fallback to shipment_preferences
     }
 
-    const fallbackItems = items.map((item) => {
-      const cleaned = { ...item };
-      if (typeof cleaned.is_active === "undefined") cleaned.is_active = true;
-      return cleaned;
-    });
+    const fallbackItems = items.map((item) => ({
+      name: item.name,
+      isActive: item.is_active ?? true,
+    }));
 
-    const fallback = await client
-      .from(this.fallbackTable)
-      .upsert(fallbackItems)
-      .select();
-
-    if (fallback.error) throw fallback.error;
-    return fallback.data ?? [];
+    try {
+      const results = [];
+      for (const item of fallbackItems) {
+        const [inserted] = await db
+          .insert(shipmentPreferences)
+          .values(item)
+          .returning();
+        results.push({
+          id: inserted.id,
+          name: inserted.name,
+          is_active: inserted.isActive,
+        });
+      }
+      return results;
+    } catch (err) {
+      console.error("[ShipmentPreferencesController] sync error:", err);
+      throw err;
+    }
   }
 }

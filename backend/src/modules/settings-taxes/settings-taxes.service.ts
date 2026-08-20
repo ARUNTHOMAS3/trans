@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
+import { client } from "../../db/db";
 
 type SimpleOptions = {
   nameKey: string;
@@ -9,16 +10,6 @@ type SimpleOptions = {
 @Injectable()
 export class SettingsTaxesService {
   constructor(private readonly supabaseService: SupabaseService) {}
-
-  private get client() {
-    return this.supabaseService.getClient();
-  }
-
-  private statusFilter(query: any, status?: string) {
-    if (status === "active") return query.eq("is_active", true);
-    if (status === "inactive") return query.eq("is_active", false);
-    return query;
-  }
 
   private requiredString(body: any, key: string) {
     const value = body?.[key]?.toString().trim();
@@ -44,21 +35,27 @@ export class SettingsTaxesService {
   ) {
     if (!Array.isArray(childIds)) return;
 
-    const { error: deleteError } = await this.client
-      .from(table)
-      .delete()
-      .eq(parentKey, parentId);
-    if (deleteError) throw deleteError;
+    const sanitizedTable = table.replace(/[^a-zA-Z0-9_]/g, "");
+    const sanitizedParentKey = parentKey.replace(/[^a-zA-Z0-9_]/g, "");
+    const sanitizedChildKey = childKey.replace(/[^a-zA-Z0-9_]/g, "");
 
-    const rows = childIds
+    await client.unsafe(
+      `DELETE FROM "${sanitizedTable}" WHERE "${sanitizedParentKey}" = $1`,
+      [parentId],
+    );
+
+    const validChildIds = childIds
       .map((id) => id?.toString().trim())
-      .filter(Boolean)
-      .map((id) => ({ [parentKey]: parentId, [childKey]: id }));
+      .filter((id): id is string => Boolean(id));
 
-    if (!rows.length) return;
+    if (validChildIds.length === 0) return;
 
-    const { error } = await this.client.from(table).insert(rows);
-    if (error) throw error;
+    for (const childId of validChildIds) {
+      await client.unsafe(
+        `INSERT INTO "${sanitizedTable}" ("${sanitizedParentKey}", "${sanitizedChildKey}") VALUES ($1, $2)`,
+        [parentId, childId],
+      );
+    }
   }
 
   async summary() {
@@ -95,38 +92,49 @@ export class SettingsTaxesService {
   }
 
   private async countActive(table: string) {
-    const { count, error } = await this.client
-      .from(table)
-      .select("id", { count: "exact", head: true })
-      .eq("is_active", true);
-    if (error) throw error;
-    return count ?? 0;
+    const sanitizedTable = table.replace(/[^a-zA-Z0-9_]/g, "");
+    try {
+      const rows = await client.unsafe(
+        `SELECT COUNT(*)::int as count FROM "${sanitizedTable}" WHERE is_active = true`,
+      );
+      return rows[0]?.count ?? 0;
+    } catch {
+      return 0;
+    }
   }
 
   async findSimple(table: string, status?: string, orderBy = "created_at") {
-    const query = this.statusFilter(
-      this.client.from(table).select("*"),
-      status,
-    ).order(orderBy, { ascending: true });
-    const { data, error } = await query;
-    if (error) throw error;
-    return data ?? [];
+    const sanitizedTable = table.replace(/[^a-zA-Z0-9_]/g, "");
+    const sanitizedOrderBy = orderBy.replace(/[^a-zA-Z0-9_]/g, "");
+
+    let sqlQuery = `SELECT * FROM "${sanitizedTable}" WHERE 1=1`;
+    if (status === "active") sqlQuery += ` AND is_active = true`;
+    if (status === "inactive") sqlQuery += ` AND is_active = false`;
+    sqlQuery += ` ORDER BY "${sanitizedOrderBy}" ASC`;
+
+    try {
+      const data = await client.unsafe(sqlQuery);
+      return data ?? [];
+    } catch {
+      return [];
+    }
   }
 
   async createSimple(table: string, body: any, options: SimpleOptions) {
-    const payload: any = {
-      [options.nameKey]: this.requiredString(body, options.nameKey),
-      is_active: body?.is_active ?? true,
-    };
-    if (options.description) payload.description = body?.description ?? null;
+    const sanitizedTable = table.replace(/[^a-zA-Z0-9_]/g, "");
+    const nameVal = this.requiredString(body, options.nameKey);
+    const descVal = options.description ? (body?.description ?? null) : null;
+    const isActive = body?.is_active ?? true;
 
-    const { data, error } = await this.client
-      .from(table)
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    try {
+      const rows = await client.unsafe(
+        `INSERT INTO "${sanitizedTable}" ("${options.nameKey}", description, is_active) VALUES ($1, $2, $3) RETURNING *`,
+        [nameVal, descVal, isActive],
+      );
+      return rows[0];
+    } catch (err) {
+      throw err;
+    }
   }
 
   async updateSimple(
@@ -135,29 +143,34 @@ export class SettingsTaxesService {
     body: any,
     options: SimpleOptions,
   ) {
-    const payload: any = {};
-    if (body?.[options.nameKey] !== undefined) {
-      payload[options.nameKey] = this.requiredString(body, options.nameKey);
-    }
-    if (options.description && body?.description !== undefined) {
-      payload.description = body.description ?? null;
-    }
-    if (body?.is_active !== undefined) payload.is_active = body.is_active;
+    const sanitizedTable = table.replace(/[^a-zA-Z0-9_]/g, "");
+    const nameVal = body?.[options.nameKey] !== undefined ? this.requiredString(body, options.nameKey) : null;
+    const descVal = options.description && body?.description !== undefined ? (body.description ?? null) : null;
+    const isActive = body?.is_active !== undefined ? body.is_active : null;
 
-    const { data, error } = await this.client
-      .from(table)
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    try {
+      const rows = await client.unsafe(
+        `UPDATE "${sanitizedTable}" SET
+           "${options.nameKey}" = COALESCE($1, "${options.nameKey}"),
+           description = COALESCE($2, description),
+           is_active = COALESCE($3, is_active)
+         WHERE id = $4 RETURNING *`,
+        [nameVal, descVal, isActive, id],
+      );
+      return rows[0];
+    } catch (err) {
+      throw err;
+    }
   }
 
   async deleteById(table: string, id: string, label: string) {
-    const { error } = await this.client.from(table).delete().eq("id", id);
-    if (error) throw new Error(`Failed to delete ${label}: ${error.message}`);
-    return { success: true };
+    const sanitizedTable = table.replace(/[^a-zA-Z0-9_]/g, "");
+    try {
+      await client.unsafe(`DELETE FROM "${sanitizedTable}" WHERE id = $1`, [id]);
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Failed to delete ${label}: ${(error as Error).message}`);
+    }
   }
 
   async findTaxRates(status?: string) {
@@ -165,69 +178,60 @@ export class SettingsTaxesService {
   }
 
   async createTaxRate(body: any) {
-    const payload = {
-      tax_name: this.requiredString(body, "tax_name"),
-      tax_rate: this.optionalNumber(body?.tax_rate),
-      tax_type: body?.tax_type ?? null,
-      is_active: body?.is_active ?? true,
-    };
-    if (payload.tax_rate === null) {
+    const taxName = this.requiredString(body, "tax_name");
+    const taxRate = this.optionalNumber(body?.tax_rate);
+    const taxType = body?.tax_type ?? null;
+    const isActive = body?.is_active ?? true;
+
+    if (taxRate === null) {
       throw new BadRequestException("tax_rate is required");
     }
 
-    const { data, error } = await this.client
-      .from("tax_rates")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    const rows = await client.unsafe(
+      `INSERT INTO tax_rates (tax_name, tax_rate, tax_type, is_active) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [taxName, taxRate, taxType, isActive],
+    );
+    return rows[0];
   }
 
   async updateTaxRate(id: string, body: any) {
-    const payload: any = {};
-    if (body?.tax_name !== undefined) {
-      payload.tax_name = this.requiredString(body, "tax_name");
-    }
-    if (body?.tax_rate !== undefined) {
-      payload.tax_rate = this.optionalNumber(body.tax_rate);
-    }
-    if (body?.tax_type !== undefined) payload.tax_type = body.tax_type;
-    if (body?.is_active !== undefined) payload.is_active = body.is_active;
+    const taxName = body?.tax_name !== undefined ? this.requiredString(body, "tax_name") : null;
+    const taxRate = body?.tax_rate !== undefined ? this.optionalNumber(body.tax_rate) : null;
+    const taxType = body?.tax_type !== undefined ? body.tax_type : null;
+    const isActive = body?.is_active !== undefined ? body.is_active : null;
 
-    const { data, error } = await this.client
-      .from("tax_rates")
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    const rows = await client.unsafe(
+      `UPDATE tax_rates SET
+         tax_name = COALESCE($1, tax_name),
+         tax_rate = COALESCE($2, tax_rate),
+         tax_type = COALESCE($3, tax_type),
+         is_active = COALESCE($4, is_active)
+       WHERE id = $5 RETURNING *`,
+      [taxName, taxRate, taxType, isActive, id],
+    );
+    return rows[0];
   }
 
   async findTaxGroups(status?: string) {
-    const { data, error } = await this.statusFilter(
-      this.client.from("tax_groups").select("*"),
-      status,
-    ).order("tax_group_name", { ascending: true });
-    if (error) throw error;
+    let sqlQuery = `SELECT * FROM tax_groups WHERE 1=1`;
+    if (status === "active") sqlQuery += ` AND is_active = true`;
+    if (status === "inactive") sqlQuery += ` AND is_active = false`;
+    sqlQuery += ` ORDER BY tax_group_name ASC`;
 
-    return Promise.all((data ?? []).map((group) => this.withTaxGroupRates(group)));
+    const data = await client.unsafe(sqlQuery);
+    return Promise.all((data ?? []).map((group: any) => this.withTaxGroupRates(group)));
   }
 
   async createTaxGroup(body: any) {
-    const payload = {
-      tax_group_name: this.requiredString(body, "tax_group_name"),
-      tax_rate: this.optionalNumber(body?.tax_rate) ?? 0,
-      is_active: body?.is_active ?? true,
-    };
+    const name = this.requiredString(body, "tax_group_name");
+    const rate = this.optionalNumber(body?.tax_rate) ?? 0;
+    const isActive = body?.is_active ?? true;
 
-    const { data, error } = await this.client
-      .from("tax_groups")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
+    const rows = await client.unsafe(
+      `INSERT INTO tax_groups (tax_group_name, tax_rate, is_active) VALUES ($1, $2, $3) RETURNING *`,
+      [name, rate, isActive],
+    );
+    const data = rows[0];
 
     await this.replaceMappings(
       "tax_group_rates",
@@ -240,22 +244,19 @@ export class SettingsTaxesService {
   }
 
   async updateTaxGroup(id: string, body: any) {
-    const payload: any = {};
-    if (body?.tax_group_name !== undefined) {
-      payload.tax_group_name = this.requiredString(body, "tax_group_name");
-    }
-    if (body?.tax_rate !== undefined) {
-      payload.tax_rate = this.optionalNumber(body.tax_rate);
-    }
-    if (body?.is_active !== undefined) payload.is_active = body.is_active;
+    const name = body?.tax_group_name !== undefined ? this.requiredString(body, "tax_group_name") : null;
+    const rate = body?.tax_rate !== undefined ? this.optionalNumber(body.tax_rate) : null;
+    const isActive = body?.is_active !== undefined ? body.is_active : null;
 
-    const { data, error } = await this.client
-      .from("tax_groups")
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) throw error;
+    const rows = await client.unsafe(
+      `UPDATE tax_groups SET
+         tax_group_name = COALESCE($1, tax_group_name),
+         tax_rate = COALESCE($2, tax_rate),
+         is_active = COALESCE($3, is_active)
+       WHERE id = $4 RETURNING *`,
+      [name, rate, isActive, id],
+    );
+    const data = rows[0];
 
     await this.replaceMappings(
       "tax_group_rates",
@@ -273,39 +274,78 @@ export class SettingsTaxesService {
   }
 
   private async withTaxGroupRates(group: any) {
-    const { data, error } = await this.client
-      .from("tax_group_rates")
-      .select("tax_id,tax_rates(*)")
-      .eq("tax_group_id", group.id);
-    if (error) throw error;
+    const data = await client.unsafe(
+      `SELECT tgr.tax_id, tr.*
+       FROM tax_group_rates tgr
+       LEFT JOIN tax_rates tr ON tr.id = tgr.tax_id
+       WHERE tgr.tax_group_id = $1`,
+      [group.id],
+    );
+
     return {
       ...group,
       tax_ids: (data ?? []).map((row: any) => row.tax_id),
-      taxes: (data ?? []).map((row: any) => row.tax_rates).filter(Boolean),
+      taxes: (data ?? []).map((row: any) => (row.id ? row : null)).filter(Boolean),
     };
   }
 
   async createTdsRate(body: any) {
     const payload = this.tdsRatePayload(body, true);
-    const { data, error } = await this.client
-      .from("tds_rates")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    const rows = await client.unsafe(
+      `INSERT INTO tds_rates (tax_name, section_id, payable_account_id, receivable_account_id, reason_higher_rate, applicable_from, applicable_to, base_rate, surcharge_rate, cess_rate, is_higher_rate, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [
+        payload.tax_name,
+        payload.section_id ?? null,
+        payload.payable_account_id ?? null,
+        payload.receivable_account_id ?? null,
+        payload.reason_higher_rate ?? null,
+        payload.applicable_from ?? null,
+        payload.applicable_to ?? null,
+        payload.base_rate ?? 0,
+        payload.surcharge_rate ?? 0,
+        payload.cess_rate ?? 0,
+        payload.is_higher_rate ?? false,
+        payload.is_active ?? true,
+      ],
+    );
+    return rows[0];
   }
 
   async updateTdsRate(id: string, body: any) {
     const payload = this.tdsRatePayload(body, false);
-    const { data, error } = await this.client
-      .from("tds_rates")
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    const rows = await client.unsafe(
+      `UPDATE tds_rates SET
+         tax_name = COALESCE($1, tax_name),
+         section_id = COALESCE($2, section_id),
+         payable_account_id = COALESCE($3, payable_account_id),
+         receivable_account_id = COALESCE($4, receivable_account_id),
+         reason_higher_rate = COALESCE($5, reason_higher_rate),
+         applicable_from = COALESCE($6, applicable_from),
+         applicable_to = COALESCE($7, applicable_to),
+         base_rate = COALESCE($8, base_rate),
+         surcharge_rate = COALESCE($9, surcharge_rate),
+         cess_rate = COALESCE($10, cess_rate),
+         is_higher_rate = COALESCE($11, is_higher_rate),
+         is_active = COALESCE($12, is_active)
+       WHERE id = $13 RETURNING *`,
+      [
+        payload.tax_name ?? null,
+        payload.section_id ?? null,
+        payload.payable_account_id ?? null,
+        payload.receivable_account_id ?? null,
+        payload.reason_higher_rate ?? null,
+        payload.applicable_from ?? null,
+        payload.applicable_to ?? null,
+        payload.base_rate ?? null,
+        payload.surcharge_rate ?? null,
+        payload.cess_rate ?? null,
+        payload.is_higher_rate ?? null,
+        payload.is_active ?? null,
+        id,
+      ],
+    );
+    return rows[0];
   }
 
   private tdsRatePayload(body: any, creating: boolean) {
@@ -336,27 +376,27 @@ export class SettingsTaxesService {
   }
 
   async findTdsGroups(status?: string) {
-    const { data, error } = await this.statusFilter(
-      this.client.from("tds_groups").select("*"),
-      status,
-    ).order("group_name", { ascending: true });
-    if (error) throw error;
-    return Promise.all((data ?? []).map((group) => this.withTdsGroupRates(group)));
+    let sqlQuery = `SELECT * FROM tds_groups WHERE 1=1`;
+    if (status === "active") sqlQuery += ` AND is_active = true`;
+    if (status === "inactive") sqlQuery += ` AND is_active = false`;
+    sqlQuery += ` ORDER BY group_name ASC`;
+
+    const data = await client.unsafe(sqlQuery);
+    return Promise.all((data ?? []).map((group: any) => this.withTdsGroupRates(group)));
   }
 
   async createTdsGroup(body: any) {
-    const payload = {
-      group_name: this.requiredString(body, "group_name"),
-      applicable_from: body?.applicable_from ?? null,
-      applicable_to: body?.applicable_to ?? null,
-      is_active: body?.is_active ?? true,
-    };
-    const { data, error } = await this.client
-      .from("tds_groups")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
+    const name = this.requiredString(body, "group_name");
+    const appFrom = body?.applicable_from ?? null;
+    const appTo = body?.applicable_to ?? null;
+    const isActive = body?.is_active ?? true;
+
+    const rows = await client.unsafe(
+      `INSERT INTO tds_groups (group_name, applicable_from, applicable_to, is_active) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [name, appFrom, appTo, isActive],
+    );
+    const data = rows[0];
+
     await this.replaceMappings(
       "tds_group_items",
       "tds_group_id",
@@ -368,22 +408,21 @@ export class SettingsTaxesService {
   }
 
   async updateTdsGroup(id: string, body: any) {
-    const payload: any = {};
-    for (const key of ["group_name", "applicable_from", "applicable_to"]) {
-      if (body?.[key] !== undefined) payload[key] = body[key] || null;
-    }
-    if (body?.group_name !== undefined) {
-      payload.group_name = this.requiredString(body, "group_name");
-    }
-    if (body?.is_active !== undefined) payload.is_active = body.is_active;
+    const name = body?.group_name !== undefined ? this.requiredString(body, "group_name") : null;
+    const appFrom = body?.applicable_from !== undefined ? body.applicable_from : null;
+    const appTo = body?.applicable_to !== undefined ? body.applicable_to : null;
+    const isActive = body?.is_active !== undefined ? body.is_active : null;
 
-    const { data, error } = await this.client
-      .from("tds_groups")
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) throw error;
+    const rows = await client.unsafe(
+      `UPDATE tds_groups SET
+         group_name = COALESCE($1, group_name),
+         applicable_from = COALESCE($2, applicable_from),
+         applicable_to = COALESCE($3, applicable_to),
+         is_active = COALESCE($4, is_active)
+       WHERE id = $5 RETURNING *`,
+      [name, appFrom, appTo, isActive, id],
+    );
+    const data = rows[0];
 
     await this.replaceMappings(
       "tds_group_items",
@@ -407,39 +446,75 @@ export class SettingsTaxesService {
   }
 
   private async withTdsGroupRates(group: any) {
-    const { data, error } = await this.client
-      .from("tds_group_items")
-      .select("tds_rate_id,tds_rates(*)")
-      .eq("tds_group_id", group.id);
-    if (error) throw error;
+    const data = await client.unsafe(
+      `SELECT tgi.tds_rate_id, tr.*
+       FROM tds_group_items tgi
+       LEFT JOIN tds_rates tr ON tr.id = tgi.tds_rate_id
+       WHERE tgi.tds_group_id = $1`,
+      [group.id],
+    );
+
     return {
       ...group,
       tds_rate_ids: (data ?? []).map((row: any) => row.tds_rate_id),
-      rates: (data ?? []).map((row: any) => row.tds_rates).filter(Boolean),
+      rates: (data ?? []).map((row: any) => (row.id ? row : null)).filter(Boolean),
     };
   }
 
   async createTcsRate(body: any) {
     const payload = this.tcsRatePayload(body, true);
-    const { data, error } = await this.client
-      .from("tcs_rates")
-      .insert(payload)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    const rows = await client.unsafe(
+      `INSERT INTO tcs_rates (tax_name, nature_id, rate, payable_account_id, receivable_account_id, higher_rate_reason_id, income_tax_act, applicable_from, applicable_to, is_higher_rate, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      [
+        payload.tax_name,
+        payload.nature_id,
+        payload.rate ?? 0,
+        payload.payable_account_id ?? null,
+        payload.receivable_account_id ?? null,
+        payload.higher_rate_reason_id ?? null,
+        payload.income_tax_act ?? null,
+        payload.applicable_from ?? null,
+        payload.applicable_to ?? null,
+        payload.is_higher_rate ?? false,
+        payload.is_active ?? true,
+      ],
+    );
+    return rows[0];
   }
 
   async updateTcsRate(id: string, body: any) {
     const payload = this.tcsRatePayload(body, false);
-    const { data, error } = await this.client
-      .from("tcs_rates")
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    const rows = await client.unsafe(
+      `UPDATE tcs_rates SET
+         tax_name = COALESCE($1, tax_name),
+         nature_id = COALESCE($2, nature_id),
+         rate = COALESCE($3, rate),
+         payable_account_id = COALESCE($4, payable_account_id),
+         receivable_account_id = COALESCE($5, receivable_account_id),
+         higher_rate_reason_id = COALESCE($6, higher_rate_reason_id),
+         income_tax_act = COALESCE($7, income_tax_act),
+         applicable_from = COALESCE($8, applicable_from),
+         applicable_to = COALESCE($9, applicable_to),
+         is_higher_rate = COALESCE($10, is_higher_rate),
+         is_active = COALESCE($11, is_active)
+       WHERE id = $12 RETURNING *`,
+      [
+        payload.tax_name ?? null,
+        payload.nature_id ?? null,
+        payload.rate ?? null,
+        payload.payable_account_id ?? null,
+        payload.receivable_account_id ?? null,
+        payload.higher_rate_reason_id ?? null,
+        payload.income_tax_act ?? null,
+        payload.applicable_from ?? null,
+        payload.applicable_to ?? null,
+        payload.is_higher_rate ?? null,
+        payload.is_active ?? null,
+        id,
+      ],
+    );
+    return rows[0];
   }
 
   private tcsRatePayload(body: any, creating: boolean) {

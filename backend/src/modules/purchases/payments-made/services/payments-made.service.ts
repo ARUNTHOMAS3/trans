@@ -2,6 +2,7 @@ import { Injectable, HttpException, HttpStatus } from "@nestjs/common";
 import { SupabaseService } from "../../../supabase/supabase.service";
 import { v4 as uuidv4 } from "uuid";
 import { TenantContext } from "../../../../common/middleware/tenant.middleware";
+import { client } from "../../../../db/db";
 
 @Injectable()
 export class PaymentsMadeService {
@@ -12,85 +13,85 @@ export class PaymentsMadeService {
   }
 
   async createPayment(tenant: TenantContext, dto: any) {
-    const supabase = this.supabaseService.getClient();
     const id = uuidv4();
-
     let paymentNumber = dto.paymentNumber || dto.payment_number || `PM-${Date.now()}`;
-    
-    // Check if the payment number already exists to satisfy UNIQUE constraint
-    const { data: existingPayment } = await supabase
-      .from("payment_made_master")
-      .select("payment_number")
-      .eq("payment_number", paymentNumber)
-      .maybeSingle();
 
-    if (existingPayment) {
+    const existingPayment = await client.unsafe(
+      `SELECT payment_number FROM payment_made_master WHERE payment_number = $1 LIMIT 1`,
+      [paymentNumber],
+    );
+
+    if (existingPayment[0]) {
       paymentNumber = `${paymentNumber}-${Date.now().toString().slice(-4)}`;
     }
 
-    // Resolve paidThroughAccountId
     let paidThroughAccountId = null;
     const incomingPaidThrough = dto.paidThroughAccountId || dto.paid_through_account_id;
     if (incomingPaidThrough) {
       if (this.isUuid(incomingPaidThrough)) {
         paidThroughAccountId = incomingPaidThrough;
       } else {
-        const { data: accountRow } = await supabase
-          .from("accounts")
-          .select("id")
-          .or(`system_account_name.eq.${incomingPaidThrough},user_account_name.eq.${incomingPaidThrough}`)
-          .maybeSingle();
-        if (accountRow) {
-          paidThroughAccountId = accountRow.id;
+        const accountRow = await client.unsafe(
+          `SELECT id FROM accounts WHERE system_account_name = $1 OR user_account_name = $1 LIMIT 1`,
+          [incomingPaidThrough],
+        );
+        if (accountRow[0]) {
+          paidThroughAccountId = accountRow[0].id;
         }
       }
     }
 
-    // Resolve depositToAccountId
     let depositToAccountId = null;
     const incomingDepositTo = dto.depositToAccountId || dto.deposit_to_account_id;
     if (incomingDepositTo) {
       if (this.isUuid(incomingDepositTo)) {
         depositToAccountId = incomingDepositTo;
       } else {
-        const { data: accountRow } = await supabase
-          .from("accounts")
-          .select("id")
-          .or(`system_account_name.eq.${incomingDepositTo},user_account_name.eq.${incomingDepositTo}`)
-          .maybeSingle();
-        if (accountRow) {
-          depositToAccountId = accountRow.id;
+        const accountRow = await client.unsafe(
+          `SELECT id FROM accounts WHERE system_account_name = $1 OR user_account_name = $1 LIMIT 1`,
+          [incomingDepositTo],
+        );
+        if (accountRow[0]) {
+          depositToAccountId = accountRow[0].id;
         }
       }
     }
 
-    const { data, error } = await supabase
-      .from("payment_made_master")
-      .insert({
-        id,
-        entity_id: tenant.entityId,
-        vendor_id: dto.vendorId || dto.vendor_id,
-        payment_type: dto.paymentType || dto.payment_type || 'RECORD_PAYMENT',
-        transaction_series_id: dto.transactionSeriesId && this.isUuid(dto.transactionSeriesId) ? dto.transactionSeriesId : null,
-        payment_number: paymentNumber,
-        payment_date: dto.paymentDate || dto.payment_date || new Date().toISOString().split('T')[0],
-        payment_amount: dto.paymentAmount || dto.payment_amount || dto.amount || "0",
-        currency_id: dto.currencyId && this.isUuid(dto.currencyId) ? dto.currencyId : null,
-        exchange_rate: dto.exchangeRate || dto.exchange_rate || "1.0",
-        paid_through_account_id: paidThroughAccountId,
-        deposit_to_account_id: depositToAccountId,
-        payment_mode: dto.paymentMode || dto.payment_mode || "Cash",
-        reference_number: dto.referenceNumber || dto.reference_number || null,
-        status: dto.status || "draft",
-        notes: dto.notes || null,
-        total_allocated: dto.totalAllocated || dto.total_allocated || "0",
-        total_refunded: dto.totalRefunded || dto.total_refunded || "0",
-        excess_amount: dto.excessAmount || dto.excess_amount || dto.unusedAmount || dto.unused_amount || "0",
-      })
-      .select()
-      .single();
+    const payload = {
+      id,
+      entity_id: tenant.entityId,
+      vendor_id: dto.vendorId || dto.vendor_id,
+      payment_type: dto.paymentType || dto.payment_type || 'RECORD_PAYMENT',
+      transaction_series_id: dto.transactionSeriesId && this.isUuid(dto.transactionSeriesId) ? dto.transactionSeriesId : null,
+      payment_number: paymentNumber,
+      payment_date: dto.paymentDate || dto.payment_date || new Date().toISOString().split('T')[0],
+      payment_amount: dto.paymentAmount || dto.payment_amount || dto.amount || "0",
+      currency_id: dto.currencyId && this.isUuid(dto.currencyId) ? dto.currencyId : null,
+      exchange_rate: dto.exchangeRate || dto.exchange_rate || "1.0",
+      paid_through_account_id: paidThroughAccountId,
+      deposit_to_account_id: depositToAccountId,
+      payment_mode: dto.paymentMode || dto.payment_mode || "Cash",
+      reference_number: dto.referenceNumber || dto.reference_number || null,
+      status: dto.status || "draft",
+      notes: dto.notes || null,
+      total_allocated: dto.totalAllocated || dto.total_allocated || "0",
+      total_refunded: dto.totalRefunded || dto.total_refunded || "0",
+      excess_amount: dto.excessAmount || dto.excess_amount || dto.unusedAmount || dto.unused_amount || "0",
+    };
 
-    if (error) {
+    const keys = Object.keys(payload);
+    const cols = keys.map((k) => `"${k}"`).join(", ");
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+    const values: any[] = Object.values(payload);
+
+    let data: any;
+    try {
+      const rows = await client.unsafe(
+        `INSERT INTO payment_made_master (${cols}) VALUES (${placeholders}) RETURNING *`,
+        values,
+      );
+      data = rows[0];
+    } catch (error: any) {
       throw new HttpException(
         `Failed to create payment made: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -99,81 +100,65 @@ export class PaymentsMadeService {
 
     const allocations = dto.billAllocations || dto.bill_allocations;
     if (Array.isArray(allocations) && allocations.length > 0) {
-      const recordsToInsert = allocations.map(item => ({
-        id: item.id || uuidv4(),
-        payment_made_id: id,
-        bill_id: item.billId || item.bill_id,
-        bill_amount: item.billAmount || item.bill_amount || "0",
-        amount_due: item.amountDue || item.amount_due || "0",
-        allocated_amount: item.allocatedAmount || item.allocated_amount || item.amount || "0",
-        payment_date: item.paymentDate || item.payment_date || dto.paymentDate || dto.payment_date || new Date().toISOString().split('T')[0],
-        remarks: item.remarks || null,
-      }));
-
-      const { error: allocationError } = await supabase
-        .from("payment_made_bill_allocations")
-        .insert(recordsToInsert);
-
-      if (allocationError) {
-        throw new HttpException(
-          `Failed to save bill allocations: ${allocationError.message}`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
+      for (const item of allocations) {
+        await client.unsafe(
+          `INSERT INTO payment_made_bill_allocations (id, payment_made_id, bill_id, bill_amount, amount_due, allocated_amount, payment_date, remarks)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            item.id || uuidv4(),
+            id,
+            item.billId || item.bill_id,
+            item.billAmount || item.bill_amount || "0",
+            item.amountDue || item.amount_due || "0",
+            item.allocatedAmount || item.allocated_amount || item.amount || "0",
+            item.paymentDate || item.payment_date || dto.paymentDate || dto.payment_date || new Date().toISOString().split('T')[0],
+            item.remarks || null,
+          ],
         );
       }
     }
 
     const taxData = dto.paymentMadeTax || dto.payment_made_tax;
     if (taxData) {
-      const { error: taxError } = await supabase
-        .from("payment_made_tax")
-        .insert({
-          id: uuidv4(),
-          payment_made_id: id,
-          gst_treatment: taxData.gst_treatment || taxData.gstTreatment || null,
-          gstin: taxData.gstin || null,
-          source_of_supply: taxData.source_of_supply || taxData.sourceOfSupply || null,
-          destination_of_supply: taxData.destination_of_supply || taxData.destinationOfSupply || null,
-          description_of_supply: taxData.description_of_supply || taxData.descriptionOfSupply || null,
-          reverse_charge: !!(taxData.reverse_charge || taxData.reverseCharge),
-          tds_tax_id: (taxData.tds_tax_id || taxData.tdsTaxId) && this.isUuid(String(taxData.tds_tax_id || taxData.tdsTaxId)) ? String(taxData.tds_tax_id || taxData.tdsTaxId) : null,
-          tds_percentage: taxData.tds_percentage || taxData.tdsPercentage || 0,
-          tds_amount: taxData.tds_amount || taxData.tdsAmount || 0,
-        });
-
-      if (taxError) {
-        throw new HttpException(
-          `Failed to save payment tax info: ${taxError.message}`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
-        );
-      }
+      await client.unsafe(
+        `INSERT INTO payment_made_tax (id, payment_made_id, gst_treatment, gstin, source_of_supply, destination_of_supply, description_of_supply, reverse_charge, tds_tax_id, tds_percentage, tds_amount)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [
+          uuidv4(),
+          id,
+          taxData.gst_treatment || taxData.gstTreatment || null,
+          taxData.gstin || null,
+          taxData.source_of_supply || taxData.sourceOfSupply || null,
+          taxData.destination_of_supply || taxData.destinationOfSupply || null,
+          taxData.description_of_supply || taxData.descriptionOfSupply || null,
+          !!(taxData.reverse_charge || taxData.reverseCharge),
+          (taxData.tds_tax_id || taxData.tdsTaxId) && this.isUuid(String(taxData.tds_tax_id || taxData.tdsTaxId)) ? String(taxData.tds_tax_id || taxData.tdsTaxId) : null,
+          taxData.tds_percentage || taxData.tdsPercentage || 0,
+          taxData.tds_amount || taxData.tdsAmount || 0,
+        ],
+      );
     }
 
     const attachments = dto.paymentMadeAttachments || dto.payment_made_attachments;
     if (Array.isArray(attachments) && attachments.length > 0) {
-      const recordsToInsert = attachments.map(item => ({
-        id: item.id || uuidv4(),
-        payment_made_id: id,
-        file_name: item.file_name || item.fileName,
-        file_path: item.file_path || item.filePath,
-        original_file_name: item.original_file_name || item.originalFileName || item.file_name || item.fileName,
-        file_size: item.file_size || item.fileSize || null,
-        file_type: item.file_type || item.fileType || null,
-        remarks: item.remarks || null,
-      }));
-
-      const { error: attachError } = await supabase
-        .from("payment_made_attachments")
-        .insert(recordsToInsert);
-
-      if (attachError) {
-        throw new HttpException(
-          `Failed to save payment attachments: ${attachError.message}`,
-          HttpStatus.INTERNAL_SERVER_ERROR,
+      for (const item of attachments) {
+        await client.unsafe(
+          `INSERT INTO payment_made_attachments (id, payment_made_id, file_name, file_path, original_file_name, file_size, file_type, remarks)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            item.id || uuidv4(),
+            id,
+            item.file_name || item.fileName,
+            item.file_path || item.filePath,
+            item.original_file_name || item.originalFileName || item.file_name || item.fileName,
+            item.file_size || item.fileSize || null,
+            item.file_type || item.fileType || null,
+            item.remarks || null,
+          ],
         );
       }
     }
 
-    // Process Journal Entries and Journal Entry Lines according to Payment_made connection docs
     await this.postJournalEntries(tenant, data, dto);
 
     return { data };
@@ -187,116 +172,129 @@ export class PaymentsMadeService {
     status?: string,
     vendorId?: string,
   ) {
-    const supabase = this.supabaseService.getClient();
-    let query = supabase
-      .from("payment_made_master")
-      .select("*, payment_made_attachments(*), payment_made_tax(*), vendors(*)")
-      .eq("entity_id", tenant.entityId);
+    const offset = (page - 1) * limit;
+
+    let sqlQuery = `SELECT * FROM payment_made_master WHERE entity_id = $1`;
+    const params: any[] = [tenant.entityId];
 
     if (vendorId) {
-      query = query.eq("vendor_id", vendorId);
-    }
-    if (search) {
-      query = query.or(`payment_number.ilike.%${search}%,reference_number.ilike.%${search}%`);
+      params.push(vendorId);
+      sqlQuery += ` AND vendor_id = $${params.length}`;
     }
 
-    const { data, error } = await query
-      .order("payment_date", { ascending: false })
-      .range((page - 1) * limit, page * limit - 1);
-
-    if (error) {
-      throw new HttpException(
-        `Failed to fetch payments: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+    if (search && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      const sIdx = params.length;
+      sqlQuery += ` AND (payment_number ILIKE $${sIdx} OR reference_number ILIKE $${sIdx})`;
     }
+
+    sqlQuery += ` ORDER BY payment_date DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+
+    const data = await client.unsafe(sqlQuery, [...params, limit, offset]);
+
+    for (const p of data ?? []) {
+      const [attachments, taxRows, vendors] = await Promise.all([
+        client.unsafe(`SELECT * FROM payment_made_attachments WHERE payment_made_id = $1`, [p.id]),
+        client.unsafe(`SELECT * FROM payment_made_tax WHERE payment_made_id = $1`, [p.id]),
+        p.vendor_id
+          ? client.unsafe(`SELECT * FROM vendors WHERE id = $1 LIMIT 1`, [p.vendor_id])
+          : Promise.resolve([]),
+      ]);
+      p.payment_made_attachments = attachments ?? [];
+      p.payment_made_tax = taxRows ?? [];
+      p.vendors = vendors[0] ?? null;
+    }
+
     return { data };
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    const supabase = this.supabaseService.getClient();
-    const { data, error } = await supabase
-      .from("payment_made_master")
-      .select("*, payment_made_attachments(*), payment_made_tax(*)")
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .single();
+    const rows = await client.unsafe(
+      `SELECT * FROM payment_made_master WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+      [id, tenant.entityId],
+    );
 
-    if (error) {
-      throw new HttpException(
-        `Failed to fetch payment: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+    const data = rows[0];
+    if (!data) {
+      throw new HttpException(`Failed to fetch payment`, HttpStatus.NOT_FOUND);
     }
+
+    const [attachments, taxRows] = await Promise.all([
+      client.unsafe(`SELECT * FROM payment_made_attachments WHERE payment_made_id = $1`, [id]),
+      client.unsafe(`SELECT * FROM payment_made_tax WHERE payment_made_id = $1`, [id]),
+    ]);
+
+    data.payment_made_attachments = attachments ?? [];
+    data.payment_made_tax = taxRows ?? [];
+
     return { data };
   }
 
   async updatePayment(id: string, tenant: TenantContext, dto: any) {
-    const supabase = this.supabaseService.getClient();
-
-    // Resolve paidThroughAccountId
     let paidThroughAccountId = null;
     const incomingPaidThrough = dto.paidThroughAccountId || dto.paid_through_account_id;
     if (incomingPaidThrough) {
       if (this.isUuid(incomingPaidThrough)) {
         paidThroughAccountId = incomingPaidThrough;
       } else {
-        const { data: accountRow } = await supabase
-          .from("accounts")
-          .select("id")
-          .or(`system_account_name.eq.${incomingPaidThrough},user_account_name.eq.${incomingPaidThrough}`)
-          .maybeSingle();
-        if (accountRow) {
-          paidThroughAccountId = accountRow.id;
+        const accountRow = await client.unsafe(
+          `SELECT id FROM accounts WHERE system_account_name = $1 OR user_account_name = $1 LIMIT 1`,
+          [incomingPaidThrough],
+        );
+        if (accountRow[0]) {
+          paidThroughAccountId = accountRow[0].id;
         }
       }
     }
 
-    // Resolve depositToAccountId
     let depositToAccountId = null;
     const incomingDepositTo = dto.depositToAccountId || dto.deposit_to_account_id;
     if (incomingDepositTo) {
       if (this.isUuid(incomingDepositTo)) {
         depositToAccountId = incomingDepositTo;
       } else {
-        const { data: accountRow } = await supabase
-          .from("accounts")
-          .select("id")
-          .or(`system_account_name.eq.${incomingDepositTo},user_account_name.eq.${incomingDepositTo}`)
-          .maybeSingle();
-        if (accountRow) {
-          depositToAccountId = accountRow.id;
+        const accountRow = await client.unsafe(
+          `SELECT id FROM accounts WHERE system_account_name = $1 OR user_account_name = $1 LIMIT 1`,
+          [incomingDepositTo],
+        );
+        if (accountRow[0]) {
+          depositToAccountId = accountRow[0].id;
         }
       }
     }
 
-    const { data, error } = await supabase
-      .from("payment_made_master")
-      .update({
-        vendor_id: dto.vendorId || dto.vendor_id,
-        payment_type: dto.paymentType || dto.payment_type,
-        transaction_series_id: dto.transactionSeriesId && this.isUuid(dto.transactionSeriesId) ? dto.transactionSeriesId : null,
-        payment_number: dto.paymentNumber || dto.payment_number,
-        payment_date: dto.paymentDate || dto.payment_date,
-        payment_amount: dto.paymentAmount || dto.payment_amount || dto.amount,
-        currency_id: dto.currencyId && this.isUuid(dto.currencyId) ? dto.currencyId : null,
-        exchange_rate: dto.exchangeRate || dto.exchange_rate,
-        paid_through_account_id: paidThroughAccountId,
-        deposit_to_account_id: depositToAccountId,
-        payment_mode: dto.paymentMode || dto.payment_mode,
-        reference_number: dto.referenceNumber || dto.reference_number,
-        status: dto.status,
-        notes: dto.notes,
-        total_allocated: dto.totalAllocated || dto.total_allocated,
-        total_refunded: dto.totalRefunded || dto.total_refunded,
-        excess_amount: dto.excessAmount || dto.excess_amount || dto.unusedAmount || dto.unused_amount,
-      })
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .select()
-      .single();
+    const updatePayload = {
+      vendor_id: dto.vendorId || dto.vendor_id,
+      payment_type: dto.paymentType || dto.payment_type,
+      transaction_series_id: dto.transactionSeriesId && this.isUuid(dto.transactionSeriesId) ? dto.transactionSeriesId : null,
+      payment_number: dto.paymentNumber || dto.payment_number,
+      payment_date: dto.paymentDate || dto.payment_date,
+      payment_amount: dto.paymentAmount || dto.payment_amount || dto.amount,
+      currency_id: dto.currencyId && this.isUuid(dto.currencyId) ? dto.currencyId : null,
+      exchange_rate: dto.exchangeRate || dto.exchange_rate,
+      paid_through_account_id: paidThroughAccountId,
+      deposit_to_account_id: depositToAccountId,
+      payment_mode: dto.paymentMode || dto.payment_mode,
+      reference_number: dto.referenceNumber || dto.reference_number,
+      status: dto.status,
+      notes: dto.notes,
+      total_allocated: dto.totalAllocated || dto.total_allocated,
+      total_refunded: dto.totalRefunded || dto.total_refunded,
+      excess_amount: dto.excessAmount || dto.excess_amount || dto.unusedAmount || dto.unused_amount,
+    };
 
-    if (error) {
+    const keys = Object.keys(updatePayload);
+    const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(", ");
+    const values: any[] = Object.values(updatePayload);
+
+    let data: any;
+    try {
+      const rows = await client.unsafe(
+        `UPDATE payment_made_master SET ${setClauses} WHERE id = $${keys.length + 1} AND entity_id = $${keys.length + 2} RETURNING *`,
+        [...values, id, tenant.entityId],
+      );
+      data = rows[0];
+    } catch (error: any) {
       throw new HttpException(
         `Failed to update payment: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -305,31 +303,26 @@ export class PaymentsMadeService {
 
     const allocations = dto.billAllocations || dto.bill_allocations;
     if (allocations) {
-      await supabase
-        .from("payment_made_bill_allocations")
-        .delete()
-        .eq("payment_made_id", id);
+      await client.unsafe(
+        `DELETE FROM payment_made_bill_allocations WHERE payment_made_id = $1`,
+        [id],
+      );
 
       if (Array.isArray(allocations) && allocations.length > 0) {
-        const recordsToInsert = allocations.map(item => ({
-          id: item.id || uuidv4(),
-          payment_made_id: id,
-          bill_id: item.billId || item.bill_id,
-          bill_amount: item.billAmount || item.bill_amount || "0",
-          amount_due: item.amountDue || item.amount_due || "0",
-          allocated_amount: item.allocatedAmount || item.allocated_amount || item.amount || "0",
-          payment_date: item.paymentDate || item.payment_date || dto.paymentDate || dto.payment_date || new Date().toISOString().split('T')[0],
-          remarks: item.remarks || null,
-        }));
-
-        const { error: allocationError } = await supabase
-          .from("payment_made_bill_allocations")
-          .insert(recordsToInsert);
-
-        if (allocationError) {
-          throw new HttpException(
-            `Failed to update bill allocations: ${allocationError.message}`,
-            HttpStatus.INTERNAL_SERVER_ERROR,
+        for (const item of allocations) {
+          await client.unsafe(
+            `INSERT INTO payment_made_bill_allocations (id, payment_made_id, bill_id, bill_amount, amount_due, allocated_amount, payment_date, remarks)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+              item.id || uuidv4(),
+              id,
+              item.billId || item.bill_id,
+              item.billAmount || item.bill_amount || "0",
+              item.amountDue || item.amount_due || "0",
+              item.allocatedAmount || item.allocated_amount || item.amount || "0",
+              item.paymentDate || item.payment_date || dto.paymentDate || dto.payment_date || new Date().toISOString().split('T')[0],
+              item.remarks || null,
+            ],
           );
         }
       }
@@ -337,105 +330,88 @@ export class PaymentsMadeService {
 
     const taxData = dto.paymentMadeTax || dto.payment_made_tax;
     if (taxData !== undefined) {
-      await supabase
-        .from("payment_made_tax")
-        .delete()
-        .eq("payment_made_id", id);
+      await client.unsafe(
+        `DELETE FROM payment_made_tax WHERE payment_made_id = $1`,
+        [id],
+      );
 
       if (taxData) {
-        const { error: taxError } = await supabase
-          .from("payment_made_tax")
-          .insert({
-            id: uuidv4(),
-            payment_made_id: id,
-            gst_treatment: taxData.gst_treatment || taxData.gstTreatment || null,
-            gstin: taxData.gstin || null,
-            source_of_supply: taxData.source_of_supply || taxData.sourceOfSupply || null,
-            destination_of_supply: taxData.destination_of_supply || taxData.destinationOfSupply || null,
-            description_of_supply: taxData.description_of_supply || taxData.descriptionOfSupply || null,
-            reverse_charge: !!(taxData.reverse_charge || taxData.reverseCharge),
-            tds_tax_id: (taxData.tds_tax_id || taxData.tdsTaxId) && this.isUuid(String(taxData.tds_tax_id || taxData.tdsTaxId)) ? String(taxData.tds_tax_id || taxData.tdsTaxId) : null,
-            tds_percentage: taxData.tds_percentage || taxData.tdsPercentage || 0,
-            tds_amount: taxData.tds_amount || taxData.tdsAmount || 0,
-          });
-
-        if (taxError) {
-          throw new HttpException(
-            `Failed to update payment tax info: ${taxError.message}`,
-            HttpStatus.INTERNAL_SERVER_ERROR,
-          );
-        }
+        await client.unsafe(
+          `INSERT INTO payment_made_tax (id, payment_made_id, gst_treatment, gstin, source_of_supply, destination_of_supply, description_of_supply, reverse_charge, tds_tax_id, tds_percentage, tds_amount)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [
+            uuidv4(),
+            id,
+            taxData.gst_treatment || taxData.gstTreatment || null,
+            taxData.gstin || null,
+            taxData.source_of_supply || taxData.sourceOfSupply || null,
+            taxData.destination_of_supply || taxData.destinationOfSupply || null,
+            taxData.description_of_supply || taxData.descriptionOfSupply || null,
+            !!(taxData.reverse_charge || taxData.reverseCharge),
+            (taxData.tds_tax_id || taxData.tdsTaxId) && this.isUuid(String(taxData.tds_tax_id || taxData.tdsTaxId)) ? String(taxData.tds_tax_id || taxData.tdsTaxId) : null,
+            taxData.tds_percentage || taxData.tdsPercentage || 0,
+            taxData.tds_amount || taxData.tdsAmount || 0,
+          ],
+        );
       }
     }
 
     const attachments = dto.paymentMadeAttachments || dto.payment_made_attachments;
     if (attachments !== undefined) {
-      await supabase
-        .from("payment_made_attachments")
-        .delete()
-        .eq("payment_made_id", id);
+      await client.unsafe(
+        `DELETE FROM payment_made_attachments WHERE payment_made_id = $1`,
+        [id],
+      );
 
       if (Array.isArray(attachments) && attachments.length > 0) {
-        const recordsToInsert = attachments.map(item => ({
-          id: item.id || uuidv4(),
-          payment_made_id: id,
-          file_name: item.file_name || item.fileName,
-          file_path: item.file_path || item.filePath,
-          original_file_name: item.original_file_name || item.originalFileName || item.file_name || item.fileName,
-          file_size: item.file_size || item.fileSize || null,
-          file_type: item.file_type || item.fileType || null,
-          remarks: item.remarks || null,
-        }));
-
-        const { error: attachError } = await supabase
-          .from("payment_made_attachments")
-          .insert(recordsToInsert);
-
-        if (attachError) {
-          throw new HttpException(
-            `Failed to update payment attachments: ${attachError.message}`,
-            HttpStatus.INTERNAL_SERVER_ERROR,
+        for (const item of attachments) {
+          await client.unsafe(
+            `INSERT INTO payment_made_attachments (id, payment_made_id, file_name, file_path, original_file_name, file_size, file_type, remarks)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+              item.id || uuidv4(),
+              id,
+              item.file_name || item.fileName,
+              item.file_path || item.filePath,
+              item.original_file_name || item.originalFileName || item.file_name || item.fileName,
+              item.file_size || item.fileSize || null,
+              item.file_type || item.fileType || null,
+              item.remarks || null,
+            ],
           );
         }
       }
     }
 
-    // Process Journal Entries and Journal Entry Lines according to Payment_made connection docs
     await this.postJournalEntries(tenant, data, dto);
 
     return { data };
   }
 
   async remove(id: string, tenant: TenantContext) {
-    const supabase = this.supabaseService.getClient();
-
-    // 1. Delete corresponding journal_entry_lines and journal_entries
-    const { data: existingJes } = await supabase
-      .from("journal_entries")
-      .select("id")
-      .eq("entity_id", tenant.entityId)
-      .eq("source_document_type", "PAYMENT_MADE")
-      .eq("source_document_id", id);
+    const existingJes = await client.unsafe(
+      `SELECT id FROM journal_entries WHERE entity_id = $1 AND source_document_type = 'PAYMENT_MADE' AND source_document_id = $2`,
+      [tenant.entityId, id],
+    );
 
     if (existingJes && existingJes.length > 0) {
       const jeIds = existingJes.map((j: any) => j.id);
-      await supabase.from("journal_entry_lines").delete().in("journal_entry_id", jeIds);
-      await supabase.from("journal_entries").delete().in("id", jeIds);
+      await client.unsafe(`DELETE FROM journal_entry_lines WHERE journal_entry_id = ANY($1)`, [jeIds]);
+      await client.unsafe(`DELETE FROM journal_entries WHERE id = ANY($1)`, [jeIds]);
     }
 
-    // 2. Delete payment_made_master record
-    const { error } = await supabase
-      .from("payment_made_master")
-      .delete()
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId);
-
-    if (error) {
+    try {
+      await client.unsafe(
+        `DELETE FROM payment_made_master WHERE id = $1 AND entity_id = $2`,
+        [id, tenant.entityId],
+      );
+    } catch (error: any) {
       throw new HttpException(
         `Failed to delete payment: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+
     return { success: true };
   }
 
@@ -459,63 +435,39 @@ export class PaymentsMadeService {
 
   private async postJournalEntries(tenant: TenantContext, paymentData: any, dto: any) {
     if (!paymentData || !paymentData.id) return;
-    const supabase = this.supabaseService.getClient();
 
     const paymentId = paymentData.id;
     const status = (paymentData.status || dto.status || "draft").toString().toLowerCase();
 
-    // Draft stage: Do not create journal entry or lines
     if (status === "draft") {
-      const { data: existingJE } = await supabase
-        .from("journal_entries")
-        .select("id")
-        .eq("entity_id", tenant.entityId)
-        .eq("source_document_type", "PAYMENT_MADE")
-        .eq("source_document_id", paymentId)
-        .maybeSingle();
+      const existingJE = await client.unsafe(
+        `SELECT id FROM journal_entries WHERE entity_id = $1 AND source_document_type = 'PAYMENT_MADE' AND source_document_id = $2 LIMIT 1`,
+        [tenant.entityId, paymentId],
+      );
 
-      if (existingJE?.id) {
-        await supabase.from("journal_entry_lines").delete().eq("journal_entry_id", existingJE.id);
-        await supabase.from("journal_entries").delete().eq("id", existingJE.id);
+      if (existingJE[0]?.id) {
+        await client.unsafe(`DELETE FROM journal_entry_lines WHERE journal_entry_id = $1`, [existingJE[0].id]);
+        await client.unsafe(`DELETE FROM journal_entries WHERE id = $1`, [existingJE[0].id]);
         try {
-          await supabase.from("payment_made_master").update({ journal_entry_id: null }).eq("id", paymentId);
+          await client.unsafe(`UPDATE payment_made_master SET journal_entry_id = NULL WHERE id = $1`, [paymentId]);
         } catch (_) {}
       }
       return;
     }
 
-    // Post/Confirm stage: Generate journal_entries and journal_entry_lines
-
-    // 1. Resolve Accounts Payable Account ID (prioritize exact system_account_name = 'Accounts Payable')
     let accountsPayableAccountId: string | null = null;
-    const { data: apSysRow } = await supabase
-      .from("accounts")
-      .select("id")
-      .eq("system_account_name", "Accounts Payable")
-      .limit(1)
-      .maybeSingle();
+    const apSysRow = await client.unsafe(
+      `SELECT id FROM accounts WHERE system_account_name = 'Accounts Payable' LIMIT 1`,
+    );
 
-    if (apSysRow) {
-      accountsPayableAccountId = apSysRow.id;
+    if (apSysRow[0]) {
+      accountsPayableAccountId = apSysRow[0].id;
     } else {
-      const { data: apUserRow } = await supabase
-        .from("accounts")
-        .select("id")
-        .or("user_account_name.eq.Accounts Payable,account_name.eq.Accounts Payable,account_type.eq.Accounts Payable")
-        .limit(1)
-        .maybeSingle();
-      if (apUserRow) {
-        accountsPayableAccountId = apUserRow.id;
-      } else {
-        const { data: apFallback } = await supabase
-          .from("accounts")
-          .select("id")
-          .eq("account_type", "Accounts Payable")
-          .limit(1)
-          .maybeSingle();
-        if (apFallback) {
-          accountsPayableAccountId = apFallback.id;
-        }
+      const apUserRow = await client.unsafe(
+        `SELECT id FROM accounts WHERE user_account_name = 'Accounts Payable' OR account_type = 'Accounts Payable' LIMIT 1`,
+      );
+      if (apUserRow[0]) {
+        accountsPayableAccountId = apUserRow[0].id;
       }
     }
 
@@ -524,76 +476,51 @@ export class PaymentsMadeService {
       return;
     }
 
-    // 2. Resolve Prepaid Expenses Account ID (prioritize exact system_account_name = 'Prepaid Expenses')
     let prepaidExpensesAccountId: string | null = null;
-    const { data: prepaidSysRow } = await supabase
-      .from("accounts")
-      .select("id")
-      .eq("system_account_name", "Prepaid Expenses")
-      .limit(1)
-      .maybeSingle();
+    const prepaidSysRow = await client.unsafe(
+      `SELECT id FROM accounts WHERE system_account_name = 'Prepaid Expenses' LIMIT 1`,
+    );
 
-    if (prepaidSysRow) {
-      prepaidExpensesAccountId = prepaidSysRow.id;
+    if (prepaidSysRow[0]) {
+      prepaidExpensesAccountId = prepaidSysRow[0].id;
     } else {
-      const { data: prepaidUserRow } = await supabase
-        .from("accounts")
-        .select("id")
-        .or("user_account_name.eq.Prepaid Expenses,account_name.eq.Prepaid Expenses")
-        .limit(1)
-        .maybeSingle();
-      if (prepaidUserRow) {
-        prepaidExpensesAccountId = prepaidUserRow.id;
-      } else {
-        const { data: assetFallback } = await supabase
-          .from("accounts")
-          .select("id")
-          .eq("account_type", "Other Current Asset")
-          .limit(1)
-          .maybeSingle();
-        prepaidExpensesAccountId = assetFallback?.id || accountsPayableAccountId;
-      }
+      const prepaidUserRow = await client.unsafe(
+        `SELECT id FROM accounts WHERE user_account_name = 'Prepaid Expenses' OR account_type = 'Other Current Asset' LIMIT 1`,
+      );
+      prepaidExpensesAccountId = prepaidUserRow[0]?.id || accountsPayableAccountId;
     }
 
-    // 3. Resolve Paid Through Account ID
     let paidThroughAccountId: string | null = paymentData.paid_through_account_id || null;
     if (!paidThroughAccountId) {
       const incomingPaidThrough = dto.paidThroughAccountId || dto.paid_through_account_id || "Petty Cash";
       if (this.isUuid(incomingPaidThrough)) {
         paidThroughAccountId = incomingPaidThrough;
       } else {
-        const { data: accountRow } = await supabase
-          .from("accounts")
-          .select("id")
-          .or(`system_account_name.eq.${incomingPaidThrough},user_account_name.eq.${incomingPaidThrough},account_name.eq.${incomingPaidThrough}`)
-          .limit(1)
-          .maybeSingle();
-        if (accountRow) {
-          paidThroughAccountId = accountRow.id;
+        const accountRow = await client.unsafe(
+          `SELECT id FROM accounts WHERE system_account_name = $1 OR user_account_name = $1 LIMIT 1`,
+          [incomingPaidThrough],
+        );
+        if (accountRow[0]) {
+          paidThroughAccountId = accountRow[0].id;
         }
       }
     }
 
-    // Verify paidThroughAccountId actually exists in accounts table
     if (paidThroughAccountId) {
-      const { data: verifyRow } = await supabase
-        .from("accounts")
-        .select("id")
-        .eq("id", paidThroughAccountId)
-        .maybeSingle();
-      if (!verifyRow) {
+      const verifyRow = await client.unsafe(
+        `SELECT id FROM accounts WHERE id = $1 LIMIT 1`,
+        [paidThroughAccountId],
+      );
+      if (!verifyRow[0]) {
         paidThroughAccountId = null;
       }
     }
 
     if (!paidThroughAccountId) {
-      const { data: cashFallback } = await supabase
-        .from("accounts")
-        .select("id")
-        .or("system_account_name.eq.Petty Cash,user_account_name.eq.Petty Cash,account_name.eq.Petty Cash,system_account_name.eq.Cash,user_account_name.eq.Cash,account_type.eq.Cash")
-        .limit(1)
-        .maybeSingle();
-      paidThroughAccountId = cashFallback?.id || accountsPayableAccountId;
+      const cashFallback = await client.unsafe(
+        `SELECT id FROM accounts WHERE system_account_name = 'Petty Cash' OR user_account_name = 'Petty Cash' OR account_type = 'Cash' LIMIT 1`,
+      );
+      paidThroughAccountId = cashFallback[0]?.id || accountsPayableAccountId;
     }
 
     const paymentAmount = parseFloat(paymentData.payment_amount?.toString() || dto.paymentAmount?.toString() || dto.amount?.toString() || "0");
@@ -601,25 +528,17 @@ export class PaymentsMadeService {
     const paymentNumber = paymentData.payment_number || dto.paymentNumber || dto.payment_number || `PM-${Date.now()}`;
     const vendorId = paymentData.vendor_id || dto.vendorId || dto.vendor_id || null;
 
-    // 4. Find or Create Header in journal_entries
-    const { data: existingJE } = await supabase
-      .from("journal_entries")
-      .select("id, created_by")
-      .eq("entity_id", tenant.entityId)
-      .eq("source_document_type", "PAYMENT_MADE")
-      .eq("source_document_id", paymentId)
-      .maybeSingle();
+    const existingJE = await client.unsafe(
+      `SELECT id, created_by FROM journal_entries WHERE entity_id = $1 AND source_document_type = 'PAYMENT_MADE' AND source_document_id = $2 LIMIT 1`,
+      [tenant.entityId, paymentId],
+    );
 
-    const journalEntryId = existingJE?.id || uuidv4();
+    const journalEntryId = existingJE[0]?.id || uuidv4();
 
-    if (existingJE?.id) {
-      await supabase
-        .from("journal_entry_lines")
-        .delete()
-        .eq("journal_entry_id", existingJE.id);
+    if (existingJE[0]?.id) {
+      await client.unsafe(`DELETE FROM journal_entry_lines WHERE journal_entry_id = $1`, [existingJE[0].id]);
     }
 
-    // Resolve user UUID from tenant context or fallback to valid user ID from users table
     let currentUserId: string | null = null;
     if (tenant.userId && this.isUuid(tenant.userId)) {
       currentUserId = tenant.userId;
@@ -628,60 +547,59 @@ export class PaymentsMadeService {
       if (incomingUser && this.isUuid(String(incomingUser))) {
         currentUserId = String(incomingUser);
       } else {
-        const { data: firstUser } = await supabase
-          .from("users")
-          .select("id")
-          .limit(1)
-          .maybeSingle();
-        if (firstUser) {
-          currentUserId = firstUser.id;
+        const firstUser = await client.unsafe(`SELECT id FROM users LIMIT 1`);
+        if (firstUser[0]) {
+          currentUserId = firstUser[0].id;
         }
       }
     }
 
     const defaultOrgId = "00000000-0000-0000-0000-000000000000";
-    const jeHeader = {
-      id: journalEntryId,
-      org_id: tenant.orgId || defaultOrgId,
-      entity_id: tenant.entityId,
-      fiscal_year_id: null,
-      journal_number: paymentNumber,
-      journal_type: "payment made",
-      journal_date: paymentDate,
-      posting_date: paymentDate,
-      reference_number: paymentNumber,
-      narration: paymentData.notes || dto.notes || `Payment Made ${paymentNumber}`,
-      source_module: "purchase",
-      source_document_type: "PAYMENT_MADE",
-      source_document_id: paymentId,
-      currency_code: paymentData.currency_code || dto.currencyCode || "INR",
-      exchange_rate: parseFloat(paymentData.exchange_rate?.toString() || dto.exchangeRate?.toString() || "1.0"),
-      status: "POSTED",
-      created_by: existingJE?.created_by || currentUserId,
-      updated_by: currentUserId,
-    };
 
-    if (existingJE?.id) {
-      const { error: updateJeErr } = await supabase
-        .from("journal_entries")
-        .update(jeHeader)
-        .eq("id", journalEntryId);
-      if (updateJeErr) {
-        console.error("Error updating journal_entries:", updateJeErr.message);
-      }
+    if (existingJE[0]?.id) {
+      await client.unsafe(
+        `UPDATE journal_entries SET
+           org_id = $1, entity_id = $2, journal_number = $3, journal_type = 'payment made',
+           journal_date = $4, posting_date = $4, reference_number = $5, narration = $6,
+           source_module = 'purchase', source_document_type = 'PAYMENT_MADE', source_document_id = $7,
+           currency_code = $8, exchange_rate = $9, status = 'POSTED', updated_by = $10
+         WHERE id = $11`,
+        [
+          tenant.orgId || defaultOrgId,
+          tenant.entityId,
+          paymentNumber,
+          paymentDate,
+          paymentNumber,
+          paymentData.notes || dto.notes || `Payment Made ${paymentNumber}`,
+          paymentId,
+          paymentData.currency_code || dto.currencyCode || "INR",
+          parseFloat(paymentData.exchange_rate?.toString() || dto.exchangeRate?.toString() || "1.0"),
+          currentUserId,
+          journalEntryId,
+        ],
+      );
     } else {
-      const { error: insertJeErr } = await supabase
-        .from("journal_entries")
-        .insert(jeHeader);
-      if (insertJeErr) {
-        console.error("Error inserting journal_entries:", insertJeErr.message);
-      }
+      await client.unsafe(
+        `INSERT INTO journal_entries (id, org_id, entity_id, fiscal_year_id, journal_number, journal_type, journal_date, posting_date, reference_number, narration, source_module, source_document_type, source_document_id, currency_code, exchange_rate, status, created_by, updated_by)
+         VALUES ($1, $2, $3, null, $4, 'payment made', $5, $5, $6, $7, 'purchase', 'PAYMENT_MADE', $8, $9, $10, 'POSTED', $11, $11)`,
+        [
+          journalEntryId,
+          tenant.orgId || defaultOrgId,
+          tenant.entityId,
+          paymentNumber,
+          paymentDate,
+          paymentNumber,
+          paymentData.notes || dto.notes || `Payment Made ${paymentNumber}`,
+          paymentId,
+          paymentData.currency_code || dto.currencyCode || "INR",
+          parseFloat(paymentData.exchange_rate?.toString() || dto.exchangeRate?.toString() || "1.0"),
+          existingJE[0]?.created_by || currentUserId,
+        ],
+      );
     }
 
-    // 5. Insert double-entry lines into journal_entry_lines
     if (paymentAmount > 0) {
       const lines: any[] = [
-        // Row 1: Paid Through (Credit)
         {
           id: uuidv4(),
           journal_entry_id: journalEntryId,
@@ -699,7 +617,6 @@ export class PaymentsMadeService {
           org_id: tenant.orgId || defaultOrgId,
           line_number: null,
         },
-        // Row 2: Prepaid Expenses (Debit)
         {
           id: uuidv4(),
           journal_entry_id: journalEntryId,
@@ -719,11 +636,12 @@ export class PaymentsMadeService {
         },
       ];
 
-      // Fetch applied bill allocations with bills(bill_number) to generate Row 3 & Row 4 per applied bill
-      const { data: dbAllocations } = await supabase
-        .from("payment_made_bill_allocations")
-        .select("*, bills(bill_number)")
-        .eq("payment_made_id", paymentId);
+      const dbAllocations = await client.unsafe(
+        `SELECT pmba.*, b.bill_number FROM payment_made_bill_allocations pmba
+         LEFT JOIN bills b ON b.id = pmba.bill_id
+         WHERE pmba.payment_made_id = $1`,
+        [paymentId],
+      );
 
       const allocationsList = (dbAllocations && dbAllocations.length > 0)
         ? dbAllocations
@@ -731,13 +649,9 @@ export class PaymentsMadeService {
 
       for (const alloc of allocationsList) {
         const allocatedAmt = parseFloat(alloc.allocated_amount?.toString() || alloc.allocatedAmount?.toString() || alloc.amount?.toString() || "0");
-        const rawBill = alloc.bills || alloc.bill;
-        const billNumber = (rawBill && typeof rawBill === 'object' && rawBill.bill_number)
-          ? rawBill.bill_number
-          : (alloc.bill_number || alloc.billNumber || paymentNumber);
+        const billNumber = alloc.bill_number || alloc.billNumber || paymentNumber;
 
         if (allocatedAmt > 0) {
-          // Row 3: Accounts Payable (Debit) per applied bill
           lines.push({
             id: uuidv4(),
             journal_entry_id: journalEntryId,
@@ -756,7 +670,6 @@ export class PaymentsMadeService {
             line_number: null,
           });
 
-          // Row 4: Prepaid Expenses (Credit) per applied bill
           lines.push({
             id: uuidv4(),
             journal_entry_id: journalEntryId,
@@ -777,20 +690,36 @@ export class PaymentsMadeService {
         }
       }
 
-      const { error: linesErr } = await supabase
-        .from("journal_entry_lines")
-        .insert(lines);
-      if (linesErr) {
-        console.error("Error inserting journal_entry_lines:", linesErr.message);
+      for (const line of lines) {
+        await client.unsafe(
+          `INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, transaction_date, reference_number, description, debit, credit, source_id, source_type, contact_id, contact_type, entity_id, org_id, line_number)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+          [
+            line.id,
+            line.journal_entry_id,
+            line.account_id,
+            line.transaction_date,
+            line.reference_number,
+            line.description,
+            line.debit,
+            line.credit,
+            line.source_id,
+            line.source_type,
+            line.contact_id,
+            line.contact_type,
+            line.entity_id,
+            line.org_id,
+            line.line_number,
+          ],
+        );
       }
     }
 
-    // 6. Link journal_entry_id back to payment_made_master if column exists
     try {
-      await supabase
-        .from("payment_made_master")
-        .update({ journal_entry_id: journalEntryId })
-        .eq("id", paymentId);
+      await client.unsafe(
+        `UPDATE payment_made_master SET journal_entry_id = $1 WHERE id = $2`,
+        [journalEntryId, paymentId],
+      );
     } catch (_) {}
   }
 }

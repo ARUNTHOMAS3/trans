@@ -7,6 +7,7 @@ import { SupabaseService } from "../../../supabase/supabase.service";
 import { CreateVendorDto } from "../dto/create-vendor.dto";
 import { UpdateVendorDto } from "../dto/update-vendor.dto";
 import { TenantContext } from "../../../../common/middleware/tenant.middleware";
+import { client } from "../../../../db/db";
 
 @Injectable()
 export class VendorsService {
@@ -63,99 +64,114 @@ export class VendorsService {
   ) {
     const offset = (page - 1) * limit;
 
-    let query = this.supabaseService
-      .getClient()
-      .from("vendors")
-      .select(
-        "*, vendor_addresses(*), vendor_contact_persons(*), vendor_bank_accounts(*)",
-        { count: "exact" },
-      );
-
     let isStarlexBranch = false;
     if (tenant.branchId) {
-      const { data: obm } = await this.supabaseService
-        .getClient()
-        .from("organisation_branch_master")
-        .select("parent_id")
-        .eq("id", tenant.entityId)
-        .maybeSingle();
-      if (obm && obm.parent_id === "66d79887-be98-40ab-ac40-9e0a008f9d8a") {
+      const obm = await client.unsafe(
+        `SELECT parent_id FROM organisation_branch_master WHERE id = $1 LIMIT 1`,
+        [tenant.entityId],
+      );
+      if (obm[0] && obm[0].parent_id === "66d79887-be98-40ab-ac40-9e0a008f9d8a") {
         isStarlexBranch = true;
       }
     }
 
+    let sqlQuery = `SELECT * FROM vendors WHERE `;
+    let countQuery = `SELECT COUNT(*)::int as count FROM vendors WHERE `;
+    const params: any[] = [];
+
     if (isStarlexBranch) {
-      query = query.or(`entity_id.eq.${tenant.entityId},id.eq.db013159-6ac3-49a6-95b1-eaec10f964db`);
+      sqlQuery += `(entity_id = $1 OR id = 'db013159-6ac3-49a6-95b1-eaec10f964db')`;
+      countQuery += `(entity_id = $1 OR id = 'db013159-6ac3-49a6-95b1-eaec10f964db')`;
+      params.push(tenant.entityId);
     } else {
-      query = query.eq("entity_id", tenant.entityId);
+      sqlQuery += `entity_id = $1`;
+      countQuery += `entity_id = $1`;
+      params.push(tenant.entityId);
       if (tenant.entityId === "66d79887-be98-40ab-ac40-9e0a008f9d8a") {
-        query = query.neq("id", "db013159-6ac3-49a6-95b1-eaec10f964db");
+        sqlQuery += ` AND id != 'db013159-6ac3-49a6-95b1-eaec10f964db'`;
+        countQuery += ` AND id != 'db013159-6ac3-49a6-95b1-eaec10f964db'`;
       }
     }
 
-    query = query.range(offset, offset + limit - 1);
-
-    if (search) {
-      query = query.or(
-        `display_name.ilike.%${search}%,company_name.ilike.%${search}%`,
-      );
+    if (search && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      const sIdx = params.length;
+      sqlQuery += ` AND (display_name ILIKE $${sIdx} OR company_name ILIKE $${sIdx})`;
+      countQuery += ` AND (display_name ILIKE $${sIdx} OR company_name ILIKE $${sIdx})`;
     }
 
-    const { data, error, count } = await query;
+    sqlQuery += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 
-    if (error) {
+    try {
+      const [vendors, countRes] = await Promise.all([
+        client.unsafe(sqlQuery, [...params, limit, offset]),
+        client.unsafe(countQuery, params),
+      ]);
+
+      const totalCount = countRes[0]?.count ?? 0;
+
+      for (const v of vendors ?? []) {
+        const [addresses, contacts, bankAccounts] = await Promise.all([
+          client.unsafe(`SELECT * FROM vendor_addresses WHERE vendor_id = $1`, [v.id]),
+          client.unsafe(`SELECT * FROM vendor_contact_persons WHERE vendor_id = $1`, [v.id]),
+          client.unsafe(`SELECT * FROM vendor_bank_accounts WHERE vendor_id = $1`, [v.id]),
+        ]);
+        v.vendor_addresses = addresses ?? [];
+        v.vendor_contact_persons = contacts ?? [];
+        v.vendor_bank_accounts = bankAccounts ?? [];
+      }
+
+      return {
+        data: vendors?.map((vendor: any) => this.mapVendorAddresses(vendor)) ?? [],
+        meta: {
+          total: totalCount,
+          page,
+          limit,
+          totalPages: Math.ceil(totalCount / limit),
+        },
+      };
+    } catch (error: any) {
       throw new Error(`Failed to fetch vendors: ${error.message}`);
     }
-
-    return {
-      data: data?.map((vendor) => this.mapVendorAddresses(vendor)) ?? [],
-      meta: {
-        total: count,
-        page,
-        limit,
-        totalPages: Math.ceil(count / limit),
-      },
-    };
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    let query = this.supabaseService
-      .getClient()
-      .from("vendors")
-      .select(
-        `
-        *,
-        vendor_addresses(*),
-        vendor_contact_persons(*),
-        vendor_bank_accounts(*)
-      `,
-      )
-      .eq("id", id);
-
     let isStarlex = false;
     if (id === "db013159-6ac3-49a6-95b1-eaec10f964db") {
-      const { data: obm } = await this.supabaseService
-        .getClient()
-        .from("organisation_branch_master")
-        .select("parent_id")
-        .eq("id", tenant.entityId)
-        .maybeSingle();
-      if (obm && (obm.parent_id === "66d79887-be98-40ab-ac40-9e0a008f9d8a" || tenant.entityId === "66d79887-be98-40ab-ac40-9e0a008f9d8a")) {
+      const obm = await client.unsafe(
+        `SELECT parent_id FROM organisation_branch_master WHERE id = $1 LIMIT 1`,
+        [tenant.entityId],
+      );
+      if (obm[0] && (obm[0].parent_id === "66d79887-be98-40ab-ac40-9e0a008f9d8a" || tenant.entityId === "66d79887-be98-40ab-ac40-9e0a008f9d8a")) {
         isStarlex = true;
       }
     }
 
-    if (isStarlex) {
-      // Allow loading Starlex Healthcare Org Vendor from any of its branches
-    } else {
-      query = query.eq("entity_id", tenant.entityId);
+    let sqlQuery = `SELECT * FROM vendors WHERE id = $1`;
+    const params: any[] = [id];
+
+    if (!isStarlex) {
+      params.push(tenant.entityId);
+      sqlQuery += ` AND entity_id = $2`;
     }
+    sqlQuery += ` LIMIT 1`;
 
-    const { data, error } = await query.single();
+    const rows = await client.unsafe(sqlQuery, params);
+    const data = rows[0];
 
-    if (error) {
+    if (!data) {
       throw new NotFoundException(`Vendor with ID ${id} not found`);
     }
+
+    const [addresses, contacts, bankAccounts] = await Promise.all([
+      client.unsafe(`SELECT * FROM vendor_addresses WHERE vendor_id = $1`, [id]),
+      client.unsafe(`SELECT * FROM vendor_contact_persons WHERE vendor_id = $1`, [id]),
+      client.unsafe(`SELECT * FROM vendor_bank_accounts WHERE vendor_id = $1`, [id]),
+    ]);
+
+    data.vendor_addresses = addresses ?? [];
+    data.vendor_contact_persons = contacts ?? [];
+    data.vendor_bank_accounts = bankAccounts ?? [];
 
     return this.mapVendorAddresses(data);
   }
@@ -191,7 +207,6 @@ export class VendorsService {
 
     const vendorData = {
       display_name: displayName,
-      // vendor_type: vendorFields.vendorType,
       vendor_number: vendorNumber,
       salutation: vendorFields.salutation,
       first_name: firstName || null,
@@ -208,9 +223,6 @@ export class VendorsService {
       gstin: vendorFields.gstin,
       source_of_supply: vendorFields.sourceOfSupply,
       pan: vendorFields.pan,
-      // tax_preference: vendorFields.taxPreference,
-      // exemption_reason: vendorFields.exemptionReason,
-      // drug_license_no: vendorFields.drugLicenseNo,
       currency: vendorFields.currency,
       payment_terms: vendorFields.paymentTerms,
       price_list_id: vendorFields.priceListId,
@@ -237,18 +249,19 @@ export class VendorsService {
       entity_id: tenant.entityId,
     };
 
-    const client = this.supabaseService.getClient();
+    const keys = Object.keys(vendorData);
+    const cols = keys.map((k) => `"${k}"`).join(", ");
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+    const values: any[] = Object.values(vendorData);
 
-    // 1. Create Vendor
-    const { data: vendor, error: vendorError } = await client
-      .from("vendors")
-      .insert([vendorData])
-      .select()
-      .single();
-
-    if (vendorError) {
-      console.error("❌ Supabase Error creating vendor:", vendorError);
-      console.error("Payload that caused error:", vendorData);
+    let vendor: any;
+    try {
+      const rows = await client.unsafe(
+        `INSERT INTO vendors (${cols}) VALUES (${placeholders}) RETURNING *`,
+        values,
+      );
+      vendor = rows[0];
+    } catch (vendorError: any) {
       throw new BadRequestException(
         `Failed to create vendor: ${vendorError.message}`,
       );
@@ -256,7 +269,6 @@ export class VendorsService {
 
     const vendorId = vendor.id;
 
-    // 2. Insert canonical address rows
     const addresses = [];
     if (
       billingAddress &&
@@ -321,99 +333,97 @@ export class VendorsService {
     }
 
     if (addresses.length > 0) {
-      const { error: addressError } = await client
-        .from("vendor_addresses")
-        .insert(addresses);
-      if (addressError) {
-        console.error(
-          "❌ Supabase Error creating vendor addresses:",
-          addressError,
+      for (const addr of addresses) {
+        const aKeys = Object.keys(addr);
+        const aCols = aKeys.map((k) => `"${k}"`).join(", ");
+        const aPlaceholders = aKeys.map((_, i) => `$${i + 1}`).join(", ");
+        const aValues: any[] = Object.values(addr);
+
+        await client.unsafe(
+          `INSERT INTO vendor_addresses (${aCols}) VALUES (${aPlaceholders})`,
+          aValues,
         );
       }
     }
 
-    // 3. Insert Contacts
     if (contactPersons && contactPersons.length > 0) {
-      const contacts = contactPersons.map((c) => ({
-        vendor_id: vendorId,
-        salutation: c.salutation,
-        first_name: c.firstName,
-        last_name: c.lastName,
-        email: c.email,
-        work_phone: c.workPhone,
-        mobile_phone: c.mobilePhone,
-        designation: c.designation,
-        department: c.department,
-      }));
-      await client.from("vendor_contact_persons").insert(contacts);
+      for (const c of contactPersons) {
+        await client.unsafe(
+          `INSERT INTO vendor_contact_persons (vendor_id, salutation, first_name, last_name, email, work_phone, mobile_phone, designation, department)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            vendorId,
+            c.salutation ?? null,
+            c.firstName ?? null,
+            c.lastName ?? null,
+            c.email ?? null,
+            c.workPhone ?? null,
+            c.mobilePhone ?? null,
+            c.designation ?? null,
+            c.department ?? null,
+          ],
+        );
+      }
     }
 
-    // 4. Insert Banks
     if (bankDetails && bankDetails.length > 0) {
-      const banks = bankDetails.map((b) => ({
-        vendor_id: vendorId,
-        holder_name: b.holderName,
-        bank_name: b.bankName,
-        account_number: b.accountNumber,
-        ifsc: b.ifsc,
-      }));
-      await client.from("vendor_bank_accounts").insert(banks);
+      for (const b of bankDetails) {
+        await client.unsafe(
+          `INSERT INTO vendor_bank_accounts (vendor_id, holder_name, bank_name, account_number, ifsc)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            vendorId,
+            b.holderName ?? null,
+            b.bankName ?? null,
+            b.accountNumber ?? null,
+            b.ifsc ?? null,
+          ],
+        );
+      }
     }
 
-    // 5. Create or update vendor account in accounts table
     try {
       const vendorAccountName = displayName || companyName || `${firstName} ${lastName}`.trim() || vendorNumber;
       const vendorRemarks = vendorFields.remarks?.toString().trim() || null;
       const vendorCurrency = vendorFields.currency?.toString().trim() || 'INR';
 
-      const { data: existingAccount } = await client
-        .from("accounts")
-        .select("id")
-        .eq("entity_id", tenant.entityId)
-        .eq("account_type", "Accounts Payable")
-        .or(`system_account_name.eq.${vendorAccountName},user_account_name.eq.${vendorAccountName}`)
-        .maybeSingle();
+      const existingAccount = await client.unsafe(
+        `SELECT id FROM accounts
+         WHERE entity_id = $1 AND account_type = 'Accounts Payable'
+         AND (system_account_name = $2 OR user_account_name = $2) LIMIT 1`,
+        [tenant.entityId, vendorAccountName],
+      );
 
-      let accountId = existingAccount?.id;
+      let accountId = existingAccount[0]?.id;
 
-      if (!existingAccount) {
-        const { data: newAcc } = await client
-          .from("accounts")
-          .insert({
-            system_account_name: vendorAccountName,
-            user_account_name: vendorAccountName,
-            account_type: "Accounts Payable",
-            account_group: "Liabilities",
-            account_code: vendorNumber || null,
-            description: vendorRemarks,
-            currency: vendorCurrency,
-            is_active: true,
-            is_system: false,
-            is_deletable: true,
-            show_in_zerpai_expense: false,
-            is_deleted: false,
-            entity_id: tenant.entityId,
-            org_id: tenant.orgId || "00000000-0000-0000-0000-000000000000",
-          })
-          .select("id")
-          .single();
+      if (!existingAccount[0]) {
+        const newAccRows = await client.unsafe(
+          `INSERT INTO accounts (system_account_name, user_account_name, account_type, account_group, account_code, description, currency, is_active, is_system, is_deletable, show_in_zerpai_expense, is_deleted, entity_id, org_id)
+           VALUES ($1, $1, 'Accounts Payable', 'Liabilities', $2, $3, $4, true, false, true, false, false, $5, $6)
+           RETURNING id`,
+          [
+            vendorAccountName,
+            vendorNumber || null,
+            vendorRemarks,
+            vendorCurrency,
+            tenant.entityId,
+            tenant.orgId || "00000000-0000-0000-0000-000000000000",
+          ],
+        );
 
-        accountId = newAcc?.id;
+        accountId = newAccRows[0]?.id;
       } else {
-        await client
-          .from("accounts")
-          .update({
-            description: vendorRemarks,
-            currency: vendorCurrency,
-          })
-          .eq("id", existingAccount.id);
+        await client.unsafe(
+          `UPDATE accounts SET description = $1, currency = $2 WHERE id = $3`,
+          [vendorRemarks, vendorCurrency, existingAccount[0].id],
+        );
       }
 
       if (accountId) {
-        await client
-          .from("vendors")
-          .update({ account_id: accountId })
-          .eq("id", vendorId);
+        await client.unsafe(
+          `UPDATE vendors SET account_id = $1 WHERE id = $2`,
+          [accountId, vendorId],
+        );
       }
     } catch (accErr) {
       console.error("⚠️ Failed to sync vendor account in accounts table:", accErr);
@@ -437,7 +447,6 @@ export class VendorsService {
 
     const fieldMapping: Record<string, string> = {
       displayName: "display_name",
-      // vendorType: "vendor_type",
       vendorNumber: "vendor_number",
       salutation: "salutation",
       firstName: "first_name",
@@ -454,9 +463,6 @@ export class VendorsService {
       gstin: "gstin",
       sourceOfSupply: "source_of_supply",
       pan: "pan",
-      // taxPreference: "tax_preference",
-      // exemptionReason: "exemption_reason",
-      // drugLicenseNo: "drug_license_no",
       currency: "currency",
       paymentTerms: "payment_terms",
       priceListId: "price_list_id",
@@ -481,10 +487,8 @@ export class VendorsService {
     };
 
     const updateData: any = {
-      updated_at: new Date(),
+      updated_at: new Date().toISOString(),
     };
-
-
 
     for (const [key, value] of Object.entries(vendorFields)) {
       if (fieldMapping[key]) {
@@ -492,46 +496,44 @@ export class VendorsService {
       }
     }
 
-    const client = this.supabaseService.getClient();
-
     let isStarlex = false;
     if (id === "db013159-6ac3-49a6-95b1-eaec10f964db") {
-      const { data: obm } = await client
-        .from("organisation_branch_master")
-        .select("parent_id")
-        .eq("id", tenant.entityId)
-        .maybeSingle();
-      if (obm && (obm.parent_id === "66d79887-be98-40ab-ac40-9e0a008f9d8a" || tenant.entityId === "66d79887-be98-40ab-ac40-9e0a008f9d8a")) {
+      const obm = await client.unsafe(
+        `SELECT parent_id FROM organisation_branch_master WHERE id = $1 LIMIT 1`,
+        [tenant.entityId],
+      );
+      if (obm[0] && (obm[0].parent_id === "66d79887-be98-40ab-ac40-9e0a008f9d8a" || tenant.entityId === "66d79887-be98-40ab-ac40-9e0a008f9d8a")) {
         isStarlex = true;
       }
     }
 
     const targetEntityId = isStarlex ? "66d79887-be98-40ab-ac40-9e0a008f9d8a" : tenant.entityId;
 
-    // 1. Update main table
-    let updateQuery = client
-      .from("vendors")
-      .update(updateData)
-      .eq("id", id);
+    const keys = Object.keys(updateData);
+    const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(", ");
+    const values: any[] = Object.values(updateData);
+
+    let sqlQuery = `UPDATE vendors SET ${setClauses} WHERE id = $${keys.length + 1}`;
+    const queryParams = [...values, id];
 
     if (!isStarlex) {
-      updateQuery = updateQuery.eq("entity_id", tenant.entityId);
+      queryParams.push(tenant.entityId);
+      sqlQuery += ` AND entity_id = $${queryParams.length}`;
     }
+    sqlQuery += ` RETURNING *`;
 
-    const { data: vendor, error: vendorError } = await updateQuery
-      .select()
-      .single();
-
-    if (vendorError) {
+    try {
+      const rows = await client.unsafe(sqlQuery, queryParams);
+      if (!rows[0]) throw new Error("Vendor not found or entity mismatch");
+    } catch (vendorError: any) {
       throw new Error(`Failed to update vendor: ${vendorError.message}`);
     }
 
     if (billingAddress || shippingAddress) {
-      await client
-        .from("vendor_addresses")
-        .delete()
-        .eq("vendor_id", id)
-        .in("address_type", ["billing", "shipping"]);
+      await client.unsafe(
+        `DELETE FROM vendor_addresses WHERE vendor_id = $1 AND address_type = ANY($2)`,
+        [id, ["billing", "shipping"]],
+      );
 
       const addresses = [];
       if (
@@ -597,52 +599,68 @@ export class VendorsService {
       }
 
       if (addresses.length > 0) {
-        await client.from("vendor_addresses").insert(addresses);
+        for (const addr of addresses) {
+          const aKeys = Object.keys(addr);
+          const aCols = aKeys.map((k) => `"${k}"`).join(", ");
+          const aPlaceholders = aKeys.map((_, i) => `$${i + 1}`).join(", ");
+          const aValues: any[] = Object.values(addr);
+
+          await client.unsafe(
+            `INSERT INTO vendor_addresses (${aCols}) VALUES (${aPlaceholders})`,
+            aValues,
+          );
+        }
       }
     }
 
-    // 3. Update Contacts (Delete and re-insert for simplicity/consistency)
     if (contactPersons) {
-      await client.from("vendor_contact_persons").delete().eq("vendor_id", id);
-      const contacts = contactPersons.map((c) => ({
-        vendor_id: id,
-        salutation: c.salutation,
-        first_name: c.firstName,
-        last_name: c.lastName,
-        email: c.email,
-        work_phone: c.workPhone,
-        mobile_phone: c.mobilePhone,
-        designation: c.designation,
-        department: c.department,
-      }));
-      await client.from("vendor_contact_persons").insert(contacts);
+      await client.unsafe(`DELETE FROM vendor_contact_persons WHERE vendor_id = $1`, [id]);
+      for (const c of contactPersons) {
+        await client.unsafe(
+          `INSERT INTO vendor_contact_persons (vendor_id, salutation, first_name, last_name, email, work_phone, mobile_phone, designation, department)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            id,
+            c.salutation ?? null,
+            c.firstName ?? null,
+            c.lastName ?? null,
+            c.email ?? null,
+            c.workPhone ?? null,
+            c.mobilePhone ?? null,
+            c.designation ?? null,
+            c.department ?? null,
+          ],
+        );
+      }
     }
 
-    // 4. Update Banks (Delete and re-insert)
     if (bankDetails) {
-      await client.from("vendor_bank_accounts").delete().eq("vendor_id", id);
-      const banks = bankDetails.map((b) => ({
-        vendor_id: id,
-        holder_name: b.holderName,
-        bank_name: b.bankName,
-        account_number: b.accountNumber,
-        ifsc: b.ifsc,
-      }));
-      await client.from("vendor_bank_accounts").insert(banks);
+      await client.unsafe(`DELETE FROM vendor_bank_accounts WHERE vendor_id = $1`, [id]);
+      for (const b of bankDetails) {
+        await client.unsafe(
+          `INSERT INTO vendor_bank_accounts (vendor_id, holder_name, bank_name, account_number, ifsc)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            id,
+            b.holderName ?? null,
+            b.bankName ?? null,
+            b.accountNumber ?? null,
+            b.ifsc ?? null,
+          ],
+        );
+      }
     }
 
     return this.findOne(id, tenant);
   }
 
   async remove(id: string, tenant: TenantContext) {
-    const { error } = await this.supabaseService
-      .getClient()
-      .from("vendors")
-      .delete()
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId);
-
-    if (error) {
+    try {
+      await client.unsafe(
+        `DELETE FROM vendors WHERE id = $1 AND entity_id = $2`,
+        [id, tenant.entityId],
+      );
+    } catch (error: any) {
       throw new Error(`Failed to delete vendor: ${error.message}`);
     }
 

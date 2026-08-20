@@ -143,7 +143,10 @@ export class AuthService {
       .maybeSingle();
 
     if (error) {
-      this.throwSupabaseReadError("users row", error);
+      this.logger.error(
+        `Failed to fetch public users row for ${userId}: ${error.message}`,
+      );
+      return null;
     }
 
     return data ?? null;
@@ -498,20 +501,80 @@ export class AuthService {
     userId: string,
     orgId: string,
     publicUserOverride?: any,
+    authUser?: any,
   ) {
-    const [organization, orgEntityId, userRecord, branchAccess] =
-      await Promise.all([
-        this.findOrganization(orgId),
-        this.findOrgEntityId(orgId),
-        publicUserOverride
-          ? Promise.resolve(publicUserOverride)
-          : this.findPublicUser(userId),
-        this.findBranchAccessSummary(userId, orgId),
-      ]);
+    let userRecord = publicUserOverride;
+    if (!userRecord) {
+      userRecord = await this.findPublicUser(userId);
+    }
+
+    if (!userRecord && authUser) {
+      userRecord = {
+        id: authUser.id,
+        email: authUser.email,
+        full_name:
+          authUser.user_metadata?.full_name ??
+          authUser.user_metadata?.name ??
+          authUser.email ??
+          "",
+        name:
+          authUser.user_metadata?.name ??
+          authUser.user_metadata?.full_name ??
+          authUser.email ??
+          "",
+        role:
+          authUser.user_metadata?.role ??
+          authUser.app_metadata?.role ??
+          "admin",
+        entity_id:
+          authUser.user_metadata?.entity_id ??
+          authUser.app_metadata?.entity_id ??
+          null,
+        is_active: true,
+      };
+    }
+
+    if (!userRecord) {
+      const { data: authAdminData } = await this.supabaseService
+        .getClient()
+        .auth.admin.getUserById(userId);
+      if (authAdminData?.user) {
+        const u = authAdminData.user;
+        userRecord = {
+          id: u.id,
+          email: u.email,
+          full_name:
+            u.user_metadata?.full_name ??
+            u.user_metadata?.name ??
+            u.email ??
+            "",
+          name:
+            u.user_metadata?.name ??
+            u.user_metadata?.full_name ??
+            u.email ??
+            "",
+          role:
+            u.user_metadata?.role ??
+            u.app_metadata?.role ??
+            "admin",
+          entity_id:
+            u.user_metadata?.entity_id ??
+            u.app_metadata?.entity_id ??
+            null,
+          is_active: !(u.banned_until != null),
+        };
+      }
+    }
 
     if (!userRecord) {
       throw new UnauthorizedException("User profile not found");
     }
+
+    const [organization, orgEntityId, branchAccess] = await Promise.all([
+      this.findOrganization(orgId),
+      this.findOrgEntityId(orgId),
+      this.findBranchAccessSummary(userId, orgId),
+    ]);
 
     const normalizedRole = this.normalizeRole(userRecord["role"]);
     const roleContext = await this.buildRoleContext(
@@ -613,6 +676,7 @@ export class AuthService {
       data.user.id,
       orgId,
       publicUser,
+      data.user,
     );
 
     return {
@@ -645,6 +709,7 @@ export class AuthService {
       data.user.id,
       orgId,
       publicUser,
+      data.user,
     );
 
     return {
@@ -770,6 +835,7 @@ export class AuthService {
       data.user.id,
       orgId,
       publicUser,
+      data.user,
     );
     if (user.isActive != true) {
       throw new ForbiddenException("User is inactive");

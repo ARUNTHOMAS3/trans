@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { TenantContext } from "../../../../common/middleware/tenant.middleware";
 import { SupabaseService } from "../../../supabase/supabase.service";
+import { client } from "../../../../db/db";
 
 @Injectable()
 export class PurchaseReturnsService {
@@ -8,13 +9,10 @@ export class PurchaseReturnsService {
 
   async getNextNumber(tenant: TenantContext, prefix: string = "PRT-") {
     const safePrefix = prefix || "PRT-";
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("purchase_returns")
-      .select("purchase_return_number")
-      .eq("entity_id", tenant.entityId)
-      .order("created_at", { ascending: false })
-      .limit(10);
+    const data = await client.unsafe(
+      `SELECT purchase_return_number FROM purchase_returns WHERE entity_id = $1 ORDER BY created_at DESC LIMIT 10`,
+      [tenant.entityId],
+    );
 
     let maxNumber = 0;
     if (data && data.length > 0) {
@@ -46,45 +44,66 @@ export class PurchaseReturnsService {
     search?: string,
     status?: string
   ) {
-    let query = this.supabaseService
-      .getClient()
-      .from("purchase_returns")
-      .select("*, purchase_return_items(*, purchase_return_item_batches(*))")
-      .eq("entity_id", tenant.entityId);
+    let sqlQuery = `SELECT * FROM purchase_returns WHERE entity_id = $1`;
+    const params: any[] = [tenant.entityId];
 
-    if (search) {
-      query = query.ilike("purchase_return_number", `%${search}%`);
+    if (search && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      sqlQuery += ` AND purchase_return_number ILIKE $${params.length}`;
     }
 
     if (status && status.toLowerCase() !== "all") {
-      query = query.eq("status", status.toLowerCase());
+      params.push(status.toLowerCase());
+      sqlQuery += ` AND status = $${params.length}`;
     }
 
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-    const { data, error } = await query
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    const offset = (page - 1) * limit;
+    sqlQuery += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 
-    if (error) {
-      throw new Error(`Failed to fetch purchase returns: ${error.message}`);
+    const data = await client.unsafe(sqlQuery, [...params, limit, offset]);
+
+    for (const pr of data ?? []) {
+      const items = await client.unsafe(
+        `SELECT * FROM purchase_return_items WHERE purchase_return_id = $1`,
+        [pr.id],
+      );
+      for (const item of items ?? []) {
+        const batches = await client.unsafe(
+          `SELECT * FROM purchase_return_item_batches WHERE purchase_return_item_id = $1`,
+          [item.id],
+        );
+        item.purchase_return_item_batches = batches ?? [];
+      }
+      pr.purchase_return_items = items ?? [];
     }
 
     return data || [];
   }
 
   async findOne(tenant: TenantContext, id: string) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("purchase_returns")
-      .select("*, purchase_return_items(*, purchase_return_item_batches(*))")
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .single();
+    const rows = await client.unsafe(
+      `SELECT * FROM purchase_returns WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+      [id, tenant.entityId],
+    );
 
-    if (error || !data) {
+    const data = rows[0];
+    if (!data) {
       throw new NotFoundException(`Purchase Return with ID ${id} not found`);
     }
+
+    const items = await client.unsafe(
+      `SELECT * FROM purchase_return_items WHERE purchase_return_id = $1`,
+      [id],
+    );
+
+    for (const item of items ?? []) {
+      const batches = await client.unsafe(
+        `SELECT * FROM purchase_return_item_batches WHERE purchase_return_item_id = $1`,
+        [item.id],
+      );
+      item.purchase_return_item_batches = batches ?? [];
+    }
+    data.purchase_return_items = items ?? [];
 
     return data;
   }
@@ -93,14 +112,19 @@ export class PurchaseReturnsService {
     const { items, ...headerData } = dto;
     headerData.entity_id = tenant.entityId;
 
-    const { data: header, error: headerErr } = await this.supabaseService
-      .getClient()
-      .from("purchase_returns")
-      .insert(headerData)
-      .select()
-      .single();
+    const keys = Object.keys(headerData);
+    const cols = keys.map((k) => `"${k}"`).join(", ");
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+    const values: any[] = Object.values(headerData);
 
-    if (headerErr) {
+    let header: any;
+    try {
+      const rows = await client.unsafe(
+        `INSERT INTO purchase_returns (${cols}) VALUES (${placeholders}) RETURNING *`,
+        values,
+      );
+      header = rows[0];
+    } catch (headerErr: any) {
       throw new Error(`Failed to create purchase return: ${headerErr.message}`);
     }
 
@@ -109,23 +133,34 @@ export class PurchaseReturnsService {
         const { batches, ...itemData } = item;
         itemData.purchase_return_id = header.id;
 
-        const { data: createdItem, error: itemErr } = await this.supabaseService
-          .getClient()
-          .from("purchase_return_items")
-          .insert(itemData)
-          .select()
-          .single();
+        const iKeys = Object.keys(itemData);
+        const iCols = iKeys.map((k) => `"${k}"`).join(", ");
+        const iPlaceholders = iKeys.map((_, i) => `$${i + 1}`).join(", ");
+        const iValues: any[] = Object.values(itemData);
 
-        if (itemErr) continue;
+        try {
+          const itemRows = await client.unsafe(
+            `INSERT INTO purchase_return_items (${iCols}) VALUES (${iPlaceholders}) RETURNING *`,
+            iValues,
+          );
+          const createdItem = itemRows[0];
 
-        if (batches && Array.isArray(batches)) {
-          for (const batch of batches) {
-            batch.purchase_return_item_id = createdItem.id;
-            await this.supabaseService
-              .getClient()
-              .from("purchase_return_item_batches")
-              .insert(batch);
+          if (batches && Array.isArray(batches) && createdItem) {
+            for (const batch of batches) {
+              batch.purchase_return_item_id = createdItem.id;
+              const bKeys = Object.keys(batch);
+              const bCols = bKeys.map((k) => `"${k}"`).join(", ");
+              const bPlaceholders = bKeys.map((_, i) => `$${i + 1}`).join(", ");
+              const bValues: any[] = Object.values(batch);
+
+              await client.unsafe(
+                `INSERT INTO purchase_return_item_batches (${bCols}) VALUES (${bPlaceholders})`,
+                bValues,
+              );
+            }
           }
+        } catch {
+          // ignore single item insert error
         }
       }
     }
@@ -136,41 +171,55 @@ export class PurchaseReturnsService {
   async update(tenant: TenantContext, id: string, dto: any) {
     const { items, ...headerData } = dto;
 
-    await this.supabaseService
-      .getClient()
-      .from("purchase_returns")
-      .update(headerData)
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId);
+    const keys = Object.keys(headerData);
+    if (keys.length > 0) {
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(", ");
+      const values: any[] = Object.values(headerData);
+
+      await client.unsafe(
+        `UPDATE purchase_returns SET ${setClauses} WHERE id = $${keys.length + 1} AND entity_id = $${keys.length + 2}`,
+        [...values, id, tenant.entityId],
+      );
+    }
 
     if (items && Array.isArray(items)) {
-      await this.supabaseService
-        .getClient()
-        .from("purchase_return_items")
-        .delete()
-        .eq("purchase_return_id", id);
+      await client.unsafe(
+        `DELETE FROM purchase_return_items WHERE purchase_return_id = $1`,
+        [id],
+      );
 
       for (const item of items) {
         const { batches, ...itemData } = item;
         itemData.purchase_return_id = id;
 
-        const { data: createdItem, error: itemErr } = await this.supabaseService
-          .getClient()
-          .from("purchase_return_items")
-          .insert(itemData)
-          .select()
-          .single();
+        const iKeys = Object.keys(itemData);
+        const iCols = iKeys.map((k) => `"${k}"`).join(", ");
+        const iPlaceholders = iKeys.map((_, i) => `$${i + 1}`).join(", ");
+        const iValues: any[] = Object.values(itemData);
 
-        if (itemErr) continue;
+        try {
+          const itemRows = await client.unsafe(
+            `INSERT INTO purchase_return_items (${iCols}) VALUES (${iPlaceholders}) RETURNING *`,
+            iValues,
+          );
+          const createdItem = itemRows[0];
 
-        if (batches && Array.isArray(batches)) {
-          for (const batch of batches) {
-            batch.purchase_return_item_id = createdItem.id;
-            await this.supabaseService
-              .getClient()
-              .from("purchase_return_item_batches")
-              .insert(batch);
+          if (batches && Array.isArray(batches) && createdItem) {
+            for (const batch of batches) {
+              batch.purchase_return_item_id = createdItem.id;
+              const bKeys = Object.keys(batch);
+              const bCols = bKeys.map((k) => `"${k}"`).join(", ");
+              const bPlaceholders = bKeys.map((_, i) => `$${i + 1}`).join(", ");
+              const bValues: any[] = Object.values(batch);
+
+              await client.unsafe(
+                `INSERT INTO purchase_return_item_batches (${bCols}) VALUES (${bPlaceholders})`,
+                bValues,
+              );
+            }
           }
+        } catch {
+          // ignore single item update error
         }
       }
     }
@@ -179,14 +228,12 @@ export class PurchaseReturnsService {
   }
 
   async remove(tenant: TenantContext, id: string) {
-    const { error } = await this.supabaseService
-      .getClient()
-      .from("purchase_returns")
-      .delete()
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId);
-
-    if (error) {
+    try {
+      await client.unsafe(
+        `DELETE FROM purchase_returns WHERE id = $1 AND entity_id = $2`,
+        [id, tenant.entityId],
+      );
+    } catch (error: any) {
       throw new Error(`Failed to delete purchase return: ${error.message}`);
     }
 

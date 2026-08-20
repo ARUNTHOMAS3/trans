@@ -5,6 +5,7 @@ import { UpdatePurchaseOrderDto } from "../dto/update-purchase-order.dto";
 import { TenantContext } from "../../../../common/middleware/tenant.middleware";
 import { SequencesService } from "../../../../sequences/sequences.service";
 import { listVisibleAccounts } from "../../../../common/account-visibility.util";
+import { client } from "../../../../db/db";
 
 @Injectable()
 export class PurchaseOrdersService {
@@ -22,7 +23,7 @@ export class PurchaseOrdersService {
     }
 
     const visibleAccounts = await listVisibleAccounts(
-      this.supabaseService.getClient(),
+      client,
       tenant,
     );
     const preferred = visibleAccounts.find((account: any) => {
@@ -35,19 +36,10 @@ export class PurchaseOrdersService {
 
   private async getNextPurchaseOrderNumber(tenant: TenantContext) {
     const regexPattern = "^PO-[0-9]+$";
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("purchase_orders")
-      .select("order_number")
-      .eq("entity_id", tenant.entityId)
-      .filter("order_number", "match", regexPattern)
-      .limit(1000);
-
-    if (error) {
-      throw new Error(
-        `Failed to generate next purchase order number: ${error.message}`,
-      );
-    }
+    const data = await client.unsafe(
+      `SELECT order_number FROM purchase_orders WHERE entity_id = $1 AND order_number ~ $2 LIMIT 1000`,
+      [tenant.entityId, regexPattern],
+    );
 
     let maxNumber = 0;
     for (const row of data ?? []) {
@@ -70,12 +62,14 @@ export class PurchaseOrdersService {
       formatted: `PO-${nextNumber.toString().padStart(padding, "0")}`,
     };
   }
+
   private cleanUuid(val: any): string | null {
     if (val === "" || val === null || val === undefined) {
       return null;
     }
     return val;
   }
+
   private mapDtoToDb(dto: any): any {
     const dbData: any = {};
     if (dto.vendor_id !== undefined) dbData.vendor_id = this.cleanUuid(dto.vendor_id);
@@ -150,16 +144,13 @@ export class PurchaseOrdersService {
   ): Promise<T[]> {
     if (!rows.length) return rows;
 
-    const client = this.supabaseService.getClient();
     const poIds = rows.map((row) => row.id).filter(Boolean);
     const orderNumbers = rows.map((row) => row.order_number).filter(Boolean);
 
-    // 1. Get PO items to calculate expected quantities
-    const { data: allPoItems } = await client
-      .from("purchase_order_items")
-      .select("purchase_order_id, product_id, quantity, cancelled_quantity, is_header")
-      .in("purchase_order_id", poIds)
-      .eq("entity_id", entityId);
+    const allPoItems = await client.unsafe(
+      `SELECT purchase_order_id, product_id, quantity, cancelled_quantity, is_header FROM purchase_order_items WHERE purchase_order_id = ANY($1) AND entity_id = $2`,
+      [poIds, entityId],
+    );
 
     const poExpectedItemsMap = new Map<string, Array<{ product_id: string; expected: number }>>();
     for (const item of allPoItems ?? []) {
@@ -173,16 +164,12 @@ export class PurchaseOrdersService {
       poExpectedItemsMap.set(item.purchase_order_id, list);
     }
 
-    // 2. Get receives and receive items
-    const { data: allReceives } = await client
-      .from("purchase_receives")
-      .select("id, purchase_order_id")
-      .in("purchase_order_id", poIds)
-      .eq("entity_id", entityId)
-      .eq("is_delete", false)
-      .in("status", ["received", "intransit"]);
+    const allReceives = await client.unsafe(
+      `SELECT id, purchase_order_id FROM purchase_receives WHERE purchase_order_id = ANY($1) AND entity_id = $2 AND is_delete = false AND status = ANY($3)`,
+      [poIds, entityId, ["received", "intransit"]],
+    );
 
-    const receiveIds = (allReceives ?? []).map((r) => r.id);
+    const receiveIds = (allReceives ?? []).map((r: any) => r.id);
     const poToReceiveIdsMap = new Map<string, string[]>();
     for (const r of allReceives ?? []) {
       const list = poToReceiveIdsMap.get(r.purchase_order_id) ?? [];
@@ -190,31 +177,25 @@ export class PurchaseOrdersService {
       poToReceiveIdsMap.set(r.purchase_order_id, list);
     }
 
-    // Fetch all receive items for these receives
     let allReceiveItems: any[] = [];
     if (receiveIds.length > 0) {
-      const { data } = await client
-        .from("purchase_receive_items")
-        .select("id, purchase_receive_id, item_id, received")
-        .in("purchase_receive_id", receiveIds)
-        .eq("entity_id", entityId);
-      allReceiveItems = data ?? [];
+      allReceiveItems = await client.unsafe(
+        `SELECT id, purchase_receive_id, item_id, received FROM purchase_receive_items WHERE purchase_receive_id = ANY($1) AND entity_id = $2`,
+        [receiveIds, entityId],
+      );
     }
 
-    const receiveItemIds = allReceiveItems.map((ri) => ri.id);
-    // Fetch all batch items for these receive items
+    const receiveItemIds = (allReceiveItems ?? []).map((ri: any) => ri.id);
     let allReceiveBatches: any[] = [];
     if (receiveItemIds.length > 0) {
-      const { data } = await client
-        .from("purchase_receive_item_batches")
-        .select("purchase_receive_item_id, quantity")
-        .in("purchase_receive_item_id", receiveItemIds)
-        .eq("entity_id", entityId);
-      allReceiveBatches = data ?? [];
+      allReceiveBatches = await client.unsafe(
+        `SELECT purchase_receive_item_id, quantity FROM purchase_receive_item_batches WHERE purchase_receive_item_id = ANY($1) AND entity_id = $2`,
+        [receiveItemIds, entityId],
+      );
     }
 
     const batchQtyMap = new Map<string, number>();
-    for (const b of allReceiveBatches) {
+    for (const b of allReceiveBatches ?? []) {
       const current = batchQtyMap.get(b.purchase_receive_item_id) ?? 0;
       batchQtyMap.set(b.purchase_receive_item_id, current + parseFloat(b.quantity?.toString() ?? "0"));
     }
@@ -225,36 +206,31 @@ export class PurchaseOrdersService {
     }
 
     const poReceivedItemsMap = new Map<string, Map<string, number>>();
-    for (const ri of allReceiveItems) {
+    for (const ri of allReceiveItems ?? []) {
       const poId = receiveToPoMap.get(ri.purchase_receive_id);
       if (!poId) continue;
       const batchQty = batchQtyMap.get(ri.id);
       const qty = batchQty !== undefined ? batchQty : parseFloat(ri.received?.toString() ?? "0");
       const prodId = ri.item_id;
       if (!prodId) continue;
-      
+
       const orderMap = poReceivedItemsMap.get(poId) ?? new Map<string, number>();
       const current = orderMap.get(prodId) ?? 0;
       orderMap.set(prodId, current + qty);
       poReceivedItemsMap.set(poId, orderMap);
     }
 
-    // 3. Get bills and bill items
     let allBills: any[] = [];
     if (orderNumbers.length > 0) {
-      const { data } = await client
-        .from("bills")
-        .select("id, order_number")
-        .in("order_number", orderNumbers)
-        .eq("entity_id", entityId)
-        .eq("is_delete", false)
-        .neq("status", "void");
-      allBills = data ?? [];
+      allBills = await client.unsafe(
+        `SELECT id, order_number FROM bills WHERE order_number = ANY($1) AND entity_id = $2 AND is_delete = false AND status != 'void'`,
+        [orderNumbers, entityId],
+      );
     }
 
-    const billIds = allBills.map((b) => b.id);
+    const billIds = (allBills ?? []).map((b: any) => b.id);
     const poToBillIdsMap = new Map<string, string[]>();
-    for (const b of allBills) {
+    for (const b of allBills ?? []) {
       const list = poToBillIdsMap.get(b.order_number) ?? [];
       list.push(b.id);
       poToBillIdsMap.set(b.order_number, list);
@@ -262,22 +238,19 @@ export class PurchaseOrdersService {
 
     let allBillItems: any[] = [];
     if (billIds.length > 0) {
-      const { data } = await client
-        .from("bill_items")
-        .select("bill_id, quantity")
-        .in("bill_id", billIds);
-      allBillItems = data ?? [];
+      allBillItems = await client.unsafe(
+        `SELECT bill_id, quantity FROM bill_items WHERE bill_id = ANY($1)`,
+        [billIds],
+      );
     }
 
     const billQtyMap = new Map<string, number>();
-    for (const bi of allBillItems) {
+    for (const bi of allBillItems ?? []) {
       const current = billQtyMap.get(bi.bill_id) ?? 0;
       billQtyMap.set(bi.bill_id, current + parseFloat(bi.quantity?.toString() ?? "0"));
     }
 
     return rows.map((row) => {
-      
-      // Calculate billed total
       let billed = 0;
       if (row.order_number) {
         const bIds = poToBillIdsMap.get(row.order_number) ?? [];
@@ -286,9 +259,7 @@ export class PurchaseOrdersService {
         }
       }
 
-      // Determine statuses
       let receive_status = "none";
-
       const expectedItems = poExpectedItemsMap.get(row.id) ?? [];
       const receivedMap = poReceivedItemsMap.get(row.id) ?? new Map<string, number>();
       const recIds = poToReceiveIdsMap.get(row.id) ?? [];
@@ -309,7 +280,6 @@ export class PurchaseOrdersService {
         receive_status = isAllReceived ? "full" : "partial";
       }
 
-      // We still need expected sum for billing status check
       let expectedSum = 0;
       for (const item of expectedItems) {
         expectedSum += item.expected;
@@ -337,7 +307,6 @@ export class PurchaseOrdersService {
   ) {
     if (!rows.length) return rows;
 
-    const client = this.supabaseService.getClient();
     const vendorIds = Array.from(
       new Set(rows.map((row) => row.vendor_id).filter(Boolean)),
     );
@@ -353,10 +322,10 @@ export class PurchaseOrdersService {
     const paymentTermMap = new Map<string, { term_name?: string }>();
 
     if (vendorIds.length) {
-      const { data: vendors } = await client
-        .from("vendors")
-        .select("id,display_name,company_name")
-        .in("id", vendorIds);
+      const vendors = await client.unsafe(
+        `SELECT id, display_name, company_name FROM vendors WHERE id = ANY($1)`,
+        [vendorIds],
+      );
       for (const vendor of vendors ?? []) {
         vendorMap.set(vendor.id, {
           display_name: vendor.display_name,
@@ -366,20 +335,20 @@ export class PurchaseOrdersService {
     }
 
     if (warehouseIds.length) {
-      const { data: warehouses } = await client
-        .from("warehouses")
-        .select("id,name")
-        .in("id", warehouseIds);
+      const warehouses = await client.unsafe(
+        `SELECT id, name FROM warehouses WHERE id = ANY($1)`,
+        [warehouseIds],
+      );
       for (const warehouse of warehouses ?? []) {
         warehouseMap.set(warehouse.id, { name: warehouse.name });
       }
     }
 
     if (paymentTermIds.length) {
-      const { data: terms } = await client
-        .from("payment_terms")
-        .select("id,term_name")
-        .in("id", paymentTermIds);
+      const terms = await client.unsafe(
+        `SELECT id, term_name FROM payment_terms WHERE id = ANY($1)`,
+        [paymentTermIds],
+      );
       for (const term of terms ?? []) {
         paymentTermMap.set(term.id, { term_name: term.term_name });
       }
@@ -451,32 +420,39 @@ export class PurchaseOrdersService {
   ) {
     const offset = (page - 1) * limit;
 
-    let query = this.supabaseService
-      .getClient()
-      .from("purchase_orders")
-      .select("*", { count: "exact" })
-      .eq("entity_id", tenant.entityId)
-      .range(offset, offset + limit - 1);
+    let sqlQuery = `SELECT * FROM purchase_orders WHERE entity_id = $1`;
+    let countQuery = `SELECT COUNT(*)::int as count FROM purchase_orders WHERE entity_id = $1`;
+    const params: any[] = [tenant.entityId];
 
-    if (search) {
-      query = query.or(
-        `order_number.ilike.%${search}%,reference_number.ilike.%${search}%`,
-      );
+    if (search && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      const sIdx = params.length;
+      sqlQuery += ` AND (order_number ILIKE $${sIdx} OR reference_number ILIKE $${sIdx})`;
+      countQuery += ` AND (order_number ILIKE $${sIdx} OR reference_number ILIKE $${sIdx})`;
     }
 
-    if (status) {
-      query = query.eq("status", status);
+    if (status && status.trim()) {
+      params.push(status.trim());
+      const stIdx = params.length;
+      sqlQuery += ` AND status = $${stIdx}`;
+      countQuery += ` AND status = $${stIdx}`;
     }
 
-    if (vendorId) {
-      query = query.eq("vendor_id", vendorId);
+    if (vendorId && vendorId.trim()) {
+      params.push(vendorId.trim());
+      const vIdx = params.length;
+      sqlQuery += ` AND vendor_id = $${vIdx}`;
+      countQuery += ` AND vendor_id = $${vIdx}`;
     }
 
-    const { data, error, count } = await query;
+    sqlQuery += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 
-    if (error) {
-      throw new Error(`Failed to fetch purchase orders: ${error.message}`);
-    }
+    const [data, countRes] = await Promise.all([
+      client.unsafe(sqlQuery, [...params, limit, offset]),
+      client.unsafe(countQuery, params),
+    ]);
+
+    const totalCount = countRes[0]?.count ?? 0;
 
     const enriched = await this.attachPurchaseOrderLookups(data ?? []);
     const withProgress = await this.attachProgressStatuses(enriched, tenant.entityId);
@@ -485,43 +461,32 @@ export class PurchaseOrdersService {
     return {
       data: mapped,
       meta: {
-        total: count,
+        total: totalCount,
         page,
         limit,
-        totalPages: Math.ceil(count / limit),
+        totalPages: Math.ceil(totalCount / limit),
       },
     };
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    const client = this.supabaseService.getClient();
-    const { data: rows, error } = await client
-      .from("purchase_orders")
-      .select("*")
-      .eq("id", id)
-      .limit(1);
+    const rows = await client.unsafe(
+      `SELECT * FROM purchase_orders WHERE id = $1 LIMIT 1`,
+      [id],
+    );
 
-    if (error) {
-      console.error("Error in findOne PO:", error);
-      throw new NotFoundException(
-        `Purchase Order not found: ${error.message} (code: ${error.code})`,
-      );
-    }
-    const data = (rows ?? [])[0];
+    const data = rows[0];
     if (!data) {
       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
 
-    // Tenancy authorization check:
     if (data.entity_id !== tenant.entityId) {
-      const { data: branchCheck } = await client
-        .from("organisation_branch_master")
-        .select("id")
-        .eq("id", data.entity_id)
-        .eq("parent_id", tenant.entityId)
-        .maybeSingle();
+      const branchCheck = await client.unsafe(
+        `SELECT id FROM organisation_branch_master WHERE id = $1 AND parent_id = $2 LIMIT 1`,
+        [data.entity_id, tenant.entityId],
+      );
 
-      if (!branchCheck) {
+      if (!branchCheck[0]) {
         throw new ForbiddenException("You do not have access to this Purchase Order");
       }
     }
@@ -529,25 +494,24 @@ export class PurchaseOrdersService {
     const [enriched] = await this.attachPurchaseOrderLookups([data]);
     const [withProgress] = await this.attachProgressStatuses([enriched], data.entity_id);
 
-    const { data: items } = await client
-      .from("purchase_order_items")
-      .select("*")
-      .eq("purchase_order_id", id)
-      .eq("entity_id", data.entity_id);
+    const items = await client.unsafe(
+      `SELECT * FROM purchase_order_items WHERE purchase_order_id = $1 AND entity_id = $2`,
+      [id, data.entity_id],
+    );
 
     const productIds = Array.from(
-      new Set((items ?? []).map((item) => item.product_id).filter(Boolean)),
+      new Set((items ?? []).map((item: any) => item.product_id).filter(Boolean)),
     );
     let productMap = new Map<string, any>();
     if (productIds.length) {
-      const { data: products } = await client
-        .from("products")
-        .select("*")
-        .in("id", productIds);
-      productMap = new Map((products ?? []).map((p) => [p.id, p]));
+      const products = await client.unsafe(
+        `SELECT * FROM products WHERE id = ANY($1)`,
+        [productIds],
+      );
+      productMap = new Map((products ?? []).map((p: any) => [p.id, p] as [string, any]));
     }
 
-    const itemWithProducts = (items ?? []).map((item) => ({
+    const itemWithProducts = (items ?? []).map((item: any) => ({
       ...item,
       tax_rate: item.item_tax_rate !== null && item.item_tax_rate !== undefined ? parseFloat(item.item_tax_rate) : 0,
       itemTaxRate: item.item_tax_rate !== null && item.item_tax_rate !== undefined ? parseFloat(item.item_tax_rate) : 0,
@@ -585,15 +549,11 @@ export class PurchaseOrdersService {
       ) {
         resolvedWarehouseId = deliveryWarehouseId;
       } else {
-        const { data: wh } = await this.supabaseService
-          .getClient()
-          .from("warehouses")
-          .select("id")
-          .eq("entity_id", tenant.entityId)
-          .eq("is_active", true)
-          .limit(1)
-          .maybeSingle();
-        resolvedWarehouseId = wh?.id || null;
+        const wh = await client.unsafe(
+          `SELECT id FROM warehouses WHERE entity_id = $1 AND is_active = true LIMIT 1`,
+          [tenant.entityId],
+        );
+        resolvedWarehouseId = wh[0]?.id || null;
       }
     }
     const payload = this.mapDtoToDb({
@@ -604,19 +564,24 @@ export class PurchaseOrdersService {
     });
     payload.entity_id = tenant.entityId;
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("purchase_orders")
-      .insert([payload])
-      .select()
-      .single();
+    const keys = Object.keys(payload);
+    const cols = keys.map((k) => `"${k}"`).join(", ");
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+    const values: any[] = Object.values(payload);
 
-    if (error) {
+    let data: any;
+    try {
+      const rows = await client.unsafe(
+        `INSERT INTO purchase_orders (${cols}) VALUES (${placeholders}) RETURNING *`,
+        values,
+      );
+      data = rows[0];
+    } catch (error: any) {
       throw new Error(`Failed to create purchase order: ${error.message}`);
     }
 
     if (items && items.length > 0) {
-      const itemsPayload = items.map((item) => {
+      for (const item of items) {
         const { warehouse_id, track_batches, track_serial_number, track_bin_location, ...restItem } = item;
         const accountId = restItem.account_id || restItem.accounts;
         let hsnNumeric: number | null = null;
@@ -630,7 +595,7 @@ export class PurchaseOrdersService {
             hsnNumeric = parsed;
           }
         }
-        return {
+        const itemRow = {
           ...(restItem as any),
           product_id: this.cleanUuid(restItem.product_id),
           account_id: this.cleanUuid(accountId),
@@ -640,16 +605,15 @@ export class PurchaseOrdersService {
           purchase_order_id: data.id,
           entity_id: tenant.entityId,
         };
-      });
 
-      const { error: itemsError } = await this.supabaseService
-        .getClient()
-        .from("purchase_order_items")
-        .insert(itemsPayload);
+        const iKeys = Object.keys(itemRow);
+        const iCols = iKeys.map((k) => `"${k}"`).join(", ");
+        const iPlaceholders = iKeys.map((_, i) => `$${i + 1}`).join(", ");
+        const iValues: any[] = Object.values(itemRow);
 
-      if (itemsError) {
-        throw new Error(
-          `Failed to create purchase order items: ${itemsError.message}`,
+        await client.unsafe(
+          `INSERT INTO purchase_order_items (${iCols}) VALUES (${iPlaceholders})`,
+          iValues,
         );
       }
     }
@@ -677,15 +641,11 @@ export class PurchaseOrdersService {
       ) {
         resolvedWarehouseId = deliveryWarehouseId;
       } else {
-        const { data: wh } = await this.supabaseService
-          .getClient()
-          .from("warehouses")
-          .select("id")
-          .eq("entity_id", tenant.entityId)
-          .eq("is_active", true)
-          .limit(1)
-          .maybeSingle();
-        resolvedWarehouseId = wh?.id || null;
+        const wh = await client.unsafe(
+          `SELECT id FROM warehouses WHERE entity_id = $1 AND is_active = true LIMIT 1`,
+          [tenant.entityId],
+        );
+        resolvedWarehouseId = wh[0]?.id || null;
       }
     }
 
@@ -698,16 +658,18 @@ export class PurchaseOrdersService {
     }
     payload.updated_at = new Date().toISOString();
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("purchase_orders")
-      .update(payload)
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .select()
-      .single();
+    const keys = Object.keys(payload);
+    const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(", ");
+    const values: any[] = Object.values(payload);
 
-    if (error) {
+    let data: any;
+    try {
+      const rows = await client.unsafe(
+        `UPDATE purchase_orders SET ${setClauses} WHERE id = $${keys.length + 1} AND entity_id = $${keys.length + 2} RETURNING *`,
+        [...values, id, tenant.entityId],
+      );
+      data = rows[0];
+    } catch (error: any) {
       throw new Error(`Failed to update purchase order: ${error.message}`);
     }
 
@@ -715,23 +677,13 @@ export class PurchaseOrdersService {
       throw new NotFoundException(`Purchase Order with ID ${id} not found`);
     }
 
-    // 1. Delete all existing items for this Purchase Order
-    const { error: deleteError } = await this.supabaseService
-      .getClient()
-      .from("purchase_order_items")
-      .delete()
-      .eq("purchase_order_id", id)
-      .eq("entity_id", tenant.entityId);
+    await client.unsafe(
+      `DELETE FROM purchase_order_items WHERE purchase_order_id = $1 AND entity_id = $2`,
+      [id, tenant.entityId],
+    );
 
-    if (deleteError) {
-      throw new Error(
-        `Failed to clean old purchase order items: ${deleteError.message}`,
-      );
-    }
-
-    // 2. Insert new / updated items
     if (items && items.length > 0) {
-      const itemsPayload = items.map((item) => {
+      for (const item of items) {
         const { warehouse_id, track_batches, track_serial_number, track_bin_location, ...restItem } = item;
         const accountId = restItem.account_id || restItem.accounts;
         let hsnNumeric: number | null = null;
@@ -745,7 +697,7 @@ export class PurchaseOrdersService {
             hsnNumeric = parsed;
           }
         }
-        return {
+        const itemRow = {
           ...(restItem as any),
           product_id: this.cleanUuid(restItem.product_id),
           account_id: this.cleanUuid(accountId),
@@ -755,16 +707,15 @@ export class PurchaseOrdersService {
           purchase_order_id: id,
           entity_id: tenant.entityId,
         };
-      });
 
-      const { error: itemsError } = await this.supabaseService
-        .getClient()
-        .from("purchase_order_items")
-        .insert(itemsPayload);
+        const iKeys = Object.keys(itemRow);
+        const iCols = iKeys.map((k) => `"${k}"`).join(", ");
+        const iPlaceholders = iKeys.map((_, i) => `$${i + 1}`).join(", ");
+        const iValues: any[] = Object.values(itemRow);
 
-      if (itemsError) {
-        throw new Error(
-          `Failed to update purchase order items: ${itemsError.message}`,
+        await client.unsafe(
+          `INSERT INTO purchase_order_items (${iCols}) VALUES (${iPlaceholders})`,
+          iValues,
         );
       }
     }
@@ -777,17 +728,19 @@ export class PurchaseOrdersService {
     const originalNumber = existing?.order_number;
     const newNumber = originalNumber ? (originalNumber.startsWith('SD-') ? originalNumber : `SD-${originalNumber}`) : undefined;
 
-    const { error } = await this.supabaseService
-      .getClient()
-      .from("purchase_orders")
-      .update({
-        is_delete: true,
-        ...(newNumber ? { order_number: newNumber } : {}),
-      })
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId);
-
-    if (error) {
+    try {
+      if (newNumber) {
+        await client.unsafe(
+          `UPDATE purchase_orders SET is_delete = true, order_number = $1 WHERE id = $2 AND entity_id = $3`,
+          [newNumber, id, tenant.entityId],
+        );
+      } else {
+        await client.unsafe(
+          `UPDATE purchase_orders SET is_delete = true WHERE id = $1 AND entity_id = $2`,
+          [id, tenant.entityId],
+        );
+      }
+    } catch (error: any) {
       throw new Error(`Failed to delete purchase order: ${error.message}`);
     }
 

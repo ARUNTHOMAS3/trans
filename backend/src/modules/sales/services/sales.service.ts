@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { SupabaseService } from "../../supabase/supabase.service";
 import { TenantContext } from "../../../common/middleware/tenant.middleware";
+import { client } from "../../../db/db";
 
 @Injectable()
 export class SalesService {
@@ -22,40 +23,32 @@ export class SalesService {
   private async resolveDefaultSalesAccountId(
     entityId: string,
   ): Promise<string | null> {
-    const client = this.supabaseService.getClient();
-
     const findPreferred = async (scopeEntityId: string): Promise<string | null> => {
-      const { data: salesAcc } = await client
-        .from("accounts")
-        .select("id")
-        .eq("entity_id", scopeEntityId)
-        .eq("is_active", true)
-        .or(
-          "user_account_name.ilike.%Sales%,system_account_name.ilike.%Sales%,user_account_name.ilike.%Revenue%,system_account_name.ilike.%Revenue%",
-        )
-        .limit(1)
-        .maybeSingle();
-      if (salesAcc?.id) return salesAcc.id.toString();
+      const salesAcc = await client.unsafe(
+        `SELECT id FROM accounts
+         WHERE entity_id = $1 AND is_active = true
+         AND (user_account_name ILIKE '%Sales%' OR system_account_name ILIKE '%Sales%' OR user_account_name ILIKE '%Revenue%' OR system_account_name ILIKE '%Revenue%')
+         LIMIT 1`,
+        [scopeEntityId],
+      );
+      if (salesAcc[0]?.id) return salesAcc[0].id.toString();
 
-      const { data: anyAcc } = await client
-        .from("accounts")
-        .select("id")
-        .eq("entity_id", scopeEntityId)
-        .eq("is_active", true)
-        .limit(1)
-        .maybeSingle();
-      return anyAcc?.id?.toString() ?? null;
+      const anyAcc = await client.unsafe(
+        `SELECT id FROM accounts WHERE entity_id = $1 AND is_active = true LIMIT 1`,
+        [scopeEntityId],
+      );
+      return anyAcc[0]?.id?.toString() ?? null;
     };
 
     const local = await findPreferred(entityId);
     if (local) return local;
 
-    const { data: entityRow } = await client
-      .from("organisation_branch_master")
-      .select("id, type, parent_id")
-      .eq("id", entityId)
-      .maybeSingle();
+    const entityRows = await client.unsafe(
+      `SELECT id, type, parent_id FROM organisation_branch_master WHERE id = $1 LIMIT 1`,
+      [entityId],
+    );
 
+    const entityRow = entityRows[0];
     const parentEntityId = entityRow?.parent_id?.toString().trim();
     if (entityRow?.type === "BRANCH" && this.isUuid(parentEntityId)) {
       return await findPreferred(parentEntityId);
@@ -89,9 +82,7 @@ export class SalesService {
 
   private async resolveItemFields(items: any[], orgId: string): Promise<any[]> {
     if (!items || items.length === 0) return [];
-    const client = this.supabaseService.getClient();
 
-    // 1. Fetch product fallbacks
     const productIds = items
       .map((item) => item.itemId || item.productId)
       .filter(Boolean);
@@ -100,10 +91,10 @@ export class SalesService {
       { hsn_code: string | null; sales_account_id: string | null }
     >();
     if (productIds.length > 0) {
-      const { data: productsData } = await client
-        .from("products")
-        .select("id, hsn_code:hsn_sac_code, sales_account_id")
-        .in("id", productIds);
+      const productsData = await client.unsafe(
+        `SELECT id, hsn_sac_code as hsn_code, sales_account_id FROM products WHERE id = ANY($1)`,
+        [productIds],
+      );
 
       if (productsData) {
         for (const p of productsData) {
@@ -115,10 +106,8 @@ export class SalesService {
       }
     }
 
-    // 2. Fetch default sales account fallback (entity first, then parent org)
     const defaultSalesAccountId = await this.resolveDefaultSalesAccountId(orgId);
 
-    // 3. Map items with fallback logic
     return items.map((item) => {
       const prodId = item.itemId || item.productId;
       const prodInfo = productMap.get(prodId) || {
@@ -126,7 +115,6 @@ export class SalesService {
         sales_account_id: null,
       };
 
-      // hsn fallback
       let resolvedHsn = item.hsnCode || item.hsn_code || prodInfo.hsn_code;
       if (
         !resolvedHsn ||
@@ -136,7 +124,6 @@ export class SalesService {
         resolvedHsn = "0";
       }
 
-      // accounts fallback
       const resolvedAccountCandidate =
         item.accounts || prodInfo.sales_account_id || defaultSalesAccountId;
       const resolvedAccount = this.isUuid(resolvedAccountCandidate)
@@ -169,40 +156,37 @@ export class SalesService {
   }
 
   async getSalesOrderById(id: string, orgId?: string) {
-    const client = this.supabaseService.getClient();
-    let query = client
-      .from("sales_orders")
-      .select("*")
-      .eq("id", id);
+    let sqlQuery = `SELECT * FROM sales_orders WHERE id = $1`;
+    const params: any[] = [id];
     if (orgId) {
-      query = query.eq("entity_id", orgId);
+      params.push(orgId);
+      sqlQuery += ` AND entity_id = $2`;
     }
-    const { data: order, error: orderError } = await query.maybeSingle();
+    sqlQuery += ` LIMIT 1`;
 
-    if (orderError) throw orderError;
+    const orders = await client.unsafe(sqlQuery, params);
+    const order = orders[0];
     if (!order) {
       throw new NotFoundException("Sales order not found");
     }
 
     let customer: any = null;
     if (order?.customer_id) {
-      const { data: customerData } = await client
-        .from("customers")
-        .select("id, display_name, first_name, last_name, company_name")
-        .eq("id", order.customer_id)
-        .maybeSingle();
+      const customers = await client.unsafe(
+        `SELECT id, display_name, first_name, last_name, company_name FROM customers WHERE id = $1 LIMIT 1`,
+        [order.customer_id],
+      );
 
-      if (customerData) {
-        customer = { ...customerData };
-        const { data: addresses } = await client
-          .from("customer_addresses")
-          .select("*")
-          .eq("customer_id", order.customer_id)
-          .eq("is_active", true);
+      if (customers[0]) {
+        customer = { ...customers[0] };
+        const addresses = await client.unsafe(
+          `SELECT * FROM customer_addresses WHERE customer_id = $1 AND is_active = true`,
+          [order.customer_id],
+        );
 
         if (addresses) {
-          const billing = addresses.find((a) => a.is_default_billing) ||
-                          addresses.find((a) => a.address_type === "billing");
+          const billing = addresses.find((a: any) => a.is_default_billing) ||
+                          addresses.find((a: any) => a.address_type === "billing");
           if (billing) {
             customer.billing_address_street_1 = billing.address_street;
             customer.billing_address_street_2 = billing.address_place;
@@ -212,8 +196,8 @@ export class SalesService {
             customer.billing_address_country_id = billing.country_region;
             customer.billing_address_phone = billing.phone;
           }
-          const shipping = addresses.find((a) => a.is_default_shipping) ||
-                           addresses.find((a) => a.address_type === "shipping");
+          const shipping = addresses.find((a: any) => a.is_default_shipping) ||
+                           addresses.find((a: any) => a.address_type === "shipping");
           if (shipping) {
             customer.shipping_address_street_1 = shipping.address_street;
             customer.shipping_address_street_2 = shipping.address_place;
@@ -227,63 +211,63 @@ export class SalesService {
       }
     }
 
-    const { data: items, error: itemsError } = await client
-      .from("sales_order_items")
-      .select(
-        `
-        *,
-        product:products(
-          id,
-          product_name,
-          sku,
-          item_code,
-          unit_id,
-          hsn_code:hsn_sac_code,
-          unit:units(unit_name)
-        )
-      `,
-      )
-      .eq("sales_order_id", id)
-      .order("line_no", { ascending: true });
+    const items = await client.unsafe(
+      `SELECT soi.*, p.id as p_id, p.product_name, p.sku, p.item_code, p.unit_id, p.hsn_sac_code as hsn_code, u.unit_name
+       FROM sales_order_items soi
+       LEFT JOIN products p ON p.id = soi.product_id
+       LEFT JOIN units u ON u.id = p.unit_id
+       WHERE soi.sales_order_id = $1
+       ORDER BY soi.line_no ASC`,
+      [id],
+    );
 
-    if (itemsError) throw itemsError;
+    const itemsFormatted = (items ?? []).map((item: any) => ({
+      ...item,
+      product: item.product_id
+        ? {
+            id: item.product_id,
+            product_name: item.product_name,
+            sku: item.sku,
+            item_code: item.item_code,
+            unit_id: item.unit_id,
+            hsn_code: item.hsn_code,
+            unit: item.unit_name ? { unit_name: item.unit_name } : null,
+          }
+        : null,
+    }));
 
-    // Fetch picklist items for this Sales Order
-    const { data: pickItems } = await client
-      .from("picklist_items")
-      .select("sales_order_line_id, qty_picked, qty_to_pick")
-      .eq("sales_order_id", id);
+    const pickItems = await client.unsafe(
+      `SELECT sales_order_line_id, qty_picked, qty_to_pick FROM picklist_items WHERE sales_order_id = $1`,
+      [id],
+    );
 
-    // Fetch package items for this Sales Order
-    const { data: pkgItems } = await client
-      .from("inventory_package_items")
-      .select("product_id, quantity, package_id")
-      .eq("sales_order_id", id);
+    const pkgItems = await client.unsafe(
+      `SELECT product_id, quantity, package_id FROM inventory_package_items WHERE sales_order_id = $1`,
+      [id],
+    );
 
     const uniquePkgIds = Array.from(new Set((pkgItems ?? []).map((pi: any) => pi.package_id).filter(Boolean)));
 
-    const { data: pkgs } = uniquePkgIds.length > 0 ? await client
-      .from("inventory_packages")
-      .select("id, status")
-      .in("id", uniquePkgIds) : { data: [] };
+    const pkgs = uniquePkgIds.length > 0 ? await client.unsafe(
+      `SELECT id, status FROM inventory_packages WHERE id = ANY($1)`,
+      [uniquePkgIds],
+    ) : [];
 
-    // Fetch invoice items for this Sales Order
-    const { data: linkedInvoices } = await client
-      .from("invoice_sales_orders")
-      .select("invoice_id")
-      .eq("sales_order_id", id);
+    const linkedInvoices = await client.unsafe(
+      `SELECT invoice_id FROM invoice_sales_orders WHERE sales_order_id = $1`,
+      [id],
+    );
 
     const invoiceIds = (linkedInvoices ?? []).map((li: any) => li.invoice_id);
     let invItems: any[] = [];
     if (invoiceIds.length > 0) {
-      const { data } = await client
-        .from("invoice_items")
-        .select("product_id, quantity")
-        .in("invoice_id", invoiceIds);
-      invItems = data ?? [];
+      invItems = await client.unsafe(
+        `SELECT product_id, quantity FROM invoice_items WHERE invoice_id = ANY($1)`,
+        [invoiceIds],
+      );
     }
 
-    const itemsWithMetrics = (items ?? []).map((item: any) => {
+    const itemsWithMetrics = (itemsFormatted ?? []).map((item: any) => {
       const picked = (pickItems ?? [])
         .filter((pi: any) => pi.sales_order_line_id === item.id)
         .reduce((sum: number, pi: any) => sum + Math.max(Number(pi.qty_picked ?? 0), Number(pi.qty_to_pick ?? 0)), 0);
@@ -315,9 +299,9 @@ export class SalesService {
       };
     });
 
-    const total_items = items ? items.length : 0;
-    const invoiced_items = items
-      ? items.filter(
+    const total_items = itemsFormatted ? itemsFormatted.length : 0;
+    const invoiced_items = itemsFormatted
+      ? itemsFormatted.filter(
           (item: any) =>
             item.is_invoiced === true || item.is_invoiced === "true",
         ).length
@@ -338,95 +322,106 @@ export class SalesService {
   }
 
   async getSalesByType(type: string, orgId?: string, page = 1, pageSize = 50) {
-    const client = this.supabaseService.getClient();
+    const offset = (page - 1) * pageSize;
 
-    // Count query for total
-    let countQuery = client
-      .from("sales_orders")
-      .select("id", { count: "exact", head: true })
-      .eq("document_type", type)
-      .or("is_delete.is.null,is_delete.eq.false");
-    if (orgId) countQuery = countQuery.eq("entity_id", orgId);
-    const { count } = await countQuery;
+    let sqlQuery = `SELECT so.*, c.id as c_id, c.display_name, c.first_name, c.last_name, c.company_name
+                    FROM sales_orders so
+                    LEFT JOIN customers c ON c.id = so.customer_id
+                    WHERE so.document_type = $1 AND (so.is_delete IS NULL OR so.is_delete = false)`;
+    let countQuery = `SELECT COUNT(*)::int as count FROM sales_orders WHERE document_type = $1 AND (is_delete IS NULL OR is_delete = false)`;
+    const params: any[] = [type];
 
-    // Data query with pagination
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    if (orgId) {
+      params.push(orgId);
+      sqlQuery += ` AND so.entity_id = $2`;
+      countQuery += ` AND entity_id = $2`;
+    }
 
-    let query = client
-      .from("sales_orders")
-      .select(
-        "*, customer:customers(id, display_name, first_name, last_name, company_name)",
-      )
-      .eq("document_type", type)
-      .or("is_delete.is.null,is_delete.eq.false")
-      .order("created_at", { ascending: false })
-      .range(from, to);
-    if (orgId) query = query.eq("entity_id", orgId);
-    const { data, error } = await query;
+    sqlQuery += ` ORDER BY so.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 
-    if (error) throw error;
+    const [data, countRes] = await Promise.all([
+      client.unsafe(sqlQuery, [...params, pageSize, offset]),
+      client.unsafe(countQuery, params),
+    ]);
+
+    const totalCount = countRes[0]?.count ?? 0;
+
+    const formattedData = (data ?? []).map((row: any) => ({
+      ...row,
+      customer: row.customer_id
+        ? {
+            id: row.c_id,
+            display_name: row.display_name,
+            first_name: row.first_name,
+            last_name: row.last_name,
+            company_name: row.company_name,
+          }
+        : null,
+    }));
+
     return {
-      data: data ?? [],
+      data: formattedData,
       meta: {
         page,
         pageSize,
-        total: count ?? 0,
-        totalPages: Math.ceil((count ?? 0) / pageSize),
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / pageSize),
       },
     };
   }
 
   async getSalesOrdersByCustomer(customerId: string, orgId?: string) {
-    const client = this.supabaseService.getClient();
-    let query = client
-      .from("sales_orders")
-      .select(
-        `
-        *,
-        customer:customers(id, display_name, first_name, last_name, company_name),
-        items:sales_order_items(
-          *,
-          product:products(
-            id,
-            product_name,
-            sku,
-            item_code,
-            unit_id,
-            hsn_code:hsn_sac_code,
-            unit:units(unit_name)
-          )
-        )
-        `,
-      )
-      .eq("customer_id", customerId)
-      .neq("status", "closed")
-      .order("created_at", { ascending: false });
-    if (orgId) query = query.eq("entity_id", orgId);
-    const { data, error } = await query;
+    let sqlQuery = `SELECT * FROM sales_orders WHERE customer_id = $1 AND status != 'closed'`;
+    const params: any[] = [customerId];
+    if (orgId) {
+      params.push(orgId);
+      sqlQuery += ` AND entity_id = $2`;
+    }
+    sqlQuery += ` ORDER BY created_at DESC`;
 
-    if (error) throw error;
+    const data = await client.unsafe(sqlQuery, params);
     if (!data || data.length === 0) return [];
 
     const enrichedOrders = [];
 
     for (const order of data) {
-      const items = order.items ?? [];
+      const items = await client.unsafe(
+        `SELECT soi.*, p.product_name, p.sku, p.item_code, p.unit_id, p.hsn_sac_code as hsn_code, u.unit_name
+         FROM sales_order_items soi
+         LEFT JOIN products p ON p.id = soi.product_id
+         LEFT JOIN units u ON u.id = p.unit_id
+         WHERE soi.sales_order_id = $1`,
+        [order.id],
+      );
 
-      // Get all invoice IDs linked to this sales order
-      const { data: linkedInvoices } = await client
-        .from("invoice_sales_orders")
-        .select("invoice_id")
-        .eq("sales_order_id", order.id);
+      const formattedItems = (items ?? []).map((item: any) => ({
+        ...item,
+        product: item.product_id
+          ? {
+              id: item.product_id,
+              product_name: item.product_name,
+              sku: item.sku,
+              item_code: item.item_code,
+              unit_id: item.unit_id,
+              hsn_code: item.hsn_code,
+              unit: item.unit_name ? { unit_name: item.unit_name } : null,
+            }
+          : null,
+      }));
+
+      const linkedInvoices = await client.unsafe(
+        `SELECT invoice_id FROM invoice_sales_orders WHERE sales_order_id = $1`,
+        [order.id],
+      );
 
       const invoiceIds = (linkedInvoices ?? []).map((li: any) => li.invoice_id);
       const invoicedQuantities = new Map<string, number>();
 
       if (invoiceIds.length > 0) {
-        const { data: invItems } = await client
-          .from("invoice_items")
-          .select("product_id, quantity")
-          .in("invoice_id", invoiceIds);
+        const invItems = await client.unsafe(
+          `SELECT product_id, quantity FROM invoice_items WHERE invoice_id = ANY($1)`,
+          [invoiceIds],
+        );
 
         for (const item of invItems ?? []) {
           const current = invoicedQuantities.get(item.product_id) || 0;
@@ -438,11 +433,10 @@ export class SalesService {
       }
 
       const enrichedItems = [];
-      for (const item of items) {
+      for (const item of formattedItems) {
         const invoicedQty = invoicedQuantities.get(item.product_id) || 0;
         const pendingQty = Math.max(0, Number(item.quantity) - invoicedQty);
 
-        // Only return items with pending quantity
         if (pendingQty > 0) {
           enrichedItems.push({
             ...item,
@@ -451,7 +445,7 @@ export class SalesService {
         }
       }
 
-      const total_items = items.length;
+      const total_items = formattedItems.length;
       const pending_items = enrichedItems.length;
       const invoiced_items = total_items - pending_items;
       const completion_percentage =
@@ -459,11 +453,11 @@ export class SalesService {
 
       enrichedOrders.push({
         ...order,
+        items: enrichedItems,
         total_items,
         invoiced_items,
         pending_items,
         completion_percentage,
-        items: enrichedItems,
       });
     }
 
@@ -471,95 +465,108 @@ export class SalesService {
   }
 
   async getPayments(orgId?: string) {
-    const client = this.supabaseService.getClient();
-    let query = client
-      .from("sales_payments")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (orgId) query = query.eq("entity_id", orgId);
-    const { data, error } = await query;
-    if (error) throw error;
+    let sqlQuery = `SELECT * FROM sales_payments`;
+    const params: any[] = [];
+    if (orgId) {
+      params.push(orgId);
+      sqlQuery += ` WHERE entity_id = $1`;
+    }
+    sqlQuery += ` ORDER BY created_at DESC`;
+
+    const data = await client.unsafe(sqlQuery, params);
     return data ?? [];
   }
 
   async createPayment(body: any, orgId: string) {
-    const client = this.supabaseService.getClient();
     const payload = {
       ...body,
       entity_id: body?.entity_id ?? orgId,
       created_at: body?.created_at ?? new Date().toISOString(),
       updated_at: body?.updated_at ?? new Date().toISOString(),
     };
-    const { data, error } = await client
-      .from("sales_payments")
-      .insert([payload])
-      .select("*")
-      .single();
-    if (error) throw error;
-    return data;
+
+    const keys = Object.keys(payload);
+    const cols = keys.map((k) => `"${k}"`).join(", ");
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+    const values: any[] = Object.values(payload);
+
+    const rows = await client.unsafe(
+      `INSERT INTO sales_payments (${cols}) VALUES (${placeholders}) RETURNING *`,
+      values,
+    );
+
+    return rows[0];
   }
 
   async getPaymentLinks(orgId?: string) {
-    const client = this.supabaseService.getClient();
-    let query = client
-      .from("sales_payment_links")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (orgId) query = query.eq("entity_id", orgId);
-    const { data, error } = await query;
-    if (error) throw error;
+    let sqlQuery = `SELECT * FROM sales_payment_links`;
+    const params: any[] = [];
+    if (orgId) {
+      params.push(orgId);
+      sqlQuery += ` WHERE entity_id = $1`;
+    }
+    sqlQuery += ` ORDER BY created_at DESC`;
+
+    const data = await client.unsafe(sqlQuery, params);
     return data ?? [];
   }
 
   async createPaymentLink(body: any, orgId: string) {
-    const client = this.supabaseService.getClient();
     const payload = {
       ...body,
       entity_id: body?.entity_id ?? orgId,
       created_at: body?.created_at ?? new Date().toISOString(),
       updated_at: body?.updated_at ?? new Date().toISOString(),
     };
-    const { data, error } = await client
-      .from("sales_payment_links")
-      .insert([payload])
-      .select("*")
-      .single();
-    if (error) throw error;
-    return data;
+
+    const keys = Object.keys(payload);
+    const cols = keys.map((k) => `"${k}"`).join(", ");
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+    const values: any[] = Object.values(payload);
+
+    const rows = await client.unsafe(
+      `INSERT INTO sales_payment_links (${cols}) VALUES (${placeholders}) RETURNING *`,
+      values,
+    );
+
+    return rows[0];
   }
 
   async getEWayBills(orgId?: string) {
-    const client = this.supabaseService.getClient();
-    let query = client
-      .from("sales_eway_bills")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (orgId) query = query.eq("entity_id", orgId);
-    const { data, error } = await query;
-    if (error) throw error;
+    let sqlQuery = `SELECT * FROM sales_eway_bills`;
+    const params: any[] = [];
+    if (orgId) {
+      params.push(orgId);
+      sqlQuery += ` WHERE entity_id = $1`;
+    }
+    sqlQuery += ` ORDER BY created_at DESC`;
+
+    const data = await client.unsafe(sqlQuery, params);
     return data ?? [];
   }
 
   async createEWayBill(body: any, orgId: string) {
-    const client = this.supabaseService.getClient();
     const payload = {
       ...body,
       entity_id: body?.entity_id ?? orgId,
       created_at: body?.created_at ?? new Date().toISOString(),
       updated_at: body?.updated_at ?? new Date().toISOString(),
     };
-    const { data, error } = await client
-      .from("sales_eway_bills")
-      .insert([payload])
-      .select("*")
-      .single();
-    if (error) throw error;
-    return data;
+
+    const keys = Object.keys(payload);
+    const cols = keys.map((k) => `"${k}"`).join(", ");
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+    const values: any[] = Object.values(payload);
+
+    const rows = await client.unsafe(
+      `INSERT INTO sales_eway_bills (${cols}) VALUES (${placeholders}) RETURNING *`,
+      values,
+    );
+
+    return rows[0];
   }
 
   async createSalesOrder(body: any, orgId: string) {
-    const client = this.supabaseService.getClient();
-
     const {
       customerId,
       saleNumber,
@@ -611,10 +618,10 @@ export class SalesService {
     >();
 
     if (taxIdSet.length > 0) {
-      const { data: assocTaxes } = await client
-        .from("tax_rates")
-        .select("id, tax_rate")
-        .in("id", taxIdSet);
+      const assocTaxes = await client.unsafe(
+        `SELECT id, tax_rate FROM tax_rates WHERE id = ANY($1)`,
+        [taxIdSet],
+      );
 
       for (const t of assocTaxes ?? []) {
         taxResolutionMap.set(t.id, {
@@ -625,10 +632,10 @@ export class SalesService {
 
       const unresolved = taxIdSet.filter((id) => !taxResolutionMap.has(id));
       if (unresolved.length > 0) {
-        const { data: groups } = await client
-          .from("tax_groups")
-          .select("id, tax_rate")
-          .in("id", unresolved);
+        const groups = await client.unsafe(
+          `SELECT id, tax_rate FROM tax_groups WHERE id = ANY($1)`,
+          [unresolved],
+        );
         for (const g of groups ?? []) {
           taxResolutionMap.set(g.id, {
             tax_id: null,
@@ -702,55 +709,83 @@ export class SalesService {
       ? this.sanitizeSaleNumber(saleNumber)
       : (saleNumber || null);
 
-    const { data: order, error } = await client
-      .from("sales_orders")
-      .insert({
-        entity_id: orgId,
-        customer_id: customerId,
-        sale_number: sanitizedSaleNumber,
-        reference: reference || null,
-        sale_date: saleDate || new Date().toISOString(),
-        expected_shipment_date: expectedShipmentDate || null,
-        payment_term_id: paymentTerms || null,
-        delivery_method: deliveryMethod || null,
-        salesperson_name: salesperson || null,
-        status: status || "Draft",
-        document_type: documentType,
-        sub_total: finalSubTotal,
-        tax_total: finalTaxTotal,
-        discount_total: computedDiscountTotal,
-        shipping_charges: finalShipping,
-        adjustment: finalAdjustment,
-        total_quantity: computedTotalQuantity,
-        total: finalTotal,
-        customer_notes: customerNotes || null,
-        terms_and_conditions: termsAndConditions || null,
-        warehouse_id: warehouseId || null,
-        price_list_id: priceListId || null,
-        place_of_supply: placeOfSupply || null,
-        gst_treatment: gstTreatment || null,
-        tds_tcs_type: sanitizedTdsTcsType,
-        tds_tcs_tax_id: tdsTcsTaxId || null,
-        tds_tcs_amount: tdsTcsAmount ? Number(tdsTcsAmount) : 0,
-        is_delete: false,
-      })
-      .select()
-      .single();
+    const createdOrders = await client.unsafe(
+      `INSERT INTO sales_orders (
+        entity_id, customer_id, sale_number, reference, sale_date, expected_shipment_date,
+        payment_term_id, delivery_method, salesperson_name, status, document_type,
+        sub_total, tax_total, discount_total, shipping_charges, adjustment, total_quantity,
+        total, customer_notes, terms_and_conditions, warehouse_id, price_list_id,
+        place_of_supply, gst_treatment, tds_tcs_type, tds_tcs_tax_id, tds_tcs_amount, is_delete
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, false)
+      RETURNING *`,
+      [
+        orgId,
+        customerId,
+        sanitizedSaleNumber,
+        reference || null,
+        saleDate || new Date().toISOString(),
+        expectedShipmentDate || null,
+        paymentTerms || null,
+        deliveryMethod || null,
+        salesperson || null,
+        status || "Draft",
+        documentType,
+        finalSubTotal,
+        finalTaxTotal,
+        computedDiscountTotal,
+        finalShipping,
+        finalAdjustment,
+        computedTotalQuantity,
+        finalTotal,
+        customerNotes || null,
+        termsAndConditions || null,
+        warehouseId || null,
+        priceListId || null,
+        placeOfSupply || null,
+        gstTreatment || null,
+        sanitizedTdsTcsType,
+        tdsTcsTaxId || null,
+        tdsTcsAmount ? Number(tdsTcsAmount) : 0,
+      ],
+    );
 
-    if (error) throw error;
+    const order = createdOrders[0];
+    if (!order) throw new Error("Failed to create sales order");
 
     if (processedItems.length > 0) {
-      const { error: itemsError } = await client
-        .from("sales_order_items")
-        .insert(
-          processedItems.map((item) => ({
-            ...item,
-            sales_order_id: order.id,
-          })),
-        );
-
-      if (itemsError) {
-        await client.from("sales_orders").delete().eq("id", order.id);
+      try {
+        for (const item of processedItems) {
+          await client.unsafe(
+            `INSERT INTO sales_order_items (
+              entity_id, sales_order_id, line_no, product_id, description, quantity, rate,
+              discount_type, discount_value, discount_amount, tax_id, tax_rate, tax_amount,
+              amount, hsn_code, accounts, pricelist, warehouse_id, is_invoiced
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
+            [
+              item.entity_id,
+              order.id,
+              item.line_no,
+              item.product_id,
+              item.description,
+              item.quantity,
+              item.rate,
+              item.discount_type,
+              item.discount_value,
+              item.discount_amount,
+              item.tax_id,
+              item.tax_rate,
+              item.tax_amount,
+              item.amount,
+              item.hsn_code,
+              item.accounts,
+              item.pricelist,
+              item.warehouse_id,
+              item.is_invoiced,
+            ],
+          );
+        }
+      } catch (itemsError) {
+        await client.unsafe(`DELETE FROM sales_orders WHERE id = $1`, [order.id]);
         throw itemsError;
       }
     }
@@ -759,16 +794,12 @@ export class SalesService {
   }
 
   async updateSalesOrder(id: string, body: any, orgId: string) {
-    const client = this.supabaseService.getClient();
+    const existing = await client.unsafe(
+      `SELECT id, document_type FROM sales_orders WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+      [id, orgId],
+    );
 
-    const { data: existing, error: fetchError } = await client
-      .from("sales_orders")
-      .select("id, document_type")
-      .eq("id", id)
-      .eq("entity_id", orgId)
-      .single();
-
-    if (fetchError || !existing)
+    if (!existing[0])
       throw new NotFoundException(`Sales order ${id} not found`);
 
     const {
@@ -781,7 +812,7 @@ export class SalesService {
       deliveryMethod,
       salesperson,
       status,
-      documentType = existing.document_type,
+      documentType = existing[0].document_type,
       shippingCharges,
       adjustment,
       customerNotes,
@@ -818,10 +849,10 @@ export class SalesService {
     >();
 
     if (taxIdSet.length > 0) {
-      const { data: assocTaxes } = await client
-        .from("tax_rates")
-        .select("id, tax_rate")
-        .in("id", taxIdSet);
+      const assocTaxes = await client.unsafe(
+        `SELECT id, tax_rate FROM tax_rates WHERE id = ANY($1)`,
+        [taxIdSet],
+      );
 
       for (const t of assocTaxes ?? []) {
         taxResolutionMap.set(t.id, {
@@ -832,10 +863,10 @@ export class SalesService {
 
       const unresolved = taxIdSet.filter((id) => !taxResolutionMap.has(id));
       if (unresolved.length > 0) {
-        const { data: groups } = await client
-          .from("tax_groups")
-          .select("id, tax_rate")
-          .in("id", unresolved);
+        const groups = await client.unsafe(
+          `SELECT id, tax_rate FROM tax_groups WHERE id = ANY($1)`,
+          [unresolved],
+        );
         for (const g of groups ?? []) {
           taxResolutionMap.set(g.id, {
             tax_id: null,
@@ -910,106 +941,133 @@ export class SalesService {
       ? this.sanitizeSaleNumber(saleNumber)
       : (saleNumber || null);
 
-    const { data: order, error: updateError } = await client
-      .from("sales_orders")
-      .update({
-        customer_id: customerId,
-        sale_number: sanitizedSaleNumber,
-        reference: reference || null,
-        sale_date: saleDate || null,
-        expected_shipment_date: expectedShipmentDate || null,
-        payment_term_id: paymentTerms || null,
-        delivery_method: deliveryMethod || null,
-        salesperson_name: salesperson || null,
-        status: status || "Draft",
-        sub_total: finalSubTotal,
-        tax_total: finalTaxTotal,
-        discount_total: computedDiscountTotal,
-        shipping_charges: finalShipping,
-        adjustment: finalAdjustment,
-        total_quantity: computedTotalQuantity,
-        total: finalTotal,
-        customer_notes: customerNotes || null,
-        terms_and_conditions: termsAndConditions || null,
-        warehouse_id: warehouseId || null,
-        price_list_id: priceListId || null,
-        place_of_supply: placeOfSupply || null,
-        gst_treatment: gstTreatment || null,
-        tds_tcs_type: sanitizedTdsTcsType,
-        tds_tcs_tax_id: tdsTcsTaxId || null,
-        tds_tcs_amount: tdsTcsAmount ? Number(tdsTcsAmount) : 0,
-      })
-      .eq("id", id)
-      .eq("entity_id", orgId)
-      .select()
-      .single();
+    const updatedOrders = await client.unsafe(
+      `UPDATE sales_orders SET
+         customer_id = $1, sale_number = $2, reference = $3, sale_date = $4,
+         expected_shipment_date = $5, payment_term_id = $6, delivery_method = $7,
+         salesperson_name = $8, status = $9, sub_total = $10, tax_total = $11,
+         discount_total = $12, shipping_charges = $13, adjustment = $14,
+         total_quantity = $15, total = $16, customer_notes = $17, terms_and_conditions = $18,
+         warehouse_id = $19, price_list_id = $20, place_of_supply = $21, gst_treatment = $22,
+         tds_tcs_type = $23, tds_tcs_tax_id = $24, tds_tcs_amount = $25, updated_at = NOW()
+       WHERE id = $26 AND entity_id = $27
+       RETURNING *`,
+      [
+        customerId,
+        sanitizedSaleNumber,
+        reference || null,
+        saleDate || null,
+        expectedShipmentDate || null,
+        paymentTerms || null,
+        deliveryMethod || null,
+        salesperson || null,
+        status || "Draft",
+        finalSubTotal,
+        finalTaxTotal,
+        computedDiscountTotal,
+        finalShipping,
+        finalAdjustment,
+        computedTotalQuantity,
+        finalTotal,
+        customerNotes || null,
+        termsAndConditions || null,
+        warehouseId || null,
+        priceListId || null,
+        placeOfSupply || null,
+        gstTreatment || null,
+        sanitizedTdsTcsType,
+        tdsTcsTaxId || null,
+        tdsTcsAmount ? Number(tdsTcsAmount) : 0,
+        id,
+        orgId,
+      ],
+    );
 
-    if (updateError) throw updateError;
+    const order = updatedOrders[0];
+    if (!order) throw new Error("Failed to update sales order");
 
-    const { error: deleteError } = await client
-      .from("sales_order_items")
-      .delete()
-      .eq("sales_order_id", id)
-      .eq("entity_id", orgId);
-
-    if (deleteError) throw deleteError;
+    await client.unsafe(
+      `DELETE FROM sales_order_items WHERE sales_order_id = $1 AND entity_id = $2`,
+      [id, orgId],
+    );
 
     if (processedItems.length > 0) {
-      const { error: itemsError } = await client
-        .from("sales_order_items")
-        .insert(processedItems);
-
-      if (itemsError) throw itemsError;
+      for (const item of processedItems) {
+        await client.unsafe(
+          `INSERT INTO sales_order_items (
+            entity_id, sales_order_id, line_no, product_id, description, quantity, rate,
+            discount_type, discount_value, discount_amount, tax_id, tax_rate, tax_amount,
+            amount, hsn_code, accounts, pricelist, warehouse_id, is_invoiced
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
+          [
+            item.entity_id,
+            item.sales_order_id,
+            item.line_no,
+            item.product_id,
+            item.description,
+            item.quantity,
+            item.rate,
+            item.discount_type,
+            item.discount_value,
+            item.discount_amount,
+            item.tax_id,
+            item.tax_rate,
+            item.tax_amount,
+            item.amount,
+            item.hsn_code,
+            item.accounts,
+            item.pricelist,
+            item.warehouse_id,
+            item.is_invoiced,
+          ],
+        );
+      }
     }
 
     return order;
   }
 
   async getInvoices(orgId: string) {
-    const client = this.supabaseService.getClient();
-    const { data: invoices, error } = await client
-      .from("invoice_master")
-      .select("*")
-      .eq("entity_id", orgId)
-      .neq("is_delete", true)
-      .order("created_at", { ascending: false });
+    const invoices = await client.unsafe(
+      `SELECT * FROM invoice_master WHERE entity_id = $1 AND (is_delete IS NULL OR is_delete = false) ORDER BY created_at DESC`,
+      [orgId],
+    );
 
-    if (error) throw error;
     if (!invoices || invoices.length === 0) return [];
 
     const customerIds = Array.from(
-      new Set(invoices.map((inv) => inv.customer_id).filter(Boolean)),
+      new Set(invoices.map((inv: any) => inv.customer_id).filter(Boolean)),
     );
 
     const customersMap = new Map<string, any>();
     if (customerIds.length > 0) {
-      const { data: customersData, error: customersError } = await client
-        .from("customers")
-        .select("id, display_name, first_name, last_name, company_name")
-        .in("id", customerIds);
+      const customersData = await client.unsafe(
+        `SELECT id, display_name, first_name, last_name, company_name FROM customers WHERE id = ANY($1)`,
+        [customerIds],
+      );
 
-      if (!customersError && customersData) {
+      if (customersData) {
         for (const customer of customersData) {
           customersMap.set(customer.id, customer);
         }
       }
     }
 
-    const invoiceIds = invoices.map((inv) => inv.id);
+    const invoiceIds = invoices.map((inv: any) => inv.id);
     const invoiceSoMap = new Map<string, { order_number: string; sales_order_id: string }>();
     try {
       if (invoiceIds.length > 0) {
-        const { data: linkedLinks } = await client
-          .from("invoice_sales_orders")
-          .select("invoice_id, sales_order_id")
-          .in("invoice_id", invoiceIds);
+        const linkedLinks = await client.unsafe(
+          `SELECT invoice_id, sales_order_id FROM invoice_sales_orders WHERE invoice_id = ANY($1)`,
+          [invoiceIds],
+        );
 
         if (linkedLinks && linkedLinks.length > 0) {
-          const soIds = Array.from(new Set(linkedLinks.map((l) => l.sales_order_id)));
-          const { data: sos } = await client
-            .from("sales_orders")
-            .select("id, sale_number")
-            .in("id", soIds);
+          const soIds = Array.from(new Set(linkedLinks.map((l: any) => l.sales_order_id)));
+          const sos = await client.unsafe(
+            `SELECT id, sale_number FROM sales_orders WHERE id = ANY($1)`,
+            [soIds],
+          );
 
           const soMap = new Map<string, string>();
           if (sos) {
@@ -1033,7 +1091,7 @@ export class SalesService {
       // ignore
     }
 
-    return invoices.map((inv) => ({
+    return invoices.map((inv: any) => ({
       ...inv,
       customer: inv.customer_id
         ? customersMap.get(inv.customer_id) || null
@@ -1044,35 +1102,31 @@ export class SalesService {
   }
 
   async getInvoiceById(id: string, orgId: string) {
-    const client = this.supabaseService.getClient();
-    const { data: invoice, error: invoiceError } = await client
-      .from("invoice_master")
-      .select("*")
-      .eq("entity_id", orgId)
-      .eq("id", id)
-      .single();
+    const invoices = await client.unsafe(
+      `SELECT * FROM invoice_master WHERE entity_id = $1 AND id = $2 LIMIT 1`,
+      [orgId, id],
+    );
 
-    if (invoiceError) throw invoiceError;
+    const invoice = invoices[0];
+    if (!invoice) throw new NotFoundException(`Invoice ${id} not found`);
 
     let customer: any = null;
     if (invoice?.customer_id) {
-      const { data: customerData } = await client
-        .from("customers")
-        .select("id, display_name, first_name, last_name, company_name")
-        .eq("id", invoice.customer_id)
-        .maybeSingle();
+      const customers = await client.unsafe(
+        `SELECT id, display_name, first_name, last_name, company_name FROM customers WHERE id = $1 LIMIT 1`,
+        [invoice.customer_id],
+      );
 
-      if (customerData) {
-        customer = { ...customerData };
-        const { data: addresses } = await client
-          .from("customer_addresses")
-          .select("*")
-          .eq("customer_id", invoice.customer_id)
-          .eq("is_active", true);
+      if (customers[0]) {
+        customer = { ...customers[0] };
+        const addresses = await client.unsafe(
+          `SELECT * FROM customer_addresses WHERE customer_id = $1 AND is_active = true`,
+          [invoice.customer_id],
+        );
 
         if (addresses) {
-          const billing = addresses.find((a) => a.is_default_billing) ||
-                          addresses.find((a) => a.address_type === "billing");
+          const billing = addresses.find((a: any) => a.is_default_billing) ||
+                          addresses.find((a: any) => a.address_type === "billing");
           if (billing) {
             customer.billing_address_street_1 = billing.address_street;
             customer.billing_address_street_2 = billing.address_place;
@@ -1082,8 +1136,8 @@ export class SalesService {
             customer.billing_address_country_id = billing.country_region;
             customer.billing_address_phone = billing.phone;
           }
-          const shipping = addresses.find((a) => a.is_default_shipping) ||
-                           addresses.find((a) => a.address_type === "shipping");
+          const shipping = addresses.find((a: any) => a.is_default_shipping) ||
+                           addresses.find((a: any) => a.address_type === "shipping");
           if (shipping) {
             customer.shipping_address_street_1 = shipping.address_street;
             customer.shipping_address_street_2 = shipping.address_place;
@@ -1097,37 +1151,30 @@ export class SalesService {
       }
     }
 
-    const { data: items, error: itemsError } = await client
-      .from("invoice_items")
-      .select("*")
-      .eq("invoice_id", id);
-
-    if (itemsError) throw itemsError;
+    const items = await client.unsafe(
+      `SELECT * FROM invoice_items WHERE invoice_id = $1`,
+      [id],
+    );
 
     const productIds = (items || [])
-      .map((item) => item.product_id)
+      .map((item: any) => item.product_id)
       .filter(Boolean);
     const productMap = new Map<string, any>();
     if (productIds.length > 0) {
-      const { data: productsData } = await client
-        .from("products")
-        .select(
-          `
-          id,
-          product_name,
-          sku,
-          item_code,
-          unit_id,
-          hsn_code:hsn_sac_code,
-          sales_account_id,
-          unit:units(unit_name)
-        `,
-        )
-        .in("id", productIds);
+      const productsData = await client.unsafe(
+        `SELECT p.id, p.product_name, p.sku, p.item_code, p.unit_id, p.hsn_sac_code as hsn_code, p.sales_account_id, u.unit_name
+         FROM products p
+         LEFT JOIN units u ON u.id = p.unit_id
+         WHERE p.id = ANY($1)`,
+        [productIds],
+      );
 
       if (productsData) {
         for (const p of productsData) {
-          productMap.set(p.id, p);
+          productMap.set(p.id, {
+            ...p,
+            unit: p.unit_name ? { unit_name: p.unit_name } : null,
+          });
         }
       }
     }
@@ -1142,79 +1189,72 @@ export class SalesService {
         account_id: item.accounts || product?.sales_account_id || null,
       };
 
-      const { data: batches, error: batchesError } = await client
-        .from("invoice_item_batches")
-        .select(
-          `
-          *,
-          batch:batch_master(
-            id,
-            batch_no,
-            expiry_date,
-            unit_pack,
-            manufacture_batch_number,
-            manufacture_exp
-          )
-        `,
-        )
-        .eq("invoice_item_id", item.id);
+      try {
+        const batches = await client.unsafe(
+          `SELECT iib.*, bm.batch_no, bm.expiry_date, bm.unit_pack, bm.manufacture_batch_number, bm.manufacture_exp
+           FROM invoice_item_batches iib
+           LEFT JOIN batch_master bm ON bm.id = iib.batch_id
+           WHERE iib.invoice_item_id = $1`,
+          [item.id],
+        );
 
-      if (!batchesError) {
-        let enrichedBatches = batches || [];
-        if (batches && batches.length > 0) {
-          const binIds = batches.map((b) => b.bin_id).filter((id) => !!id);
+        let enrichedBatches = (batches ?? []).map((b: any) => ({
+          ...b,
+          batch: b.batch_id
+            ? {
+                id: b.batch_id,
+                batch_no: b.batch_no,
+                expiry_date: b.expiry_date,
+                unit_pack: b.unit_pack,
+                manufacture_batch_number: b.manufacture_batch_number,
+                manufacture_exp: b.manufacture_exp,
+              }
+            : null,
+        }));
+
+        if (enrichedBatches.length > 0) {
+          const binIds = enrichedBatches.map((b: any) => b.bin_id).filter(Boolean);
           if (binIds.length > 0) {
-            const { data: bins, error: binsError } = await client
-              .from("bin_master")
-              .select("id, bin_code")
-              .in("id", binIds);
+            const bins = await client.unsafe(
+              `SELECT id, bin_code FROM bin_master WHERE id = ANY($1)`,
+              [binIds],
+            );
 
-            if (!binsError && bins) {
-              const binMap = new Map(bins.map((b) => [b.id, b]));
-              enrichedBatches = batches.map((b) => ({
+            if (bins) {
+              const binMap = new Map(bins.map((b: any) => [b.id, b]));
+              enrichedBatches = enrichedBatches.map((b: any) => ({
                 ...b,
                 bin: b.bin_id ? binMap.get(b.bin_id) || null : null,
               }));
-            } else if (binsError) {
-              console.error(`[DEBUG] Bins query error for item ${item.id}:`, binsError.message);
             }
           }
-        }
-
-        console.log(`[DEBUG] Item ${item.id} batches count: ${enrichedBatches.length}`);
-        if (enrichedBatches.length > 0) {
-          console.log(`[DEBUG] First batch data:`, JSON.stringify(enrichedBatches[0], null, 2));
         }
 
         enrichedItems.push({
           ...enrichedItem,
           batches: enrichedBatches,
         });
-      } else {
-        console.log(`[DEBUG] Batch error for item ${item.id}:`, batchesError.message);
+      } catch {
         enrichedItems.push(enrichedItem);
       }
     }
 
-    // Fetch associated sales order id and number
     let orderNumber: string | null = null;
     let salesOrderId: string | null = null;
     try {
-      const { data: linked } = await client
-        .from("invoice_sales_orders")
-        .select("sales_order_id")
-        .eq("invoice_id", id)
-        .maybeSingle();
+      const linked = await client.unsafe(
+        `SELECT sales_order_id FROM invoice_sales_orders WHERE invoice_id = $1 LIMIT 1`,
+        [id],
+      );
 
-      if (linked?.sales_order_id) {
-        salesOrderId = linked.sales_order_id;
-        const { data: so } = await client
-          .from("sales_orders")
-          .select("sale_number")
-          .eq("id", linked.sales_order_id)
-          .maybeSingle();
-        if (so) {
-          orderNumber = so.sale_number;
+      if (linked[0]?.sales_order_id) {
+        salesOrderId = linked[0].sales_order_id;
+        const so = await client.unsafe(
+          `SELECT sale_number FROM sales_orders WHERE id = $1 LIMIT 1`,
+          [salesOrderId],
+        );
+        if (so[0]) {
+          orderNumber = so[0].sale_number;
         }
       }
     } catch (e) {
@@ -1231,8 +1271,6 @@ export class SalesService {
   }
 
   async createInvoice(body: any, orgId: string, tenant?: TenantContext) {
-    const client = this.supabaseService.getClient();
-
     const {
       customerId,
       invoiceNumber,
@@ -1273,44 +1311,59 @@ export class SalesService {
       gstTreatment?.toLowerCase() === "unregistered_business" ||
       gstTreatment?.toLowerCase() === "unregistered business";
 
-    const { data: invoice, error: invoiceError } = await client
-      .from("invoice_master")
-      .insert({
-        entity_id: orgId,
-        customer_id: customerId,
-        invoice_number: invoiceNumber,
-        invoice_date: invoiceDate,
-        due_date: dueDate || null,
-        payment_terms: paymentTerms || null,
-        salesperson_id: salespersonId || null,
-        subject: subject || null,
-        customer_notes: customerNotes || null,
-        terms_conditions: termsConditions || null,
-        price_list_id: priceListId || null,
-        warehouse_id: warehouseId || null,
-        place_of_supply: placeOfSupply || null,
-        gst_treatment: gstTreatment || null,
-        shipping_charges: Number(shippingCharges) || 0,
-        adjustment_amount: Number(adjustmentAmount) || 0,
-        round_off: Number(roundOff) || 0,
-        subtotal: Number(subtotal) || 0,
-        tax_total: isUnregistered ? 0 : (Number(taxTotal) || 0),
-        tds_total: Number(tdsTotal) || 0,
-        tcs_total: Number(tcsTotal) || 0,
-        grand_total: isUnregistered
-          ? (Number(subtotal) || 0) + (Number(shippingCharges) || 0) + (Number(adjustmentAmount) || 0) + (Number(roundOff) || 0)
-          : (Number(grandTotal) || 0),
-        inventory_flow_type: inventoryFlowType || "DIRECT_INVOICE",
-        status: status || "draft",
-        is_batch_allocated: resolvedItems.some(
-          (i: any) => i.batches && i.batches.length > 0,
-        ),
-        is_delete: false,
-      })
-      .select()
-      .single();
+    const isBatchAllocated = resolvedItems.some(
+      (i: any) => i.batches && i.batches.length > 0,
+    );
 
-    if (invoiceError) throw invoiceError;
+    const finalSubtotal = Number(subtotal) || 0;
+    const finalShipping = Number(shippingCharges) || 0;
+    const finalAdjustment = Number(adjustmentAmount) || 0;
+    const finalRoundOff = Number(roundOff) || 0;
+    const finalTaxTotal = isUnregistered ? 0 : (Number(taxTotal) || 0);
+    const finalGrandTotal = isUnregistered
+      ? finalSubtotal + finalShipping + finalAdjustment + finalRoundOff
+      : (Number(grandTotal) || 0);
+
+    const invoiceRows = await client.unsafe(
+      `INSERT INTO invoice_master (
+        entity_id, customer_id, invoice_number, invoice_date, due_date, payment_terms,
+        salesperson_id, subject, customer_notes, terms_conditions, price_list_id, warehouse_id,
+        place_of_supply, gst_treatment, shipping_charges, adjustment_amount, round_off,
+        subtotal, tax_total, tds_total, tcs_total, grand_total, inventory_flow_type,
+        status, is_batch_allocated, is_delete
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, false)
+      RETURNING *`,
+      [
+        orgId,
+        customerId,
+        invoiceNumber,
+        invoiceDate,
+        dueDate || null,
+        paymentTerms || null,
+        salespersonId || null,
+        subject || null,
+        customerNotes || null,
+        termsConditions || null,
+        priceListId || null,
+        warehouseId || null,
+        placeOfSupply || null,
+        gstTreatment || null,
+        finalShipping,
+        finalAdjustment,
+        finalRoundOff,
+        finalSubtotal,
+        finalTaxTotal,
+        Number(tdsTotal) || 0,
+        Number(tcsTotal) || 0,
+        finalGrandTotal,
+        inventoryFlowType || "DIRECT_INVOICE",
+        status || "draft",
+        isBatchAllocated,
+      ],
+    );
+
+    const invoice = invoiceRows[0];
+    if (!invoice) throw new Error("Failed to create invoice");
 
     let originalSalesOrderStatus = "confirmed";
     let originalSalesOrderItemsState: any[] = [];
@@ -1318,38 +1371,29 @@ export class SalesService {
 
     try {
       if (salesOrderId) {
-        // Fetch current sales order status to restore on rollback
-        const { data: soData } = await client
-          .from("sales_orders")
-          .select("status")
-          .eq("id", salesOrderId)
-          .eq("entity_id", orgId)
-          .single();
-        if (soData) {
-          originalSalesOrderStatus = soData.status;
+        const soRows = await client.unsafe(
+          `SELECT status FROM sales_orders WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+          [salesOrderId, orgId],
+        );
+        if (soRows[0]) {
+          originalSalesOrderStatus = soRows[0].status;
         }
 
-        // 1. Get all sales order items for this sales order
-        const { data: soItems, error: getSoItemsErr } = await client
-          .from("sales_order_items")
-          .select("*")
-          .eq("sales_order_id", salesOrderId)
-          .eq("entity_id", orgId);
-
-        if (getSoItemsErr) throw getSoItemsErr;
+        const soItems = await client.unsafe(
+          `SELECT * FROM sales_order_items WHERE sales_order_id = $1 AND entity_id = $2`,
+          [salesOrderId, orgId],
+        );
 
         if (soItems && soItems.length > 0) {
-          // Keep a copy of original state for rollback
           originalSalesOrderItemsState = soItems.map((item: any) => ({
             id: item.id,
             is_invoiced: item.is_invoiced,
           }));
 
-          // Calculate previously invoiced quantities (excluding the current invoice)
-          const { data: linkedInvoices } = await client
-            .from("invoice_sales_orders")
-            .select("invoice_id")
-            .eq("sales_order_id", salesOrderId);
+          const linkedInvoices = await client.unsafe(
+            `SELECT invoice_id FROM invoice_sales_orders WHERE sales_order_id = $1`,
+            [salesOrderId],
+          );
 
           const invoiceIds = (linkedInvoices ?? []).map(
             (li: any) => li.invoice_id,
@@ -1357,10 +1401,10 @@ export class SalesService {
           const invoicedQuantities = new Map<string, number>();
 
           if (invoiceIds.length > 0) {
-            const { data: invItems } = await client
-              .from("invoice_items")
-              .select("product_id, quantity")
-              .in("invoice_id", invoiceIds);
+            const invItems = await client.unsafe(
+              `SELECT product_id, quantity FROM invoice_items WHERE invoice_id = ANY($1)`,
+              [invoiceIds],
+            );
 
             for (const item of invItems ?? []) {
               const current = invoicedQuantities.get(item.product_id) || 0;
@@ -1371,7 +1415,6 @@ export class SalesService {
             }
           }
 
-          // Validate new invoice quantities against pending quantities before modifying any DB rows!
           for (const soItem of soItems) {
             const previouslyInvoiced =
               invoicedQuantities.get(soItem.product_id) || 0;
@@ -1395,14 +1438,10 @@ export class SalesService {
             }
           }
 
-          // Now apply updates
-          const { error: soErr } = await client
-            .from("invoice_sales_orders")
-            .insert({
-              invoice_id: invoice.id,
-              sales_order_id: salesOrderId,
-            });
-          if (soErr) throw soErr;
+          await client.unsafe(
+            `INSERT INTO invoice_sales_orders (invoice_id, sales_order_id) VALUES ($1, $2)`,
+            [invoice.id, salesOrderId],
+          );
 
           for (const soItem of soItems) {
             const previouslyInvoiced =
@@ -1419,66 +1458,61 @@ export class SalesService {
             const totalInvoiced = previouslyInvoiced + newInvoiceQty;
             const isFullyInvoiced = totalInvoiced >= Number(soItem.quantity);
 
-            // Update is_invoiced in DB
-            const { error: updateItemErr } = await client
-              .from("sales_order_items")
-              .update({ is_invoiced: isFullyInvoiced })
-              .eq("id", soItem.id)
-              .eq("entity_id", orgId);
-            if (updateItemErr) throw updateItemErr;
+            await client.unsafe(
+              `UPDATE sales_order_items SET is_invoiced = $1 WHERE id = $2 AND entity_id = $3`,
+              [isFullyInvoiced, soItem.id, orgId],
+            );
 
-            soItem.is_invoiced = isFullyInvoiced; // Update local state for subsequent closing check
+            soItem.is_invoiced = isFullyInvoiced;
           }
 
-          // Check if ALL items under that sales order are now set to is_invoiced == true
           const allInvoiced = soItems.every(
             (item: any) =>
               item.is_invoiced === true || item.is_invoiced === "true",
           );
           if (allInvoiced) {
-            // Update sales order status to 'closed'
-            const { error: updateSoErr } = await client
-              .from("sales_orders")
-              .update({ status: "closed" })
-              .eq("id", salesOrderId)
-              .eq("entity_id", orgId);
-            if (updateSoErr) throw updateSoErr;
+            await client.unsafe(
+              `UPDATE sales_orders SET status = 'closed' WHERE id = $1 AND entity_id = $2`,
+              [salesOrderId, orgId],
+            );
           }
         }
       }
 
       if (packageId) {
-        const { error: pkgErr } = await client.from("invoice_packages").insert({
-          invoice_id: invoice.id,
-          package_id: packageId,
-        });
-        if (pkgErr) throw pkgErr;
+        await client.unsafe(
+          `INSERT INTO invoice_packages (invoice_id, package_id) VALUES ($1, $2)`,
+          [invoice.id, packageId],
+        );
       }
 
       for (const item of resolvedItems) {
-        const { data: insertedItem, error: itemError } = await client
-          .from("invoice_items")
-          .insert({
-            invoice_id: invoice.id,
-            product_id: item.productId || item.itemId,
-            description: item.description || null,
-            quantity: Number(item.quantity) || 0,
-            rate: Number(item.rate) || 0,
-            discount_type: item.discountType || null,
-            discount_value: Number(item.discountValue) || 0,
-            tax_id: isUnregistered ? null : (item.taxId || null),
-            tax_percentage: isUnregistered ? 0 : (Number(item.taxPercentage) || 0),
-            taxable_amount: Number(item.taxableAmount) || 0,
-            tax_amount: isUnregistered ? 0 : (Number(item.taxAmount) || 0),
-            line_total: isUnregistered ? (Number(item.taxableAmount) || 0) : (Number(item.lineTotal) || 0),
-            foc_quantity: Number(item.focQuantity) || 0,
-            hsn_code: item.hsnCode || "0",
-            accounts: item.accounts || null,
-          })
-          .select()
-          .single();
+        const itemRows = await client.unsafe(
+          `INSERT INTO invoice_items (
+            invoice_id, product_id, description, quantity, rate, discount_type, discount_value,
+            tax_id, tax_percentage, taxable_amount, tax_amount, line_total, foc_quantity, hsn_code, accounts
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          RETURNING *`,
+          [
+            invoice.id,
+            item.productId || item.itemId,
+            item.description || null,
+            Number(item.quantity) || 0,
+            Number(item.rate) || 0,
+            item.discountType || null,
+            Number(item.discountValue) || 0,
+            isUnregistered ? null : (item.taxId || null),
+            isUnregistered ? 0 : (Number(item.taxPercentage) || 0),
+            Number(item.taxableAmount) || 0,
+            isUnregistered ? 0 : (Number(item.taxAmount) || 0),
+            isUnregistered ? (Number(item.taxableAmount) || 0) : (Number(item.lineTotal) || 0),
+            Number(item.focQuantity) || 0,
+            item.hsnCode || "0",
+            item.accounts || null,
+          ],
+        );
 
-        if (itemError) throw itemError;
+        const insertedItem = itemRows[0];
 
         if (item.batches && item.batches.length > 0) {
           for (const batch of item.batches) {
@@ -1486,73 +1520,67 @@ export class SalesService {
             const focQty = Number(batch.focQuantity) || 0;
             const totalOutQty = qty + focQty;
 
-            const { error: itemBatchError } = await client
-              .from("invoice_item_batches")
-              .insert({
-                invoice_item_id: insertedItem.id,
-                batch_id: batch.batchId,
-                layer_id: batch.layerId || null,
-                warehouse_id: batch.warehouseId || warehouseId,
-                bin_id: batch.binId || null,
-                quantity: qty,
-                foc_quantity: focQty,
-                purchase_rate: batch.purchaseRate
-                  ? Number(batch.purchaseRate)
-                  : null,
-                sales_rate: batch.salesRate ? Number(batch.salesRate) : null,
-                mrp: batch.mrp ? Number(batch.mrp) : null,
-                expiry_date: this.parseToIsoDate(batch.expiryDate),
-                manufacturer_batch: batch.manufacturerBatch || null,
-              })
-              .select()
-              .single();
+            await client.unsafe(
+              `INSERT INTO invoice_item_batches (
+                invoice_item_id, batch_id, layer_id, warehouse_id, bin_id, quantity, foc_quantity,
+                purchase_rate, sales_rate, mrp, expiry_date, manufacturer_batch
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+              [
+                insertedItem.id,
+                batch.batchId,
+                batch.layerId || null,
+                batch.warehouseId || warehouseId,
+                batch.binId || null,
+                qty,
+                focQty,
+                batch.purchaseRate ? Number(batch.purchaseRate) : null,
+                batch.salesRate ? Number(batch.salesRate) : null,
+                batch.mrp ? Number(batch.mrp) : null,
+                this.parseToIsoDate(batch.expiryDate),
+                batch.manufacturerBatch || null,
+              ],
+            );
 
-            if (itemBatchError) throw itemBatchError;
-
-            const { error: transError } = await client
-              .from("batch_transactions")
-              .insert({
-                batch_id: batch.batchId,
-                layer_id: batch.layerId || null,
-                product_id: item.productId,
-                entity_id: orgId,
-                warehouse_id: batch.warehouseId || warehouseId,
-                bin_id: batch.binId || null,
-                trans_type: "INVOICE",
-                stock_effect_type: "ACCOUNTING",
-                ref_id: invoice.id,
-                ref_no: invoiceNumber,
-                qty_in: 0,
-                qty_out: totalOutQty,
-                rate: batch.salesRate ? Number(batch.salesRate) : null,
-                trans_date: invoiceDate,
-              });
-
-            if (transError) throw transError;
+            await client.unsafe(
+              `INSERT INTO batch_transactions (
+                batch_id, layer_id, product_id, entity_id, warehouse_id, bin_id, trans_type,
+                stock_effect_type, ref_id, ref_no, qty_in, qty_out, rate, trans_date
+              ) VALUES ($1, $2, $3, $4, $5, $6, 'INVOICE', 'ACCOUNTING', $7, $8, 0, $9, $10, $11)`,
+              [
+                batch.batchId,
+                batch.layerId || null,
+                item.productId || item.itemId,
+                orgId,
+                batch.warehouseId || warehouseId,
+                batch.binId || null,
+                invoice.id,
+                invoiceNumber,
+                totalOutQty,
+                batch.salesRate ? Number(batch.salesRate) : null,
+                invoiceDate,
+              ],
+            );
 
             if (!packageId && batch.layerId) {
-              const { data: currentLayer, error: fetchLayerErr } = await client
-                .from("batch_stock_layers")
-                .select("qty")
-                .eq("id", batch.layerId)
-                .single();
+              const layerRows = await client.unsafe(
+                `SELECT qty FROM batch_stock_layers WHERE id = $1 LIMIT 1`,
+                [batch.layerId],
+              );
 
-              if (fetchLayerErr) throw fetchLayerErr;
+              if (layerRows[0]) {
+                const currentQty = Number(layerRows[0].qty) || 0;
+                const newQty = Math.max(0, currentQty - totalOutQty);
 
-              const currentQty = Number(currentLayer.qty) || 0;
-              const newQty = Math.max(0, currentQty - totalOutQty);
+                await client.unsafe(
+                  `UPDATE batch_stock_layers SET qty = $1 WHERE id = $2`,
+                  [newQty, batch.layerId],
+                );
 
-              const { error: updateLayerErr } = await client
-                .from("batch_stock_layers")
-                .update({ qty: newQty })
-                .eq("id", batch.layerId);
-
-              if (updateLayerErr) throw updateLayerErr;
-
-              updatedLayers.push({
-                layerId: batch.layerId,
-                quantityAdded: totalOutQty,
-              });
+                updatedLayers.push({
+                  layerId: batch.layerId,
+                  quantityAdded: totalOutQty,
+                });
+              }
             }
           }
         }
@@ -1563,40 +1591,33 @@ export class SalesService {
       return invoice;
     } catch (error) {
       try {
-        await client
-          .from("invoice_master")
-          .delete()
-          .eq("id", invoice.id)
-          .eq("entity_id", orgId);
+        await client.unsafe(`DELETE FROM invoice_master WHERE id = $1 AND entity_id = $2`, [invoice.id, orgId]);
 
         if (salesOrderId) {
-          await client
-            .from("sales_orders")
-            .update({ status: originalSalesOrderStatus })
-            .eq("id", salesOrderId)
-            .eq("entity_id", orgId);
+          await client.unsafe(
+            `UPDATE sales_orders SET status = $1 WHERE id = $2 AND entity_id = $3`,
+            [originalSalesOrderStatus, salesOrderId, orgId],
+          );
 
           for (const itemState of originalSalesOrderItemsState) {
-            await client
-              .from("sales_order_items")
-              .update({ is_invoiced: itemState.is_invoiced })
-              .eq("id", itemState.id)
-              .eq("entity_id", orgId);
+            await client.unsafe(
+              `UPDATE sales_order_items SET is_invoiced = $1 WHERE id = $2 AND entity_id = $3`,
+              [itemState.is_invoiced, itemState.id, orgId],
+            );
           }
         }
 
         for (const layerUpdate of updatedLayers) {
-          const { data: currentLayer } = await client
-            .from("batch_stock_layers")
-            .select("qty")
-            .eq("id", layerUpdate.layerId)
-            .single();
-          if (currentLayer) {
-            const currentQty = Number(currentLayer.qty) || 0;
-            await client
-              .from("batch_stock_layers")
-              .update({ qty: currentQty + layerUpdate.quantityAdded })
-              .eq("id", layerUpdate.layerId);
+          const currentLayers = await client.unsafe(
+            `SELECT qty FROM batch_stock_layers WHERE id = $1 LIMIT 1`,
+            [layerUpdate.layerId],
+          );
+          if (currentLayers[0]) {
+            const currentQty = Number(currentLayers[0].qty) || 0;
+            await client.unsafe(
+              `UPDATE batch_stock_layers SET qty = $1 WHERE id = $2`,
+              [currentQty + layerUpdate.quantityAdded, layerUpdate.layerId],
+            );
           }
         }
       } catch (rollbackError) {
@@ -1607,8 +1628,6 @@ export class SalesService {
   }
 
   async updateInvoice(id: string, body: any, orgId: string, tenant?: TenantContext) {
-    const client = this.supabaseService.getClient();
-
     const {
       customerId,
       invoiceNumber,
@@ -1643,123 +1662,129 @@ export class SalesService {
       throw new BadRequestException("invoiceNumber is required");
     if (!invoiceDate) throw new BadRequestException("invoiceDate is required");
 
-    // 1. Resolve new items
     const resolvedItems = await this.resolveItemFields(items, orgId);
 
-    // 2. Fetch old batch transactions for this invoice to revert stock layer quantities
-    const { data: oldTx } = await client
-      .from("batch_transactions")
-      .select("*")
-      .eq("ref_id", id)
-      .eq("entity_id", orgId)
-      .eq("trans_type", "INVOICE");
+    const oldTx = await client.unsafe(
+      `SELECT * FROM batch_transactions WHERE ref_id = $1 AND entity_id = $2 AND trans_type = 'INVOICE'`,
+      [id, orgId],
+    );
 
     const revertedLayers: { layerId: string; quantitySubtracted: number }[] = [];
     try {
       if (oldTx && oldTx.length > 0) {
         for (const tx of oldTx) {
           if (tx.layer_id && tx.qty_out) {
-            const { data: layer } = await client
-              .from("batch_stock_layers")
-              .select("qty")
-              .eq("id", tx.layer_id)
-              .maybeSingle();
-            if (layer) {
-              const currentQty = Number(layer.qty) || 0;
+            const layerRows = await client.unsafe(
+              `SELECT qty FROM batch_stock_layers WHERE id = $1 LIMIT 1`,
+              [tx.layer_id],
+            );
+            if (layerRows[0]) {
+              const currentQty = Number(layerRows[0].qty) || 0;
               const txQty = Number(tx.qty_out) || 0;
-              await client
-                .from("batch_stock_layers")
-                .update({ qty: currentQty + txQty })
-                .eq("id", tx.layer_id);
+              await client.unsafe(
+                `UPDATE batch_stock_layers SET qty = $1 WHERE id = $2`,
+                [currentQty + txQty, tx.layer_id],
+              );
               revertedLayers.push({ layerId: tx.layer_id, quantitySubtracted: txQty });
             }
           }
         }
       }
 
-      // 3. Delete old batch transactions and old invoice items (which cascades to invoice_item_batches)
-      await client
-        .from("batch_transactions")
-        .delete()
-        .eq("ref_id", id)
-        .eq("entity_id", orgId)
-        .eq("trans_type", "INVOICE");
+      await client.unsafe(
+        `DELETE FROM batch_transactions WHERE ref_id = $1 AND entity_id = $2 AND trans_type = 'INVOICE'`,
+        [id, orgId],
+      );
 
-      await client
-        .from("invoice_items")
-        .delete()
-        .eq("invoice_id", id);
+      await client.unsafe(`DELETE FROM invoice_items WHERE invoice_id = $1`, [id]);
 
       const isUnregistered =
         gstTreatment?.toLowerCase() === "unregistered_business" ||
         gstTreatment?.toLowerCase() === "unregistered business";
 
-      // 4. Update invoice_master
-      const { data: invoice, error: invoiceError } = await client
-        .from("invoice_master")
-        .update({
-          customer_id: customerId,
-          invoice_number: invoiceNumber,
-          invoice_date: invoiceDate,
-          due_date: dueDate || null,
-          payment_terms: paymentTerms || null,
-          salesperson_id: salespersonId || null,
-          subject: subject || null,
-          customer_notes: customerNotes || null,
-          terms_conditions: termsConditions || null,
-          price_list_id: priceListId || null,
-          warehouse_id: warehouseId || null,
-          place_of_supply: placeOfSupply || null,
-          gst_treatment: gstTreatment || null,
-          shipping_charges: Number(shippingCharges) || 0,
-          adjustment_amount: Number(adjustmentAmount) || 0,
-          round_off: Number(roundOff) || 0,
-          subtotal: Number(subtotal) || 0,
-          tax_total: isUnregistered ? 0 : (Number(taxTotal) || 0),
-          tds_total: Number(tdsTotal) || 0,
-          tcs_total: Number(tcsTotal) || 0,
-          grand_total: isUnregistered
-            ? (Number(subtotal) || 0) + (Number(shippingCharges) || 0) + (Number(adjustmentAmount) || 0) + (Number(roundOff) || 0)
-            : (Number(grandTotal) || 0),
-          inventory_flow_type: inventoryFlowType || "DIRECT_INVOICE",
-          status: status || "draft",
-          is_batch_allocated: resolvedItems.some(
-            (i: any) => i.batches && i.batches.length > 0,
-          ),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .eq("entity_id", orgId)
-        .select()
-        .single();
+      const isBatchAllocated = resolvedItems.some(
+        (i: any) => i.batches && i.batches.length > 0,
+      );
 
-      if (invoiceError) throw invoiceError;
+      const finalSubtotal = Number(subtotal) || 0;
+      const finalShipping = Number(shippingCharges) || 0;
+      const finalAdjustment = Number(adjustmentAmount) || 0;
+      const finalRoundOff = Number(roundOff) || 0;
+      const finalTaxTotal = isUnregistered ? 0 : (Number(taxTotal) || 0);
+      const finalGrandTotal = isUnregistered
+        ? finalSubtotal + finalShipping + finalAdjustment + finalRoundOff
+        : (Number(grandTotal) || 0);
 
-    // 5. Insert new items (deducting stock layer quantities and creating batches/transactions)
-    for (const item of resolvedItems) {
-      const { data: insertedItem, error: itemError } = await client
-        .from("invoice_items")
-        .insert({
-          invoice_id: id,
-          product_id: item.productId || item.itemId,
-          description: item.description || null,
-          quantity: Number(item.quantity) || 0,
-          rate: Number(item.rate) || 0,
-          discount_type: item.discountType || null,
-          discount_value: Number(item.discountValue) || 0,
-          tax_id: isUnregistered ? null : (item.taxId || null),
-          tax_percentage: isUnregistered ? 0 : (Number(item.taxPercentage) || 0),
-          taxable_amount: Number(item.taxableAmount) || 0,
-          tax_amount: isUnregistered ? 0 : (Number(item.taxAmount) || 0),
-          line_total: isUnregistered ? (Number(item.taxableAmount) || 0) : (Number(item.lineTotal) || 0),
-          foc_quantity: Number(item.focQuantity) || 0,
-          hsn_code: item.hsnCode || "0",
-          accounts: item.accounts || null,
-        })
-        .select()
-        .single();
+      const updatedInvoices = await client.unsafe(
+        `UPDATE invoice_master SET
+           customer_id = $1, invoice_number = $2, invoice_date = $3, due_date = $4,
+           payment_terms = $5, salesperson_id = $6, subject = $7, customer_notes = $8,
+           terms_conditions = $9, price_list_id = $10, warehouse_id = $11, place_of_supply = $12,
+           gst_treatment = $13, shipping_charges = $14, adjustment_amount = $15, round_off = $16,
+           subtotal = $17, tax_total = $18, tds_total = $19, tcs_total = $20, grand_total = $21,
+           inventory_flow_type = $22, status = $23, is_batch_allocated = $24, updated_at = NOW()
+         WHERE id = $25 AND entity_id = $26
+         RETURNING *`,
+        [
+          customerId,
+          invoiceNumber,
+          invoiceDate,
+          dueDate || null,
+          paymentTerms || null,
+          salespersonId || null,
+          subject || null,
+          customerNotes || null,
+          termsConditions || null,
+          priceListId || null,
+          warehouseId || null,
+          placeOfSupply || null,
+          gstTreatment || null,
+          finalShipping,
+          finalAdjustment,
+          finalRoundOff,
+          finalSubtotal,
+          finalTaxTotal,
+          Number(tdsTotal) || 0,
+          Number(tcsTotal) || 0,
+          finalGrandTotal,
+          inventoryFlowType || "DIRECT_INVOICE",
+          status || "draft",
+          isBatchAllocated,
+          id,
+          orgId,
+        ],
+      );
 
-      if (itemError) throw itemError;
+      const invoice = updatedInvoices[0];
+      if (!invoice) throw new Error("Failed to update invoice");
+
+      for (const item of resolvedItems) {
+        const itemRows = await client.unsafe(
+          `INSERT INTO invoice_items (
+            invoice_id, product_id, description, quantity, rate, discount_type, discount_value,
+            tax_id, tax_percentage, taxable_amount, tax_amount, line_total, foc_quantity, hsn_code, accounts
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          RETURNING *`,
+          [
+            id,
+            item.productId || item.itemId,
+            item.description || null,
+            Number(item.quantity) || 0,
+            Number(item.rate) || 0,
+            item.discountType || null,
+            Number(item.discountValue) || 0,
+            isUnregistered ? null : (item.taxId || null),
+            isUnregistered ? 0 : (Number(item.taxPercentage) || 0),
+            Number(item.taxableAmount) || 0,
+            isUnregistered ? 0 : (Number(item.taxAmount) || 0),
+            isUnregistered ? (Number(item.taxableAmount) || 0) : (Number(item.lineTotal) || 0),
+            Number(item.focQuantity) || 0,
+            item.hsnCode || "0",
+            item.accounts || null,
+          ],
+        );
+
+        const insertedItem = itemRows[0];
 
         if (item.batches && item.batches.length > 0) {
           for (const batch of item.batches) {
@@ -1767,67 +1792,60 @@ export class SalesService {
             const focQty = Number(batch.focQuantity) || 0;
             const totalOutQty = qty + focQty;
 
-            const { error: itemBatchError } = await client
-              .from("invoice_item_batches")
-              .insert({
-                invoice_item_id: insertedItem.id,
-                batch_id: batch.batchId,
-                layer_id: batch.layerId || null,
-                warehouse_id: batch.warehouseId || warehouseId,
-                bin_id: batch.binId || null,
-                quantity: qty,
-                foc_quantity: focQty,
-                purchase_rate: batch.purchaseRate
-                  ? Number(batch.purchaseRate)
-                  : null,
-                sales_rate: batch.salesRate ? Number(batch.salesRate) : null,
-                mrp: batch.mrp ? Number(batch.mrp) : null,
-                expiry_date: this.parseToIsoDate(batch.expiryDate),
-                manufacturer_batch: batch.manufacturerBatch || null,
-              })
-              .select()
-              .single();
+            await client.unsafe(
+              `INSERT INTO invoice_item_batches (
+                invoice_item_id, batch_id, layer_id, warehouse_id, bin_id, quantity, foc_quantity,
+                purchase_rate, sales_rate, mrp, expiry_date, manufacturer_batch
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+              [
+                insertedItem.id,
+                batch.batchId,
+                batch.layerId || null,
+                batch.warehouseId || warehouseId,
+                batch.binId || null,
+                qty,
+                focQty,
+                batch.purchaseRate ? Number(batch.purchaseRate) : null,
+                batch.salesRate ? Number(batch.salesRate) : null,
+                batch.mrp ? Number(batch.mrp) : null,
+                this.parseToIsoDate(batch.expiryDate),
+                batch.manufacturerBatch || null,
+              ],
+            );
 
-            if (itemBatchError) throw itemBatchError;
+            await client.unsafe(
+              `INSERT INTO batch_transactions (
+                batch_id, layer_id, product_id, entity_id, warehouse_id, bin_id, trans_type,
+                stock_effect_type, ref_id, ref_no, qty_in, qty_out, rate, trans_date
+              ) VALUES ($1, $2, $3, $4, $5, $6, 'INVOICE', 'ACCOUNTING', $7, $8, 0, $9, $10, $11)`,
+              [
+                batch.batchId,
+                batch.layerId || null,
+                item.productId || item.itemId,
+                orgId,
+                batch.warehouseId || warehouseId,
+                batch.binId || null,
+                id,
+                invoiceNumber,
+                totalOutQty,
+                batch.salesRate ? Number(batch.salesRate) : null,
+                invoiceDate,
+              ],
+            );
 
-             const { error: transError } = await client
-              .from("batch_transactions")
-              .insert({
-                batch_id: batch.batchId,
-                layer_id: batch.layerId || null,
-                product_id: item.productId || item.itemId,
-                entity_id: orgId,
-                warehouse_id: batch.warehouseId || warehouseId,
-                bin_id: batch.binId || null,
-                trans_type: "INVOICE",
-                stock_effect_type: "ACCOUNTING",
-                ref_id: id,
-                ref_no: invoiceNumber,
-                qty_in: 0,
-                qty_out: totalOutQty,
-                rate: batch.salesRate ? Number(batch.salesRate) : null,
-                trans_date: invoiceDate,
-              });
-
-            if (transError) throw transError;
-
-            // Deduct stock layer quantity
             if (batch.layerId) {
-              const { data: layerData } = await client
-                .from("batch_stock_layers")
-                .select("qty")
-                .eq("id", batch.layerId)
-                .single();
-              if (layerData) {
-                const currentQty = Number(layerData.qty) || 0;
+              const layerRows = await client.unsafe(
+                `SELECT qty FROM batch_stock_layers WHERE id = $1 LIMIT 1`,
+                [batch.layerId],
+              );
+              if (layerRows[0]) {
+                const currentQty = Number(layerRows[0].qty) || 0;
                 const newQty = currentQty - totalOutQty;
 
-                const { error: updateLayerErr } = await client
-                  .from("batch_stock_layers")
-                  .update({ qty: newQty })
-                  .eq("id", batch.layerId);
-
-                if (updateLayerErr) throw updateLayerErr;
+                await client.unsafe(
+                  `UPDATE batch_stock_layers SET qty = $1 WHERE id = $2`,
+                  [newQty, batch.layerId],
+                );
               }
             }
           }
@@ -1838,20 +1856,18 @@ export class SalesService {
 
       return invoice;
     } catch (error) {
-      // Revert stock layer additions made during start of transaction in case of error
       try {
         for (const layerRevert of revertedLayers) {
-          const { data: currentLayer } = await client
-            .from("batch_stock_layers")
-            .select("qty")
-            .eq("id", layerRevert.layerId)
-            .single();
-          if (currentLayer) {
-            const currentQty = Number(currentLayer.qty) || 0;
-            await client
-              .from("batch_stock_layers")
-              .update({ qty: currentQty - layerRevert.quantitySubtracted })
-              .eq("id", layerRevert.layerId);
+          const currentLayers = await client.unsafe(
+            `SELECT qty FROM batch_stock_layers WHERE id = $1 LIMIT 1`,
+            [layerRevert.layerId],
+          );
+          if (currentLayers[0]) {
+            const currentQty = Number(currentLayers[0].qty) || 0;
+            await client.unsafe(
+              `UPDATE batch_stock_layers SET qty = $1 WHERE id = $2`,
+              [currentQty - layerRevert.quantitySubtracted, layerRevert.layerId],
+            );
           }
         }
       } catch (rollbackError) {
@@ -1867,20 +1883,16 @@ export class SalesService {
       ? tenant.entityId
       : starlexOrgEntityId;
 
-    const client = this.supabaseService.getClient();
+    const branches = await client.unsafe(
+      `SELECT id, name, ref_id FROM organisation_branch_master WHERE parent_id = $1 AND type = 'BRANCH'`,
+      [targetOrgId],
+    );
 
-    // 2. Resolve all branches under Starlex
-    const { data: branches, error: branchesError } = await client
-      .from("organisation_branch_master")
-      .select("id, name, ref_id")
-      .eq("parent_id", targetOrgId)
-      .eq("type", "BRANCH");
-
-    if (branchesError || !branches || branches.length === 0) {
+    if (!branches || branches.length === 0) {
       return [];
     }
 
-    const branchEntityIds = branches.map((b) => b.id);
+    const branchEntityIds = branches.map((b: any) => b.id);
     const branchNameMap = new Map<string, string>();
     const branchRefMap = new Map<string, string>();
     for (const b of branches) {
@@ -1890,50 +1902,44 @@ export class SalesService {
       }
     }
 
-    // Resolve credit limits from customer records where associated_branch_id = branch.ref_id
-    const branchRefIds = branches.map((b) => b.ref_id).filter(Boolean);
+    const branchRefIds = branches.map((b: any) => b.ref_id).filter(Boolean);
     const branchCreditLimitMap = new Map<string, number>();
     if (branchRefIds.length > 0) {
-      const { data: custs } = await client
-        .from("customers")
-        .select("associated_branch_id, credit_limit")
-        .in("associated_branch_id", branchRefIds)
-        .eq("entity_id", targetOrgId);
+      const custs = await client.unsafe(
+        `SELECT associated_branch_id, credit_limit FROM customers WHERE associated_branch_id = ANY($1) AND entity_id = $2`,
+        [branchRefIds, targetOrgId],
+      );
       if (custs) {
         for (const c of custs) {
           if (c.associated_branch_id) {
             branchCreditLimitMap.set(
               c.associated_branch_id,
-              c.credit_limit ? parseFloat(c.credit_limit.toString()) : 0.0
+              c.credit_limit ? parseFloat(c.credit_limit.toString()) : 0.0,
             );
           }
         }
       }
     }
 
-    // 3. Find POs from these branches that are created against the organization vendor
-    // whose status is not 'Draft', and is_delete is false.
-    const { data: pos, error: posError } = await client
-      .from("purchase_orders")
-      .select("id, order_number, order_date, status, warehouse_id, total, entity_id")
-      .in("entity_id", branchEntityIds)
-      .eq("vendor_id", "db013159-6ac3-49a6-95b1-eaec10f964db")
-      .neq("status", "Draft")
-      .eq("is_delete", false)
-      .order("order_date", { ascending: false });
+    const pos = await client.unsafe(
+      `SELECT id, order_number, order_date, status, warehouse_id, total, entity_id
+       FROM purchase_orders
+       WHERE entity_id = ANY($1) AND vendor_id = 'db013159-6ac3-49a6-95b1-eaec10f964db' AND status != 'Draft' AND is_delete = false
+       ORDER BY order_date DESC`,
+      [branchEntityIds],
+    );
 
-    if (posError || !pos || pos.length === 0) {
+    if (!pos || pos.length === 0) {
       return [];
     }
 
-    // Resolve warehouse names
-    const warehouseIds = pos.map((p) => p.warehouse_id).filter(Boolean);
+    const warehouseIds = pos.map((p: any) => p.warehouse_id).filter(Boolean);
     const warehouseNameMap = new Map<string, string>();
     if (warehouseIds.length > 0) {
-      const { data: whs } = await client
-        .from("warehouses")
-        .select("id, name")
-        .in("id", warehouseIds);
+      const whs = await client.unsafe(
+        `SELECT id, name FROM warehouses WHERE id = ANY($1)`,
+        [warehouseIds],
+      );
       if (whs) {
         for (const w of whs) {
           warehouseNameMap.set(w.id, w.name);
@@ -1941,25 +1947,21 @@ export class SalesService {
       }
     }
 
-    // 4. Get all existing references in sales_orders under the parent organization
-    // to filter out POs that have already been converted to Sales Orders.
-    const poNumbers = pos.map((p) => p.order_number).filter(Boolean);
+    const poNumbers = pos.map((p: any) => p.order_number).filter(Boolean);
     let usedPoIds: string[] = [];
 
     if (poNumbers.length > 0) {
-      const { data: sos } = await client
-        .from("sales_orders")
-        .select("id, reference, sale_date, created_at, status")
-        .eq("entity_id", targetOrgId)
-        .in("reference", poNumbers)
-        .neq("status", "void");
+      const sos = await client.unsafe(
+        `SELECT id, reference, sale_date, created_at, status FROM sales_orders WHERE entity_id = $1 AND reference = ANY($2) AND status != 'void'`,
+        [targetOrgId, poNumbers],
+      );
 
       if (sos && sos.length > 0) {
         for (const po of pos) {
           const poDate = new Date(po.order_date);
           const poDateBuffer = new Date(poDate.getTime() - 24 * 60 * 60 * 1000);
 
-          const isApproved = sos.some((so) => {
+          const isApproved = sos.some((so: any) => {
             if (so.reference !== po.order_number) return false;
             const soDate = new Date(so.created_at || so.sale_date);
             return soDate >= poDateBuffer;
@@ -1972,13 +1974,12 @@ export class SalesService {
       }
     }
 
-    // Filter out used POs
-    const filteredPos = pos.filter((po) => !usedPoIds.includes(po.id));
+    const filteredPos = pos.filter((po: any) => !usedPoIds.includes(po.id));
 
-    const result = filteredPos.map((po) => {
+    const result = filteredPos.map((po: any) => {
       const refId = branchRefMap.get(po.entity_id);
       const creditLimit = refId ? branchCreditLimitMap.get(refId) ?? 0.0 : 0.0;
-      
+
       return {
         id: po.id,
         order_date: po.order_date,
@@ -1995,90 +1996,84 @@ export class SalesService {
   }
 
   async approvePurchaseOrders(poIds: string[], tenant: TenantContext) {
-    const client = this.supabaseService.getClient();
     const starlexOrgEntityId = "66d79887-be98-40ab-ac40-9e0a008f9d8a";
     const targetOrgId = (tenant.entityId && tenant.entityId !== "00000000-0000-0000-0000-000000000002")
       ? tenant.entityId
       : starlexOrgEntityId;
-    
-    // Resolve the default sales account for targetOrgId
+
     const defaultSalesAccountId = await this.resolveDefaultSalesAccountId(targetOrgId);
-    
+
     const results = [];
     for (const poId of poIds) {
-      // 1. Fetch PO with items
-      const { data: po, error: poError } = await client
-        .from("purchase_orders")
-        .select("*, items:purchase_order_items(*)")
-        .eq("id", poId)
-        .single();
-      
-      if (poError || !po) {
+      const pos = await client.unsafe(
+        `SELECT * FROM purchase_orders WHERE id = $1 LIMIT 1`,
+        [poId],
+      );
+
+      const po = pos[0];
+      if (!po) {
         throw new NotFoundException(`Purchase Order ${poId} not found`);
       }
-      
-      // 2. Check if Sales Order already exists for this PO (on or after PO order_date)
+
+      const poItems = await client.unsafe(
+        `SELECT * FROM purchase_order_items WHERE purchase_order_id = $1`,
+        [poId],
+      );
+      po.items = poItems ?? [];
+
       const poDate = new Date(po.order_date);
       const poDateBuffer = new Date(poDate.getTime() - 24 * 60 * 60 * 1000).toISOString();
-      const { data: existingSo } = await client
-        .from("sales_orders")
-        .select("id")
-        .eq("entity_id", targetOrgId)
-        .eq("reference", po.order_number)
-        .gte("created_at", poDateBuffer)
-        .neq("status", "void")
-        .maybeSingle();
-      
-      if (existingSo) {
-        results.push({ poId, status: "already_approved", salesOrderId: existingSo.id });
+
+      const existingSos = await client.unsafe(
+        `SELECT id FROM sales_orders WHERE entity_id = $1 AND reference = $2 AND created_at >= $3 AND status != 'void' LIMIT 1`,
+        [targetOrgId, po.order_number, poDateBuffer],
+      );
+
+      if (existingSos[0]) {
+        results.push({ poId, status: "already_approved", salesOrderId: existingSos[0].id });
         continue;
       }
-      
-      // 3. Find customer record corresponding to the PO's branch
-      const { data: branch } = await client
-        .from("organisation_branch_master")
-        .select("id, name, ref_id")
-        .eq("id", po.entity_id)
-        .single();
-      
+
+      const branches = await client.unsafe(
+        `SELECT id, name, ref_id FROM organisation_branch_master WHERE id = $1 LIMIT 1`,
+        [po.entity_id],
+      );
+
+      const branch = branches[0];
       let customerId: string | null = null;
       if (branch && branch.ref_id) {
-        const { data: cust } = await client
-          .from("customers")
-          .select("id")
-          .eq("associated_branch_id", branch.ref_id)
-          .eq("entity_id", starlexOrgEntityId)
-          .maybeSingle();
-        if (cust) {
-          customerId = cust.id;
+        const custs = await client.unsafe(
+          `SELECT id FROM customers WHERE associated_branch_id = $1 AND entity_id = $2 LIMIT 1`,
+          [branch.ref_id, starlexOrgEntityId],
+        );
+        if (custs[0]) {
+          customerId = custs[0].id;
         }
       }
-      
-      // Fallback to customer search by display_name or first customer in list
+
       if (!customerId) {
-        const { data: custs } = await client
-          .from("customers")
-          .select("id, display_name")
-          .eq("entity_id", starlexOrgEntityId);
-        
+        const custs = await client.unsafe(
+          `SELECT id, display_name FROM customers WHERE entity_id = $1`,
+          [starlexOrgEntityId],
+        );
+
         if (custs && custs.length > 0) {
-          const match = branch ? custs.find(c => c.display_name.toLowerCase().includes(branch.name.toLowerCase())) : null;
+          const match = branch ? custs.find((c: any) => c.display_name.toLowerCase().includes(branch.name.toLowerCase())) : null;
           customerId = match ? match.id : custs[0].id;
         }
       }
-      
+
       if (!customerId) {
         throw new BadRequestException(`No customer record found for branch ${branch?.name ?? po.entity_id}`);
       }
-      
-      // Fetch product sales_account_id mapping
-      const productIds = (po.items || []).map((item) => item.product_id).filter(Boolean);
+
+      const productIds = (po.items || []).map((item: any) => item.product_id).filter(Boolean);
       const productMap = new Map<string, string>();
       if (productIds.length > 0) {
-        const { data: productsData } = await client
-          .from("products")
-          .select("id, sales_account_id")
-          .in("id", productIds);
+        const productsData = await client.unsafe(
+          `SELECT id, sales_account_id FROM products WHERE id = ANY($1)`,
+          [productIds],
+        );
         if (productsData) {
           for (const p of productsData) {
             if (p.sales_account_id) {
@@ -2087,29 +2082,26 @@ export class SalesService {
           }
         }
       }
-      
-      // Validate tax_ids exist in tax_rates (PO items may reference tax_groups instead)
-      const poTaxIds = (po.items || []).map((item) => item.tax_id).filter(Boolean);
+
+      const poTaxIds = (po.items || []).map((item: any) => item.tax_id).filter(Boolean);
       const validTaxIds = new Set<string>();
       if (poTaxIds.length > 0) {
-        const { data: taxRatesData } = await client
-          .from("tax_rates")
-          .select("id")
-          .in("id", poTaxIds);
+        const taxRatesData = await client.unsafe(
+          `SELECT id FROM tax_rates WHERE id = ANY($1)`,
+          [poTaxIds],
+        );
         if (taxRatesData) {
           for (const tr of taxRatesData) {
             validTaxIds.add(tr.id);
           }
         }
       }
-      
-      // 4. Generate next sales order number
-      const { data: maxSo } = await client
-        .from("sales_orders")
-        .select("sale_number")
-        .eq("entity_id", starlexOrgEntityId)
-        .like("sale_number", "SO-%");
-      
+
+      const maxSo = await client.unsafe(
+        `SELECT sale_number FROM sales_orders WHERE entity_id = $1 AND sale_number LIKE 'SO-%'`,
+        [starlexOrgEntityId],
+      );
+
       let maxNum = 0;
       for (const row of maxSo || []) {
         const m = (row.sale_number as string).match(/^SO-(\d+)$/);
@@ -2119,85 +2111,81 @@ export class SalesService {
         }
       }
       const nextSoNum = `SO-${String(maxNum + 1).padStart(5, "0")}`;
-      
-      // 4.5 Fetch the default warehouse for the destination organization (Starlex ORG)
+
       let defaultWarehouseId: string | null = null;
       let defaultWarehouseName: string | null = null;
-      const { data: defaultWhData } = await client
-        .from("warehouses")
-        .select("id, name")
-        .eq("entity_id", starlexOrgEntityId)
-        .eq("is_default_for_branch", true)
-        .maybeSingle();
 
-      if (defaultWhData) {
-        defaultWarehouseId = defaultWhData.id;
-        defaultWarehouseName = defaultWhData.name;
+      const defaultWhData = await client.unsafe(
+        `SELECT id, name FROM warehouses WHERE entity_id = $1 AND is_default_for_branch = true LIMIT 1`,
+        [starlexOrgEntityId],
+      );
+
+      if (defaultWhData[0]) {
+        defaultWarehouseId = defaultWhData[0].id;
+        defaultWarehouseName = defaultWhData[0].name;
       } else {
-        const { data: fallbackWhData } = await client
-          .from("warehouses")
-          .select("id, name")
-          .eq("entity_id", starlexOrgEntityId)
-          .limit(1)
-          .maybeSingle();
-        if (fallbackWhData) {
-          defaultWarehouseId = fallbackWhData.id;
-          defaultWarehouseName = fallbackWhData.name;
+        const fallbackWhData = await client.unsafe(
+          `SELECT id, name FROM warehouses WHERE entity_id = $1 LIMIT 1`,
+          [starlexOrgEntityId],
+        );
+        if (fallbackWhData[0]) {
+          defaultWarehouseId = fallbackWhData[0].id;
+          defaultWarehouseName = fallbackWhData[0].name;
         }
       }
 
-      // 5. Insert Sales Order header
       const subtotal = po.subtotal ? parseFloat(po.subtotal.toString()) : 0.0;
       const taxAmount = po.tax_amount ? parseFloat(po.tax_amount.toString()) : 0.0;
       const total = po.total ? parseFloat(po.total.toString()) : 0.0;
       const discount = po.discount ? parseFloat(po.discount.toString()) : 0.0;
       const adjustment = po.adjustment ? parseFloat(po.adjustment.toString()) : 0.0;
-      
-      const { data: so, error: soError } = await client
-        .from("sales_orders")
-        .insert({
-          entity_id: starlexOrgEntityId,
-          customer_id: customerId,
-          sale_number: nextSoNum,
-          reference: po.order_number,
-          sale_date: new Date().toISOString(),
-          status: "confirmed",
-          document_type: "order",
-          sub_total: subtotal,
-          tax_total: taxAmount,
-          discount_total: discount,
-          adjustment: adjustment,
-          total_quantity: po.items ? po.items.reduce((sum, item) => sum + (parseFloat(item.quantity?.toString() || "0")), 0) : 0,
-          total: total,
-          warehouse_id: defaultWarehouseId,
-          warehouse_name: defaultWarehouseName,
-          is_delete: false,
-        })
-        .select()
-        .single();
-      
-      if (soError || !so) {
-        throw soError || new BadRequestException("Failed to insert Sales Order");
+
+      const soRows = await client.unsafe(
+        `INSERT INTO sales_orders (
+          entity_id, customer_id, sale_number, reference, sale_date, status, document_type,
+          sub_total, tax_total, discount_total, adjustment, total_quantity, total,
+          warehouse_id, warehouse_name, is_delete
+        ) VALUES ($1, $2, $3, $4, $5, 'confirmed', 'order', $6, $7, $8, $9, $10, $11, $12, $13, false)
+        RETURNING *`,
+        [
+          starlexOrgEntityId,
+          customerId,
+          nextSoNum,
+          po.order_number,
+          new Date().toISOString(),
+          subtotal,
+          taxAmount,
+          discount,
+          adjustment,
+          po.items ? po.items.reduce((sum: number, item: any) => sum + (parseFloat(item.quantity?.toString() || "0")), 0) : 0,
+          total,
+          defaultWarehouseId,
+          defaultWarehouseName,
+        ],
+      );
+
+      const so = soRows[0];
+      if (!so) {
+        throw new BadRequestException("Failed to insert Sales Order");
       }
-      
-      // 6. Insert Sales Order items
-      const soItems = (po.items || []).map((item, index) => {
+
+      const soItems = (po.items || []).map((item: any, index: number) => {
         const qty = parseFloat(item.quantity?.toString() || "0");
         const rate = parseFloat(item.rate?.toString() || "0");
         const amt = parseFloat(item.amount?.toString() || "0");
         const taxAmt = parseFloat(item.tax_amount?.toString() || "0");
         const discVal = parseFloat(item.discount?.toString() || "0");
-        
+
         const resolvedAccount = productMap.get(item.product_id) || defaultSalesAccountId;
         if (!resolvedAccount) {
           throw new BadRequestException(
             `Missing valid sales account for item. Configure item sales account or create a Stock/Sales account in Starlex ORG.`,
           );
         }
-        
+
         const rawDiscType = item.discount_type || "percentage";
         const discType = rawDiscType === "percentage" ? "%" : rawDiscType === "value" ? "value" : "%";
-        
+
         return {
           sales_order_id: so.id,
           line_no: index + 1,
@@ -2218,25 +2206,48 @@ export class SalesService {
           is_invoiced: false,
         };
       });
-      
+
       if (soItems.length > 0) {
-        const { error: itemsError } = await client
-          .from("sales_order_items")
-          .insert(soItems);
-        
-        if (itemsError) {
-          await client.from("sales_orders").delete().eq("id", so.id);
+        try {
+          for (const item of soItems) {
+            await client.unsafe(
+              `INSERT INTO sales_order_items (
+                sales_order_id, line_no, product_id, description, quantity, rate,
+                discount_type, discount_value, discount_amount, tax_id, tax_rate, tax_amount,
+                amount, hsn_code, accounts, entity_id, is_invoiced
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+              [
+                item.sales_order_id,
+                item.line_no,
+                item.product_id,
+                item.description,
+                item.quantity,
+                item.rate,
+                item.discount_type,
+                item.discount_value,
+                item.discount_amount,
+                item.tax_id,
+                item.tax_rate,
+                item.tax_amount,
+                item.amount,
+                item.hsn_code,
+                item.accounts,
+                item.entity_id,
+                item.is_invoiced,
+              ],
+            );
+          }
+        } catch (itemsError) {
+          await client.unsafe(`DELETE FROM sales_orders WHERE id = $1`, [so.id]);
           throw itemsError;
         }
       }
-      
-      // 7. AUTOMATICALLY CREATE PICKLIST for this Sales Order
-      const { data: maxPl } = await client
-        .from("picklist_master")
-        .select("picklist_no")
-        .eq("entity_id", starlexOrgEntityId)
-        .like("picklist_no", "PL-%");
-      
+
+      const maxPl = await client.unsafe(
+        `SELECT picklist_no FROM picklist_master WHERE entity_id = $1 AND picklist_no LIKE 'PL-%'`,
+        [starlexOrgEntityId],
+      );
+
       let maxPlNum = 0;
       for (const row of maxPl || []) {
         const m = (row.picklist_no as string).match(/^PL-(\d+)$/);
@@ -2246,96 +2257,85 @@ export class SalesService {
         }
       }
       const nextPlNum = `PL-${String(maxPlNum + 1).padStart(5, "0")}`;
-      
-      const { data: picklist, error: picklistError } = await client
-        .from("picklist_master")
-        .insert({
-          picklist_no: nextPlNum,
-          entity_id: starlexOrgEntityId,
-          warehouse_id: defaultWarehouseId,
-          picklist_date: new Date().toISOString().split("T")[0],
-          status: "DRAFT",
-          is_delete: false,
-          is_entrypass: false,
-        })
-        .select()
-        .single();
-      
-      if (picklistError || !picklist) {
-        throw picklistError || new BadRequestException("Failed to insert Picklist");
+
+      const plRows = await client.unsafe(
+        `INSERT INTO picklist_master (
+          picklist_no, entity_id, warehouse_id, picklist_date, status, is_delete, is_entrypass
+        ) VALUES ($1, $2, $3, $4, 'DRAFT', false, false)
+        RETURNING *`,
+        [
+          nextPlNum,
+          starlexOrgEntityId,
+          defaultWarehouseId,
+          new Date().toISOString().split("T")[0],
+        ],
+      );
+
+      const picklist = plRows[0];
+      if (!picklist) {
+        throw new BadRequestException("Failed to insert Picklist");
       }
-      
-      // Fetch the created sales order items to map their line IDs
-      const { data: createdSoItems } = await client
-        .from("sales_order_items")
-        .select("id, product_id, quantity")
-        .eq("sales_order_id", so.id);
-      
+
+      const createdSoItems = await client.unsafe(
+        `SELECT id, product_id, quantity FROM sales_order_items WHERE sales_order_id = $1`,
+        [so.id],
+      );
+
       if (createdSoItems && createdSoItems.length > 0) {
-        const plItems = createdSoItems.map((soItem) => {
+        for (const soItem of createdSoItems) {
           const qty = parseFloat(soItem.quantity?.toString() || "0");
-          return {
-            picklist_id: picklist.id,
-            product_id: soItem.product_id,
-            sales_order_id: so.id,
-            sales_order_line_id: soItem.id,
-            qty_ordered: qty,
-            qty_to_pick: qty,
-            qty_picked: 0.0,
-            status: "YET_TO_START",
-          };
-        });
-        
-        const { error: plItemsError } = await client
-          .from("picklist_items")
-          .insert(plItems);
-        
-        if (plItemsError) {
-          throw plItemsError;
+          await client.unsafe(
+            `INSERT INTO picklist_items (
+              picklist_id, product_id, sales_order_id, sales_order_line_id,
+              qty_ordered, qty_to_pick, qty_picked, status
+            ) VALUES ($1, $2, $3, $4, $5, $6, 0.0, 'YET_TO_START')`,
+            [
+              picklist.id,
+              soItem.product_id,
+              so.id,
+              soItem.id,
+              qty,
+              qty,
+            ],
+          );
         }
       }
-      
+
       results.push({ poId, status: "approved", salesOrderId: so.id, picklistId: picklist.id });
     }
-    
+
     return results;
   }
 
   async updateSalesOrderStatus(id: string, entityId: string, status: string, reason: string) {
-    const client = this.supabaseService.getClient();
+    const rows = await client.unsafe(
+      `SELECT status FROM sales_orders WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+      [id, entityId],
+    );
 
-    const { data: salesOrder, error: fetchError } = await client
-      .from('sales_orders')
-      .select('status')
-      .eq('id', id)
-      .eq('entity_id', entityId)
-      .single();
-
-    if (fetchError || !salesOrder) {
+    if (!rows[0]) {
       throw new NotFoundException(`Sales order not found`);
     }
 
-    const updatePayload: any = {
-      status,
-      updated_at: new Date().toISOString(),
-    };
+    let sqlQuery = `UPDATE sales_orders SET status = $1, updated_at = NOW()`;
+    const params: any[] = [status];
 
-    if (status.toLowerCase() === 'void') {
-      updatePayload.reason_to_void = reason;
-    } else if (status.toLowerCase() === 'confirmed') {
-      updatePayload.reason_to_confirmed = reason;
+    if (status.toLowerCase() === "void") {
+      params.push(reason);
+      sqlQuery += `, reason_to_void = $2`;
+    } else if (status.toLowerCase() === "confirmed") {
+      params.push(reason);
+      sqlQuery += `, reason_to_confirmed = $2`;
     }
 
-    const { data: updatedOrder, error: updateError } = await client
-      .from('sales_orders')
-      .update(updatePayload)
-      .eq('id', id)
-      .eq('entity_id', entityId)
-      .select()
-      .single();
+    params.push(id, entityId);
+    sqlQuery += ` WHERE id = $${params.length - 1} AND entity_id = $${params.length} RETURNING *`;
 
-    if (updateError) {
-      throw new BadRequestException(`Failed to update sales order status: ${updateError.message}`);
+    const updatedRows = await client.unsafe(sqlQuery, params);
+    const updatedOrder = updatedRows[0];
+
+    if (!updatedOrder) {
+      throw new BadRequestException("Failed to update sales order status");
     }
 
     return updatedOrder;
@@ -2343,53 +2343,46 @@ export class SalesService {
 
   private async postInvoiceTransactions(tenant: TenantContext, invoice: any, dto: any) {
     if (!invoice || !invoice.id) return;
-    const client = this.supabaseService.getClient();
 
     const invoiceId = invoice.id;
     const orgId = invoice.entity_id || tenant?.entityId;
     const status = (invoice.status || dto.status || "draft").toString().toLowerCase();
 
-    // 1. If status is draft, remove any existing journal entries and lines for this invoice
     if (status === "draft") {
-      const { data: existingJE } = await client
-        .from("journal_entries")
-        .select("id")
-        .eq("entity_id", orgId)
-        .eq("source_document_type", "INVOICE")
-        .eq("source_document_id", invoiceId)
-        .maybeSingle();
+      const existingJE = await client.unsafe(
+        `SELECT id FROM journal_entries WHERE entity_id = $1 AND source_document_type = 'INVOICE' AND source_document_id = $2 LIMIT 1`,
+        [orgId, invoiceId],
+      );
 
-      if (existingJE?.id) {
-        await client.from("journal_entry_lines").delete().eq("journal_entry_id", existingJE.id);
-        await client.from("journal_entries").delete().eq("id", existingJE.id);
+      if (existingJE[0]?.id) {
+        await client.unsafe(`DELETE FROM journal_entry_lines WHERE journal_entry_id = $1`, [existingJE[0].id]);
+        await client.unsafe(`DELETE FROM journal_entries WHERE id = $1`, [existingJE[0].id]);
       }
       return;
     }
 
-    // 2. Fetch active accounts from accounts table
-    const { data: dbAccounts } = await client
-      .from("accounts")
-      .select("id, system_account_name, user_account_name, account_type, account_group");
+    const dbAccounts = await client.unsafe(
+      `SELECT id, system_account_name, user_account_name, account_type, account_group FROM accounts`,
+    );
 
     if (!dbAccounts || dbAccounts.length === 0) {
       console.warn("No active accounts found in database for posting invoice transactions");
       return;
     }
 
-    // Resolver helper
     const findAccount = (names: string[], types?: string[]): string | null => {
       const match = dbAccounts.find((acc: any) => {
-        const uName = acc.user_account_name?.toLowerCase() || '';
-        const sName = acc.system_account_name?.toLowerCase() || '';
-        const aName = acc.account_name?.toLowerCase() || '';
-        const aType = acc.account_type?.toLowerCase() || '';
+        const uName = acc.user_account_name?.toLowerCase() || "";
+        const sName = acc.system_account_name?.toLowerCase() || "";
+        const aName = acc.account_name?.toLowerCase() || "";
+        const aType = acc.account_type?.toLowerCase() || "";
 
-        const nameMatch = names.some(n => {
+        const nameMatch = names.some((n) => {
           const ln = n.toLowerCase();
           return uName.includes(ln) || sName.includes(ln) || aName.includes(ln);
         });
 
-        const typeMatch = types ? types.some(t => aType === t.toLowerCase()) : true;
+        const typeMatch = types ? types.some((t) => aType === t.toLowerCase()) : true;
         return nameMatch && typeMatch;
       });
 
@@ -2397,7 +2390,7 @@ export class SalesService {
 
       if (types && types.length > 0) {
         const typeMatch = dbAccounts.find((acc: any) =>
-          types.some(t => acc.account_type?.toLowerCase() === t.toLowerCase())
+          types.some((t) => acc.account_type?.toLowerCase() === t.toLowerCase()),
         );
         if (typeMatch) return typeMatch.id;
       }
@@ -2405,119 +2398,118 @@ export class SalesService {
       return dbAccounts[0]?.id || null;
     };
 
-    // 3. Resolve account IDs according to specs in fix/invoice.txt
-    const accountsReceivableId = findAccount(['Accounts Receivable'], ['Accounts Receivable']);
-    const accountsReceivableDiscountId = findAccount(['Accounts Receivable (discount)', 'Accounts Receivable discount'], ['Accounts Receivable']) || accountsReceivableId;
-    const salesDiscountId = findAccount(['Sales Discounts', 'Sales Discount', 'Discount'], ['Income', 'Other Income', 'Expense', 'Other Expense']);
-    const salesAccountId = findAccount(['Sales', 'Sales Account', 'General Income'], ['Income', 'Other Income']);
-    const otherExpensesId = findAccount(['Other Expenses', 'Other Expense', 'Adjustment', 'Other Income'], ['Expense', 'Other Expense', 'Income', 'Other Income']);
-    const outputSgstId = findAccount(['Output SGST', 'SGST'], ['Other Current Liability', 'Other Liability', 'Other Current Asset', 'Other Asset']);
-    const outputCgstId = findAccount(['Output CGST', 'CGST'], ['Other Current Liability', 'Other Liability', 'Other Current Asset', 'Other Asset']);
-    const outputIgstId = findAccount(['Output IGST', 'IGST'], ['Other Current Liability', 'Other Liability', 'Other Current Asset', 'Other Asset']);
-    const tcsPayableId = findAccount(['TCS Payable', 'TCS'], ['Other Current Liability', 'Other Liability']);
-    const tdsReceivableId = findAccount(['TDS Receivable', 'TDS'], ['Other Current Asset', 'Other Asset']);
-    const cogsId = findAccount(['Cost of Goods Sold', 'COGS'], ['Cost Of Goods Sold', 'Expense', 'Other Expense']);
-    const inventoryAssetId = findAccount(['Inventory Asset', 'Stock', 'Finished Goods'], ['Stock', 'Assets', 'Other Current Asset']);
+    const accountsReceivableId = findAccount(["Accounts Receivable"], ["Accounts Receivable"]);
+    const accountsReceivableDiscountId = findAccount(["Accounts Receivable (discount)", "Accounts Receivable discount"], ["Accounts Receivable"]) || accountsReceivableId;
+    const salesDiscountId = findAccount(["Sales Discounts", "Sales Discount", "Discount"], ["Income", "Other Income", "Expense", "Other Expense"]);
+    const salesAccountId = findAccount(["Sales", "Sales Account", "General Income"], ["Income", "Other Income"]);
+    const otherExpensesId = findAccount(["Other Expenses", "Other Expense", "Adjustment", "Other Income"], ["Expense", "Other Expense", "Income", "Other Income"]);
+    const outputSgstId = findAccount(["Output SGST", "SGST"], ["Other Current Liability", "Other Liability", "Other Current Asset", "Other Asset"]);
+    const outputCgstId = findAccount(["Output CGST", "CGST"], ["Other Current Liability", "Other Liability", "Other Current Asset", "Other Asset"]);
+    const outputIgstId = findAccount(["Output IGST", "IGST"], ["Other Current Liability", "Other Liability", "Other Current Asset", "Other Asset"]);
+    const tcsPayableId = findAccount(["TCS Payable", "TCS"], ["Other Current Liability", "Other Liability"]);
+    const tdsReceivableId = findAccount(["TDS Receivable", "TDS"], ["Other Current Asset", "Other Asset"]);
+    const cogsId = findAccount(["Cost of Goods Sold", "COGS"], ["Cost Of Goods Sold", "Expense", "Other Expense"]);
+    const inventoryAssetId = findAccount(["Inventory Asset", "Stock", "Finished Goods"], ["Stock", "Assets", "Other Current Asset"]);
 
-    // 4. Parse amounts
-    const discountAmount = parseFloat(invoice.discount_total?.toString() || dto.discountTotal?.toString() || dto.discountAmount?.toString() || '0');
-    const taxAmount = parseFloat(invoice.tax_total?.toString() || dto.taxTotal?.toString() || dto.taxAmount?.toString() || '0');
-    const tdsAmount = parseFloat(invoice.tds_total?.toString() || dto.tdsTotal?.toString() || '0');
-    const tcsAmount = parseFloat(invoice.tcs_total?.toString() || dto.tcsTotal?.toString() || '0');
-    const adjustmentAmount = parseFloat(invoice.adjustment_amount?.toString() || dto.adjustmentAmount?.toString() || dto.adjustment?.toString() || '0');
-    const subtotalAmount = parseFloat(invoice.subtotal?.toString() || dto.subtotal?.toString() || '0');
-    const grandTotalAmount = parseFloat(invoice.grand_total?.toString() || dto.grandTotal?.toString() || '0');
-    const invoiceDate = invoice.invoice_date || dto.invoiceDate || new Date().toISOString().split('T')[0];
+    const discountAmount = parseFloat(invoice.discount_total?.toString() || dto.discountTotal?.toString() || dto.discountAmount?.toString() || "0");
+    const taxAmount = parseFloat(invoice.tax_total?.toString() || dto.taxTotal?.toString() || dto.taxAmount?.toString() || "0");
+    const tdsAmount = parseFloat(invoice.tds_total?.toString() || dto.tdsTotal?.toString() || "0");
+    const tcsAmount = parseFloat(invoice.tcs_total?.toString() || dto.tcsTotal?.toString() || "0");
+    const adjustmentAmount = parseFloat(invoice.adjustment_amount?.toString() || dto.adjustmentAmount?.toString() || dto.adjustment?.toString() || "0");
+    const subtotalAmount = parseFloat(invoice.subtotal?.toString() || dto.subtotal?.toString() || "0");
+    const grandTotalAmount = parseFloat(invoice.grand_total?.toString() || dto.grandTotal?.toString() || "0");
+    const invoiceDate = invoice.invoice_date || dto.invoiceDate || new Date().toISOString().split("T")[0];
     const invoiceNumber = invoice.invoice_number || dto.invoiceNumber || `INV-${Date.now()}`;
     const customerId = invoice.customer_id || dto.customerId || null;
 
-    // 5. Determine if IGST is applied
     const isGstInvoice = taxAmount > 0.0001;
     let isIGST = false;
 
     if (isGstInvoice && dto.items?.length > 0) {
       const taxIds = dto.items.map((item: any) => item.tax_id || item.taxId).filter(Boolean);
       if (taxIds.length > 0) {
-        const { data: rates } = await client
-          .from('tax_rates')
-          .select('tax_type')
-          .in('id', taxIds);
-        if (rates && rates.some((r: any) => r.tax_type === 'IGST')) {
+        const rates = await client.unsafe(
+          `SELECT tax_type FROM tax_rates WHERE id = ANY($1)`,
+          [taxIds],
+        );
+        if (rates && rates.some((r: any) => r.tax_type === "IGST")) {
           isIGST = true;
         }
       }
     }
 
-    // 6. Calculate Inventory / COGS cost from invoice item batches if tracking inventory
     let totalCostOfGoods = 0;
     if (dto.items && Array.isArray(dto.items)) {
       for (const item of dto.items) {
         if (item.batches && Array.isArray(item.batches)) {
           for (const b of item.batches) {
-            const bQty = parseFloat(b.quantity?.toString() || '0');
-            const bRate = parseFloat(b.purchaseRate?.toString() || b.purchase_rate?.toString() || b.salesRate?.toString() || '0');
+            const bQty = parseFloat(b.quantity?.toString() || "0");
+            const bRate = parseFloat(b.purchaseRate?.toString() || b.purchase_rate?.toString() || b.salesRate?.toString() || "0");
             totalCostOfGoods += (bQty * bRate);
           }
         }
       }
     }
 
-    // 7. Resolve user UUID for audit fields
     let currentUserId: string | null = null;
     const userIdVal = tenant?.userId || dto?.user_id || dto?.userId;
     if (userIdVal && this.isUuid(String(userIdVal))) {
       currentUserId = String(userIdVal);
     } else {
-      const { data: firstUser } = await client.from("users").select("id").limit(1).maybeSingle();
-      if (firstUser) currentUserId = firstUser.id;
+      const firstUser = await client.unsafe(`SELECT id FROM users LIMIT 1`);
+      if (firstUser[0]) currentUserId = firstUser[0].id;
     }
 
-    // 8. Find or create journal_entries header
-    const { data: existingJE } = await client
-      .from("journal_entries")
-      .select("id, created_by")
-      .eq("entity_id", orgId)
-      .eq("source_document_type", "INVOICE")
-      .eq("source_document_id", invoiceId)
-      .maybeSingle();
+    const existingJE = await client.unsafe(
+      `SELECT id, created_by FROM journal_entries WHERE entity_id = $1 AND source_document_type = 'INVOICE' AND source_document_id = $2 LIMIT 1`,
+      [orgId, invoiceId],
+    );
 
-    const journalEntryId = existingJE?.id || uuidv4();
-
-    if (existingJE?.id) {
-      await client.from("journal_entry_lines").delete().eq("journal_entry_id", existingJE.id);
-    }
-
+    const journalEntryId = existingJE[0]?.id || uuidv4();
     const defaultOrgId = "00000000-0000-0000-0000-000000000000";
-    const jeHeader = {
-      id: journalEntryId,
-      org_id: tenant?.orgId || defaultOrgId,
-      entity_id: orgId,
-      fiscal_year_id: null,
-      journal_number: `JE-${invoiceNumber}`,
-      journal_type: "INVOICE",
-      journal_date: invoiceDate,
-      posting_date: invoiceDate,
-      reference_number: invoiceNumber,
-      narration: invoice.customer_notes || dto.customerNotes || `Sales Invoice ${invoiceNumber}`,
-      source_module: "SALES",
-      source_document_type: "INVOICE",
-      source_document_id: invoiceId,
-      currency_code: "INR",
-      exchange_rate: 1.0,
-      status: "POSTED",
-      created_by: existingJE?.created_by || currentUserId,
-      updated_by: currentUserId,
-    };
 
-    if (existingJE?.id) {
-      const { error: updateJeErr } = await client.from("journal_entries").update(jeHeader).eq("id", journalEntryId);
-      if (updateJeErr) console.error("Error updating journal_entries for invoice:", updateJeErr.message);
+    if (existingJE[0]?.id) {
+      await client.unsafe(`DELETE FROM journal_entry_lines WHERE journal_entry_id = $1`, [existingJE[0].id]);
+      await client.unsafe(
+        `UPDATE journal_entries SET
+           org_id = $1, entity_id = $2, journal_number = $3, journal_type = 'INVOICE',
+           journal_date = $4, posting_date = $4, reference_number = $5, narration = $6,
+           source_module = 'SALES', source_document_type = 'INVOICE', source_document_id = $7,
+           currency_code = 'INR', exchange_rate = 1.0, status = 'POSTED', updated_by = $8
+         WHERE id = $9`,
+        [
+          tenant?.orgId || defaultOrgId,
+          orgId,
+          `JE-${invoiceNumber}`,
+          invoiceDate,
+          invoiceNumber,
+          invoice.customer_notes || dto.customerNotes || `Sales Invoice ${invoiceNumber}`,
+          invoiceId,
+          currentUserId,
+          journalEntryId,
+        ],
+      );
     } else {
-      const { error: insertJeErr } = await client.from("journal_entries").insert(jeHeader);
-      if (insertJeErr) console.error("Error inserting journal_entries for invoice:", insertJeErr.message);
+      await client.unsafe(
+        `INSERT INTO journal_entries (
+          id, org_id, entity_id, journal_number, journal_type, journal_date, posting_date,
+          reference_number, narration, source_module, source_document_type, source_document_id,
+          currency_code, exchange_rate, status, created_by, updated_by
+        ) VALUES ($1, $2, $3, $4, 'INVOICE', $5, $5, $6, $7, 'SALES', 'INVOICE', $8, 'INR', 1.0, 'POSTED', $9, $9)`,
+        [
+          journalEntryId,
+          tenant?.orgId || defaultOrgId,
+          orgId,
+          `JE-${invoiceNumber}`,
+          invoiceDate,
+          invoiceNumber,
+          invoice.customer_notes || dto.customerNotes || `Sales Invoice ${invoiceNumber}`,
+          invoiceId,
+          currentUserId,
+        ],
+      );
     }
 
-    // 9. Build double-entry lines for journal_entry_lines
     const entries: any[] = [];
     const addEntry = (accountId: string | null, description: string, debit: number, credit: number) => {
       if (!accountId) return;
@@ -2539,14 +2531,11 @@ export class SalesService {
           source_type: "INVOICE",
           contact_id: customerId,
           contact_type: "customer",
-          line_number: null,
         });
       }
     };
 
     if (!isGstInvoice) {
-      // Non GST Invoice Rules:
-      // DEBITS:
       addEntry(accountsReceivableId, "Sales Invoice - Accounts Receivable", grandTotalAmount, 0);
 
       if (discountAmount > 0.0001) {
@@ -2565,7 +2554,6 @@ export class SalesService {
         addEntry(cogsId, "Invoice - Cost of Goods Sold", totalCostOfGoods, 0);
       }
 
-      // CREDITS:
       addEntry(salesAccountId, "Invoice - Sales", 0, subtotalAmount > 0 ? subtotalAmount : grandTotalAmount);
 
       if (discountAmount > 0.0001) {
@@ -2584,8 +2572,6 @@ export class SalesService {
         addEntry(inventoryAssetId, "Invoice - Inventory Asset", 0, totalCostOfGoods);
       }
     } else {
-      // GST Invoice Rules:
-      // DEBITS:
       addEntry(accountsReceivableId, "Sales Invoice - Accounts Receivable", grandTotalAmount, 0);
 
       if (discountAmount > 0.0001) {
@@ -2604,7 +2590,6 @@ export class SalesService {
         addEntry(cogsId, "Invoice - Cost of Goods Sold", totalCostOfGoods, 0);
       }
 
-      // CREDITS:
       addEntry(salesAccountId, "Invoice - Sales", 0, subtotalAmount);
 
       if (isIGST) {
@@ -2632,21 +2617,39 @@ export class SalesService {
     }
 
     if (entries.length > 0) {
-      const { error: linesErr } = await client.from("journal_entry_lines").insert(entries);
-      if (linesErr) {
-        console.error("Error inserting journal_entry_lines for invoice:", linesErr.message);
+      for (const entry of entries) {
+        await client.unsafe(
+          `INSERT INTO journal_entry_lines (
+            id, journal_entry_id, entity_id, org_id, account_id, transaction_date,
+            reference_number, description, debit, credit, source_id, source_type, contact_id, contact_type
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+          [
+            entry.id,
+            entry.journal_entry_id,
+            entry.entity_id,
+            entry.org_id,
+            entry.account_id,
+            entry.transaction_date,
+            entry.reference_number,
+            entry.description,
+            entry.debit,
+            entry.credit,
+            entry.source_id,
+            entry.source_type,
+            entry.contact_id,
+            entry.contact_type,
+          ],
+        );
       }
     }
 
-    // Save journal_id backlink in invoice_master table
     try {
-      await client
-        .from("invoice_master")
-        .update({ journal_id: journalEntryId })
-        .eq("id", invoiceId);
+      await client.unsafe(
+        `UPDATE invoice_master SET journal_id = $1 WHERE id = $2`,
+        [journalEntryId, invoiceId],
+      );
     } catch (jeBacklinkErr) {
       console.error("Error updating invoice_master journal_id:", jeBacklinkErr);
     }
   }
-
 }

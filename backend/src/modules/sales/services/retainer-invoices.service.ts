@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { TenantContext } from "../../../common/middleware/tenant.middleware";
 import { SupabaseService } from "../../supabase/supabase.service";
+import { client } from "../../../db/db";
 
 @Injectable()
 export class RetainerInvoicesService {
-  constructor(private readonly supabaseService: SupabaseService) { }
+  constructor(private readonly supabaseService: SupabaseService) {}
 
   private ensureEntityId(tenant: TenantContext): string {
     if (!tenant?.entityId) {
@@ -20,73 +21,66 @@ export class RetainerInvoicesService {
     search?: string,
     status?: string,
   ) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
 
     const safePage = page < 1 ? 1 : page;
     const safeLimit = limit < 1 ? 100 : limit;
-    const from = (safePage - 1) * safeLimit;
-    const to = from + safeLimit - 1;
+    const offset = (safePage - 1) * safeLimit;
 
-    let query = client
-      .from("retainer_invoices")
-      .select("*", { count: "exact" })
-      .eq("entity_id", entityId)
-      .eq("is_deleted", false)
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    let sqlQuery = `SELECT * FROM retainer_invoices WHERE entity_id = $1 AND is_deleted = false`;
+    let countQuery = `SELECT COUNT(*)::int as count FROM retainer_invoices WHERE entity_id = $1 AND is_deleted = false`;
+    const params: any[] = [entityId];
 
     if (status && status.trim()) {
-      query = query.eq("status", status.trim().toLowerCase());
+      params.push(status.trim().toLowerCase());
+      sqlQuery += ` AND status = $${params.length}`;
+      countQuery += ` AND status = $${params.length}`;
     }
+
     if (search && search.trim()) {
-      const term = `%${search.trim()}%`;
-      query = query.or(
-        `retainer_invoice_number.ilike.${term},reference_number.ilike.${term}`,
-      );
+      params.push(`%${search.trim()}%`);
+      const searchIdx = params.length;
+      sqlQuery += ` AND (retainer_invoice_number ILIKE $${searchIdx} OR reference_number ILIKE $${searchIdx})`;
+      countQuery += ` AND (retainer_invoice_number ILIKE $${searchIdx} OR reference_number ILIKE $${searchIdx})`;
     }
 
-    const { data, error, count } = await query;
+    sqlQuery += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 
-    if (error) {
-      throw new Error(
-        `Failed to load retainer invoices: ${(error as any)?.message ?? "Unknown error"}`,
-      );
-    }
+    const [data, countRes] = await Promise.all([
+      client.unsafe(sqlQuery, [...params, safeLimit, offset]),
+      client.unsafe(countQuery, params),
+    ]);
 
-    const enrichedWithCustomers = await this.attachCustomers(client, data ?? []);
+    const totalCount = countRes[0]?.count ?? 0;
+    const enrichedWithCustomers = await this.attachCustomers((data as any[]) ?? []);
 
     return {
       data: enrichedWithCustomers,
       page: safePage,
       limit: safeLimit,
-      total: count ?? 0,
+      total: totalCount,
     };
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
 
-    const { data: invoice, error } = await client
-      .from("retainer_invoices")
-      .select("*")
-      .eq("id", id)
-      .eq("entity_id", entityId)
-      .eq("is_deleted", false)
-      .single();
+    const rows = await client.unsafe(
+      `SELECT * FROM retainer_invoices WHERE id = $1 AND entity_id = $2 AND is_deleted = false LIMIT 1`,
+      [id, entityId],
+    );
 
-    if (error || !invoice) {
+    const invoice = rows[0];
+    if (!invoice) {
       throw new NotFoundException(`Retainer invoice with ID ${id} not found`);
     }
 
-    const { data: items } = await client
-      .from("retainer_invoice_items")
-      .select("*")
-      .eq("retainer_invoice_id", id)
-      .order("line_no", { ascending: true });
+    const items = await client.unsafe(
+      `SELECT * FROM retainer_invoice_items WHERE retainer_invoice_id = $1 ORDER BY line_no ASC`,
+      [id],
+    );
 
-    const enriched = await this.attachCustomers(client, [invoice]);
+    const enriched = await this.attachCustomers([invoice as any]);
 
     return {
       data: {
@@ -97,7 +91,6 @@ export class RetainerInvoicesService {
   }
 
   async create(tenant: TenantContext, body: any) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
     const nowIso = new Date().toISOString();
 
@@ -119,117 +112,143 @@ export class RetainerInvoicesService {
     const balanceAmount = body.balanceAmount ?? body.balance_amount ?? 0;
     const status = (body.status ?? "draft").toLowerCase();
 
-    const payload = {
-      entity_id: entityId,
-      customer_id: customerId,
-      transaction_series_id: transactionSeriesId || null,
-      retainer_invoice_number: retainerInvoiceNumber,
-      reference_number: referenceNumber || null,
-      retainer_invoice_date: retainerInvoiceDate,
-      customer_notes: customerNotes || null,
-      terms_conditions: termsConditions || null,
-      subtotal,
-      round_off: roundOff,
-      total_amount: totalAmount,
-      amount_received: amountReceived,
-      amount_applied: amountApplied,
-      balance_amount: balanceAmount,
-      status,
-      created_by: tenant.userId || null,
-      created_at: nowIso,
-      updated_at: nowIso,
-      is_deleted: false,
-    };
+    const createdRows = await client.unsafe(
+      `INSERT INTO retainer_invoices (entity_id, customer_id, transaction_series_id, retainer_invoice_number, reference_number, retainer_invoice_date, customer_notes, terms_conditions, subtotal, round_off, total_amount, amount_received, amount_applied, balance_amount, status, created_by, created_at, updated_at, is_deleted)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, false)
+       RETURNING *`,
+      [
+        entityId,
+        customerId,
+        transactionSeriesId || null,
+        retainerInvoiceNumber,
+        referenceNumber || null,
+        retainerInvoiceDate,
+        customerNotes || null,
+        termsConditions || null,
+        subtotal,
+        roundOff,
+        totalAmount,
+        amountReceived,
+        amountApplied,
+        balanceAmount,
+        status,
+        tenant.userId || null,
+        nowIso,
+        nowIso,
+      ],
+    );
 
-    const { data: created, error } = await client
-      .from("retainer_invoices")
-      .insert(payload)
-      .select("*")
-      .single();
-
-    if (error || !created) {
-      throw new Error(
-        `Failed to create retainer invoice: ${(error as any)?.message ?? "Unknown error"}`,
-      );
+    const created = createdRows[0];
+    if (!created) {
+      throw new Error("Failed to create retainer invoice");
     }
 
     if (Array.isArray(body.items) && body.items.length > 0) {
-      const itemRows = body.items.map((item: any, idx: number) => ({
-        retainer_invoice_id: created.id,
-        line_no: item.lineNo ?? item.line_no ?? idx + 1,
-        description: item.description ?? "",
-        amount: item.amount ?? 0,
-      }));
-
-      await client.from("retainer_invoice_items").insert(itemRows);
+      for (let idx = 0; idx < body.items.length; idx++) {
+        const item = body.items[idx];
+        await client.unsafe(
+          `INSERT INTO retainer_invoice_items (retainer_invoice_id, line_no, description, amount)
+           VALUES ($1, $2, $3, $4)`,
+          [
+            created.id,
+            item.lineNo ?? item.line_no ?? idx + 1,
+            item.description ?? "",
+            item.amount ?? 0,
+          ],
+        );
+      }
     }
 
     return { data: created };
   }
 
   async update(id: string, tenant: TenantContext, body: any) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
     const nowIso = new Date().toISOString();
 
-    const updates: Record<string, unknown> = { updated_at: nowIso };
-    const assign = (key: string, value: unknown) => {
-      if (value !== undefined) updates[key] = value;
-    };
+    const customerId = body.customerId ?? body.customer_id;
+    const transactionSeriesId =
+      body.transactionSeriesId ?? body.transaction_series_id;
+    const retainerInvoiceNumber =
+      body.retainerInvoiceNumber ?? body.retainer_invoice_number;
+    const referenceNumber = body.referenceNumber ?? body.reference_number;
+    const retainerInvoiceDate =
+      body.retainerInvoiceDate ?? body.retainer_invoice_date;
+    const customerNotes = body.customerNotes ?? body.customer_notes;
+    const termsConditions = body.termsConditions ?? body.terms_conditions;
+    const subtotal = body.subtotal;
+    const roundOff = body.roundOff ?? body.round_off;
+    const totalAmount = body.totalAmount ?? body.total_amount;
+    const amountReceived = body.amountReceived ?? body.amount_received;
+    const amountApplied = body.amountApplied ?? body.amount_applied;
+    const balanceAmount = body.balanceAmount ?? body.balance_amount;
+    const status = body.status ? body.status.toLowerCase() : null;
 
-    assign("customer_id", body.customerId ?? body.customer_id);
-    assign(
-      "transaction_series_id",
-      body.transactionSeriesId ?? body.transaction_series_id,
+    const updatedRows = await client.unsafe(
+      `UPDATE retainer_invoices SET
+         customer_id = COALESCE($1, customer_id),
+         transaction_series_id = COALESCE($2, transaction_series_id),
+         retainer_invoice_number = COALESCE($3, retainer_invoice_number),
+         reference_number = COALESCE($4, reference_number),
+         retainer_invoice_date = COALESCE($5, retainer_invoice_date),
+         customer_notes = COALESCE($6, customer_notes),
+         terms_conditions = COALESCE($7, terms_conditions),
+         subtotal = COALESCE($8, subtotal),
+         round_off = COALESCE($9, round_off),
+         total_amount = COALESCE($10, total_amount),
+         amount_received = COALESCE($11, amount_received),
+         amount_applied = COALESCE($12, amount_applied),
+         balance_amount = COALESCE($13, balance_amount),
+         status = COALESCE($14, status),
+         updated_at = $15
+       WHERE id = $16 AND entity_id = $17 AND is_deleted = false
+       RETURNING *`,
+      [
+        customerId ?? null,
+        transactionSeriesId ?? null,
+        retainerInvoiceNumber ?? null,
+        referenceNumber ?? null,
+        retainerInvoiceDate ?? null,
+        customerNotes ?? null,
+        termsConditions ?? null,
+        subtotal ?? null,
+        roundOff ?? null,
+        totalAmount ?? null,
+        amountReceived ?? null,
+        amountApplied ?? null,
+        balanceAmount ?? null,
+        status,
+        nowIso,
+        id,
+        entityId,
+      ],
     );
-    assign(
-      "retainer_invoice_number",
-      body.retainerInvoiceNumber ?? body.retainer_invoice_number,
-    );
-    assign("reference_number", body.referenceNumber ?? body.reference_number);
-    assign(
-      "retainer_invoice_date",
-      body.retainerInvoiceDate ?? body.retainer_invoice_date,
-    );
-    assign("customer_notes", body.customerNotes ?? body.customer_notes);
-    assign("terms_conditions", body.termsConditions ?? body.terms_conditions);
-    assign("subtotal", body.subtotal);
-    assign("round_off", body.roundOff ?? body.round_off);
-    assign("total_amount", body.totalAmount ?? body.total_amount);
-    assign("amount_received", body.amountReceived ?? body.amount_received);
-    assign("amount_applied", body.amountApplied ?? body.amount_applied);
-    assign("balance_amount", body.balanceAmount ?? body.balance_amount);
-    if (body.status) assign("status", body.status.toLowerCase());
 
-    const { data: updated, error } = await client
-      .from("retainer_invoices")
-      .update(updates)
-      .eq("id", id)
-      .eq("entity_id", entityId)
-      .eq("is_deleted", false)
-      .select("*")
-      .single();
-
-    if (error || !updated) {
-      throw new Error(
-        `Failed to update retainer invoice: ${(error as any)?.message ?? "Unknown error"}`,
-      );
+    const updated = updatedRows[0];
+    if (!updated) {
+      throw new Error("Failed to update retainer invoice");
     }
 
     if (Array.isArray(body.items)) {
-      await client
-        .from("retainer_invoice_items")
-        .delete()
-        .eq("retainer_invoice_id", id);
+      await client.unsafe(
+        `DELETE FROM retainer_invoice_items WHERE retainer_invoice_id = $1`,
+        [id],
+      );
 
       if (body.items.length > 0) {
-        const itemRows = body.items.map((item: any, idx: number) => ({
-          retainer_invoice_id: id,
-          line_no: item.lineNo ?? item.line_no ?? idx + 1,
-          description: item.description ?? "",
-          amount: item.amount ?? 0,
-        }));
-        await client.from("retainer_invoice_items").insert(itemRows);
+        for (let idx = 0; idx < body.items.length; idx++) {
+          const item = body.items[idx];
+          await client.unsafe(
+            `INSERT INTO retainer_invoice_items (retainer_invoice_id, line_no, description, amount)
+             VALUES ($1, $2, $3, $4)`,
+            [
+              id,
+              item.lineNo ?? item.line_no ?? idx + 1,
+              item.description ?? "",
+              item.amount ?? 0,
+            ],
+          );
+        }
       }
     }
 
@@ -237,26 +256,17 @@ export class RetainerInvoicesService {
   }
 
   async delete(id: string, tenant: TenantContext) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
 
-    const { error } = await client
-      .from("retainer_invoices")
-      .update({ is_deleted: true, updated_at: new Date().toISOString() })
-      .eq("id", id)
-      .eq("entity_id", entityId);
-
-    if (error) {
-      throw new Error(
-        `Failed to delete retainer invoice: ${(error as any)?.message ?? "Unknown error"}`,
-      );
-    }
+    await client.unsafe(
+      `UPDATE retainer_invoices SET is_deleted = true, updated_at = NOW() WHERE id = $1 AND entity_id = $2`,
+      [id, entityId],
+    );
 
     return { success: true };
   }
 
   private async attachCustomers(
-    client: ReturnType<SupabaseService["getClient"]>,
     rows: Array<{ customer_id?: string | null }>,
   ): Promise<Array<Record<string, unknown>>> {
     if (!rows.length) return rows as Array<Record<string, unknown>>;
@@ -279,10 +289,10 @@ export class RetainerInvoicesService {
       }));
     }
 
-    const { data: customers } = await client
-      .from("customers")
-      .select("id, display_name, first_name, last_name, company_name")
-      .in("id", customerIds);
+    const customers = await client.unsafe(
+      `SELECT id, display_name, first_name, last_name, company_name FROM customers WHERE id = ANY($1)`,
+      [customerIds],
+    );
 
     const customerMap = new Map<string, any>();
     if (customers) {

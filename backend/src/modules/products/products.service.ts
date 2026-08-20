@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import { db } from "../../db/db";
+import { db, client } from "../../db/db";
 import { batches, product, branchInventory } from "../../db/schema";
 import { eq, sql } from "drizzle-orm";
 import { SupabaseService } from "../supabase/supabase.service";
@@ -87,40 +87,27 @@ export class ProductsService {
   }
 
   private async getScopedReorderTerms(tenant?: TenantContext) {
-    const supabase = this.supabaseService.getClient();
     const scope = this.resolveScope(tenant);
-
-    const { data, error } = await supabase
-      .from("reorder_terms")
-      .select("id, entity_id, term_name, quantity, description, is_active")
-      .eq("entity_id", scope.entityId)
-      .eq("is_active", true)
-      .order("term_name", { ascending: true });
-
-    if (error) throw new Error(error.message);
-    return data ?? [];
+    return await client.unsafe(
+      `SELECT id, entity_id, term_name, quantity, description, is_active FROM reorder_terms WHERE entity_id = $1 AND is_active = true ORDER BY term_name ASC`,
+      [scope.entityId],
+    );
   }
 
   private async getProductBranchInventorySetting(
     productId: string,
     tenant?: TenantContext,
   ) {
-    const supabase = this.supabaseService.getClient();
     const scope = this.resolveScope(tenant);
-
-    const { data, error } = await supabase
-      .from("product_branch_inventory_settings")
-      .select(
-        "id, entity_id, org_id, product_id, reorder_point, reorder_term_id, is_active",
-      )
-      .eq("product_id", productId)
-      .eq("entity_id", scope.entityId)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (error?.message?.includes("schema cache")) return null;
-    if (error) throw new Error(error.message);
-    return data ?? null;
+    try {
+      const rows = await client.unsafe(
+        `SELECT id, entity_id, org_id, product_id, reorder_point, reorder_term_id, is_active FROM product_branch_inventory_settings WHERE product_id = $1 AND entity_id = $2 AND is_active = true LIMIT 1`,
+        [productId, scope.entityId],
+      );
+      return rows[0] ?? null;
+    } catch {
+      return null;
+    }
   }
 
   private async syncProductBranchInventorySetting(
@@ -130,70 +117,41 @@ export class ProductsService {
     userId: string | null,
     tenant?: TenantContext,
   ) {
-    const supabase = this.supabaseService.getClient();
     const scope = this.resolveScope(tenant);
     const normalizedReorderPoint = Math.max(0, Number(reorderPoint) || 0);
     const normalizedReorderTermId = this.cleanUuid(reorderTermId);
     const hasMeaningfulSetting =
       normalizedReorderPoint > 0 || normalizedReorderTermId != null;
 
-    const { data: existingSetting, error: existingError } = await supabase
-      .from("product_branch_inventory_settings")
-      .select("id")
-      .eq("product_id", productId)
-      .eq("entity_id", scope.entityId)
-      .maybeSingle();
-
-    if (existingError) {
-      throw new Error(existingError.message);
-    }
+    const existingRows = await client.unsafe(
+      `SELECT id FROM product_branch_inventory_settings WHERE product_id = $1 AND entity_id = $2 LIMIT 1`,
+      [productId, scope.entityId],
+    );
+    const existingSetting = existingRows[0];
 
     if (!hasMeaningfulSetting) {
       if (!existingSetting?.id) return null;
 
-      const { error: clearError } = await supabase
-        .from("product_branch_inventory_settings")
-        .update({
-          reorder_point: 0,
-          reorder_term_id: null,
-          is_active: false,
-          updated_by_id: userId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existingSetting.id);
-
-      if (clearError) throw new Error(clearError.message);
+      await client.unsafe(
+        `UPDATE product_branch_inventory_settings SET reorder_point = 0, reorder_term_id = null, is_active = false, updated_by_id = $1, updated_at = NOW() WHERE id = $2`,
+        [userId, existingSetting.id],
+      );
       return null;
     }
 
-    const payload = {
-      entity_id: scope.entityId,
-      product_id: productId,
-      reorder_point: normalizedReorderPoint,
-      reorder_term_id: normalizedReorderTermId,
-      is_active: true,
-      updated_by_id: userId,
-      updated_at: new Date().toISOString(),
-    };
-
     if (existingSetting?.id) {
-      const { error: updateError } = await supabase
-        .from("product_branch_inventory_settings")
-        .update(payload)
-        .eq("id", existingSetting.id);
-
-      if (updateError) throw new Error(updateError.message);
+      await client.unsafe(
+        `UPDATE product_branch_inventory_settings SET entity_id = $1, product_id = $2, reorder_point = $3, reorder_term_id = $4, is_active = true, updated_by_id = $5, updated_at = NOW() WHERE id = $6`,
+        [scope.entityId, productId, normalizedReorderPoint, normalizedReorderTermId, userId, existingSetting.id],
+      );
       return existingSetting.id;
     }
 
-    const { error: insertError } = await supabase
-      .from("product_branch_inventory_settings")
-      .insert({
-        ...payload,
-        created_by_id: userId,
-      });
-
-    if (insertError) throw new Error(insertError.message);
+    await client.unsafe(
+      `INSERT INTO product_branch_inventory_settings (id, entity_id, product_id, reorder_point, reorder_term_id, is_active, created_by_id, updated_by_id)
+       VALUES ($1, $2, $3, $4, $5, true, $6, $6)`,
+      [randomUUID(), scope.entityId, productId, normalizedReorderPoint, normalizedReorderTermId, userId],
+    );
     return null;
   }
 
@@ -201,22 +159,16 @@ export class ProductsService {
     compositeItemId: string,
     tenant?: TenantContext,
   ) {
-    const supabase = this.supabaseService.getClient();
     const scope = this.resolveScope(tenant);
-
-    const { data, error } = await supabase
-      .from("composite_item_branch_inventory_settings")
-      .select(
-        "id, entity_id, org_id, composite_item_id, reorder_point, reorder_term_id, is_active",
-      )
-      .eq("composite_item_id", compositeItemId)
-      .eq("entity_id", scope.entityId)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (error?.message?.includes("schema cache")) return null;
-    if (error) throw new Error(error.message);
-    return data ?? null;
+    try {
+      const rows = await client.unsafe(
+        `SELECT id, entity_id, org_id, composite_item_id, reorder_point, reorder_term_id, is_active FROM composite_item_branch_inventory_settings WHERE composite_item_id = $1 AND entity_id = $2 AND is_active = true LIMIT 1`,
+        [compositeItemId, scope.entityId],
+      );
+      return rows[0] ?? null;
+    } catch {
+      return null;
+    }
   }
 
   private async syncCompositeItemBranchInventorySetting(
@@ -226,69 +178,41 @@ export class ProductsService {
     userId: string | null,
     tenant?: TenantContext,
   ) {
-    const supabase = this.supabaseService.getClient();
     const scope = this.resolveScope(tenant);
     const normalizedReorderPoint = Math.max(0, Number(reorderPoint) || 0);
     const normalizedReorderTermId = this.cleanUuid(reorderTermId);
     const hasMeaningfulSetting =
       normalizedReorderPoint > 0 || normalizedReorderTermId != null;
 
-    const { data: existingSetting, error: existingError } = await supabase
-      .from("composite_item_branch_inventory_settings")
-      .select("id")
-      .eq("composite_item_id", compositeItemId)
-      .eq("entity_id", scope.entityId)
-      .maybeSingle();
-
-    if (existingError) throw new Error(existingError.message);
+    const existingRows = await client.unsafe(
+      `SELECT id FROM composite_item_branch_inventory_settings WHERE composite_item_id = $1 AND entity_id = $2 LIMIT 1`,
+      [compositeItemId, scope.entityId],
+    );
+    const existingSetting = existingRows[0];
 
     if (!hasMeaningfulSetting) {
       if (!existingSetting?.id) return null;
 
-      const { error: clearError } = await supabase
-        .from("composite_item_branch_inventory_settings")
-        .update({
-          reorder_point: 0,
-          reorder_term_id: null,
-          is_active: false,
-          updated_by_id: userId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existingSetting.id);
-
-      if (clearError) throw new Error(clearError.message);
+      await client.unsafe(
+        `UPDATE composite_item_branch_inventory_settings SET reorder_point = 0, reorder_term_id = null, is_active = false, updated_by_id = $1, updated_at = NOW() WHERE id = $2`,
+        [userId, existingSetting.id],
+      );
       return null;
     }
 
-    const payload = {
-      entity_id: scope.entityId,
-      org_id: scope.orgId,
-      composite_item_id: compositeItemId,
-      reorder_point: normalizedReorderPoint,
-      reorder_term_id: normalizedReorderTermId,
-      is_active: true,
-      updated_by_id: userId,
-      updated_at: new Date().toISOString(),
-    };
-
     if (existingSetting?.id) {
-      const { error: updateError } = await supabase
-        .from("composite_item_branch_inventory_settings")
-        .update(payload)
-        .eq("id", existingSetting.id);
-
-      if (updateError) throw new Error(updateError.message);
+      await client.unsafe(
+        `UPDATE composite_item_branch_inventory_settings SET entity_id = $1, composite_item_id = $2, reorder_point = $3, reorder_term_id = $4, is_active = true, updated_by_id = $5, updated_at = NOW() WHERE id = $6`,
+        [scope.entityId, compositeItemId, normalizedReorderPoint, normalizedReorderTermId, userId, existingSetting.id],
+      );
       return existingSetting.id;
     }
 
-    const { error: insertError } = await supabase
-      .from("composite_item_branch_inventory_settings")
-      .insert({
-        ...payload,
-        created_by_id: userId,
-      });
-
-    if (insertError) throw new Error(insertError.message);
+    await client.unsafe(
+      `INSERT INTO composite_item_branch_inventory_settings (id, entity_id, composite_item_id, reorder_point, reorder_term_id, is_active, created_by_id, updated_by_id)
+       VALUES ($1, $2, $3, $4, $5, true, $6, $6)`,
+      [randomUUID(), scope.entityId, compositeItemId, normalizedReorderPoint, normalizedReorderTermId, userId],
+    );
     return null;
   }
 

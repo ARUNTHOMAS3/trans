@@ -1,6 +1,9 @@
 import { Controller, Get } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 import { RedisService } from "../redis/redis.service";
+import { db } from "../../db/db";
+import { unit } from "../../db/schema";
+import { sql } from "drizzle-orm";
 
 @Controller("health")
 export class HealthController {
@@ -28,19 +31,9 @@ export class HealthController {
     };
 
     try {
-      // Try a simple query to verify DB connection
-      const { error } = await this.supabaseService
-        .getClient()
-        .from("units") // 'units' is a safe table to check
-        .select("count", { count: "exact", head: true });
-
-      if (error) {
-        status.database = "error";
-        status["error_details"] = error.message;
-        status["error_code"] = error.code;
-      } else {
-        status.database = "connected";
-      }
+      // Verify DB connection using Drizzle
+      await db.select({ val: sql`1` }).from(unit).limit(1);
+      status.database = "connected";
     } catch (e) {
       status.database = "exception";
       status["exception_message"] = e.message;

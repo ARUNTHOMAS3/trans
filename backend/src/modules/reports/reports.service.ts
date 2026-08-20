@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
-import { db } from "../../db/db";
+import { db, client } from "../../db/db";
 import { sql } from "drizzle-orm";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
 
@@ -31,7 +31,6 @@ export class ReportsService {
       place: string;
     }>;
   }> {
-    const supabase = this.supabaseService.getClient();
     const currentEntityId = tenant.entityId?.toString().trim() || "";
 
     if (!currentEntityId) {
@@ -42,11 +41,11 @@ export class ReportsService {
       };
     }
 
-    const { data: selectedEntity } = await supabase
-      .from("organisation_branch_master")
-      .select("id, type, ref_id, parent_id")
-      .eq("id", currentEntityId)
-      .maybeSingle();
+    const selectedEntities = await client.unsafe(
+      `SELECT id, type, ref_id, parent_id FROM organisation_branch_master WHERE id = $1 LIMIT 1`,
+      [currentEntityId],
+    );
+    const selectedEntity = selectedEntities[0];
     const entityRows: Array<{
       id: string;
       type: "ORG" | "BRANCH";
@@ -67,11 +66,11 @@ export class ReportsService {
     const branchMap = new Map<string, { name: string; place: string }>();
 
     if (orgRefIds.length > 0) {
-      const { data } = await supabase
-        .from("organization")
-        .select("id, name, place, city")
-        .in("id", orgRefIds);
-      for (const row of data ?? []) {
+      const orgs = await client.unsafe(
+        `SELECT id, name, place, city FROM organization WHERE id = ANY($1)`,
+        [orgRefIds],
+      );
+      for (const row of orgs ?? []) {
         orgMap.set(String((row as any).id), {
           name: String((row as any).name ?? "Organization"),
           place: String((row as any).place ?? (row as any).city ?? "").trim(),
@@ -80,11 +79,11 @@ export class ReportsService {
     }
 
     if (branchRefIds.length > 0) {
-      const { data } = await supabase
-        .from("branches")
-        .select("id, name, place, city")
-        .in("id", branchRefIds);
-      for (const row of data ?? []) {
+      const branchesRes = await client.unsafe(
+        `SELECT id, name, place, city FROM branches WHERE id = ANY($1)`,
+        [branchRefIds],
+      );
+      for (const row of branchesRes ?? []) {
         branchMap.set(String((row as any).id), {
           name: String((row as any).name ?? "Branch"),
           place: String((row as any).place ?? (row as any).city ?? "").trim(),
@@ -129,7 +128,6 @@ export class ReportsService {
   }
 
   async getCurrentBranchHeader(tenant: TenantContext) {
-    const supabase = this.supabaseService.getClient();
     const userId = tenant.userId?.toString().trim() || "";
     const orgId = tenant.orgId?.toString().trim() || "";
     const activeEntityId = tenant.entityId?.toString().trim() || "";
@@ -137,25 +135,24 @@ export class ReportsService {
     const accessRows: Array<Record<string, any>> = [];
 
     if (userId) {
-      const { data } = await supabase
-        .from("branch_user_access")
-        .select("entity_id, is_default_branch")
-        .eq("user_id", userId);
-      if (Array.isArray(data)) {
+      const accessData = await client.unsafe(
+        `SELECT entity_id, is_default_branch FROM branch_user_access WHERE user_id = $1`,
+        [userId],
+      );
+      if (Array.isArray(accessData)) {
         accessRows.push(
-          ...data.map((row) => ({ ...row, source: "branch_user_access" })),
+          ...accessData.map((row) => ({ ...row, source: "branch_user_access" })),
         );
       }
 
       if (accessRows.length === 0) {
-        let fallbackQuery = supabase
-          .from("user_branch_access")
-          .select("entity_id, is_default_business, is_default_warehouse")
-          .eq("user_id", userId);
+        let fallbackSql = `SELECT entity_id, is_default_business, is_default_warehouse FROM user_branch_access WHERE user_id = $1`;
+        const params: any[] = [userId];
         if (orgId) {
-          fallbackQuery = fallbackQuery.eq("org_id", orgId);
+          params.push(orgId);
+          fallbackSql += ` AND org_id = $2`;
         }
-        const { data: fallbackData } = await fallbackQuery;
+        const fallbackData = await client.unsafe(fallbackSql, params);
         if (Array.isArray(fallbackData)) {
           accessRows.push(
             ...fallbackData.map((row) => ({
@@ -190,24 +187,21 @@ export class ReportsService {
       };
     }
 
-    const { data: entityRow } = await supabase
-      .from("organisation_branch_master")
-      .select("id, name, type, ref_id")
-      .eq("id", entityId)
-      .maybeSingle();
-
-    const entity = (entityRow ?? {}) as Record<string, any>;
+    const entityRows = await client.unsafe(
+      `SELECT id, name, type, ref_id FROM organisation_branch_master WHERE id = $1 LIMIT 1`,
+      [entityId],
+    );
+    const entity = (entityRows[0] ?? {}) as Record<string, any>;
     const branchRefId =
       entity.ref_id?.toString().trim() || tenant.branchId || "";
     let branchName = "";
 
     if (entity.type === "BRANCH" && branchRefId) {
-      const { data: branchRow } = await supabase
-        .from("branches")
-        .select("id, name")
-        .eq("id", branchRefId)
-        .maybeSingle();
-      branchName = String((branchRow as any)?.name ?? "").trim();
+      const branchRows = await client.unsafe(
+        `SELECT id, name FROM branches WHERE id = $1 LIMIT 1`,
+        [branchRefId],
+      );
+      branchName = String((branchRows[0] as any)?.name ?? "").trim();
     }
 
     if (!branchName) {
@@ -4133,63 +4127,83 @@ export class ReportsService {
   }
 
   async getAuditLogs(tenant: TenantContext, params: AuditLogsParams) {
-    const supabase = this.supabaseService.getClient();
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.min(100, Math.max(10, params.pageSize ?? 25));
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    const offset = (page - 1) * pageSize;
 
-    let query = supabase
-      .from("audit_logs_all")
-      .select("*", { count: "exact" })
-      .eq("org_id", tenant.orgId)
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    let sqlQuery = `SELECT * FROM audit_logs_all WHERE org_id = $1`;
+    let countSql = `SELECT COUNT(*)::int as count FROM audit_logs_all WHERE org_id = $1`;
+    const sqlParams: any[] = [tenant.orgId];
 
-    if (params.requestId) query = query.eq("request_id", params.requestId);
-    if (params.source) query = query.eq("source", params.source);
-    if (params.tables?.length) query = query.in("table_name", params.tables);
-    if (params.actions?.length) query = query.in("action", params.actions);
+    if (params.requestId) {
+      sqlParams.push(params.requestId);
+      const idx = sqlParams.length;
+      sqlQuery += ` AND request_id = $${idx}`;
+      countSql += ` AND request_id = $${idx}`;
+    }
+    if (params.source) {
+      sqlParams.push(params.source);
+      const idx = sqlParams.length;
+      sqlQuery += ` AND source = $${idx}`;
+      countSql += ` AND source = $${idx}`;
+    }
+    if (params.tables?.length) {
+      sqlParams.push(params.tables);
+      const idx = sqlParams.length;
+      sqlQuery += ` AND table_name = ANY($${idx})`;
+      countSql += ` AND table_name = ANY($${idx})`;
+    }
+    if (params.actions?.length) {
+      sqlParams.push(params.actions);
+      const idx = sqlParams.length;
+      sqlQuery += ` AND action = ANY($${idx})`;
+      countSql += ` AND action = ANY($${idx})`;
+    }
     if (params.fromDate) {
       const fromDate = params.fromDate.includes("T")
         ? new Date(params.fromDate)
         : new Date(`${params.fromDate}T00:00:00.000Z`);
-      query = query.gte("created_at", fromDate.toISOString());
+      sqlParams.push(fromDate.toISOString());
+      const idx = sqlParams.length;
+      sqlQuery += ` AND created_at >= $${idx}`;
+      countSql += ` AND created_at >= $${idx}`;
     }
     if (params.toDate) {
       const toDate = params.toDate.includes("T")
         ? new Date(params.toDate)
         : new Date(`${params.toDate}T23:59:59.999Z`);
-      query = query.lte("created_at", toDate.toISOString());
+      sqlParams.push(toDate.toISOString());
+      const idx = sqlParams.length;
+      sqlQuery += ` AND created_at <= $${idx}`;
+      countSql += ` AND created_at <= $${idx}`;
     }
 
     if (params.scope == "archived") {
-      query = query.not("archived_at", "is", null);
+      sqlQuery += ` AND archived_at IS NOT NULL`;
+      countSql += ` AND archived_at IS NOT NULL`;
     } else if (params.scope == "recent") {
-      query = query.is("archived_at", null);
+      sqlQuery += ` AND archived_at IS NULL`;
+      countSql += ` AND archived_at IS NULL`;
     }
 
     if (params.search?.trim().length) {
       const term = params.search.trim().replaceAll(",", " ");
-      query = query.or(
-        [
-          `table_name.ilike.%${term}%`,
-          `record_pk.ilike.%${term}%`,
-          `actor_name.ilike.%${term}%`,
-          `module_name.ilike.%${term}%`,
-          `request_id.ilike.%${term}%`,
-          `source.ilike.%${term}%`,
-          `action.ilike.%${term}%`,
-        ].join(","),
-      );
+      sqlParams.push(`%${term}%`);
+      const sIdx = sqlParams.length;
+      const searchCond = ` AND (table_name ILIKE $${sIdx} OR record_pk ILIKE $${sIdx} OR actor_name ILIKE $${sIdx} OR module_name ILIKE $${sIdx} OR request_id ILIKE $${sIdx} OR source ILIKE $${sIdx} OR action ILIKE $${sIdx})`;
+      sqlQuery += searchCond;
+      countSql += searchCond;
     }
 
-    const { data, count, error } = await query;
-    if (error) throw error;
+    sqlQuery += ` ORDER BY created_at DESC LIMIT $${sqlParams.length + 1} OFFSET $${sqlParams.length + 2}`;
 
-    const logs = Array.isArray(data)
-      ? (data as Array<Record<string, unknown>>)
-      : [];
+    const [rows, countRes] = await Promise.all([
+      client.unsafe(sqlQuery, [...sqlParams, pageSize, offset]),
+      client.unsafe(countSql, sqlParams),
+    ]);
+
+    const totalCount = countRes[0]?.count ?? 0;
+    const logs = Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
     const visibleItems = logs.length;
     const summary = {
       insertCount: logs.filter((log) => log["action"] === "INSERT").length,
@@ -4202,7 +4216,7 @@ export class ReportsService {
 
     return {
       items: logs,
-      total: count ?? visibleItems,
+      total: totalCount,
       page,
       pageSize,
       summary,

@@ -9,6 +9,7 @@ import { SupabaseService } from "../../../supabase/supabase.service";
 import { SequencesService } from "../../../../sequences/sequences.service";
 import { TenantContext } from "../../../../common/middleware/tenant.middleware";
 import { R2StorageService } from "../../../accountant/r2-storage.service";
+import { client } from "../../../../db/db";
 import {
   AMOUNT_TAX_MODES,
   EXPENSE_MODES,

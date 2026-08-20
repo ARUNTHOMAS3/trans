@@ -7,6 +7,8 @@ import {
 import { Observable, from } from "rxjs";
 import { switchMap, tap } from "rxjs/operators";
 import { SupabaseService } from "../../modules/supabase/supabase.service";
+import { db, client } from "../../db/db";
+import { auditLogs } from "../../db/schema";
 
 interface RouteEntry {
   pattern: RegExp;
@@ -345,13 +347,12 @@ export class AuditInterceptor implements NestInterceptor {
     id: string,
   ): Promise<Record<string, unknown> | null> {
     try {
-      const client = this.supabaseService.getClient();
-      const { data } = await client
-        .from(table)
-        .select("*")
-        .eq("id", id)
-        .single();
-      return (data as Record<string, unknown> | null) ?? null;
+      const sanitizedTable = table.replace(/[^a-zA-Z0-9_]/g, "");
+      const rows = await client.unsafe(
+        `SELECT * FROM "${sanitizedTable}" WHERE id = $1 LIMIT 1`,
+        [id],
+      );
+      return (rows[0] as Record<string, unknown> | null) ?? null;
     } catch {
       return null;
     }
@@ -371,19 +372,23 @@ export class AuditInterceptor implements NestInterceptor {
     module_name: string;
     source: string;
   }): Promise<void> {
-    const client = this.supabaseService.getClient();
-    await client.from("audit_logs").insert({
-      table_name: entry.table_name,
-      record_id: entry.record_id,
-      action: entry.action,
-      old_values: entry.old_values,
-      new_values: entry.new_values,
-      user_id: entry.user_id,
-      org_id: entry.org_id,
-      entity_id: entry.entity_id,
-      actor_name: entry.actor_name,
-      module_name: entry.module_name,
-      source: entry.source,
-    });
+    try {
+      await db.insert(auditLogs).values({
+        tableName: entry.table_name,
+        recordId: entry.record_id,
+        action: entry.action,
+        oldValues: entry.old_values,
+        newValues: entry.new_values,
+        userId: entry.user_id,
+        orgId: entry.org_id,
+        entityId: entry.entity_id,
+        actorName: entry.actor_name,
+        moduleName: entry.module_name,
+        source: entry.source,
+        txid: 0,
+      });
+    } catch (err) {
+      console.error("[AuditInterceptor] Error writing audit log:", err);
+    }
   }
 }

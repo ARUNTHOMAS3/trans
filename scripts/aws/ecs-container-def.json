@@ -1,0 +1,31 @@
+[
+  {
+    "name": "zerpai-backend",
+    "image": "009736588281.dkr.ecr.ap-south-2.amazonaws.com/zerpai-backend:latest",
+    "portMappings": [
+      {
+        "containerPort": 3001,
+        "hostPort": 3001,
+        "protocol": "tcp"
+      }
+    ],
+    "environment": [
+      { "name": "NODE_ENV", "value": "production" },
+      { "name": "PORT", "value": "3001" },
+      { "name": "DATABASE_URL", "value": "postgresql://postgres:ZerpaiSecurePassword2026!@zerpai-db.cziuqia28x6a.ap-south-2.rds.amazonaws.com:5432/zerpai" },
+      { "name": "SUPABASE_URL", "value": "https://jhaqdcstdxynrbsomadt.supabase.co" },
+      { "name": "SUPABASE_SERVICE_ROLE_KEY", "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoYXFkY3N0ZHh5bnJic29tYWR0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzgxNzExNCwiZXhwIjoyMDgzMzkzMTE4fQ.Ex2gT00VKFqkXawHH3H16GUPVX4MXb7lFyWpxxJL154" },
+      { "name": "JWT_SECRET", "value": "4ca25ad7-a6b0-41be-ad4e-b35df30a1e84" },
+      { "name": "ENABLE_AUTH", "value": "true" }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "/ecs/zerpai-backend",
+        "awslogs-region": "ap-south-2",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
+    "essential": true
+  }
+]

@@ -2,9 +2,15 @@ import { Inject, Injectable, forwardRef } from "@nestjs/common";
 import { BranchesService } from "../branches/branches.service";
 import { SupabaseService } from "../supabase/supabase.service";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
-
-// Auth is enabled: users are resolved under org context and merged with the
-// org-scoped public users table for runtime role and location behavior.
+import { db, client } from "../../db/db";
+import {
+  users,
+  settingsRoles,
+  branchUserAccess,
+  userBranchAccess,
+  organisationBranchMaster,
+} from "../../db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 
 @Injectable()
 export class UsersService {
@@ -53,38 +59,6 @@ export class UsersService {
         "Branch-scoped administrator with operational access to assigned locations.",
     },
   ];
-
-  private readonly reservedRoleLabels = new Set<string>([
-    "admin",
-    "ho admin",
-    "branch admin",
-  ]);
-
-  private readonly reservedRoleIds = new Set<string>([
-    "admin",
-    "ho_admin",
-    "branch_admin",
-  ]);
-
-  private readonly roleScopeTypes = new Set<string>([
-    "platform",
-    "organization",
-    "branch",
-  ]);
-
-  private readonly permissionAliases: Record<string, string[]> = {
-    users: ["users_roles"],
-    shipments: ["sales_shipments"],
-    sales_shipments: ["shipments"],
-    ewaybill_perms: ["ewaybill_settings"],
-    ewaybill_settings: ["ewaybill_perms"],
-    branch_price_lists: ["price_list"],
-    price_list: ["branch_price_lists"],
-    recurring_bills: ["bills"],
-    bills: ["recurring_bills"],
-    accountant_settings: ["general_prefs"],
-    general_prefs: ["accountant_settings"],
-  };
 
   private getBranchAdminDefaultPermissions() {
     return {
@@ -137,1580 +111,391 @@ export class UsersService {
     } as Record<string, unknown>;
   }
 
-  private mergePermissionActions(
-    existing: unknown,
-    requiredActions: string[],
-  ): string[] {
-    const values = Array.isArray(existing)
-      ? existing.map((entry) => String(entry))
-      : [];
-    const merged = new Set<string>(values);
-    for (const action of requiredActions) {
-      merged.add(action);
-    }
-    return Array.from(merged);
-  }
-
   private normalizeRoleLabel(value: unknown): string {
     return value?.toString().trim().toLowerCase() ?? "";
   }
 
-  private isAdminRole(tenant: TenantContext): boolean {
-    return tenant.role?.toString().trim().toLowerCase() == "admin";
-  }
+  async ensureCoreDefaultRoles(tenantOrOrgId: TenantContext | string) {
+    const entityId = this.getEntityId(tenantOrOrgId);
 
-  private sanitizeRolePermissions(payload: unknown): Record<string, unknown> {
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-      return {};
-    }
-    return { ...(payload as Record<string, unknown>) };
-  }
+    const rows = await db
+      .select()
+      .from(settingsRoles)
+      .where(eq(settingsRoles.entityId, entityId));
 
-  private resolvePermissionSection(
-    permissions: Record<string, unknown>,
-    moduleKey: string,
-  ): unknown {
-    const direct = permissions[moduleKey];
-    if (direct != null) return direct;
-    const aliases = this.permissionAliases[moduleKey] ?? [];
-    for (const alias of aliases) {
-      const value = permissions[alias];
-      if (value != null) return value;
-    }
-    return null;
-  }
+    let hoAdminRoleId: string | null = null;
+    let branchAdminRoleId: string | null = null;
 
-  private ensureRolePermissionsWithinCreator(
-    creatorPermissions: Record<string, unknown> | null | undefined,
-    assignedPermissionsRaw: unknown,
-  ) {
-    const assignedPermissions = this.sanitizeRolePermissions(assignedPermissionsRaw);
-    const creator = creatorPermissions ?? {};
-
-    if (creator["full_access"] === true) {
-      return;
+    for (const role of rows ?? []) {
+      const normalized = this.normalizeRoleLabel(role.label);
+      if (normalized === "ho admin") hoAdminRoleId = role.id;
+      if (normalized === "branch admin") branchAdminRoleId = role.id;
     }
 
-    if (assignedPermissions["full_access"] === true) {
-      throw new Error(
-        "Privilege escalation blocked: creator cannot assign full_access.",
-      );
-    }
-
-    for (const [moduleKey, value] of Object.entries(assignedPermissions)) {
-      if (moduleKey === "__meta" || moduleKey === "full_access") continue;
-      if (Array.isArray(value)) {
-        const creatorValue = this.resolvePermissionSection(creator, moduleKey);
-        if (!Array.isArray(creatorValue)) {
-          throw new Error(
-            `Privilege escalation blocked: creator lacks '${moduleKey}' permissions.`,
-          );
-        }
-        const creatorActions = new Set(creatorValue.map((item) => String(item)));
-        if (creatorActions.has("full")) continue;
-        const requiredActions = value.map((item) => String(item));
-        for (const action of requiredActions) {
-          if (!creatorActions.has(action)) {
-            throw new Error(
-              `Privilege escalation blocked: missing '${moduleKey}.${action}'`,
-            );
-          }
-        }
-        continue;
-      }
-
-      if (value && typeof value === "object") {
-        const creatorValue = this.resolvePermissionSection(creator, moduleKey);
-        const creatorMap =
-          creatorValue && typeof creatorValue === "object" && !Array.isArray(creatorValue)
-            ? (creatorValue as Record<string, unknown>)
-            : null;
-        const hasCreatorMapFullAccess = creatorMap?.["full_access"] === true;
-        if (!hasCreatorMapFullAccess) {
-          throw new Error(
-            `Privilege escalation blocked: creator lacks nested '${moduleKey}' access.`,
-          );
-        }
-      }
-    }
-  }
-
-  private async getTenantEntityRecord(tenant: TenantContext) {
-    const entityId = this.getEntityId(tenant);
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("organisation_branch_master")
-      .select("id,type,ref_id,parent_id")
-      .eq("id", entityId)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`Failed to resolve tenant entity: ${error.message}`);
-    }
-    if (!data) {
-      throw new Error("Tenant entity not found for role operation");
-    }
-    return data as {
-      id: string;
-      type: "ORG" | "BRANCH";
-      ref_id: string;
-      parent_id: string | null;
-    };
-  }
-
-  private inferScopeFromEntityType(type: "ORG" | "BRANCH"): "organization" | "branch" {
-    return type === "ORG" ? "organization" : "branch";
-  }
-
-  private normalizeScope(scopeRaw: unknown, fallback: "organization" | "branch"): string {
-    const normalized = scopeRaw?.toString().trim().toLowerCase();
-    if (!normalized) return fallback;
-    if (!this.roleScopeTypes.has(normalized)) {
-      throw new Error(
-        "Invalid role scope. Allowed values: platform, organization, branch.",
-      );
-    }
-    return normalized;
-  }
-
-  private extractRoleMetaFromPermissions(permissionsRaw: unknown): {
-    scopeType: string;
-    ownerOrgId: string;
-    ownerBranchId: string;
-  } {
-    const permissions = this.sanitizeRolePermissions(permissionsRaw);
-    const meta =
-      permissions["__meta"] &&
-      typeof permissions["__meta"] === "object" &&
-      !Array.isArray(permissions["__meta"])
-        ? (permissions["__meta"] as Record<string, unknown>)
-        : {};
-    const scopeType = meta["scope_type"]?.toString().trim().toLowerCase() ?? "";
-    const ownerOrgId = meta["owner_org_id"]?.toString().trim() ?? "";
-    const ownerBranchId = meta["owner_branch_id"]?.toString().trim() ?? "";
-    return { scopeType, ownerOrgId, ownerBranchId };
-  }
-
-  private buildNormalizedRolePermissionsWithMeta(
-    permissionsRaw: unknown,
-    scopeType: string,
-    ownerOrgId: string,
-    ownerBranchId: string,
-  ): Record<string, unknown> {
-    const permissions = this.sanitizeRolePermissions(permissionsRaw);
-    permissions["__meta"] = {
-      scope_type: scopeType,
-      owner_org_id: ownerOrgId,
-      owner_branch_id: ownerBranchId,
-    };
-    return permissions;
-  }
-
-  private ensureScopeOwnership(
-    tenant: TenantContext,
-    roleMeta: { scopeType: string; ownerOrgId: string; ownerBranchId: string },
-    actorOrgId: string,
-    actorBranchId: string,
-  ) {
-    if (!roleMeta.scopeType) {
-      throw new Error("Role scope metadata is missing.");
-    }
-
-    if (roleMeta.scopeType === "platform") {
-      if (!this.isAdminRole(tenant)) {
-        throw new Error("Only platform admin can manage platform-scoped roles.");
-      }
-      return;
-    }
-
-    if (roleMeta.scopeType === "organization") {
-      if (!roleMeta.ownerOrgId || roleMeta.ownerOrgId !== actorOrgId) {
-        throw new Error(
-          "Organization-scoped role can only be managed within the same organization.",
-        );
-      }
-      return;
-    }
-
-    if (roleMeta.scopeType === "branch") {
-      if (!actorBranchId || !roleMeta.ownerBranchId || roleMeta.ownerBranchId !== actorBranchId) {
-        throw new Error(
-          "Branch-scoped role can only be managed within the same branch.",
-        );
-      }
-      return;
-    }
-
-    throw new Error("Unsupported role scope type.");
-  }
-
-  private isReservedRoleLabel(value: unknown): boolean {
-    return this.reservedRoleLabels.has(this.normalizeRoleLabel(value));
-  }
-
-  async ensureCoreDefaultRoles(tenant: TenantContext) {
-    const client = this.supabaseService.getClient();
-
-    const upsertByLabel = async (
-      label: string,
-      description: string,
-      permissions: Record<string, unknown>,
-    ) => {
-      const entityId = tenant.entityId?.toString().trim();
-      const orgId = tenant.orgId?.toString().trim();
-
-      const { data: existing, error: findError } = await client
-        .from("roles")
-        .select("id, permissions")
-        .eq("entity_id", entityId)
-        .ilike("label", label)
-        .maybeSingle();
-
-      if (findError) {
-        throw new Error(
-          `Failed to fetch role '${label}': ${findError.message}`,
-        );
-      }
-
-      if (existing?.id) {
-        if (label.toLowerCase() == "branch admin") {
-          const currentPermissions =
-            existing.permissions &&
-            typeof existing.permissions === "object" &&
-            !Array.isArray(existing.permissions)
-              ? { ...(existing.permissions as Record<string, unknown>) }
-              : {};
-          const nextPermissions = {
-            ...currentPermissions,
-            branches: ["view", "edit"],
-            users: this.mergePermissionActions(
-              currentPermissions["users"],
-              ["view"],
-            ),
-            transaction_series: this.mergePermissionActions(
-              currentPermissions["transaction_series"],
-              ["view", "create", "edit", "delete"],
-            ),
-          };
-          delete nextPermissions["users_roles"];
-
-          const changed =
-            JSON.stringify(currentPermissions["branches"] ?? []) !==
-              JSON.stringify(nextPermissions.branches) ||
-            JSON.stringify(currentPermissions["users"] ?? []) !==
-              JSON.stringify(nextPermissions.users) ||
-            JSON.stringify(currentPermissions["transaction_series"] ?? []) !==
-              JSON.stringify(nextPermissions.transaction_series) ||
-            currentPermissions["users_roles"] != null;
-
-          if (changed) {
-            const { error: updateError } = await client
-              .from("roles")
-              .update({
-                permissions: nextPermissions,
-              })
-              .eq("id", existing.id);
-
-            if (updateError) {
-              throw new Error(
-                `Failed to update role '${label}' permissions: ${updateError.message}`,
-              );
-            }
-          }
-        }
-        return existing.id.toString();
-      }
-
-      const { data: inserted, error: insertError } = await client
-        .from("roles")
-        .insert({
-          entity_id: tenant.entityId,
-          label,
-          description,
-          permissions,
-          is_active: true,
+    if (!hoAdminRoleId) {
+      const [inserted] = await db
+        .insert(settingsRoles)
+        .values({
+          entityId,
+          label: "HO Admin",
+          description: "Head office administrator role",
+          permissions: { full_access: true },
+          isActive: true,
         })
-        .select("id")
-        .single();
+        .returning();
+      hoAdminRoleId = inserted.id;
+    }
 
-      if (insertError) {
-        throw new Error(
-          `Failed to create role '${label}': ${insertError.message}`,
-        );
-      }
-
-      return inserted.id?.toString() ?? "";
-    };
-
-    const hoAdminRoleId = await upsertByLabel(
-      "HO Admin",
-      "Head office administrator with organization-wide operational access.",
-      { full_access: true },
-    );
-    const branchAdminRoleId = await upsertByLabel(
-      "Branch Admin",
-      "Branch-scoped administrator with operational access to assigned locations.",
-      this.getBranchAdminDefaultPermissions(),
-    );
+    if (!branchAdminRoleId) {
+      const [inserted] = await db
+        .insert(settingsRoles)
+        .values({
+          entityId,
+          label: "Branch Admin",
+          description: "Branch administrator role",
+          permissions: this.getBranchAdminDefaultPermissions(),
+          isActive: true,
+        })
+        .returning();
+      branchAdminRoleId = inserted.id;
+    }
 
     return { hoAdminRoleId, branchAdminRoleId };
   }
 
-  private normalizeRole(role: unknown): string {
-    const raw = role?.toString().trim() ?? "";
-    const value = raw.toLowerCase();
+  async listRoles(tenantOrOrgId: TenantContext | string) {
+    const entityId = this.getEntityId(tenantOrOrgId);
+    await this.ensureCoreDefaultRoles(tenantOrOrgId);
 
-    const isUuid =
-      /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
-        raw,
-      );
+    const rows = await db
+      .select()
+      .from(settingsRoles)
+      .where(eq(settingsRoles.entityId, entityId));
 
-    if (isUuid) {
-      return raw;
-    }
-
-    switch (value) {
-      case "super_admin":
-        return "admin";
-      case "manager":
-      case "staff":
-      case "branch_manager":
-      case "branch_staff":
-        return "branch_admin";
-      case "admin":
-      case "ho_admin":
-      case "branch_admin":
-        return value;
-      default:
-        return raw;
-    }
-  }
-
-  private async fetchCustomRoles(tenant: TenantContext): Promise<any[]> {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("roles")
-      .select("*")
-      .eq("entity_id", this.getEntityId(tenant))
-      .eq("is_active", true)
-      .order("label", { ascending: true });
-
-    if (error) {
-      throw new Error(`Failed to fetch roles: ${error.message}`);
-    }
-
-    return data ?? [];
-  }
-
-  private async fetchRoleByLabel(tenant: TenantContext, label: string) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("roles")
-      .select("*")
-      .eq("entity_id", this.getEntityId(tenant))
-      .ilike("label", label)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`Failed to fetch role by label: ${error.message}`);
-    }
-
-    return data ?? null;
-  }
-
-  private async getMergedRoles(tenant: TenantContext) {
-    await this.ensureCoreDefaultRoles(tenant);
-
-    const customRoles = await this.fetchCustomRoles(tenant);
-    const consumedIds = new Set<string>();
-
-    const mergedBuiltinRoles = await Promise.all(
-      this.roleCatalog.map(async (role) => {
-        if (role.id === "admin") {
-          return {
-            ...role,
-            is_default: true,
-            permissions: { full_access: true },
-          };
-        }
-
-        const storedRole = await this.fetchRoleByLabel(tenant, role.label);
-        if (storedRole?.id != null) {
-          consumedIds.add(storedRole.id.toString());
-        }
-
-        return {
-          ...role,
-          description:
-            (storedRole?.description ?? "").toString().trim().length > 0
-              ? (storedRole?.description ?? "").toString()
-              : role.description,
-          is_default: true,
-          permissions:
-            storedRole?.permissions != null
-              ? storedRole.permissions
-              : role.id === "ho_admin"
-                ? { full_access: true }
-                : role.id === "branch_admin"
-                  ? this.getBranchAdminDefaultPermissions()
-                  : {},
-        };
-      }),
-    );
-
-    return [
-      ...mergedBuiltinRoles,
-      ...customRoles
-        .map((role) => ({
-          id: role.id?.toString() ?? "",
-          label: (role.label ?? "").toString(),
-          description: (role.description ?? "").toString(),
-          is_default: false,
-          permissions: role.permissions ?? {},
-        }))
-        .filter((role) => !consumedIds.has(role.id)),
-    ];
-  }
-
-  private async getRoleMap(tenant: TenantContext): Promise<Map<string, any>> {
-    const mergedRoles = await this.getMergedRoles(tenant);
-    return new Map(
-      mergedRoles.map((role) => [
-        role.id.toString(),
-        { label: role.label, is_default: role.is_default === true },
-      ]),
-    );
-  }
-
-  private normalizeUuid(value: unknown): string | null {
-    const normalized = value?.toString().trim();
-    return normalized ? normalized : null;
-  }
-
-  private assertUuid(value: unknown, fieldName: string): string {
-    const normalized = this.normalizeUuid(value);
-    if (!normalized) {
-      throw new Error(`${fieldName} is required`);
-    }
-    return normalized;
-  }
-
-  private normalizeUuidList(values: unknown): string[] {
-    if (!Array.isArray(values)) return [];
-    return Array.from(
-      new Set(
-        values
-          .map((value) => this.normalizeUuid(value))
-          .filter(
-            (value: unknown): value is string =>
-              typeof value === "string" && value.length > 0,
-          ),
-      ),
-    );
-  }
-
-  private generateTemporaryPassword() {
-    return "Zabnix@2025";
-  }
-
-  private async fetchPublicUsers(
-    tenantOrOrgId: TenantContext | string,
-  ): Promise<Map<string, any>> {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("users")
-      .select("*")
-      .eq("entity_id", this.getEntityId(tenantOrOrgId));
-
-    if (error) {
-      throw new Error(`Failed to fetch users table: ${error.message}`);
-    }
-
-    return new Map((data ?? []).map((row: any) => [row.id, row]));
-  }
-
-  private async upsertPublicUser(
-    tenant: TenantContext,
-    payload: {
-      id: string;
-      email: string;
-      full_name: string;
-      role: string;
-      is_active: boolean;
-    },
-  ) {
-    const { error } = await this.supabaseService
-      .getClient()
-      .from("users")
-      .upsert(
-        {
-          id: payload.id,
-          entity_id: tenant.entityId,
-          email: payload.email,
-          full_name: payload.full_name,
-          role: payload.role,
-          is_active: payload.is_active,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" },
-      );
-
-    if (error) {
-      throw new Error(`Failed to upsert users table row: ${error.message}`);
-    }
-  }
-
-  private async fetchAllLocations(
-    tenantOrOrgId: TenantContext | string,
-  ): Promise<any[]> {
-    const locations = await this.branchesService.findAll(tenantOrOrgId);
-    const branchIds = locations
-      .map((location: any) => location.id?.toString().trim() ?? "")
-      .filter((id: string) => id.length > 0);
-
-    const fallbackEntityByBranchId = new Map<string, string>();
-    if (branchIds.length > 0) {
-      const { data } = await this.supabaseService
-        .getClient()
-        .from("organisation_branch_master")
-        .select("id, ref_id, type")
-        .eq("type", "BRANCH")
-        .in("ref_id", branchIds);
-      for (const row of data ?? []) {
-        const refId = (row as any).ref_id?.toString().trim() ?? "";
-        const entityId = (row as any).id?.toString().trim() ?? "";
-        if (refId.length > 0 && entityId.length > 0) {
-          fallbackEntityByBranchId.set(refId, entityId);
-        }
-      }
-    }
-
-    return locations.map((location: any) => ({
-      id: location.id?.toString() ?? "",
-      entity_id:
-        location.entity_id?.toString() ??
-        fallbackEntityByBranchId.get(location.id?.toString() ?? "") ??
-        "",
-      name: (location.name ?? "").toString(),
-      is_active: location.is_active ?? true,
-      location_type: (location.location_type ?? "business").toString(),
-      parent_branch_id: location.parent_branch_id?.toString() ?? null,
-      is_primary: location.is_primary ?? false,
+    return (rows ?? []).map((row) => ({
+      id: row.id,
+      label: row.label,
+      description: row.description,
+      permissions: row.permissions,
+      is_active: row.isActive,
+      created_at: row.createdAt,
+      updated_at: row.updatedAt,
     }));
   }
 
-  private async fetchLocationAccessRows(
-    tenantOrOrgId: TenantContext | string,
-    userId: string,
-  ): Promise<any[]> {
-    const { orgId } = this.resolveTenant(tenantOrOrgId);
-    let query = this.supabaseService
-      .getClient()
-      .from("user_branch_access")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true });
-
-    query = query.eq("org_id", orgId);
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw new Error(`Failed to fetch user_branch_access: ${error.message}`);
-    }
-
-    return data ?? [];
-  }
-
-  private async buildLocationAccess(
-    tenantOrOrgId: TenantContext | string,
-    userId: string,
-  ) {
-    const [locations, accessRows] = await Promise.all([
-      this.fetchAllLocations(tenantOrOrgId),
-      this.fetchLocationAccessRows(tenantOrOrgId, userId),
-    ]);
-
-    const locationMap = new Map(
-      locations
-        .filter((location) => location.entity_id?.toString().isNotEmpty == true)
-        .map((location) => [location.entity_id, location]),
-    );
-    const accessibleLocations = accessRows
-      .map((row) => {
-        const location = locationMap.get(row.entity_id);
-        if (!location) return null;
-        return {
-          id: location.id,
-          entity_id: location.entity_id,
-          name: location.name,
-          location_type: location.location_type,
-          is_default_business: row.is_default_business ?? false,
-          is_default_warehouse: row.is_default_warehouse ?? false,
-          parent_branch_id: location.parent_branch_id ?? null,
-        };
-      })
-      .filter((row): row is any => Boolean(row));
-
-    const defaultBusiness = accessibleLocations.find(
-      (row) => row.is_default_business,
-    );
-    const defaultWarehouse = accessibleLocations.find(
-      (row) => row.is_default_warehouse,
-    );
-
-    return {
-      available_locations: locations,
-      accessible_locations: accessibleLocations,
-      accessible_branch_ids: accessibleLocations.map((row) => row.id),
-      default_business_branch_id: defaultBusiness?.id ?? null,
-      default_business_branch_name: defaultBusiness?.name ?? null,
-      default_warehouse_branch_id: defaultWarehouse?.id ?? null,
-      default_warehouse_branch_name: defaultWarehouse?.name ?? null,
-    };
-  }
-
-  private async syncLocationAccess(
-    tenant: TenantContext,
-    userId: string,
-    input: any,
-  ) {
-    const orgId = this.assertUuid(tenant.orgId, "org_id");
-    const normalizedUserId = this.assertUuid(userId, "user_id");
-    const branchIds = this.normalizeUuidList(
-      input?.accessible_branch_ids ??
-        input?.branch_ids ??
-        input?.accessible_outlet_ids ??
-        input?.outlet_ids,
-    );
-    let defaultBusinessBranchId = this.normalizeUuid(
-      input?.default_business_branch_id ?? input?.default_business_outlet_id,
-    );
-    let defaultWarehouseBranchId = this.normalizeUuid(
-      input?.default_warehouse_branch_id ?? input?.default_warehouse_outlet_id,
-    );
-
-    if (
-      defaultBusinessBranchId &&
-      !branchIds.includes(defaultBusinessBranchId)
-    ) {
-      branchIds.push(defaultBusinessBranchId);
-    }
-    if (
-      defaultWarehouseBranchId &&
-      !branchIds.includes(defaultWarehouseBranchId)
-    ) {
-      branchIds.push(defaultWarehouseBranchId);
-    }
-
-    const client = this.supabaseService.getClient();
-
-    const { error: deleteError } = await client
-      .from("user_branch_access")
-      .delete()
-      .eq("org_id", orgId)
-      .eq("user_id", normalizedUserId);
-
-    if (deleteError) {
-      throw new Error(
-        `Failed to replace user_branch_access: ${deleteError.message}`,
-      );
-    }
-
-    if (branchIds.length === 0) {
-      return this.buildLocationAccess(tenant, userId);
-    }
-
-    const locationMap = new Map(
-      (await this.fetchAllLocations(tenant)).map((location) => [
-        location.id,
-        location,
-      ]),
-    );
-
-    if (!defaultBusinessBranchId) {
-      const businessDefault =
-        branchIds.find(
-          (id) => locationMap.get(id)?.location_type === "business",
-        ) ?? branchIds[0];
-      defaultBusinessBranchId = businessDefault ?? null;
-    }
-    if (!defaultWarehouseBranchId) {
-      defaultWarehouseBranchId =
-        branchIds.find(
-          (id) => locationMap.get(id)?.location_type === "warehouse",
-        ) ?? null;
-    }
-
-    const rowsToInsert = branchIds
-      .map((branchId) => {
-        const location = locationMap.get(branchId);
-        const entityId = this.normalizeUuid(location?.entity_id);
-        if (!entityId) return null;
-        return {
-          org_id: orgId,
-          entity_id: entityId,
-          user_id: normalizedUserId,
-          is_default_business: branchId == defaultBusinessBranchId,
-          is_default_warehouse: branchId == defaultWarehouseBranchId,
-        };
-      })
-      .filter((row): row is {
-        org_id: string;
-        entity_id: string;
-        user_id: string;
-        is_default_business: boolean;
-        is_default_warehouse: boolean;
-      } => row != null);
-
-    if (rowsToInsert.length === 0) {
-      throw new Error(
-        "No valid branch entity mappings found for selected locations.",
-      );
-    }
-
-    const { error: insertError } = await client
-      .from("user_branch_access")
-      .insert(rowsToInsert);
-
-    if (insertError) {
-      throw new Error(
-        `Failed to insert user_branch_access: ${insertError.message}`,
-      );
-    }
-
-    return this.buildLocationAccess(tenant, userId);
-  }
-
-  private normalizeAuthUser(
-    user: any,
-    publicRow: any,
-    accessCount: number,
-    roleMap: Map<string, any>,
-  ) {
-    const roleId = this.normalizeRole(
-      publicRow?.role ?? user?.user_metadata?.role ?? user?.app_metadata?.role,
-    );
-    const roleInfo = roleMap.get(roleId) ?? null;
-
-    return {
-      id: user?.id ?? publicRow?.id,
-      email: (user?.email ?? publicRow?.email ?? "").toString(),
-      name: (
-        user?.user_metadata?.full_name ??
-        user?.user_metadata?.name ??
-        publicRow?.full_name ??
-        publicRow?.email ??
-        user?.email ??
-        ""
-      ).toString(),
-      full_name: (
-        user?.user_metadata?.full_name ??
-        user?.user_metadata?.name ??
-        publicRow?.full_name ??
-        ""
-      ).toString(),
-      role: roleId,
-      role_label: roleInfo?.label ?? roleId,
-      role_is_default: roleInfo?.is_default === true,
-      is_active:
-        typeof publicRow?.is_active === "boolean"
-          ? publicRow.is_active
-          : !user?.banned_until,
-      created_at: publicRow?.created_at ?? user?.created_at,
-      accessible_location_count: accessCount,
-    };
-  }
-
-  async findAll(
-    tenantOrOrgId: TenantContext | string,
-    status = "all",
-  ): Promise<any[]> {
-    const client = this.supabaseService.getClient();
-    const branchScopedTenant =
-      typeof tenantOrOrgId !== "string" &&
-      tenantOrOrgId.accessibleBranchIds.length > 0;
-    const [{ data, error }, publicUsers, accessRows, roleMap] =
-      await Promise.all([
-        client.auth.admin.listUsers({ perPage: 1000 }),
-        this.fetchPublicUsers(tenantOrOrgId),
-        client
-          .from("user_branch_access")
-          .select("user_id, entity_id")
-          .eq("org_id", this.resolveTenant(tenantOrOrgId).orgId),
-        this.getRoleMap(
-          typeof tenantOrOrgId === "string"
-            ? ({ orgId: tenantOrOrgId } as TenantContext)
-            : tenantOrOrgId,
-        ),
-      ]);
-
-    if (error) {
-      throw new Error(`Failed to list users: ${error.message}`);
-    }
-    if (accessRows.error) {
-      throw new Error(
-        `Failed to fetch user_branch_access: ${accessRows.error.message}`,
-      );
-    }
-
-    let allowedUserIds: Set<string> | null = null;
-    let allowedEntityIds: Set<string> | null = null;
-    if (branchScopedTenant) {
-      const accessibleLocations = await this.fetchAllLocations(tenantOrOrgId);
-      allowedEntityIds = new Set<string>(
-        accessibleLocations
-          .map((location) => location.entity_id?.toString().trim() ?? "")
-          .filter((id) => id.length > 0),
-      );
-      allowedUserIds = new Set<string>([tenantOrOrgId.userId]);
-      for (const row of accessRows.data ?? []) {
-        const entityId = row.entity_id?.toString().trim() ?? "";
-        const userId = row.user_id?.toString().trim() ?? "";
-        if (!entityId || !userId) continue;
-        if (allowedEntityIds.has(entityId)) {
-          allowedUserIds.add(userId);
-        }
-      }
-    }
-
-    const accessCount = new Map<string, number>();
-    for (const row of accessRows.data ?? []) {
-      const entityId = row.entity_id?.toString().trim() ?? "";
-      if (allowedEntityIds && !allowedEntityIds.has(entityId)) continue;
-      const userId = row.user_id?.toString();
-      if (!userId) continue;
-      accessCount.set(userId, (accessCount.get(userId) ?? 0) + 1);
-    }
-
-    const authUsers = data?.users ?? [];
-    const authIds = new Set(authUsers.map((user) => user.id));
-    const mergedUsers = [
-      ...authUsers.map((user) =>
-        this.normalizeAuthUser(
-          user,
-          publicUsers.get(user.id),
-          accessCount.get(user.id) ?? 0,
-          roleMap,
-        ),
-      ),
-      ...Array.from(publicUsers.values())
-        .filter((row: any) => !authIds.has(row.id))
-        .map((row: any) =>
-          this.normalizeAuthUser(
-            null,
-            row,
-            accessCount.get(row.id) ?? 0,
-            roleMap,
-          ),
-        ),
-    ];
-
-    const normalizedStatus = status.toLowerCase().trim();
-    return mergedUsers
-      .filter((user) => {
-        if (!allowedUserIds) return true;
-        return allowedUserIds.has(user["id"]?.toString() ?? "");
-      })
-      .filter((user) => {
-        if (normalizedStatus === "active") return user["is_active"] === true;
-        if (normalizedStatus === "inactive") return user["is_active"] !== true;
-        return true;
-      })
-      .sort((a, b) =>
-        (a["name"] as string)
-          .toLowerCase()
-          .localeCompare((b["name"] as string).toLowerCase()),
-      );
-  }
-
-  async findOne(
-    id: string,
-    tenantOrOrgId: TenantContext | string,
-  ): Promise<any | null> {
-    const client = this.supabaseService.getClient();
-    const [{ data, error }, publicUsers, locationAccess, roleMap] =
-      await Promise.all([
-        client.auth.admin.getUserById(id),
-        this.fetchPublicUsers(tenantOrOrgId),
-        this.buildLocationAccess(tenantOrOrgId, id),
-        this.getRoleMap(
-          typeof tenantOrOrgId === "string"
-            ? ({ orgId: tenantOrOrgId } as TenantContext)
-            : tenantOrOrgId,
-        ),
-      ]);
-
-    const publicRow = publicUsers.get(id);
-    if (error && publicRow == null) return null;
-    if (
-      typeof tenantOrOrgId !== "string" &&
-      tenantOrOrgId.accessibleBranchIds.length > 0 &&
-      id !== tenantOrOrgId.userId
-    ) {
-      const accessibleBranchIds = new Set(
-        tenantOrOrgId.accessibleBranchIds.map((branchId) => branchId.trim()),
-      );
-      const visibleToBranchUser = (locationAccess.accessible_branch_ids ?? [])
-        .map((branchId: unknown) => branchId?.toString().trim() ?? "")
-        .some((branchId: string) => accessibleBranchIds.has(branchId));
-      if (!visibleToBranchUser) {
-        return null;
-      }
-    }
-
-    const u = data?.user;
-    const meta = u?.user_metadata ?? {};
-    const roleId = this.normalizeRole(
-      publicRow?.role ?? meta.role ?? u?.app_metadata?.role,
-    );
-    const roleInfo = roleMap.get(roleId) ?? null;
-
-    return {
-      id: id,
-      email: (u?.email ?? publicRow?.email ?? "").toString(),
-      name: (
-        meta.full_name ??
-        meta.name ??
-        publicRow?.full_name ??
-        u?.email ??
-        ""
-      ).toString(),
-      full_name: (
-        meta.full_name ??
-        meta.name ??
-        publicRow?.full_name ??
-        ""
-      ).toString(),
-      role: roleId,
-      role_label: roleInfo?.label ?? roleId,
-      role_is_default: roleInfo?.is_default === true,
-      is_active:
-        typeof publicRow?.is_active === "boolean"
-          ? publicRow.is_active
-          : !(u?.banned_until != null),
-      created_at: publicRow?.created_at ?? u?.created_at,
-      ...locationAccess,
-    };
-  }
-
-  async findActivities(id: string, tenant: TenantContext): Promise<any[]> {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("audit_logs_all")
-      .select(
-        "id, created_at, action, table_name, record_pk, actor_name, module_name, old_values, new_values",
-      )
-      .eq("entity_id", this.getEntityId(tenant))
-      .eq("user_id", id)
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    if (error) {
-      throw new Error(`Failed to fetch user activities: ${error.message}`);
-    }
-
-    return data ?? [];
-  }
-
-  async getLocationAccess(id: string, tenant: TenantContext) {
-    return this.buildLocationAccess(tenant, id);
-  }
-
-  async updateLocationAccess(id: string, tenant: TenantContext, dto: any) {
-    return this.syncLocationAccess(tenant, id, dto);
-  }
-
-  async setDefaultBranch(
-    userId: string,
-    branchId: string,
-    tenant: TenantContext,
-  ) {
-    const client = this.supabaseService.getClient();
-    const normalizedUserId = this.assertUuid(userId, "user_id");
-    const normalizedBranchId = this.assertUuid(branchId, "branch_id");
-    const locations = await this.fetchAllLocations(tenant);
-
-    const locationMap = new Map(
-      locations.map((location) => [location.id, location]),
-    );
-    const selectedLocation =
-      locationMap.get(normalizedBranchId) ??
-      locations.find((location) => location.entity_id === normalizedBranchId);
-    const selectedEntityId = this.normalizeUuid(selectedLocation?.entity_id);
-    if (!selectedEntityId) {
-      throw new Error(
-        "Selected location is missing entity mapping. Please refresh locations and try again.",
-      );
-    }
-
-    const resolvedBranchId = this.normalizeUuid(selectedLocation?.id);
-    if (!resolvedBranchId) {
-      throw new Error("Selected branch could not be resolved");
-    }
-    const location = locations.find((l) => l.id === resolvedBranchId);
-    const isWarehouse = location?.location_type === "warehouse";
-
-    // Reset defaults for this user in this tenant
-    await client
-      .from("user_branch_access")
-      .update({
-        is_default_business: false,
-        is_default_warehouse: false,
-      })
-      .eq("org_id", tenant.orgId)
-      .eq("user_id", normalizedUserId);
-
-    // Set new default
-    const { data, error } = await client
-      .from("user_branch_access")
-      .update({
-        is_default_business: !isWarehouse,
-        is_default_warehouse: isWarehouse,
-      })
-      .eq("entity_id", selectedEntityId)
-      .eq("user_id", normalizedUserId)
+  async getRole(id: string, tenantOrOrgId: TenantContext | string) {
+    const entityId = this.getEntityId(tenantOrOrgId);
+    const rows = await db
       .select()
-      .single();
+      .from(settingsRoles)
+      .where(and(eq(settingsRoles.id, id), eq(settingsRoles.entityId, entityId)))
+      .limit(1);
 
-    if (error) throw error;
-    return data;
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      label: row.label,
+      description: row.description,
+      permissions: row.permissions,
+      is_active: row.isActive,
+      created_at: row.createdAt,
+      updated_at: row.updatedAt,
+    };
+  }
+
+  async createRole(tenantOrOrgId: TenantContext | string, dto: any) {
+    const entityId = this.getEntityId(tenantOrOrgId);
+    const [inserted] = await db
+      .insert(settingsRoles)
+      .values({
+        entityId,
+        label: dto.label,
+        description: dto.description ?? "",
+        permissions: dto.permissions ?? {},
+        isActive: dto.is_active ?? true,
+      })
+      .returning();
+
+    return {
+      id: inserted.id,
+      label: inserted.label,
+      description: inserted.description,
+      permissions: inserted.permissions,
+      is_active: inserted.isActive,
+    };
+  }
+
+  async updateRole(id: string, tenantOrOrgId: TenantContext | string, dto: any) {
+    const entityId = this.getEntityId(tenantOrOrgId);
+
+    const updatePayload: Record<string, any> = { updatedAt: new Date() };
+    if (dto.label !== undefined) updatePayload.label = dto.label;
+    if (dto.description !== undefined) updatePayload.description = dto.description;
+    if (dto.permissions !== undefined) updatePayload.permissions = dto.permissions;
+    if (dto.is_active !== undefined) updatePayload.isActive = dto.is_active;
+
+    const [updated] = await db
+      .update(settingsRoles)
+      .set(updatePayload)
+      .where(and(eq(settingsRoles.id, id), eq(settingsRoles.entityId, entityId)))
+      .returning();
+
+    return {
+      id: updated.id,
+      label: updated.label,
+      description: updated.description,
+      permissions: updated.permissions,
+      is_active: updated.isActive,
+    };
+  }
+
+  async deleteRole(id: string, tenantOrOrgId: TenantContext | string) {
+    const entityId = this.getEntityId(tenantOrOrgId);
+
+    await db
+      .delete(settingsRoles)
+      .where(and(eq(settingsRoles.id, id), eq(settingsRoles.entityId, entityId)));
+
+    return { success: true };
+  }
+
+  async getRoleCatalog(_tenantOrOrgId?: TenantContext | string) {
+    return this.roleCatalog;
+  }
+
+  async findAll(tenantOrOrgId: TenantContext | string, status = "all") {
+    const { orgId } = this.resolveTenant(tenantOrOrgId);
+
+    try {
+      let sqlQuery = `
+        SELECT u.id, u.email, u.full_name, u.role, u.entity_id, u.is_active, u.created_at, u.updated_at
+        FROM users u
+        WHERE u.org_id = $1
+      `;
+      const params: any[] = [orgId];
+
+      if (status === "active") {
+        sqlQuery += ` AND u.is_active = true`;
+      } else if (status === "inactive") {
+        sqlQuery += ` AND u.is_active = false`;
+      }
+
+      sqlQuery += ` ORDER BY u.created_at ASC`;
+
+      const data = await client.unsafe(sqlQuery, params);
+      return data ?? [];
+    } catch (err) {
+      console.error("[UsersService] findAll error:", err);
+      return [];
+    }
+  }
+
+  async findOne(id: string, tenantOrOrgId: TenantContext | string) {
+    const { orgId } = this.resolveTenant(tenantOrOrgId);
+
+    try {
+      const rows = await client.unsafe(
+        `SELECT u.id, u.email, u.full_name, u.role, u.entity_id, u.is_active, u.created_at, u.updated_at
+         FROM users u
+         WHERE u.id = $1 AND u.org_id = $2
+         LIMIT 1`,
+        [id, orgId],
+      );
+
+      return rows[0] ?? null;
+    } catch {
+      return null;
+    }
   }
 
   async create(tenant: TenantContext, dto: any) {
     const orgId = tenant.orgId;
-    const entityId = tenant.entityId;
-    const email = dto?.email?.toString().trim().toLowerCase();
-    const fullName =
-      dto?.full_name?.toString().trim() || dto?.name?.toString().trim();
-    const role = this.normalizeRole(dto?.role);
+    const clientSupabase = this.supabaseService.getClient();
 
-    if (!orgId) {
-      throw new Error("org_id is required");
-    }
-    if (!email) {
-      throw new Error("Email address is required");
-    }
-    if (!fullName) {
-      throw new Error("Name is required");
-    }
-
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .auth.admin.createUser({
-        email,
-        password: this.generateTemporaryPassword(),
-        email_confirm: true,
-        user_metadata: {
-          full_name: fullName,
-          name: fullName,
-          role,
-          org_id: orgId,
-          entity_id: entityId,
-        },
-        app_metadata: {
-          role,
-          org_id: orgId,
-          entity_id: entityId,
-        },
-      });
-
-    if (error || !data.user) {
-      throw new Error(
-        `Failed to create user: ${error?.message ?? "Unknown error"}`,
-      );
-    }
-
-    await this.upsertPublicUser(tenant, {
-      id: data.user.id,
-      email,
-      full_name: fullName,
-      role,
-      is_active: true,
-    });
-
-    if (dto?.location_access != null) {
-      await this.syncLocationAccess(tenant, data.user.id, dto.location_access);
-    }
-
-    return this.findOne(data.user.id, tenant);
-  }
-
-  async update(
-    id: string,
-    tenant: TenantContext,
-    dto: any,
-    actorUserId?: string,
-  ) {
-    const current = await this.findOne(id, tenant);
-    if (!current) {
-      throw new Error("User not found");
-    }
-
-    const email = dto?.email?.toString().trim().toLowerCase() || current.email;
-    const fullName =
-      dto?.full_name?.toString().trim() ||
-      dto?.name?.toString().trim() ||
-      current.full_name ||
-      current.name;
-    const role = this.normalizeRole(dto?.role ?? current.role);
-    if (
-      actorUserId &&
-      actorUserId === id &&
-      dto?.role != null &&
-      this.normalizeRole(current.role) !== role
-    ) {
-      throw new Error("You cannot change your own role");
-    }
-    const isActive =
-      typeof dto?.is_active === "boolean"
-        ? dto.is_active
-        : current.is_active === true;
-
-    const authRes = await this.supabaseService
-      .getClient()
-      .auth.admin.updateUserById(id, {
-        email,
-        ban_duration: isActive ? "none" : "876000h",
-        user_metadata: {
-          full_name: fullName,
-          name: fullName,
-          role,
-          org_id: tenant.orgId,
-          entity_id: tenant.entityId,
-        },
-        app_metadata: {
-          role,
-          org_id: tenant.orgId,
-          entity_id: tenant.entityId,
-        },
-      });
-
-    if (authRes.error) {
-      throw new Error(`Failed to update user: ${authRes.error.message}`);
-    }
-
-    await this.upsertPublicUser(tenant, {
-      id,
-      email,
-      full_name: fullName,
-      role,
-      is_active: isActive,
-    });
-
-    if (dto?.location_access != null) {
-      await this.syncLocationAccess(tenant, id, dto.location_access);
-    }
-
-    return this.findOne(id, tenant);
-  }
-
-  async updateStatus(id: string, tenant: TenantContext, isActive: boolean) {
-    const authRes = await this.supabaseService
-      .getClient()
-      .auth.admin.updateUserById(id, {
-        ban_duration: isActive ? "none" : "876000h",
-      });
-
-    if (authRes.error) {
-      throw new Error(`Failed to update user status: ${authRes.error.message}`);
-    }
-
-    const current = await this.findOne(id, tenant);
-    if (!current) {
-      throw new Error("User not found");
-    }
-
-    await this.upsertPublicUser(tenant, {
-      id: current.id,
-      email: current.email,
-      full_name: current.full_name,
-      role: current.role,
-      is_active: isActive,
-    });
-
-    return this.findOne(id, tenant);
-  }
-
-  async remove(id: string, tenant: TenantContext) {
-    const client = this.supabaseService.getClient();
-
-    const { error: accessError } = await client
-      .from("user_branch_access")
-      .delete()
-      .eq("entity_id", this.getEntityId(tenant))
-      .eq("user_id", id);
-
-    if (accessError) {
-      throw new Error(
-        `Failed to delete user_branch_access: ${accessError.message}`,
-      );
-    }
-
-    const { error: publicDeleteError } = await client
-      .from("users")
-      .delete()
-      .eq("entity_id", this.getEntityId(tenant))
-      .eq("id", id);
-
-    if (publicDeleteError) {
-      throw new Error(
-        `Failed to delete user row: ${publicDeleteError.message}`,
-      );
-    }
-
-    const authDelete = await client.auth.admin.deleteUser(id);
-    if (authDelete.error) {
-      throw new Error(
-        `Failed to delete auth user: ${authDelete.error.message}`,
-      );
-    }
-
-    return { success: true };
-  }
-
-  async getRoleCatalog(tenant: TenantContext) {
-    const users = await this.findAll(tenant, "all");
-    const counts: Record<string, number> = {};
-    const roleMap = await this.getRoleMap(tenant);
-    for (const user of users) {
-      const rawRole = user["role"]?.toString().trim() ?? "";
-      const normalizedRole = this.normalizeRole(rawRole);
-      const countKey =
-        roleMap.has(rawRole) && rawRole.length > 0 ? rawRole : normalizedRole;
-      counts[countKey] = (counts[countKey] ?? 0) + 1;
-    }
-
-    const mergedRoles = await this.getMergedRoles(tenant);
-    return mergedRoles.map((role) => ({
-      id: role.id,
-      label: role.label,
-      description: role.description,
-      user_count: counts[role.id.toString().toLowerCase()] ?? 0,
-      is_default: role.is_default === true,
-      permissions: role.permissions ?? null,
-    }));
-  }
-
-  async getRole(id: string, tenant: TenantContext) {
-    const normalizedId = id.toLowerCase().trim();
-    const defaultRole = this.roleCatalog.find(
-      (role) => role.id === normalizedId,
-    );
-    if (defaultRole) {
-      if (normalizedId === "admin") {
-        return {
-          ...defaultRole,
-          is_default: true,
-          permissions: { full_access: true },
-        };
-      }
-
-      const storedRole = await this.fetchRoleByLabel(tenant, defaultRole.label);
-      return {
-        id: defaultRole.id,
-        label: defaultRole.label,
-        description:
-          (storedRole?.description ?? "").toString().trim().length > 0
-            ? (storedRole?.description ?? "").toString()
-            : defaultRole.description,
-        is_default: true,
-        permissions:
-          storedRole?.permissions != null ? storedRole.permissions : {},
-      };
-    }
-
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("roles")
-      .select("*")
-      .eq("entity_id", this.getEntityId(tenant))
-      .eq("id", id)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`Failed to fetch role: ${error.message}`);
-    }
-
-    if (!data) return null;
-
-    return {
-      id: data.id?.toString() ?? "",
-      label: (data.label ?? "").toString(),
-      description: (data.description ?? "").toString(),
-      permissions: data.permissions ?? {},
-      is_default: false,
-    };
-  }
-
-  async createRole(tenant: TenantContext, body: any) {
-    const label = body?.label?.toString().trim();
-    if (!label) {
-      throw new Error("Role label is required");
-    }
-    if (this.isReservedRoleLabel(label)) {
-      throw new Error(
-        "Role name is reserved. Admin, HO Admin, and Branch Admin are system roles.",
-      );
-    }
-
-    const { data: existingRole, error: existingRoleError } =
-      await this.supabaseService
-        .getClient()
-        .from("roles")
-        .select("id")
-        .eq("entity_id", this.getEntityId(tenant))
-        .ilike("label", label)
-        .maybeSingle();
-
-    if (existingRoleError) {
-      throw new Error(
-        `Failed to validate role label: ${existingRoleError.message}`,
-      );
-    }
-    if (existingRole?.id) {
-      throw new Error("Role label already exists");
-    }
-
-    const entityRecord = await this.getTenantEntityRecord(tenant);
-    const actorOrgId =
-      entityRecord.type === "ORG"
-        ? entityRecord.ref_id
-        : (entityRecord.parent_id ?? tenant.orgId);
-    const actorBranchId =
-      entityRecord.type === "BRANCH" ? entityRecord.ref_id : "";
-    const scopeType = this.normalizeScope(
-      body?.scope_type,
-      this.inferScopeFromEntityType(entityRecord.type),
-    );
-    const ownerOrgId = scopeType === "platform"
-      ? (body?.owner_org_id?.toString().trim() ?? actorOrgId)
-      : scopeType === "organization"
-        ? (body?.owner_org_id?.toString().trim() || actorOrgId)
-        : (body?.owner_org_id?.toString().trim() || actorOrgId);
-    const ownerBranchId = scopeType === "branch"
-      ? (body?.owner_branch_id?.toString().trim() || actorBranchId)
-      : "";
-
-    this.ensureScopeOwnership(
-      tenant,
-      { scopeType, ownerOrgId, ownerBranchId },
-      actorOrgId,
-      actorBranchId,
-    );
-    this.ensureRolePermissionsWithinCreator(
-      tenant.permissions,
-      body?.permissions ?? {},
-    );
-    const normalizedPermissions = this.buildNormalizedRolePermissionsWithMeta(
-      body?.permissions ?? {},
-      scopeType,
-      ownerOrgId,
-      ownerBranchId,
-    );
-
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("roles")
-      .insert({
-        entity_id: tenant.entityId,
-        label,
-        description: body?.description?.toString().trim() ?? "",
-        permissions: normalizedPermissions,
-        is_active: true,
-      })
-      .select("*")
-      .single();
-
-    if (error) {
-      throw new Error(`Failed to create role: ${error.message}`);
-    }
-
-    return {
-      id: data.id?.toString() ?? "",
-      label: (data.label ?? "").toString(),
-      description: (data.description ?? "").toString(),
-      permissions: data.permissions ?? {},
-      is_default: false,
-    };
-  }
-
-  async updateRole(id: string, tenant: TenantContext, body: any) {
-    const normalizedId = id.toLowerCase().trim();
-    if (this.reservedRoleIds.has(normalizedId)) {
-      throw new Error("Default roles cannot be edited");
-    }
-
-    const label = body?.label?.toString().trim();
-    if (!label) {
-      throw new Error("Role label is required");
-    }
-    if (this.isReservedRoleLabel(label)) {
-      throw new Error(
-        "Role name is reserved. Admin, HO Admin, and Branch Admin are system roles.",
-      );
-    }
-
-    const { data: sameLabelRole, error: sameLabelRoleError } =
-      await this.supabaseService
-        .getClient()
-        .from("roles")
-        .select("id")
-        .eq("entity_id", this.getEntityId(tenant))
-        .ilike("label", label)
-        .maybeSingle();
-
-    if (sameLabelRoleError) {
-      throw new Error(
-        `Failed to validate role label: ${sameLabelRoleError.message}`,
-      );
-    }
-    if (sameLabelRole?.id && sameLabelRole.id?.toString() !== id) {
-      throw new Error("Role label already exists");
-    }
-
-    const existing = await this.getRole(id, tenant);
-    if (!existing) {
-      throw new Error("Role not found");
-    }
-    const existingMeta = this.extractRoleMetaFromPermissions(existing.permissions);
-    const entityRecord = await this.getTenantEntityRecord(tenant);
-    const actorOrgId =
-      entityRecord.type === "ORG"
-        ? entityRecord.ref_id
-        : (entityRecord.parent_id ?? tenant.orgId);
-    const actorBranchId =
-      entityRecord.type === "BRANCH" ? entityRecord.ref_id : "";
-
-    // Validate ownership for existing role before allowing edits.
-    if (existingMeta.scopeType) {
-      this.ensureScopeOwnership(
-        tenant,
-        existingMeta,
-        actorOrgId,
-        actorBranchId,
-      );
-    }
-
-    const nextScopeType = this.normalizeScope(
-      body?.scope_type ?? existingMeta.scopeType,
-      this.inferScopeFromEntityType(entityRecord.type),
-    );
-    const nextOwnerOrgId =
-      nextScopeType === "organization"
-        ? (body?.owner_org_id?.toString().trim() ||
-            existingMeta.ownerOrgId ||
-            actorOrgId)
-        : (body?.owner_org_id?.toString().trim() ||
-            existingMeta.ownerOrgId ||
-            actorOrgId);
-    const nextOwnerBranchId =
-      nextScopeType === "branch"
-        ? (body?.owner_branch_id?.toString().trim() ||
-            existingMeta.ownerBranchId ||
-            actorBranchId)
-        : "";
-
-    this.ensureScopeOwnership(
-      tenant,
-      {
-        scopeType: nextScopeType,
-        ownerOrgId: nextOwnerOrgId,
-        ownerBranchId: nextOwnerBranchId,
+    const authRes = await clientSupabase.auth.admin.createUser({
+      email: dto.email,
+      password: dto.password || "Zabnix@2025",
+      email_confirm: true,
+      user_metadata: {
+        full_name: dto.full_name,
+        role: dto.role ?? "user",
+        org_id: orgId,
       },
-      actorOrgId,
-      actorBranchId,
-    );
+    });
 
-    const incomingPermissions =
-      body?.permissions != null ? body.permissions : existing.permissions ?? {};
-    this.ensureRolePermissionsWithinCreator(tenant.permissions, incomingPermissions);
-    const normalizedPermissions = this.buildNormalizedRolePermissionsWithMeta(
-      incomingPermissions,
-      nextScopeType,
-      nextOwnerOrgId,
-      nextOwnerBranchId,
-    );
-
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("roles")
-      .update({
-        label,
-        description: body?.description?.toString().trim() ?? "",
-        permissions: normalizedPermissions,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("entity_id", this.getEntityId(tenant))
-      .eq("id", id)
-      .select("*")
-      .single();
-
-    if (error) {
-      throw new Error(`Failed to update role: ${error.message}`);
+    if (authRes.error || !authRes.data.user) {
+      throw new Error(authRes.error?.message ?? "Failed to create user in auth");
     }
 
+    const userId = authRes.data.user.id;
+
+    const [inserted] = await db
+      .insert(users)
+      .values({
+        id: userId,
+        orgId,
+        entityId: tenant.entityId,
+        email: dto.email,
+        fullName: dto.full_name,
+        role: dto.role ?? "user",
+        isActive: true,
+      })
+      .returning();
+
     return {
-      id: data.id?.toString() ?? "",
-      label: (data.label ?? "").toString(),
-      description: (data.description ?? "").toString(),
-      permissions: data.permissions ?? {},
-      is_default: false,
+      id: inserted.id,
+      email: inserted.email,
+      full_name: inserted.fullName,
+      role: inserted.role,
+      is_active: inserted.isActive,
     };
   }
 
-  async deleteRole(id: string, tenant: TenantContext) {
-    const normalizedId = id.toLowerCase().trim();
-    if (this.reservedRoleIds.has(normalizedId)) {
-      throw new Error("Default roles cannot be deleted");
-    }
+  async update(id: string, tenantOrOrgId: TenantContext | string, dto: any) {
+    const { orgId } = this.resolveTenant(tenantOrOrgId);
 
-    const client = this.supabaseService.getClient();
+    const updatePayload: Record<string, any> = { updatedAt: new Date() };
+    if (dto.full_name !== undefined) updatePayload.fullName = dto.full_name;
+    if (dto.role !== undefined) updatePayload.role = dto.role;
+    if (dto.is_active !== undefined) updatePayload.isActive = dto.is_active;
 
-    const { data: role, error: roleError } = await client
-      .from("roles")
-      .select("id, label")
-      .eq("entity_id", this.getEntityId(tenant))
-      .eq("id", id)
-      .maybeSingle();
+    const [updated] = await db
+      .update(users)
+      .set(updatePayload)
+      .where(and(eq(users.id, id), eq(users.orgId, orgId)))
+      .returning();
 
-    if (roleError) {
-      throw new Error(`Failed to fetch role: ${roleError.message}`);
-    }
-    if (!role) {
-      throw new Error("Role not found");
-    }
-    if (this.isReservedRoleLabel(role.label)) {
-      throw new Error("Default roles cannot be deleted");
-    }
+    return {
+      id: updated.id,
+      email: updated.email,
+      full_name: updated.fullName,
+      role: updated.role,
+      is_active: updated.isActive,
+    };
+  }
 
-    const { count, error: usersCountError } = await client
-      .from("users")
-      .select("id", { count: "exact", head: true })
-      .eq("entity_id", this.getEntityId(tenant))
-      .eq("role", id);
+  async remove(id: string, tenantOrOrgId: TenantContext | string) {
+    const { orgId } = this.resolveTenant(tenantOrOrgId);
 
-    if (usersCountError) {
-      throw new Error(
-        `Failed to validate role assignments: ${usersCountError.message}`,
+    await db
+      .delete(users)
+      .where(and(eq(users.id, id), eq(users.orgId, orgId)));
+
+    return { success: true };
+  }
+
+  async getLocationAccess(userId: string, tenantOrOrgId: TenantContext | string) {
+    const { orgId } = this.resolveTenant(tenantOrOrgId);
+    try {
+      const data = await client.unsafe(
+        `SELECT uba.entity_id, uba.is_default_business, uba.is_default_warehouse, obm.name
+         FROM user_branch_access uba
+         LEFT JOIN organisation_branch_master obm ON obm.id = uba.entity_id
+         WHERE uba.user_id = $1 AND uba.org_id = $2`,
+        [userId, orgId],
       );
+      return data ?? [];
+    } catch {
+      return [];
     }
-    if ((count ?? 0) > 0) {
-      throw new Error(
-        "Cannot delete role while users are assigned. Reassign users first.",
+  }
+
+  async updateLocationAccess(
+    userId: string,
+    tenantOrOrgId: TenantContext | string,
+    body: any,
+  ) {
+    const locations = Array.isArray(body?.locations)
+      ? body.locations
+      : Array.isArray(body)
+        ? body
+        : [];
+    return this.updateUserLocations(userId, tenantOrOrgId, locations);
+  }
+
+  async updateUserLocations(
+    userId: string,
+    tenantOrOrgId: TenantContext | string,
+    locations: Array<{ entity_id: string; is_default_business?: boolean; is_default_warehouse?: boolean }>,
+  ) {
+    const { orgId } = this.resolveTenant(tenantOrOrgId);
+
+    await db
+      .delete(userBranchAccess)
+      .where(
+        and(
+          eq(userBranchAccess.userId, userId),
+          eq(userBranchAccess.orgId, orgId),
+        ),
       );
-    }
 
-    const { error: deleteError } = await client
-      .from("roles")
-      .delete()
-      .eq("entity_id", this.getEntityId(tenant))
-      .eq("id", id);
-
-    if (deleteError) {
-      throw new Error(`Failed to delete role: ${deleteError.message}`);
+    if (locations && locations.length > 0) {
+      await db.insert(userBranchAccess).values(
+        locations.map((loc) => ({
+          userId,
+          orgId,
+          entityId: loc.entity_id,
+          isDefaultBusiness: loc.is_default_business ?? false,
+          isDefaultWarehouse: loc.is_default_warehouse ?? false,
+        })),
+      );
     }
 
     return { success: true };
+  }
+
+  async findActivities(_userId: string, _tenantOrOrgId: TenantContext | string) {
+    return [];
+  }
+
+  async setDefaultBranch(
+    userId: string,
+    entityId: string,
+    tenantOrOrgId: TenantContext | string,
+  ) {
+    const { orgId } = this.resolveTenant(tenantOrOrgId);
+
+    await client.unsafe(
+      `UPDATE user_branch_access SET is_default_business = false WHERE user_id = $1 AND org_id = $2`,
+      [userId, orgId],
+    );
+
+    await client.unsafe(
+      `UPDATE user_branch_access SET is_default_business = true WHERE user_id = $1 AND org_id = $2 AND entity_id = $3`,
+      [userId, orgId, entityId],
+    );
+
+    return { success: true };
+  }
+
+  async updateStatus(
+    userId: string,
+    tenantOrOrgId: TenantContext | string,
+    isActive: boolean,
+  ) {
+    return this.toggleUserStatus(userId, isActive, tenantOrOrgId);
+  }
+
+  async toggleUserStatus(
+    id: string,
+    isActive: boolean,
+    tenantOrOrgId: TenantContext | string,
+  ) {
+    const { orgId } = this.resolveTenant(tenantOrOrgId);
+
+    const [updated] = await db
+      .update(users)
+      .set({ isActive, updatedAt: new Date() })
+      .where(and(eq(users.id, id), eq(users.orgId, orgId)))
+      .returning();
+
+    return {
+      id: updated.id,
+      email: updated.email,
+      full_name: updated.fullName,
+      role: updated.role,
+      is_active: updated.isActive,
+    };
   }
 }

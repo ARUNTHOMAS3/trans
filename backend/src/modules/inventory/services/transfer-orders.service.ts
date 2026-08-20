@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Client } from "pg";
+import { client } from "../../../db/db";
 import { TenantContext } from "../../../common/middleware/tenant.middleware";
 import { SupabaseService } from "../../supabase/supabase.service";
 
@@ -418,167 +419,65 @@ export class TransferOrdersService {
     const countSql = `SELECT COUNT(*) FROM transfer_order_master WHERE entity_id = $1 ${status ? 'AND status = $2' : ''}`;
     const countParams = status ? [entityId, status] : [entityId];
 
-    let dataRes: { data?: unknown } | null = null;
-    let countRes: { data?: unknown } | null = null;
-    try {
-      [dataRes, countRes] = await Promise.all([
-        this.supabaseService.getClient().rpc('request', {
-          p_method: 'GET',
-          p_path: '/raw-query',
-          p_body: { sql, params },
-        }),
-        this.supabaseService.getClient().rpc('request', {
-          p_method: 'GET',
-          p_path: '/raw-query',
-          p_body: { sql: countSql, params: countParams },
-        }),
-      ]);
-    } catch (_) {
-      // Fallback if rpc('request') is not configured for raw-query.
-      // We'll fall back to the builder path below.
-      dataRes = null;
-      countRes = null;
-    }
+    const [dataRows, countRows] = await Promise.all([
+      client.unsafe(sql, params),
+      client.unsafe(countSql, countParams),
+    ]);
 
-    // If raw query fails or not available, fallback to builder with joins
-    if (!dataRes || !dataRes.data) {
-      let builder = this.supabaseService
-        .getClient()
-        .from("transfer_order_master")
-        .select(`
-          *,
-          source_warehouse:source_warehouse_id(name),
-          destination_warehouse:destination_warehouse_id(name)
-        `, { count: "exact" })
-        .eq("entity_id", entityId)
-        .order("transfer_date", { ascending: false })
-        .order("created_at", { ascending: false });
-
-      if (status) builder = builder.eq("status", status);
-      if (search) builder = builder.ilike("transfer_no", `%${search}%`);
-
-      const { data, error, count } = await builder.range(offset, offset + limit - 1);
-      if (error) throw new BadRequestException(error.message);
-
-      const mappedData = (data ?? []).map(row => ({
-        ...row,
-        source_warehouse_name: row.source_warehouse?.name,
-        destination_warehouse_name: row.destination_warehouse?.name,
-      }));
-
-      return {
-        data: mappedData,
-        page,
-        limit,
-        total: count ?? 0,
-      };
-    }
-
-      const rawCountRows = Array.isArray(countRes?.data) ? countRes?.data : [];
-      const rawCountRow = rawCountRows.length > 0 ? rawCountRows[0] as Record<string, unknown> : null;
-
-      return {
-        data: dataRes.data ?? [],
-        page,
-        limit,
-        total: Number(rawCountRow?.count ?? rawCountRow?.total ?? 0),
-      };
+    const total = Number(countRows[0]?.count ?? 0);
+    return {
+      data: dataRows ?? [],
+      page,
+      limit,
+      total,
+    };
   }
 
   async findOne(id: string, tenant: TenantContext) {
     const entityId = this.ensureEntity(tenant);
-    const client = this.supabaseService.getClient();
 
-    const [orderRes, rawItemsRes] = await Promise.all([
-      client
-        .from("transfer_order_master")
-        .select("*")
-        .eq("id", id)
-        .eq("entity_id", entityId)
-        .maybeSingle(),
-      this.supabaseService.getClient().rpc('request', {
-        p_method: 'GET',
-        p_path: '/raw-query',
-        p_body: {
-          sql: `
-            SELECT i.*, p.product_name, p.hsn_code, p.item_code
-            FROM transfer_order_items i
-            LEFT JOIN products p ON i.product_id = p.id
-            WHERE i.transfer_order_id = $1
-          `,
-          params: [id]
-        }
-      }),
+    const [orderRows, rawItems] = await Promise.all([
+      client.unsafe(
+        `SELECT * FROM transfer_order_master WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+        [id, entityId],
+      ),
+      client.unsafe(
+        `SELECT i.*, p.product_name, p.hsn_code, p.item_code
+         FROM transfer_order_items i
+         LEFT JOIN products p ON i.product_id = p.id
+         WHERE i.transfer_order_id = $1`,
+        [id],
+      ),
     ]);
 
-    if (orderRes.error) {
-      this.logger.error(`Order Fetch Error: ${JSON.stringify(orderRes.error)}`);
-      throw new BadRequestException(orderRes.error.message);
-    }
-    if (!orderRes.data) throw new NotFoundException("Transfer order not found");
+    const order = orderRows[0];
+    if (!order) throw new NotFoundException("Transfer order not found");
+    const itemIds = (rawItems ?? []).map((row: any) => row.id);
 
-    let itemsRes = rawItemsRes;
-    if (itemsRes.error) {
-      // Graceful fallback when rpc('request') is unavailable in target DB.
-      const fallbackItemsRes = await client
-        .from("transfer_order_items")
-        .select(`
-          *,
-          product:product_id (
-            product_name,
-            hsn_code,
-            item_code
+    const [sourceBatches, destinationBatches] = await Promise.all([
+      itemIds.length > 0
+        ? client.unsafe(
+            `SELECT * FROM transfer_order_source_batches WHERE transfer_item_id = ANY($1)`,
+            [itemIds],
           )
-        `)
-        .eq("transfer_order_id", id);
-
-      if (fallbackItemsRes.error) {
-        throw new BadRequestException(fallbackItemsRes.error.message);
-      }
-
-      const mappedFallbackItems = (fallbackItemsRes.data ?? []).map((row: any) => ({
-        ...row,
-        product_name: row.product?.product_name ?? null,
-        hsn_code: row.product?.hsn_code ?? null,
-        item_code: row.product?.item_code ?? null,
-      }));
-
-      itemsRes = { data: mappedFallbackItems, error: null } as any;
-    }
-
-    const order = orderRes.data;
-    const rawItems = itemsRes.data ?? [];
-    const itemIds = rawItems.map((row: any) => row.id);
-
-    const [sourceRes, destinationRes] = await Promise.all([
+        : [],
       itemIds.length > 0
-        ? client
-            .from("transfer_order_source_batches")
-            .select("*")
-            .in("transfer_item_id", itemIds)
-        : Promise.resolve({ data: [], error: null as any }),
-      itemIds.length > 0
-        ? client
-            .from("transfer_order_destination_batches")
-            .select("*")
-            .in("transfer_item_id", itemIds)
-        : Promise.resolve({ data: [], error: null as any }),
+        ? client.unsafe(
+            `SELECT * FROM transfer_order_destination_batches WHERE transfer_item_id = ANY($1)`,
+            [itemIds],
+          )
+        : [],
     ]);
-
-    if (sourceRes.error) throw new BadRequestException(sourceRes.error.message);
-    if (destinationRes.error) {
-      throw new BadRequestException(destinationRes.error.message);
-    }
 
     const sourceByItem = new Map<string, any[]>();
-    for (const row of sourceRes.data ?? []) {
+    for (const row of sourceBatches ?? []) {
       const list = sourceByItem.get(String((row as any).transfer_item_id)) ?? [];
       list.push(row);
       sourceByItem.set(String((row as any).transfer_item_id), list);
     }
 
     const destinationByItem = new Map<string, any[]>();
-    for (const row of destinationRes.data ?? []) {
+    for (const row of destinationBatches ?? []) {
       const list =
         destinationByItem.get(String((row as any).transfer_item_id)) ?? [];
       list.push(row);
@@ -657,7 +556,7 @@ export class TransferOrdersService {
 
   async update(id: string, dto: UpdateTransferOrderDto, tenant: TenantContext) {
     const entityId = this.ensureEntity(tenant);
-    const existing = await this.findOne(id, tenant);
+    const existing: any = await this.findOne(id, tenant);
     if (String(existing.status ?? "").toUpperCase() !== "DRAFT") {
       throw new BadRequestException("Only DRAFT transfer orders can be updated");
     }

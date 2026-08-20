@@ -4,6 +4,7 @@ import { SupabaseService } from '../../../supabase/supabase.service';
 import { CreateSalesReturnDto } from '../dto/create-sales-return.dto';
 import { UpdateSalesReturnDto } from '../dto/update-sales-return.dto';
 import { CreateSalesReturnReceiveDto } from '../dto/create-sales-return-receive.dto';
+import { client } from '../../../../db/db';
 
 @Injectable()
 export class SalesReturnsService {
@@ -15,33 +16,30 @@ export class SalesReturnsService {
 
   private async getNextRmaNumber(tenant: TenantContext, prefix = 'RMA-') {
     const safePrefix = prefix || 'RMA-';
-    const regexPattern = `^${this.escapeRegExp(safePrefix)}[0-9]+$`;
+    try {
+      const data = await client.unsafe(
+        `SELECT rma_number FROM sales_returns WHERE entity_id = $1 ORDER BY rma_number DESC LIMIT 1000`,
+        [tenant.entityId],
+      );
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('sales_returns')
-      .select('rma_number')
-      .eq('entity_id', tenant.entityId)
-      .filter('rma_number', 'match', regexPattern)
-      .order('rma_number', { ascending: false })
-      .limit(1000);
-
-    if (error) throw new Error(`Failed to generate RMA number: ${error.message}`);
-
-    let maxNumber = 0;
-    for (const row of data ?? []) {
-      const match = row.rma_number.match(/(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNumber) maxNumber = num;
+      let maxNumber = 0;
+      for (const row of data ?? []) {
+        if (!row.rma_number || !row.rma_number.startsWith(safePrefix)) continue;
+        const match = row.rma_number.match(/(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNumber) maxNumber = num;
+        }
       }
-    }
 
-    return {
-      prefix: safePrefix,
-      nextNumber: maxNumber + 1,
-      formatted: `${safePrefix}${(maxNumber + 1).toString().padStart(5, '0')}`,
-    };
+      return {
+        prefix: safePrefix,
+        nextNumber: maxNumber + 1,
+        formatted: `${safePrefix}${(maxNumber + 1).toString().padStart(5, '0')}`,
+      };
+    } catch (error) {
+      throw new Error(`Failed to generate RMA number: ${(error as Error).message}`);
+    }
   }
 
   async getNextNumber(tenant: TenantContext, prefix?: string) {
@@ -51,123 +49,137 @@ export class SalesReturnsService {
   private async insertItems(returnId: string, items: CreateSalesReturnDto['items'], tenant: TenantContext) {
     if (!items?.length) return;
 
-    const rows = items.map((item) => ({
-      sales_return_id: returnId,
-      product_id: item.product_id,
-      sales_invoice_item_id: item.sales_invoice_item_id ?? null,
-      invoiced_qty: item.invoiced_qty ?? 0,
-      already_returned_qty: item.already_returned_qty ?? 0,
-      return_qty: item.return_qty ?? 0,
-      receivable_qty: item.receivable_qty ?? item.return_qty ?? 0,
-      credit_only_qty: item.credit_only_qty ?? 0,
-      remarks: item.remarks ?? null,
-    }));
-
-    const { error } = await this.supabaseService
-      .getClient()
-      .from('sales_return_items')
-      .insert(rows);
-
-    if (error) throw new Error(`Failed to insert sales return items: ${error.message}`);
+    for (const item of items) {
+      await client.unsafe(
+        `INSERT INTO sales_return_items (sales_return_id, product_id, sales_invoice_item_id, invoiced_qty, already_returned_qty, return_qty, receivable_qty, credit_only_qty, remarks)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          returnId,
+          item.product_id,
+          item.sales_invoice_item_id ?? null,
+          item.invoiced_qty ?? 0,
+          item.already_returned_qty ?? 0,
+          item.return_qty ?? 0,
+          item.receivable_qty ?? item.return_qty ?? 0,
+          item.credit_only_qty ?? 0,
+          item.remarks ?? null,
+        ],
+      );
+    }
   }
 
   private async deleteReceiveCascade(receiveId: string) {
-    const client = this.supabaseService.getClient();
-
-    const { data: receiveItems, error: receiveItemsError } = await client
-      .from('sales_return_receive_items')
-      .select('id')
-      .eq('sales_return_receive_id', receiveId);
-
-    if (receiveItemsError) {
-      throw new Error(`Failed to fetch receive items: ${receiveItemsError.message}`);
-    }
+    const receiveItems = await client.unsafe(
+      `SELECT id FROM sales_return_receive_items WHERE sales_return_receive_id = $1`,
+      [receiveId],
+    );
 
     const receiveItemIds = (receiveItems ?? [])
-      .map((row) => row.id as string)
-      .filter((id) => !!id);
+      .map((row: any) => row.id as string)
+      .filter((id: string) => !!id);
 
     if (receiveItemIds.length > 0) {
-      const { error: batchDeleteError } = await client
-        .from('sales_return_receive_batches')
-        .delete()
-        .in('sales_return_receive_item_id', receiveItemIds);
-
-      if (batchDeleteError) {
-        throw new Error(`Failed to delete receive batches: ${batchDeleteError.message}`);
-      }
+      await client.unsafe(
+        `DELETE FROM sales_return_receive_batches WHERE sales_return_receive_item_id = ANY($1)`,
+        [receiveItemIds],
+      );
     }
 
-    const { error: itemDeleteError } = await client
-      .from('sales_return_receive_items')
-      .delete()
-      .eq('sales_return_receive_id', receiveId);
+    await client.unsafe(
+      `DELETE FROM sales_return_receive_items WHERE sales_return_receive_id = $1`,
+      [receiveId],
+    );
 
-    if (itemDeleteError) {
-      throw new Error(`Failed to delete receive items: ${itemDeleteError.message}`);
-    }
-
-    const { error: receiveDeleteError } = await client
-      .from('sales_return_receives')
-      .delete()
-      .eq('id', receiveId);
-
-    if (receiveDeleteError) {
-      throw new Error(`Failed to delete sales return receive: ${receiveDeleteError.message}`);
-    }
+    await client.unsafe(
+      `DELETE FROM sales_return_receives WHERE id = $1`,
+      [receiveId],
+    );
   }
 
   async findAll(tenant: TenantContext, page = 1, limit = 100, search?: string, status?: string) {
     const offset = (page - 1) * limit;
 
-    let query = this.supabaseService
-      .getClient()
-      .from('sales_returns')
-      .select('*, items:sales_return_items(*)', { count: 'exact' })
-      .eq('entity_id', tenant.entityId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    let sqlQuery = `SELECT * FROM sales_returns WHERE entity_id = $1`;
+    let countQuery = `SELECT COUNT(*)::int as count FROM sales_returns WHERE entity_id = $1`;
+    const params: any[] = [tenant.entityId];
 
     if (search) {
-      query = query.or(`rma_number.ilike.%${search}%,reference_number.ilike.%${search}%`);
+      params.push(`%${search}%`);
+      const sIdx = params.length;
+      sqlQuery += ` AND (rma_number ILIKE $${sIdx} OR reference_number ILIKE $${sIdx})`;
+      countQuery += ` AND (rma_number ILIKE $${sIdx} OR reference_number ILIKE $${sIdx})`;
     }
     if (status && status.toLowerCase() !== 'all') {
-      query = query.eq('status', status.toLowerCase());
+      params.push(status.toLowerCase());
+      const stIdx = params.length;
+      sqlQuery += ` AND status = $${stIdx}`;
+      countQuery += ` AND status = $${stIdx}`;
     }
 
-    const { data, error, count } = await query;
-    if (error) throw new Error(`Failed to fetch sales returns: ${error.message}`);
+    sqlQuery += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+
+    const [data, countRes] = await Promise.all([
+      client.unsafe(sqlQuery, [...params, limit, offset]),
+      client.unsafe(countQuery, params),
+    ]);
+
+    const totalCount = countRes[0]?.count ?? 0;
+
+    for (const row of data ?? []) {
+      const items = await client.unsafe(
+        `SELECT * FROM sales_return_items WHERE sales_return_id = $1`,
+        [row.id],
+      );
+      row.items = items ?? [];
+    }
 
     return {
       data: data ?? [],
-      meta: { total: count, page, limit, totalPages: Math.ceil((count ?? 0) / limit) },
+      meta: { total: totalCount, page, limit, totalPages: Math.ceil(totalCount / limit) },
     };
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('sales_returns')
-      .select('*, items:sales_return_items(*)')
-      .eq('id', id)
-      .eq('entity_id', tenant.entityId)
-      .single();
+    const rows = await client.unsafe(
+      `SELECT * FROM sales_returns WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+      [id, tenant.entityId],
+    );
 
-    if (error) throw new NotFoundException(`Sales Return ${id} not found`);
+    const data = rows[0];
+    if (!data) throw new NotFoundException(`Sales Return ${id} not found`);
+
+    const items = await client.unsafe(
+      `SELECT * FROM sales_return_items WHERE sales_return_id = $1`,
+      [id],
+    );
+    data.items = items ?? [];
+
     return data;
   }
 
   async create(dto: CreateSalesReturnDto, tenant: TenantContext) {
     const { items, ...headerData } = dto;
 
-    const { data: created, error } = await this.supabaseService
-      .getClient()
-      .from('sales_returns')
-      .insert([{ ...headerData, entity_id: tenant.entityId }])
-      .select()
-      .single();
+    const rows = await client.unsafe(
+      `INSERT INTO sales_returns (entity_id, customer_id, rma_number, return_date, warehouse_id, reason, reference_number, contains_credit_only_goods, status, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [
+        tenant.entityId,
+        headerData.customer_id,
+        headerData.rma_number,
+        headerData.return_date,
+        headerData.warehouse_id,
+        headerData.reason ?? null,
+        headerData.reference_number ?? null,
+        headerData.contains_credit_only_goods ?? false,
+        headerData.status ?? 'draft',
+        headerData.notes ?? null,
+      ],
+    );
 
-    if (error) throw new Error(`Failed to create sales return: ${error.message}`);
+    const created = rows[0];
+    if (!created) throw new Error("Failed to create sales return");
 
     await this.insertItems(created.id, items, tenant);
     return { ...created, items: [] };
@@ -177,23 +189,37 @@ export class SalesReturnsService {
     const { items, ...headerData } = dto;
 
     if (Object.keys(headerData).length > 0) {
-      const { error } = await this.supabaseService
-        .getClient()
-        .from('sales_returns')
-        .update(headerData)
-        .eq('id', id)
-        .eq('entity_id', tenant.entityId);
-
-      if (error) throw new Error(`Failed to update sales return: ${error.message}`);
+      await client.unsafe(
+        `UPDATE sales_returns SET
+           customer_id = COALESCE($1, customer_id),
+           rma_number = COALESCE($2, rma_number),
+           return_date = COALESCE($3, return_date),
+           warehouse_id = COALESCE($4, warehouse_id),
+           reason = COALESCE($5, reason),
+           reference_number = COALESCE($6, reference_number),
+           contains_credit_only_goods = COALESCE($7, contains_credit_only_goods),
+           status = COALESCE($8, status),
+           notes = COALESCE($9, notes),
+           updated_at = NOW()
+         WHERE id = $10 AND entity_id = $11`,
+        [
+          headerData.customer_id ?? null,
+          headerData.rma_number ?? null,
+          headerData.return_date ?? null,
+          headerData.warehouse_id ?? null,
+          headerData.reason ?? null,
+          headerData.reference_number ?? null,
+          headerData.contains_credit_only_goods ?? null,
+          headerData.status ?? null,
+          headerData.notes ?? null,
+          id,
+          tenant.entityId,
+        ],
+      );
     }
 
     if (items) {
-      await this.supabaseService
-        .getClient()
-        .from('sales_return_items')
-        .delete()
-        .eq('sales_return_id', id);
-
+      await client.unsafe(`DELETE FROM sales_return_items WHERE sales_return_id = $1`, [id]);
       await this.insertItems(id, items, tenant);
     }
 
@@ -206,34 +232,31 @@ export class SalesReturnsService {
       throw new Error('Warehouse is required to save receive batches.');
     }
 
-    const { data: existing } = await this.supabaseService
-      .getClient()
-      .from('sales_return_receives')
-      .select('id')
-      .eq('sales_return_id', salesReturnId)
-      .eq('entity_id', tenant.entityId);
+    const existing = await client.unsafe(
+      `SELECT id FROM sales_return_receives WHERE sales_return_id = $1 AND entity_id = $2`,
+      [salesReturnId, tenant.entityId],
+    );
 
     const receiveCount = (existing?.length ?? 0) + 1;
     const receiveNumber = `RR-${receiveCount.toString().padStart(5, '0')}`;
 
-    const { data: receive, error } = await this.supabaseService
-      .getClient()
-      .from('sales_return_receives')
-      .insert([{
-        sales_return_id: salesReturnId,
-        entity_id: tenant.entityId,
-        receive_number: receiveNumber,
-        receive_date: dto.receive_date,
-        warehouse_id: dto.warehouse_id ?? null,
-        notes: dto.notes ?? null,
-        status: 'received',
-      }])
-      .select()
-      .single();
+    const rows = await client.unsafe(
+      `INSERT INTO sales_return_receives (sales_return_id, entity_id, receive_number, receive_date, warehouse_id, notes, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'received')
+       RETURNING *`,
+      [
+        salesReturnId,
+        tenant.entityId,
+        receiveNumber,
+        dto.receive_date,
+        dto.warehouse_id ?? null,
+        dto.notes ?? null,
+      ],
+    );
 
-    if (error) throw new Error(`Failed to create receive: ${error.message}`);
+    const receive = rows[0];
+    if (!receive) throw new Error("Failed to create receive");
 
-    const client = this.supabaseService.getClient();
     const receiveItemRecords: Array<{
       id: string;
       product_id: string;
@@ -241,23 +264,23 @@ export class SalesReturnsService {
     }> = [];
 
     for (const item of dto.items ?? []) {
-      const { data: receiveItem, error: itemError } = await client
-        .from('sales_return_receive_items')
-        .insert([{
-          sales_return_receive_id: receive.id,
-          product_id: item.product_id,
-          sales_return_item_id: item.sales_return_item_id ?? null,
-          receiving_qty: item.receiving_qty,
-          return_qty: item.return_qty ?? 0,
-          already_received_qty: item.already_received_qty ?? 0,
-          remarks: item.remarks ?? null,
-        }])
-        .select('id, product_id')
-        .single();
+      const itemRows = await client.unsafe(
+        `INSERT INTO sales_return_receive_items (sales_return_receive_id, product_id, sales_return_item_id, receiving_qty, return_qty, already_received_qty, remarks)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, product_id`,
+        [
+          receive.id,
+          item.product_id,
+          item.sales_return_item_id ?? null,
+          item.receiving_qty,
+          item.return_qty ?? 0,
+          item.already_received_qty ?? 0,
+          item.remarks ?? null,
+        ],
+      );
 
-      if (itemError) {
-        throw new Error(`Failed to insert receive items: ${itemError.message}`);
-      }
+      const receiveItem = itemRows[0];
+      if (!receiveItem) throw new Error("Failed to insert receive items");
 
       receiveItemRecords.push({
         id: receiveItem.id,
@@ -270,120 +293,94 @@ export class SalesReturnsService {
       const batches = dto.items?.[index]?.batches ?? [];
       if (!batches.length) continue;
 
-      const batchRows = batches.map((batch) => ({
-        sales_return_receive_item_id: record.id,
-        batch_id: batch.batch_id,
-        layer_id: batch.layer_id ?? null,
-        warehouse_id: batch.warehouse_id ?? dto.warehouse_id ?? null,
-        bin_id: batch.bin_id,
-        quantity: batch.quantity,
-        foc_quantity: batch.foc_quantity ?? 0,
-        purchase_rate: batch.purchase_rate ?? null,
-        mrp: batch.mrp ?? null,
-        expiry_date: batch.expiry_date ?? null,
-        manufacture_date: batch.manufacture_date ?? null,
-        manufacture_batch_no: batch.manufacture_batch_no ?? null,
-      }));
-
-      const { error: batchError } = await client
-        .from('sales_return_receive_batches')
-        .insert(batchRows);
-
-      if (batchError) {
-        throw new Error(`Failed to insert receive batches: ${batchError.message}`);
+      for (const batch of batches) {
+        await client.unsafe(
+          `INSERT INTO sales_return_receive_batches (sales_return_receive_item_id, batch_id, layer_id, warehouse_id, bin_id, quantity, foc_quantity, purchase_rate, mrp, expiry_date, manufacture_date, manufacture_batch_no)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          [
+            record.id,
+            batch.batch_id,
+            batch.layer_id ?? null,
+            batch.warehouse_id ?? dto.warehouse_id ?? null,
+            batch.bin_id,
+            batch.quantity,
+            batch.foc_quantity ?? 0,
+            batch.purchase_rate ?? null,
+            batch.mrp ?? null,
+            batch.expiry_date ?? null,
+            batch.manufacture_date ?? null,
+            batch.manufacture_batch_no ?? null,
+          ],
+        );
       }
     }
 
-    // Mark the parent sales return as received
-    await client
-      .from('sales_returns')
-      .update({ status: 'received' })
-      .eq('id', salesReturnId)
-      .eq('entity_id', tenant.entityId);
+    await client.unsafe(
+      `UPDATE sales_returns SET status = 'received' WHERE id = $1 AND entity_id = $2`,
+      [salesReturnId, tenant.entityId],
+    );
 
     return { ...receive, items: dto.items ?? [] };
   }
 
   async getReceives(salesReturnId: string, tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from('sales_return_receives')
-      .select('*, items:sales_return_receive_items(*)')
-      .eq('sales_return_id', salesReturnId)
-      .eq('entity_id', tenant.entityId)
-      .order('created_at', { ascending: false });
+    const receives = await client.unsafe(
+      `SELECT * FROM sales_return_receives WHERE sales_return_id = $1 AND entity_id = $2 ORDER BY created_at DESC`,
+      [salesReturnId, tenant.entityId],
+    );
 
-    if (error) throw new Error(`Failed to fetch receives: ${error.message}`);
-    return data ?? [];
+    for (const receive of receives ?? []) {
+      const items = await client.unsafe(
+        `SELECT * FROM sales_return_receive_items WHERE sales_return_receive_id = $1`,
+        [receive.id],
+      );
+      receive.items = items ?? [];
+    }
+
+    return receives ?? [];
   }
 
   async remove(id: string, tenant: TenantContext) {
-    const { data: receives, error: receiveFetchError } = await this.supabaseService
-      .getClient()
-      .from('sales_return_receives')
-      .select('id')
-      .eq('sales_return_id', id)
-      .eq('entity_id', tenant.entityId);
-
-    if (receiveFetchError) {
-      throw new Error(`Failed to fetch sales return receives: ${receiveFetchError.message}`);
-    }
+    const receives = await client.unsafe(
+      `SELECT id FROM sales_return_receives WHERE sales_return_id = $1 AND entity_id = $2`,
+      [id, tenant.entityId],
+    );
 
     for (const receive of receives ?? []) {
       await this.deleteReceiveCascade(receive.id as string);
     }
 
-    await this.supabaseService
-      .getClient()
-      .from('sales_return_items')
-      .delete()
-      .eq('sales_return_id', id);
+    await client.unsafe(`DELETE FROM sales_return_items WHERE sales_return_id = $1`, [id]);
+    await client.unsafe(
+      `DELETE FROM sales_returns WHERE id = $1 AND entity_id = $2`,
+      [id, tenant.entityId],
+    );
 
-    const { error } = await this.supabaseService
-      .getClient()
-      .from('sales_returns')
-      .delete()
-      .eq('id', id)
-      .eq('entity_id', tenant.entityId);
-
-    if (error) throw new Error(`Failed to delete sales return: ${error.message}`);
     return { message: 'Sales return deleted successfully' };
   }
 
   async removeReceive(salesReturnId: string, receiveId: string, tenant: TenantContext) {
-    const { data: receive, error } = await this.supabaseService
-      .getClient()
-      .from('sales_return_receives')
-      .select('id, sales_return_id')
-      .eq('id', receiveId)
-      .eq('sales_return_id', salesReturnId)
-      .eq('entity_id', tenant.entityId)
-      .single();
+    const rows = await client.unsafe(
+      `SELECT id, sales_return_id FROM sales_return_receives WHERE id = $1 AND sales_return_id = $2 AND entity_id = $3 LIMIT 1`,
+      [receiveId, salesReturnId, tenant.entityId],
+    );
 
-    if (error || !receive) {
+    if (!rows[0]) {
       throw new NotFoundException(`Sales Return Receive ${receiveId} not found`);
     }
 
     await this.deleteReceiveCascade(receiveId);
 
-    const { data: remainingReceives, error: remainingError } = await this.supabaseService
-      .getClient()
-      .from('sales_return_receives')
-      .select('id')
-      .eq('sales_return_id', salesReturnId)
-      .eq('entity_id', tenant.entityId);
-
-    if (remainingError) {
-      throw new Error(`Failed to refresh sales return receives: ${remainingError.message}`);
-    }
+    const remainingReceives = await client.unsafe(
+      `SELECT id FROM sales_return_receives WHERE sales_return_id = $1 AND entity_id = $2`,
+      [salesReturnId, tenant.entityId],
+    );
 
     if ((remainingReceives ?? []).length === 0) {
-      await this.supabaseService
-        .getClient()
-        .from('sales_returns')
-        .update({ status: 'approved' })
-        .eq('id', salesReturnId)
-        .eq('entity_id', tenant.entityId);
+      await client.unsafe(
+        `UPDATE sales_returns SET status = 'approved' WHERE id = $1 AND entity_id = $2`,
+        [salesReturnId, tenant.entityId],
+      );
     }
 
     return { message: 'Sales return receive deleted successfully' };

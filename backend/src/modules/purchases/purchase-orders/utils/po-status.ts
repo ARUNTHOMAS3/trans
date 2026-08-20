@@ -1,31 +1,27 @@
-import { SupabaseClient } from "@supabase/supabase-js";
+import { client as dbClient } from "../../../../db/db";
 
 export async function updatePurchaseOrderStatus(
-  client: SupabaseClient,
+  clientInstance: any,
   purchaseOrderId: string,
   entityId: string,
 ) {
   // 1. Get PO items to calculate expected total (quantity - cancelled_quantity)
-  const { data: po, error: poError } = await client
-    .from("purchase_orders")
-    .select("status, order_number")
-    .eq("id", purchaseOrderId)
-    .eq("entity_id", entityId)
-    .single();
+  const poRows = await dbClient.unsafe(
+    `SELECT status, order_number FROM purchase_orders WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+    [purchaseOrderId, entityId],
+  );
 
-  if (poError || !po) return;
+  const po = poRows[0];
+  if (!po) return;
 
-  const { data: poItems, error: poItemsError } = await client
-    .from("purchase_order_items")
-    .select("quantity, cancelled_quantity, is_header, product_id")
-    .eq("purchase_order_id", purchaseOrderId)
-    .eq("entity_id", entityId);
-
-  if (poItemsError || !poItems) return;
+  const poItems = await dbClient.unsafe(
+    `SELECT quantity, cancelled_quantity, is_header, product_id FROM purchase_order_items WHERE purchase_order_id = $1 AND entity_id = $2`,
+    [purchaseOrderId, entityId],
+  );
 
   let originalTotal = 0;
   let expectedTotal = 0;
-  for (const item of poItems) {
+  for (const item of poItems ?? []) {
     if (item.is_header) continue;
     const qty = parseFloat(item.quantity?.toString() ?? "0");
     const cancelled = parseFloat(item.cancelled_quantity?.toString() ?? "0");
@@ -34,33 +30,26 @@ export async function updatePurchaseOrderStatus(
   }
 
   // 2. Get all receive items for all "received" or "intransit" purchase receives of this PO
-  const { data: receives, error: receivesError } = await client
-    .from("purchase_receives")
-    .select("id, status")
-    .eq("purchase_order_id", purchaseOrderId)
-    .eq("entity_id", entityId)
-    .eq("is_delete", false)
-    .in("status", ["received", "intransit"]);
+  const receives = await dbClient.unsafe(
+    `SELECT id, status FROM purchase_receives WHERE purchase_order_id = $1 AND entity_id = $2 AND is_delete = false AND status = ANY($3)`,
+    [purchaseOrderId, entityId, ["received", "intransit"]],
+  );
 
   const poReceiveItemIds: string[] = [];
   let totalReceived = 0;
-  if (!receivesError && receives) {
+  if (receives && receives.length > 0) {
     for (const r of receives) {
-      // Get receive items
-      const { data: priItems } = await client
-        .from("purchase_receive_items")
-        .select("id, received")
-        .eq("purchase_receive_id", r.id)
-        .eq("entity_id", entityId);
+      const priItems = await dbClient.unsafe(
+        `SELECT id, received FROM purchase_receive_items WHERE purchase_receive_id = $1 AND entity_id = $2`,
+        [r.id, entityId],
+      );
 
       for (const pri of priItems ?? []) {
         if (pri.id) poReceiveItemIds.push(pri.id);
-        // Check if there are batches
-        const { data: pribItems } = await client
-          .from("purchase_receive_item_batches")
-          .select("quantity")
-          .eq("purchase_receive_item_id", pri.id)
-          .eq("entity_id", entityId);
+        const pribItems = await dbClient.unsafe(
+          `SELECT quantity FROM purchase_receive_item_batches WHERE purchase_receive_item_id = $1 AND entity_id = $2`,
+          [pri.id, entityId],
+        );
 
         if (pribItems && pribItems.length > 0) {
           for (const prib of pribItems) {
@@ -75,24 +64,23 @@ export async function updatePurchaseOrderStatus(
 
   // 3. Get all bill items for all non-deleted, non-void bills of this PO
   let totalBilled = 0;
-  const { data: bills, error: billsError } = await client
-    .from("bills")
-    .select("id, order_number")
-    .eq("entity_id", entityId)
-    .eq("is_delete", false)
-    .neq("status", "void");
+  const bills = await dbClient.unsafe(
+    `SELECT id, order_number FROM bills WHERE entity_id = $1 AND is_delete = false AND status != 'void'`,
+    [entityId],
+  );
 
-  if (!billsError && bills) {
-    const poNumNormalized = po.order_number.trim().toLowerCase();
+  if (bills && bills.length > 0) {
+    const poNumNormalized = (po.order_number || "").trim().toLowerCase();
     for (const b of bills) {
       const orderNumStr = (b.order_number ?? "").toString().toLowerCase();
-      const orderNums = orderNumStr.split(",").map(x => x.trim());
+      const orderNums = orderNumStr.split(",").map((x: string) => x.trim());
       if (orderNums.includes(poNumNormalized)) {
         const isMultiPo = orderNumStr.includes(",");
-        const { data: billItems } = await client
-          .from("bill_items")
-          .select("quantity, purchase_receive_item_id")
-          .eq("bill_id", b.id);
+        const billItems = await dbClient.unsafe(
+          `SELECT quantity, purchase_receive_item_id FROM bill_items WHERE bill_id = $1`,
+          [b.id],
+        );
+
         for (const bi of billItems ?? []) {
           const prItemId = bi.purchase_receive_item_id;
           if (prItemId) {
@@ -109,7 +97,7 @@ export async function updatePurchaseOrderStatus(
 
   // Determine status
   let newStatus = po.status;
-  const isDraft = ["draft", "pending", "approved"].includes(po.status.toLowerCase());
+  const isDraft = ["draft", "pending", "approved"].includes((po.status || "").toLowerCase());
   if (isDraft) {
     newStatus = po.status;
   } else {
@@ -118,15 +106,14 @@ export async function updatePurchaseOrderStatus(
   }
 
   // 4. Update the PO status in DB
-  await client
-    .from("purchase_orders")
-    .update({ status: newStatus })
-    .eq("id", purchaseOrderId)
-    .eq("entity_id", entityId);
+  await dbClient.unsafe(
+    `UPDATE purchase_orders SET status = $1 WHERE id = $2 AND entity_id = $3`,
+    [newStatus, purchaseOrderId, entityId],
+  );
 }
 
 export async function updatePurchaseOrderStatusByOrderNumber(
-  client: SupabaseClient,
+  clientInstance: any,
   orderNumber: string,
   entityId: string,
 ) {
@@ -137,15 +124,13 @@ export async function updatePurchaseOrderStatusByOrderNumber(
     .filter((p) => p.length > 0);
 
   for (const part of parts) {
-    const { data: po } = await client
-      .from("purchase_orders")
-      .select("id")
-      .eq("order_number", part)
-      .eq("entity_id", entityId)
-      .maybeSingle();
+    const poRows = await dbClient.unsafe(
+      `SELECT id FROM purchase_orders WHERE order_number = $1 AND entity_id = $2 LIMIT 1`,
+      [part, entityId],
+    );
 
-    if (po && po.id) {
-      await updatePurchaseOrderStatus(client, po.id, entityId);
+    if (poRows[0]?.id) {
+      await updatePurchaseOrderStatus(clientInstance, poRows[0].id, entityId);
     }
   }
 }

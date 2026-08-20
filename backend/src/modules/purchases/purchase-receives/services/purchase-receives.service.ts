@@ -4,6 +4,7 @@ import { SupabaseService } from "../../../supabase/supabase.service";
 import { CreatePurchaseReceiveDto } from "../dto/create-purchase-receive.dto";
 import { UpdatePurchaseReceiveDto } from "../dto/update-purchase-receive.dto";
 import { updatePurchaseOrderStatus } from "../../purchase-orders/utils/po-status";
+import { client } from "../../../../db/db";
 
 @Injectable()
 export class PurchaseReceivesService {
@@ -18,24 +19,12 @@ export class PurchaseReceivesService {
     prefix: string = "PR-",
   ) {
     const safePrefix = prefix || "PR-";
-    // We want to match exactly prefix + digits. e.g. PR-00001
-    // In SQL, we use ~ for POSIX regex. Supabase filter uses 'match' for this.
-    // Query globally across table since purchase_receives_purchase_receive_number_key is table-wide unique
     const regexPattern = `^${this.escapeRegExp(safePrefix)}[0-9]+$`;
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("purchase_receives")
-      .select("purchase_receive_number")
-      .filter("purchase_receive_number", "match", regexPattern)
-      .order("purchase_receive_number", { ascending: false })
-      .limit(1000);
-
-    if (error) {
-      throw new Error(
-        `Failed to generate next purchase receive number: ${error.message}`,
-      );
-    }
+    const data = await client.unsafe(
+      `SELECT purchase_receive_number FROM purchase_receives WHERE purchase_receive_number ~ $1 ORDER BY purchase_receive_number DESC LIMIT 1000`,
+      [regexPattern],
+    );
 
     let maxNumber = 0;
     if (data && data.length > 0) {
@@ -68,20 +57,13 @@ export class PurchaseReceivesService {
       return generated.formatted;
     }
 
-    // Query globally across table since purchase_receives_purchase_receive_number_key is table-wide unique
-    const { count, error } = await this.supabaseService
-      .getClient()
-      .from("purchase_receives")
-      .select("id", { count: "exact", head: true })
-      .eq("purchase_receive_number", requested);
+    const countRes = await client.unsafe(
+      `SELECT COUNT(*)::int as count FROM purchase_receives WHERE purchase_receive_number = $1`,
+      [requested],
+    );
 
-    if (error) {
-      throw new Error(
-        `Failed to validate purchase receive number uniqueness: ${error.message}`,
-      );
-    }
-
-    if ((count ?? 0) === 0) {
+    const count = countRes[0]?.count ?? 0;
+    if (count === 0) {
       return requested;
     }
 
@@ -102,33 +84,36 @@ export class PurchaseReceivesService {
       return;
     }
 
-    const itemsToInsert = items.map(
-      ({ batches, billed, cancelled, ...item }) => ({
-        ...item,
+    const createdItems: any[] = [];
+    for (const item of items) {
+      const { batches, billed, cancelled, ...itemFields } = item;
+      const itemToInsert = {
+        ...itemFields,
         purchase_receive_id: receiveId,
         warehouse_id: item.warehouse_id ?? headerWarehouseId ?? null,
         bin_id: item.bin_id ?? transactionBinId ?? null,
         bin_label: item.bin_label ?? transactionBinLabel ?? null,
         entity_id: tenant.entityId,
-      }),
-    );
+      };
 
-    const { data: createdItems, error: itemsError } = await this.supabaseService
-      .getClient()
-      .from("purchase_receive_items")
-      .insert(itemsToInsert)
-      .select("id, item_id");
+      const keys = Object.keys(itemToInsert);
+      const cols = keys.map((k) => `"${k}"`).join(", ");
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+      const values: any[] = Object.values(itemToInsert);
 
-    if (itemsError) {
-      throw new Error(
-        `Failed to create purchase receive items: ${itemsError.message}`,
+      const rows = await client.unsafe(
+        `INSERT INTO purchase_receive_items (${cols}) VALUES (${placeholders}) RETURNING id, item_id`,
+        values,
       );
+      if (rows[0]) {
+        createdItems.push(rows[0]);
+      }
     }
 
     const batchRows: Record<string, unknown>[] = [];
     for (let index = 0; index < items.length; index += 1) {
       const sourceItem = items[index];
-      const createdItem = createdItems?.[index];
+      const createdItem = createdItems[index];
       if (
         !createdItem ||
         !sourceItem?.batches ||
@@ -169,14 +154,15 @@ export class PurchaseReceivesService {
     }
 
     if (batchRows.length > 0) {
-      const { error: batchError } = await this.supabaseService
-        .getClient()
-        .from("purchase_receive_item_batches")
-        .insert(batchRows);
+      for (const bRow of batchRows) {
+        const bKeys = Object.keys(bRow);
+        const bCols = bKeys.map((k) => `"${k}"`).join(", ");
+        const bPlaceholders = bKeys.map((_, i) => `$${i + 1}`).join(", ");
+        const bValues: any[] = Object.values(bRow);
 
-      if (batchError) {
-        throw new Error(
-          `Failed to create purchase receive item batches: ${batchError.message}`,
+        await client.unsafe(
+          `INSERT INTO purchase_receive_item_batches (${bCols}) VALUES (${bPlaceholders})`,
+          bValues,
         );
       }
     }
@@ -192,158 +178,99 @@ export class PurchaseReceivesService {
     for (const item of items) {
       if (!item.batches) continue;
       for (const batch of item.batches) {
-        // 1. Check if batch exists in batch_master
-        const { data: existingBatch } = await this.supabaseService
-          .getClient()
-          .from("batch_master")
-          .select("id")
-          .eq("batch_no", batch.batch_no)
-          .eq("product_id", item.item_id)
-          .maybeSingle();
+        const existingBatches = await client.unsafe(
+          `SELECT id FROM batch_master WHERE batch_no = $1 AND product_id = $2 LIMIT 1`,
+          [batch.batch_no, item.item_id],
+        );
 
-        let batchId = existingBatch?.id;
+        let batchId = existingBatches[0]?.id;
 
         if (!batchId) {
-          // Create batch if not exists
-          const { data: newBatch, error: batchError } =
-            await this.supabaseService
-              .getClient()
-              .from("batch_master")
-              .insert({
-                batch_no: batch.batch_no,
-                product_id: item.item_id,
-                expiry_date: batch.expiry_date, // not null
-                unit_pack: batch.unit_pack ?? null,
-                manufacture_batch_number: batch.manufacture_batch ?? null,
-                manufacture_exp: batch.manufacture_date ?? null,
-                created_by_entity_id: tenant.entityId,
-                source_type: "PURCHASE_RECEIVE",
-              })
-              .select()
-              .single();
-
-          if (batchError) {
-            throw new Error(
-              `Failed to create batch master: ${batchError.message}`,
-            );
-          }
-          batchId = newBatch.id;
+          const newBatchRows = await client.unsafe(
+            `INSERT INTO batch_master (batch_no, product_id, expiry_date, unit_pack, manufacture_batch_number, manufacture_exp, created_by_entity_id, source_type)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'PURCHASE_RECEIVE') RETURNING *`,
+            [
+              batch.batch_no,
+              item.item_id,
+              batch.expiry_date,
+              batch.unit_pack ?? null,
+              batch.manufacture_batch ?? null,
+              batch.manufacture_date ?? null,
+              tenant.entityId,
+            ],
+          );
+          batchId = newBatchRows[0]?.id;
         }
 
-        // 2. Insert into batch_stock_layers
         let resolvedBinId = batch.bin_id ?? item.bin_id;
         if (!resolvedBinId) {
           const warehouseId =
             batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId;
           if (warehouseId) {
-            const { data: firstBin } = await this.supabaseService
-              .getClient()
-              .from("bin_master")
-              .select("id")
-              .eq("warehouse_id", warehouseId)
-              .limit(1)
-              .maybeSingle();
-            resolvedBinId = firstBin?.id;
+            const firstBin = await client.unsafe(
+              `SELECT id FROM bin_master WHERE warehouse_id = $1 LIMIT 1`,
+              [warehouseId],
+            );
+            resolvedBinId = firstBin[0]?.id;
           }
         }
 
         const targetWarehouseId =
           batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId;
 
-        // Query if a layer already exists for the same batch, product, entity, warehouse, and bin
-        const { data: existingLayer, error: getLayerError } = await this.supabaseService
-          .getClient()
-          .from("batch_stock_layers")
-          .select("*")
-          .eq("batch_id", batchId)
-          .eq("product_id", item.item_id)
-          .eq("entity_id", tenant.entityId)
-          .eq("warehouse_id", targetWarehouseId)
-          .eq("bin_id", resolvedBinId)
-          .maybeSingle();
+        const existingLayers = await client.unsafe(
+          `SELECT * FROM batch_stock_layers WHERE batch_id = $1 AND product_id = $2 AND entity_id = $3 AND warehouse_id = $4 AND bin_id = $5 LIMIT 1`,
+          [batchId, item.item_id, tenant.entityId, targetWarehouseId, resolvedBinId],
+        );
 
-        if (getLayerError) {
-          throw new Error(
-            `Failed to query existing batch stock layer: ${getLayerError.message}`,
-          );
-        }
-
-        let layer;
+        const existingLayer = existingLayers[0];
+        let layer: any;
         if (existingLayer) {
-          // Update existing layer quantity
-          const { data: updatedLayer, error: updateLayerError } = await this.supabaseService
-            .getClient()
-            .from("batch_stock_layers")
-            .update({
-              qty: Number(existingLayer.qty) + Number(batch.quantity),
-              foc_qty: Number(existingLayer.foc_qty) + Number(batch.foc ?? 0),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existingLayer.id)
-            .select()
-            .single();
-
-          if (updateLayerError) {
-            throw new Error(
-              `Failed to update batch stock layer: ${updateLayerError.message}`,
-            );
-          }
-          layer = updatedLayer;
-        } else {
-          // Insert new layer
-          const { data: newLayer, error: insertLayerError } = await this.supabaseService
-            .getClient()
-            .from("batch_stock_layers")
-            .insert({
-              batch_id: batchId,
-              product_id: item.item_id,
-              entity_id: tenant.entityId,
-              warehouse_id: targetWarehouseId,
-              bin_id: resolvedBinId,
-              qty: batch.quantity,
-              foc_qty: batch.foc ?? 0,
-              purchase_rate: batch.ptr ?? 0,
-              mrp: batch.mrp ?? 0,
-              ref_type: "PURCHASE_RECEIVE",
-              ref_id: receiveId,
-            })
-            .select()
-            .single();
-
-          if (insertLayerError) {
-            throw new Error(
-              `Failed to create batch stock layer: ${insertLayerError.message}`,
-            );
-          }
-          layer = newLayer;
-        }
-
-
-        // 3. Insert into batch_transactions
-        const { error: transError } = await this.supabaseService
-          .getClient()
-          .from("batch_transactions")
-          .insert({
-            batch_id: batchId,
-            layer_id: layer.id,
-            product_id: item.item_id,
-            entity_id: tenant.entityId,
-            warehouse_id:
-              batch.warehouse_id ?? item.warehouse_id ?? headerWarehouseId,
-            bin_id: resolvedBinId,
-            trans_type: "PURCHASE_RECEIVE",
-            stock_effect_type: "PHYSICAL",
-            qty_in: batch.quantity,
-            rate: batch.ptr ?? 0,
-            ref_id: receiveId,
-            ref_no: receiveNumber,
-          });
-
-        if (transError) {
-          throw new Error(
-            `Failed to create batch transaction: ${transError.message}`,
+          const updatedLayers = await client.unsafe(
+            `UPDATE batch_stock_layers SET qty = $1, foc_qty = $2, updated_at = NOW() WHERE id = $3 RETURNING *`,
+            [
+              Number(existingLayer.qty) + Number(batch.quantity),
+              Number(existingLayer.foc_qty) + Number(batch.foc ?? 0),
+              existingLayer.id,
+            ],
           );
+          layer = updatedLayers[0];
+        } else {
+          const newLayers = await client.unsafe(
+            `INSERT INTO batch_stock_layers (batch_id, product_id, entity_id, warehouse_id, bin_id, qty, foc_qty, purchase_rate, mrp, ref_type, ref_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PURCHASE_RECEIVE', $10) RETURNING *`,
+            [
+              batchId,
+              item.item_id,
+              tenant.entityId,
+              targetWarehouseId,
+              resolvedBinId,
+              batch.quantity,
+              batch.foc ?? 0,
+              batch.ptr ?? 0,
+              batch.mrp ?? 0,
+              receiveId,
+            ],
+          );
+          layer = newLayers[0];
         }
+
+        await client.unsafe(
+          `INSERT INTO batch_transactions (batch_id, layer_id, product_id, entity_id, warehouse_id, bin_id, trans_type, stock_effect_type, qty_in, rate, ref_id, ref_no)
+           VALUES ($1, $2, $3, $4, $5, $6, 'PURCHASE_RECEIVE', 'PHYSICAL', $7, $8, $9, $10)`,
+          [
+            batchId,
+            layer.id,
+            item.item_id,
+            tenant.entityId,
+            targetWarehouseId,
+            resolvedBinId,
+            batch.quantity,
+            batch.ptr ?? 0,
+            receiveId,
+            receiveNumber,
+          ],
+        );
       }
     }
   }
@@ -357,58 +284,68 @@ export class PurchaseReceivesService {
   ) {
     const offset = (page - 1) * limit;
 
-    let query = this.supabaseService
-      .getClient()
-      .from("purchase_receives")
-      .select(
-        `
-        *,
-        items:purchase_receive_items(
-          quantity_to_receive,
-          batches:purchase_receive_item_batches(quantity)
-        )
-      `,
-        { count: "exact" },
-      )
-      .eq("entity_id", tenant.entityId)
-      .range(offset, offset + limit - 1);
+    let sqlQuery = `SELECT * FROM purchase_receives WHERE entity_id = $1 AND is_delete = false`;
+    let countQuery = `SELECT COUNT(*)::int as count FROM purchase_receives WHERE entity_id = $1 AND is_delete = false`;
+    const params: any[] = [tenant.entityId];
 
-    if (search) {
-      query = query.or(
-        `purchase_receive_number.ilike.%${search}%,purchase_order_number.ilike.%${search}%,vendor_name.ilike.%${search}%`,
+    if (search && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      const sIdx = params.length;
+      sqlQuery += ` AND (purchase_receive_number ILIKE $${sIdx} OR purchase_order_number ILIKE $${sIdx} OR vendor_name ILIKE $${sIdx})`;
+      countQuery += ` AND (purchase_receive_number ILIKE $${sIdx} OR purchase_order_number ILIKE $${sIdx} OR vendor_name ILIKE $${sIdx})`;
+    }
+
+    if (status && status.trim()) {
+      params.push(status.trim());
+      const stIdx = params.length;
+      sqlQuery += ` AND status = $${stIdx}`;
+      countQuery += ` AND status = $${stIdx}`;
+    }
+
+    sqlQuery += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+
+    const [data, countRes] = await Promise.all([
+      client.unsafe(sqlQuery, [...params, limit, offset]),
+      client.unsafe(countQuery, params),
+    ]);
+
+    const totalCount = countRes[0]?.count ?? 0;
+
+    for (const rx of data ?? []) {
+      const items = await client.unsafe(
+        `SELECT id, quantity_to_receive FROM purchase_receive_items WHERE purchase_receive_id = $1`,
+        [rx.id],
       );
+      for (const item of items ?? []) {
+        const batches = await client.unsafe(
+          `SELECT quantity FROM purchase_receive_item_batches WHERE purchase_receive_item_id = $1`,
+          [item.id],
+        );
+        item.batches = batches ?? [];
+      }
+      rx.items = items ?? [];
     }
 
-    if (status) {
-      query = query.eq("status", status);
-    }
-
-    query = query.eq("is_delete", false);
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      throw new Error(`Failed to fetch purchase receives: ${error.message}`);
-    }
-
-    const receiveIds = (data || []).map((r) => r.id);
-    const poIds = [...new Set((data || []).map((r) => r.purchase_order_id).filter((id) => !!id))];
-    const poNumbers = [...new Set((data || []).map((r) => r.purchase_order_number).filter((num) => !!num))];
+    const receiveIds = (data || []).map((r: any) => r.id);
+    const poIds = [...new Set((data || []).map((r: any) => r.purchase_order_id).filter((id: any) => !!id))];
+    const poNumbers = [...new Set((data || []).map((r: any) => r.purchase_order_number).filter((num: any) => !!num))];
 
     const receiveIdToBillStatusMap = new Map<string, string>();
 
-    // 1. Fetch direct bills (fallback)
     let directBillsData: any[] = [];
     if (receiveIds.length > 0) {
-      const { data: dbData } = await this.supabaseService
-        .getClient()
-        .from("bills")
-        .select("id, source_id, status, bill_items(quantity)")
-        .eq("entity_id", tenant.entityId)
-        .eq("is_delete", false)
-        .neq("status", "void")
-        .in("source_type", ["PURCHASE_RECEIVE", "purchase_receive", "purchase-receive", "PURCHASE-RECEIVE"])
-        .in("source_id", receiveIds);
+      const dbData = await client.unsafe(
+        `SELECT id, source_id, status FROM bills WHERE entity_id = $1 AND is_delete = false AND status != 'void' AND source_type = ANY($2) AND source_id = ANY($3)`,
+        [tenant.entityId, ["PURCHASE_RECEIVE", "purchase_receive", "purchase-receive", "PURCHASE-RECEIVE"], receiveIds],
+      );
+
+      for (const b of dbData ?? []) {
+        const items = await client.unsafe(
+          `SELECT quantity FROM bill_items WHERE bill_id = $1`,
+          [b.id],
+        );
+        b.bill_items = items ?? [];
+      }
       directBillsData = dbData || [];
     }
 
@@ -422,34 +359,38 @@ export class PurchaseReceivesService {
       }
     }
 
-    // 2. Fetch PO-based bills & receives for FIFO allocation
     if (poIds.length > 0 && poNumbers.length > 0) {
-      const { data: billsData } = await this.supabaseService
-        .getClient()
-        .from("bills")
-        .select("id, order_number, status, bill_items(product_id, quantity)")
-        .eq("entity_id", tenant.entityId)
-        .eq("is_delete", false)
-        .neq("status", "void")
-        .in("order_number", poNumbers);
+      const billsData = await client.unsafe(
+        `SELECT id, order_number, status FROM bills WHERE entity_id = $1 AND is_delete = false AND status != 'void' AND order_number = ANY($2)`,
+        [tenant.entityId, poNumbers],
+      );
+      for (const b of billsData ?? []) {
+        const bItems = await client.unsafe(
+          `SELECT product_id, quantity FROM bill_items WHERE bill_id = $1`,
+          [b.id],
+        );
+        b.bill_items = bItems ?? [];
+      }
 
-      const { data: allReceivesData } = await this.supabaseService
-        .getClient()
-        .from("purchase_receives")
-        .select(`
-          id,
-          purchase_order_id,
-          status,
-          items:purchase_receive_items(
-            item_id,
-            quantity_to_receive,
-            batches:purchase_receive_item_batches(quantity)
-          )
-        `)
-        .eq("entity_id", tenant.entityId)
-        .eq("is_delete", false)
-        .in("purchase_order_id", poIds)
-        .order("created_at", { ascending: true });
+      const allReceivesData = await client.unsafe(
+        `SELECT id, purchase_order_id, status FROM purchase_receives WHERE entity_id = $1 AND is_delete = false AND purchase_order_id = ANY($2) ORDER BY created_at ASC`,
+        [tenant.entityId, poIds],
+      );
+
+      for (const rx of allReceivesData ?? []) {
+        const rxItems = await client.unsafe(
+          `SELECT id, item_id, quantity_to_receive FROM purchase_receive_items WHERE purchase_receive_id = $1`,
+          [rx.id],
+        );
+        for (const item of rxItems ?? []) {
+          const batches = await client.unsafe(
+            `SELECT quantity FROM purchase_receive_item_batches WHERE purchase_receive_item_id = $1`,
+            [item.id],
+          );
+          item.batches = batches ?? [];
+        }
+        rx.items = rxItems ?? [];
+      }
 
       const billsByPo = new Map<string, any[]>();
       for (const bill of billsData || []) {
@@ -473,7 +414,7 @@ export class PurchaseReceivesService {
 
       for (const poId of poIds) {
         const poReceives = receivesByPo.get(poId) ?? [];
-        const poNumber = (data || []).find((r) => r.purchase_order_id === poId)?.purchase_order_number;
+        const poNumber = (data || []).find((r: any) => r.purchase_order_id === poId)?.purchase_order_number;
         if (!poNumber) continue;
 
         const poBills = billsByPo.get(poNumber) ?? [];
@@ -528,7 +469,6 @@ export class PurchaseReceivesService {
       }
     }
 
-    // Flatten total quantity for list view
     const enrichedData = (data || []).map((receive: any) => {
       let totalQty = 0;
       if (receive.items) {
@@ -547,7 +487,6 @@ export class PurchaseReceivesService {
 
       let bill_status = receiveIdToBillStatusMap.get(receive.id);
       if (!bill_status) {
-        // Fallback to direct bills
         let totalBilled = 0;
         const rxBills = directBillsByRx.get(receive.id) ?? [];
         for (const bill of rxBills) {
@@ -572,47 +511,49 @@ export class PurchaseReceivesService {
         ...receive,
         quantity: totalQty,
         bill_status,
-        items: undefined, // Remove nested items to keep payload light
+        items: undefined,
       };
     });
 
     return {
       data: enrichedData,
       meta: {
-        total: count,
+        total: totalCount,
         page,
         limit,
-        totalPages: Math.ceil((count || 0) / limit),
+        totalPages: Math.ceil((totalCount || 0) / limit),
       },
     };
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("purchase_receives")
-      .select(
-        `
-        *,
-        items:purchase_receive_items(
-          *,
-          batches:purchase_receive_item_batches(*)
-        )
-      `,
-      )
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .eq("is_delete", false)
-      .single();
+    const rows = await client.unsafe(
+      `SELECT * FROM purchase_receives WHERE id = $1 AND entity_id = $2 AND is_delete = false LIMIT 1`,
+      [id, tenant.entityId],
+    );
 
-    if (error) {
+    const data = rows[0];
+    if (!data) {
       throw new NotFoundException(`Purchase Receive with ID ${id} not found`);
     }
+
+    const items = await client.unsafe(
+      `SELECT * FROM purchase_receive_items WHERE purchase_receive_id = $1`,
+      [id],
+    );
+
+    for (const item of items ?? []) {
+      const batches = await client.unsafe(
+        `SELECT * FROM purchase_receive_item_batches WHERE purchase_receive_item_id = $1`,
+        [item.id],
+      );
+      item.batches = batches ?? [];
+    }
+    data.items = items ?? [];
 
     if (data) {
       data.invoice_total = data.bill_invoice_total ? parseFloat(data.bill_invoice_total) : 0;
 
-      // Calculate total receive qty
       let totalQty = 0;
       if (data.items) {
         for (const item of data.items) {
@@ -630,36 +571,39 @@ export class PurchaseReceivesService {
 
       let bill_status = "none";
       if (data.purchase_order_id && data.purchase_order_number) {
-        // Fetch all receives for this PO
-        const { data: allReceivesData } = await this.supabaseService
-          .getClient()
-          .from("purchase_receives")
-          .select(`
-            id,
-            purchase_order_id,
-            status,
-            items:purchase_receive_items(
-              item_id,
-              quantity_to_receive,
-              batches:purchase_receive_item_batches(quantity)
-            )
-          `)
-          .eq("entity_id", tenant.entityId)
-          .eq("is_delete", false)
-          .eq("purchase_order_id", data.purchase_order_id)
-          .order("created_at", { ascending: true });
+        const allReceivesData = await client.unsafe(
+          `SELECT id, purchase_order_id, status FROM purchase_receives WHERE entity_id = $1 AND is_delete = false AND purchase_order_id = $2 ORDER BY created_at ASC`,
+          [tenant.entityId, data.purchase_order_id],
+        );
 
-        // Fetch all bills for this PO
-        const { data: billsData } = await this.supabaseService
-          .getClient()
-          .from("bills")
-          .select("id, order_number, status, bill_items(product_id, quantity)")
-          .eq("entity_id", tenant.entityId)
-          .eq("is_delete", false)
-          .neq("status", "void")
-          .eq("order_number", data.purchase_order_number);
+        for (const rx of allReceivesData ?? []) {
+          const rxItems = await client.unsafe(
+            `SELECT id, item_id, quantity_to_receive FROM purchase_receive_items WHERE purchase_receive_id = $1`,
+            [rx.id],
+          );
+          for (const item of rxItems ?? []) {
+            const batches = await client.unsafe(
+              `SELECT quantity FROM purchase_receive_item_batches WHERE purchase_receive_item_id = $1`,
+              [item.id],
+            );
+            item.batches = batches ?? [];
+          }
+          rx.items = rxItems ?? [];
+        }
 
-        // Sum billed quantities by product_id
+        const billsData = await client.unsafe(
+          `SELECT id, order_number, status FROM bills WHERE entity_id = $1 AND is_delete = false AND status != 'void' AND order_number = $2`,
+          [tenant.entityId, data.purchase_order_number],
+        );
+
+        for (const b of billsData ?? []) {
+          const bItems = await client.unsafe(
+            `SELECT product_id, quantity FROM bill_items WHERE bill_id = $1`,
+            [b.id],
+          );
+          b.bill_items = bItems ?? [];
+        }
+
         const billedQuantities: Record<string, number> = {};
         for (const bill of billsData || []) {
           const items = bill.bill_items || [];
@@ -671,7 +615,6 @@ export class PurchaseReceivesService {
           }
         }
 
-        // Chronologically allocate billed quantities to receives
         for (const rx of allReceivesData || []) {
           let totalRxQty = 0;
           let totalBilledForRx = 0;
@@ -710,23 +653,19 @@ export class PurchaseReceivesService {
           }
         }
       } else {
-        // Fallback to direct bills
-        const { data: billsData } = await this.supabaseService
-          .getClient()
-          .from("bills")
-          .select("id, status, bill_items(quantity)")
-          .eq("entity_id", tenant.entityId)
-          .eq("is_delete", false)
-          .neq("status", "void")
-          .in("source_type", ["PURCHASE_RECEIVE", "purchase_receive", "purchase-receive", "PURCHASE-RECEIVE"])
-          .eq("source_id", id);
+        const billsData = await client.unsafe(
+          `SELECT id, status FROM bills WHERE entity_id = $1 AND is_delete = false AND status != 'void' AND source_type = ANY($2) AND source_id = $3`,
+          [tenant.entityId, ["PURCHASE_RECEIVE", "purchase_receive", "purchase-receive", "PURCHASE-RECEIVE"], id],
+        );
 
         let totalBilled = 0;
         for (const bill of billsData || []) {
-          if (bill.bill_items) {
-            for (const bi of bill.bill_items) {
-              totalBilled += Number(bi.quantity || 0);
-            }
+          const bItems = await client.unsafe(
+            `SELECT quantity FROM bill_items WHERE bill_id = $1`,
+            [bill.id],
+          );
+          for (const bi of bItems ?? []) {
+            totalBilled += Number(bi.quantity || 0);
           }
         }
         if (totalBilled > 0) {
@@ -754,19 +693,15 @@ export class PurchaseReceivesService {
       tenant,
     );
 
-    // Backend safety fallback: derive header warehouse from PO when client omits it.
     if (!resolvedWarehouseId && createDto.purchase_order_id) {
-      const { data: poData, error: poError } = await this.supabaseService
-        .getClient()
-        .from("purchase_orders")
-        .select("delivery_warehouse_id, warehouse_id")
-        .eq("id", createDto.purchase_order_id)
-        .eq("entity_id", tenant.entityId)
-        .single();
+      const poData = await client.unsafe(
+        `SELECT delivery_warehouse_id, warehouse_id FROM purchase_orders WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+        [createDto.purchase_order_id, tenant.entityId],
+      );
 
-      if (!poError && poData) {
+      if (poData[0]) {
         resolvedWarehouseId =
-          poData.delivery_warehouse_id ?? poData.warehouse_id ?? null;
+          poData[0].delivery_warehouse_id ?? poData[0].warehouse_id ?? null;
       }
     }
 
@@ -793,29 +728,31 @@ export class PurchaseReceivesService {
         is_delete: false,
       };
 
-      const res = await this.supabaseService
-        .getClient()
-        .from("purchase_receives")
-        .insert([insertPayload])
-        .select()
-        .single();
+      const keys = Object.keys(insertPayload);
+      const cols = keys.map((k) => `"${k}"`).join(", ");
+      const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+      const values: any[] = Object.values(insertPayload);
 
-      if (!res.error) {
-        receive = res.data;
+      try {
+        const rows = await client.unsafe(
+          `INSERT INTO purchase_receives (${cols}) VALUES (${placeholders}) RETURNING *`,
+          values,
+        );
+        receive = rows[0];
         receiveError = null;
         break;
-      }
-
-      receiveError = res.error;
-      if (
-        (res.error as any).code === "23505" ||
-        res.error.message?.includes("purchase_receives_purchase_receive_number_key")
-      ) {
-        const prefix = currentReceiveNumber.match(/^(.*?)(\d+)$/)?.[1] || "PR-";
-        const nextGen = await this.getNextReceiveNumber(tenant, prefix);
-        currentReceiveNumber = nextGen.formatted;
-      } else {
-        break;
+      } catch (err: any) {
+        receiveError = err;
+        if (
+          err.code === "23505" ||
+          err.message?.includes("purchase_receives_purchase_receive_number_key")
+        ) {
+          const prefix = currentReceiveNumber.match(/^(.*?)(\d+)$/)?.[1] || "PR-";
+          const nextGen = await this.getNextReceiveNumber(tenant, prefix);
+          currentReceiveNumber = nextGen.formatted;
+        } else {
+          break;
+        }
       }
     }
 
@@ -874,55 +811,39 @@ export class PurchaseReceivesService {
     if (updateDto.bill_date !== undefined) dbUpdateData.bill_date = updateDto.bill_date;
     if (updateDto.invoice_total !== undefined) dbUpdateData.bill_invoice_total = updateDto.invoice_total;
 
-    if (Object.keys(dbUpdateData).length > 0) {
-      const { error } = await this.supabaseService
-        .getClient()
-        .from("purchase_receives")
-        .update(dbUpdateData)
-        .eq("id", id)
-        .eq("entity_id", tenant.entityId);
+    const keys = Object.keys(dbUpdateData);
+    if (keys.length > 0) {
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(", ");
+      const values: any[] = Object.values(dbUpdateData);
 
-      if (error) {
+      try {
+        await client.unsafe(
+          `UPDATE purchase_receives SET ${setClauses} WHERE id = $${keys.length + 1} AND entity_id = $${keys.length + 2}`,
+          [...values, id, tenant.entityId],
+        );
+      } catch (error: any) {
         throw new Error(`Failed to update purchase receive: ${error.message}`);
       }
     }
 
     if (updateDto.items) {
-      const { data: existingItems } = await this.supabaseService
-        .getClient()
-        .from("purchase_receive_items")
-        .select("id")
-        .eq("purchase_receive_id", id)
-        .eq("entity_id", tenant.entityId);
+      const existingItems = await client.unsafe(
+        `SELECT id FROM purchase_receive_items WHERE purchase_receive_id = $1 AND entity_id = $2`,
+        [id, tenant.entityId],
+      );
 
-      const itemIds = (existingItems ?? []).map((row) => row.id);
+      const itemIds = (existingItems ?? []).map((row: any) => row.id);
       if (itemIds.length > 0) {
-        const { error: batchDeleteError } = await this.supabaseService
-          .getClient()
-          .from("purchase_receive_item_batches")
-          .delete()
-          .in("purchase_receive_item_id", itemIds)
-          .eq("entity_id", tenant.entityId);
-
-        if (batchDeleteError) {
-          throw new Error(
-            `Failed to delete purchase receive item batches: ${batchDeleteError.message}`,
-          );
-        }
-      }
-
-      const { error: itemDeleteError } = await this.supabaseService
-        .getClient()
-        .from("purchase_receive_items")
-        .delete()
-        .eq("purchase_receive_id", id)
-        .eq("entity_id", tenant.entityId);
-
-      if (itemDeleteError) {
-        throw new Error(
-          `Failed to delete purchase receive items: ${itemDeleteError.message}`,
+        await client.unsafe(
+          `DELETE FROM purchase_receive_item_batches WHERE purchase_receive_item_id = ANY($1) AND entity_id = $2`,
+          [itemIds, tenant.entityId],
         );
       }
+
+      await client.unsafe(
+        `DELETE FROM purchase_receive_items WHERE purchase_receive_id = $1 AND entity_id = $2`,
+        [id, tenant.entityId],
+      );
 
       await this.insertItemsAndBatches(
         id,
@@ -956,17 +877,19 @@ export class PurchaseReceivesService {
     const originalNumber = existingReceive?.purchase_receive_number;
     const newNumber = originalNumber ? (originalNumber.startsWith('SD-') ? originalNumber : `SD-${originalNumber}`) : undefined;
 
-    const { error } = await this.supabaseService
-      .getClient()
-      .from("purchase_receives")
-      .update({
-        is_delete: true,
-        ...(newNumber ? { purchase_receive_number: newNumber } : {}),
-      })
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId);
-
-    if (error) {
+    try {
+      if (newNumber) {
+        await client.unsafe(
+          `UPDATE purchase_receives SET is_delete = true, purchase_receive_number = $1 WHERE id = $2 AND entity_id = $3`,
+          [newNumber, id, tenant.entityId],
+        );
+      } else {
+        await client.unsafe(
+          `UPDATE purchase_receives SET is_delete = true WHERE id = $1 AND entity_id = $2`,
+          [id, tenant.entityId],
+        );
+      }
+    } catch (error: any) {
       throw new Error(`Failed to delete purchase receive: ${error.message}`);
     }
 
@@ -977,11 +900,10 @@ export class PurchaseReceivesService {
     return { message: "Purchase Order deleted successfully" };
   }
 
-  private  async updatePurchaseOrderStatus(
+  private async updatePurchaseOrderStatus(
     purchaseOrderId: string,
     tenant: TenantContext,
   ) {
-    const client = this.supabaseService.getClient();
     await updatePurchaseOrderStatus(client, purchaseOrderId, tenant.entityId);
   }
 }

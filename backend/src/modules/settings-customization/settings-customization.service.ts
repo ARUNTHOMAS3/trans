@@ -1,21 +1,23 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
 import { SupabaseService } from "../supabase/supabase.service";
+import { client } from "../../db/db";
 
 @Injectable()
 export class SettingsCustomizationService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
   async getReportingTags(tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("reporting_tags")
-      .select("id, tag_name, is_active, entity_id")
-      .eq("entity_id", tenant.entityId)
-      .order("tag_name", { ascending: true });
-
-    if (error) throw error;
-    return data ?? [];
+    if (!tenant.entityId) return [];
+    try {
+      const data = await client.unsafe(
+        `SELECT id, tag_name, is_active, entity_id FROM reporting_tags WHERE entity_id = $1 ORDER BY tag_name ASC`,
+        [tenant.entityId],
+      );
+      return data ?? [];
+    } catch (error) {
+      throw error;
+    }
   }
 
   async createReportingTag(body: any, tenant: TenantContext) {
@@ -24,44 +26,43 @@ export class SettingsCustomizationService {
       throw new BadRequestException("Reporting tag name is required");
     }
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("reporting_tags")
-      .insert({
-        tag_name: String(tagName).trim(),
-        is_active: body?.is_active !== false,
-        entity_id: tenant.entityId,
-      })
-      .select("id, tag_name, is_active, entity_id")
-      .single();
-
-    if (error) throw error;
-    return data;
+    try {
+      const rows = await client.unsafe(
+        `INSERT INTO reporting_tags (tag_name, is_active, entity_id) VALUES ($1, $2, $3) RETURNING id, tag_name, is_active, entity_id`,
+        [String(tagName).trim(), body?.is_active !== false, tenant.entityId],
+      );
+      return rows[0];
+    } catch (error) {
+      throw error;
+    }
   }
 
   async updateReportingTag(id: string, body: any) {
-    const payload: Record<string, unknown> = {};
-    if (body?.tag_name !== undefined || body?.name !== undefined) {
-      const tagName = body.tag_name ?? body.name;
+    const tagName = body?.tag_name ?? body?.name;
+    let nameVal = null;
+    if (tagName !== undefined) {
       if (!tagName || String(tagName).trim().length === 0) {
         throw new BadRequestException("Reporting tag name is required");
       }
-      payload.tag_name = String(tagName).trim();
+      nameVal = String(tagName).trim();
     }
-    if (body?.is_active !== undefined) {
-      payload.is_active = Boolean(body.is_active);
+    const isActiveVal = body?.is_active !== undefined ? Boolean(body.is_active) : null;
+
+    try {
+      const rows = await client.unsafe(
+        `UPDATE reporting_tags SET
+           tag_name = COALESCE($1, tag_name),
+           is_active = COALESCE($2, is_active)
+         WHERE id = $3
+         RETURNING id, tag_name, is_active, entity_id`,
+        [nameVal, isActiveVal, id],
+      );
+
+      const data = rows[0];
+      if (!data) throw new NotFoundException("Reporting tag not found");
+      return data;
+    } catch (error) {
+      throw error;
     }
-
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("reporting_tags")
-      .update(payload)
-      .eq("id", id)
-      .select("id, tag_name, is_active, entity_id")
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!data) throw new NotFoundException("Reporting tag not found");
-    return data;
   }
 }

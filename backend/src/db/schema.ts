@@ -312,6 +312,7 @@ export const warehouses = pgTable("warehouses", {
   isActive: boolean("is_active").default(true),
   customerId: uuid("customer_id").references(() => customer.id),
   vendorId: uuid("vendor_id").references(() => vendor.id),
+  isDefaultForBranch: boolean("is_default_for_branch").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -329,6 +330,19 @@ export const branchUserAccess = pgTable("branch_user_access", {
   entityId: uuid("entity_id")
     .notNull()
     .references(() => organisationBranchMaster.id),
+});
+
+export const userBranchAccess = pgTable("user_branch_access", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  orgId: uuid("org_id").notNull(),
+  entityId: uuid("entity_id")
+    .notNull()
+    .references(() => organisationBranchMaster.id),
+  isDefaultBusiness: boolean("is_default_business").default(false),
+  isDefaultWarehouse: boolean("is_default_warehouse").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Account Table
@@ -1481,6 +1495,8 @@ export const settingsBranches = pgTable("branches", {
   msmeType: varchar("msme_type", { length: 50 }),
 
   // Settings & Subs
+  fiscalYear: varchar("fiscal_year", { length: 50 }),
+  reportBasis: varchar("report_basis", { length: 50 }),
   logoUrl: text("logo_url"),
   subscriptionFrom: date("subscription_from"),
   subscriptionTo: date("subscription_to"),
@@ -2109,7 +2125,7 @@ export const auditLogs = pgTable("audit_logs", {
   schemaName: text("schema_name").notNull().default("public"),
   recordPk: text("record_pk"),
   changedColumns: text("changed_columns").array(),
-  txid: bigint("txid", { mode: "number" }).notNull(),
+  txid: bigint("txid", { mode: "number" }).notNull().default(0),
   source: text("source").notNull().default("system"),
   moduleName: text("module_name"),
   requestId: text("request_id"),

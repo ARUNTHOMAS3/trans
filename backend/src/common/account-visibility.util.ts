@@ -105,31 +105,63 @@ export async function listVisibleAccounts(
   options: VisibleAccountOptions = {},
 ) {
   const tenantEntityId = normalize(tenant.entityId);
-  let query = client.from("accounts").select(options.select ?? "*");
+  let data: any[] = [];
 
-  if (!options.includeDeleted) {
-    query = query.eq("is_deleted", false);
-  }
-  if (!options.includeInactive) {
-    query = query.eq("is_active", true);
-  }
-  if (options.accountType) {
-    query = query.eq("account_type", options.accountType);
-  }
-  if (options.accountGroup) {
-    query = query.eq("account_group", options.accountGroup);
-  }
+  if (client && typeof client.unsafe === "function") {
+    let sql = `SELECT * FROM accounts WHERE 1=1`;
+    const params: any[] = [];
 
-  if (tenantEntityId) {
-    query = query.or(
-      `entity_id.eq.${tenantEntityId},system_account_name.not.is.null`,
-    );
-  } else {
-    query = query.not("system_account_name", "is", null);
-  }
+    if (!options.includeDeleted) {
+      sql += ` AND is_deleted = false`;
+    }
+    if (!options.includeInactive) {
+      sql += ` AND is_active = true`;
+    }
+    if (options.accountType) {
+      params.push(options.accountType);
+      sql += ` AND account_type = $${params.length}`;
+    }
+    if (options.accountGroup) {
+      params.push(options.accountGroup);
+      sql += ` AND account_group = $${params.length}`;
+    }
 
-  const { data, error } = await query;
-  if (error) throw error;
+    if (tenantEntityId) {
+      params.push(tenantEntityId);
+      sql += ` AND (entity_id = $${params.length} OR system_account_name IS NOT NULL)`;
+    } else {
+      sql += ` AND system_account_name IS NOT NULL`;
+    }
+
+    data = await client.unsafe(sql, params);
+  } else if (client && typeof client.from === "function") {
+    let query = client.from("accounts").select(options.select ?? "*");
+
+    if (!options.includeDeleted) {
+      query = query.eq("is_deleted", false);
+    }
+    if (!options.includeInactive) {
+      query = query.eq("is_active", true);
+    }
+    if (options.accountType) {
+      query = query.eq("account_type", options.accountType);
+    }
+    if (options.accountGroup) {
+      query = query.eq("account_group", options.accountGroup);
+    }
+
+    if (tenantEntityId) {
+      query = query.or(
+        `entity_id.eq.${tenantEntityId},system_account_name.not.is.null`,
+      );
+    } else {
+      query = query.not("system_account_name", "is", null);
+    }
+
+    const res = await query;
+    if (res.error) throw res.error;
+    data = res.data ?? [];
+  }
 
   const visibleRows = (data ?? [])
     .filter((row: AccountRow) => canTenantReadAccount(row, tenant))
@@ -158,13 +190,25 @@ export async function getVisibleAccountById(
   tenant: Pick<TenantContext, "entityId">,
   options: Pick<VisibleAccountOptions, "includeDeleted" | "includeInactive"> = {},
 ) {
-  const { data, error } = await client
-    .from("accounts")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  let data: any = null;
 
-  if (error) throw error;
+  if (client && typeof client.unsafe === "function") {
+    const rows = await client.unsafe(
+      `SELECT * FROM accounts WHERE id = $1 LIMIT 1`,
+      [id],
+    );
+    data = rows[0] ?? null;
+  } else if (client && typeof client.from === "function") {
+    const res = await client
+      .from("accounts")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (res.error) throw res.error;
+    data = res.data ?? null;
+  }
+
   if (!data) return null;
   if (!canTenantReadAccount(data, tenant)) return null;
   if (!options.includeDeleted && data.is_deleted === true) return null;

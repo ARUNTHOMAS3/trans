@@ -1,0 +1,55 @@
+services:
+  # NestJS ERP API Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: zerpai-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/zerpai
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_URL=https://jhaqdcstdxynrbsomadt.supabase.co
+      - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoYXFkY3N0ZHh5bnJic29tYWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4MTcxMTQsImV4cCI6MjA4MzM5MzExNH0.aShXKu2qX2tL8UYTrDkaSyA-GRCidvpmG-X0Bi3QEqg
+      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoYXFkY3N0ZHh5bnJic29tYWR0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzgxNzExNCwiZXhwIjoyMDgzMzkzMTE4fQ.Ex2gT00VKFqkXawHH3H16GUPVX4MXb7lFyWpxxJL154
+      - JWT_SECRET=4ca25ad7-a6b0-41be-ad4e-b35df30a1e84
+      - ENABLE_AUTH=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  # PostgreSQL Database Instance
+  postgres:
+    image: postgres:16-alpine
+    container_name: zerpai-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=zerpai
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d zerpai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ElastiCache / Redis In-Memory Cache
+  redis:
+    image: redis:7-alpine
+    container_name: zerpai-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

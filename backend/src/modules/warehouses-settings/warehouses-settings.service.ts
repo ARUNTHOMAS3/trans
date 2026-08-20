@@ -1,6 +1,9 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
+import { db, client } from "../../db/db";
+import { warehouses, organisationBranchMaster } from "../../db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 
 @Injectable()
 export class WarehousesSettingsService {
@@ -21,43 +24,44 @@ export class WarehousesSettingsService {
       return new Map<string, string>();
     }
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from(table)
-      .select(`id, ${displayField}`)
-      .in("id", normalizedIds);
+    const sanitizedTable = table.replace(/[^a-zA-Z0-9_]/g, "");
+    const sanitizedField = displayField.replace(/[^a-zA-Z0-9_]/g, "");
 
-    if (error) {
-      throw new Error(`Failed to fetch ${table}: ${error.message}`);
-    }
+    try {
+      const data = await client.unsafe(
+        `SELECT id, "${sanitizedField}" as display FROM "${sanitizedTable}" WHERE id = ANY($1)`,
+        [normalizedIds],
+      );
 
-    return new Map(
-      (data ?? []).map((row: any) => [
-        row.id?.toString() ?? "",
-        (row[displayField] ?? "").toString().trim(),
-      ]),
+    const entries = (data ?? []).map(
+      (row: any) =>
+        [row.id?.toString() ?? "", (row.display ?? "").toString().trim()] as [
+          string,
+          string,
+        ],
     );
+    return new Map<string, string>(entries);
+    } catch {
+      return new Map<string, string>();
+    }
   }
 
   private async resolveBranchRegistryEntityId(branchId: string) {
     const normalizedBranchId = this.normalizeUuid(branchId);
     if (!normalizedBranchId) return null;
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("organisation_branch_master")
-      .select("id")
-      .eq("type", "BRANCH")
-      .eq("ref_id", normalizedBranchId)
-      .maybeSingle();
+    const rows = await db
+      .select({ id: organisationBranchMaster.id })
+      .from(organisationBranchMaster)
+      .where(
+        and(
+          eq(organisationBranchMaster.type, "BRANCH"),
+          eq(organisationBranchMaster.refId, normalizedBranchId),
+        ),
+      )
+      .limit(1);
 
-    if (error) {
-      throw new Error(
-        `Failed to resolve warehouse branch entity id: ${error.message}`,
-      );
-    }
-
-    return data?.id?.toString() ?? null;
+    return rows[0]?.id?.toString() ?? null;
   }
 
   private mapWarehouse(
@@ -80,68 +84,61 @@ export class WarehousesSettingsService {
   }
 
   async findAll(tenant: TenantContext) {
-    let query = this.supabaseService
-      .getClient()
-      .from("warehouses")
-      .select("*")
-      .eq("org_id", tenant.orgId)
-      .order("created_at", { ascending: true });
+    let sqlQuery = `SELECT * FROM warehouses WHERE org_id = $1`;
+    const params: any[] = [tenant.orgId];
 
     if (tenant.role !== "admin" && tenant.accessibleBranchIds.length > 0) {
-      query = query.in("source_branch_id", tenant.accessibleBranchIds);
+      params.push(tenant.accessibleBranchIds);
+      sqlQuery += ` AND source_branch_id = ANY($2)`;
     }
 
-    const { data, error } = await query;
+    sqlQuery += ` ORDER BY created_at ASC`;
 
-    if (error) throw new Error(`Failed to fetch warehouses: ${error.message}`);
-    const warehouses = data ?? [];
+    const data = await client.unsafe(sqlQuery, params);
+    const warehouseList = data ?? [];
+
     const [branchNames, customerNames, vendorNames] = await Promise.all([
       this.fetchNameMap(
         "branches",
-        warehouses.map(
-          (warehouse: any) => warehouse.branch_id?.toString() ?? "",
-        ),
+        warehouseList.map((w: any) => w.branch_id?.toString() ?? ""),
       ),
       this.fetchNameMap(
         "customers",
-        warehouses.map(
-          (warehouse: any) => warehouse.customer_id?.toString() ?? "",
-        ),
+        warehouseList.map((w: any) => w.customer_id?.toString() ?? ""),
         "display_name",
       ),
       this.fetchNameMap(
         "vendors",
-        warehouses.map(
-          (warehouse: any) => warehouse.vendor_id?.toString() ?? "",
-        ),
+        warehouseList.map((w: any) => w.vendor_id?.toString() ?? ""),
         "display_name",
       ),
     ]);
-    return warehouses.map((warehouse: any) =>
-      this.mapWarehouse(warehouse, branchNames, customerNames, vendorNames),
+
+    return warehouseList.map((w: any) =>
+      this.mapWarehouse(w, branchNames, customerNames, vendorNames),
     );
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("warehouses")
-      .select("*")
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .single();
+    const rows = await db
+      .select()
+      .from(warehouses)
+      .where(and(eq(warehouses.id, id), eq(warehouses.entityId, tenant.entityId)))
+      .limit(1);
 
-    if (error) return null;
+    const data = rows[0];
+    if (!data) return null;
+
     const [branchNames, customerNames, vendorNames] = await Promise.all([
-      this.fetchNameMap("branches", [data.branch_id?.toString() ?? ""]),
+      this.fetchNameMap("branches", [(data as any).branch_id?.toString() ?? ""]),
       this.fetchNameMap(
         "customers",
-        [data.customer_id?.toString() ?? ""],
+        [(data as any).customer_id?.toString() ?? ""],
         "display_name",
       ),
       this.fetchNameMap(
         "vendors",
-        [data.vendor_id?.toString() ?? ""],
+        [(data as any).vendor_id?.toString() ?? ""],
         "display_name",
       ),
     ]);
@@ -155,50 +152,45 @@ export class WarehousesSettingsService {
     const branchEntityId = branchId
       ? await this.resolveBranchRegistryEntityId(branchId)
       : null;
-    const payload: any = {
-      entity_id: branchEntityId ?? tenant.entityId,
-      org_id: tenant.orgId,
-      name: dto.name,
-      warehouse_code: dto.warehouse_code ?? null,
-      source_branch_id: branchId,
-      customer_id: this.normalizeUuid(dto.customer_id),
-      vendor_id: this.normalizeUuid(dto.vendor_id),
-      attention: dto.attention ?? null,
-      street: dto.street ?? null,
-      place: dto.place ?? null,
-      city: dto.city ?? null,
-      state: dto.state ?? null,
-      district_id: this.normalizeUuid(dto.district_id),
-      local_body_id: this.normalizeUuid(dto.local_body_id),
-      assembly_id: this.normalizeUuid(dto.assembly_id),
-      ward_id: this.normalizeUuid(dto.ward_id),
-      pincode: dto.pincode ?? null,
-      country: dto.country ?? "India",
-      phone: dto.phone ?? null,
-      email: dto.email ?? null,
-      is_active: dto.is_active ?? true,
-    };
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("warehouses")
-      .insert(payload)
-      .select()
-      .single();
+    const [data] = await db
+      .insert(warehouses)
+      .values({
+        entityId: branchEntityId ?? tenant.entityId,
+        orgId: tenant.orgId,
+        name: dto.name,
+        warehouseCode: dto.warehouse_code ?? null,
+        sourceBranchId: branchId,
+        customerId: this.normalizeUuid(dto.customer_id),
+        vendorId: this.normalizeUuid(dto.vendor_id),
+        attention: dto.attention ?? null,
+        street: dto.street ?? null,
+        place: dto.place ?? null,
+        city: dto.city ?? null,
+        state: dto.state ?? null,
+        districtId: this.normalizeUuid(dto.district_id),
+        localBodyId: this.normalizeUuid(dto.local_body_id),
+        assemblyId: this.normalizeUuid(dto.assembly_id),
+        wardId: this.normalizeUuid(dto.ward_id),
+        pincode: dto.pincode ?? null,
+        country: dto.country ?? "India",
+        phone: dto.phone ?? null,
+        email: dto.email ?? null,
+        isActive: dto.is_active ?? true,
+      })
+      .returning();
 
-    if (error) throw new Error(`Failed to create warehouse: ${error.message}`);
     return data;
   }
 
   private async assertNotDefault(id: string, tenant: TenantContext) {
-    const { data } = await this.supabaseService
-      .getClient()
-      .from("warehouses")
-      .select("is_default_for_branch")
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .maybeSingle();
-    if (data?.is_default_for_branch) {
+    const rows = await db
+      .select({ isDefaultForBranch: warehouses.isDefaultForBranch })
+      .from(warehouses)
+      .where(and(eq(warehouses.id, id), eq(warehouses.entityId, tenant.entityId)))
+      .limit(1);
+
+    if (rows[0]?.isDefaultForBranch) {
       throw new ForbiddenException(
         "Default warehouses cannot be edited or deleted",
       );
@@ -207,81 +199,48 @@ export class WarehousesSettingsService {
 
   async update(id: string, tenant: TenantContext, dto: any) {
     await this.assertNotDefault(id, tenant);
-    const fields = [
-      "name",
-      "warehouse_code",
-      "customer_id",
-      "vendor_id",
-      "attention",
-      "street",
-      "place",
-      "city",
-      "state",
-      "district_id",
-      "local_body_id",
-      "assembly_id",
-      "ward_id",
-      "pincode",
-      "country",
-      "phone",
-      "email",
-      "is_active",
-    ];
 
-    const payload: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    };
-    for (const field of fields) {
-      if (field in dto) payload[field] = dto[field] ?? null;
-    }
-    if ("branch_id" in dto) {
-      payload.source_branch_id = this.normalizeUuid(dto.branch_id);
-    }
-    if ("source_branch_id" in dto) {
-      payload.source_branch_id = this.normalizeUuid(dto.source_branch_id);
-    }
-    if ("customer_id" in payload) {
-      payload.customer_id = this.normalizeUuid(payload.customer_id);
-    }
-    if ("vendor_id" in payload) {
-      payload.vendor_id = this.normalizeUuid(payload.vendor_id);
-    }
-    if ("district_id" in payload) {
-      payload.district_id = this.normalizeUuid(payload.district_id);
-    }
-    if ("local_body_id" in payload) {
-      payload.local_body_id = this.normalizeUuid(payload.local_body_id);
-    }
-    if ("assembly_id" in payload) {
-      payload.assembly_id = this.normalizeUuid(payload.assembly_id);
-    }
-    if ("ward_id" in payload) {
-      payload.ward_id = this.normalizeUuid(payload.ward_id);
+    const updatePayload: Record<string, any> = { updatedAt: new Date() };
+
+    if ("name" in dto) updatePayload.name = dto.name;
+    if ("warehouse_code" in dto) updatePayload.warehouseCode = dto.warehouse_code;
+    if ("customer_id" in dto) updatePayload.customerId = this.normalizeUuid(dto.customer_id);
+    if ("vendor_id" in dto) updatePayload.vendorId = this.normalizeUuid(dto.vendor_id);
+    if ("attention" in dto) updatePayload.attention = dto.attention;
+    if ("street" in dto) updatePayload.street = dto.street;
+    if ("place" in dto) updatePayload.place = dto.place;
+    if ("city" in dto) updatePayload.city = dto.city;
+    if ("state" in dto) updatePayload.state = dto.state;
+    if ("district_id" in dto) updatePayload.districtId = this.normalizeUuid(dto.district_id);
+    if ("local_body_id" in dto) updatePayload.localBodyId = this.normalizeUuid(dto.local_body_id);
+    if ("assembly_id" in dto) updatePayload.assemblyId = this.normalizeUuid(dto.assembly_id);
+    if ("ward_id" in dto) updatePayload.wardId = this.normalizeUuid(dto.ward_id);
+    if ("pincode" in dto) updatePayload.pincode = dto.pincode;
+    if ("country" in dto) updatePayload.country = dto.country;
+    if ("phone" in dto) updatePayload.phone = dto.phone;
+    if ("email" in dto) updatePayload.email = dto.email;
+    if ("is_active" in dto) updatePayload.isActive = dto.is_active;
+    if ("branch_id" in dto || "source_branch_id" in dto) {
+      updatePayload.sourceBranchId = this.normalizeUuid(
+        dto.source_branch_id ?? dto.branch_id,
+      );
     }
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("warehouses")
-      .update(payload)
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .select()
-      .single();
+    const [data] = await db
+      .update(warehouses)
+      .set(updatePayload)
+      .where(and(eq(warehouses.id, id), eq(warehouses.entityId, tenant.entityId)))
+      .returning();
 
-    if (error) throw new Error(`Failed to update warehouse: ${error.message}`);
     return data;
   }
 
   async remove(id: string, tenant: TenantContext) {
     await this.assertNotDefault(id, tenant);
-    const { error } = await this.supabaseService
-      .getClient()
-      .from("warehouses")
-      .delete()
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId);
+    await db
+      .delete(warehouses)
+      .where(and(eq(warehouses.id, id), eq(warehouses.entityId, tenant.entityId)));
 
-    if (error) throw new Error(`Failed to delete warehouse: ${error.message}`);
     return { success: true };
   }
 }

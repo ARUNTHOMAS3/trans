@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { TenantContext } from "../../../common/middleware/tenant.middleware";
 import { SupabaseService } from "../../supabase/supabase.service";
 import { CreateCreditNoteDto } from "./dto/create-credit-note.dto";
+import { client } from "../../../db/db";
 
 export { CreateCreditNoteDto };
 
@@ -16,141 +17,170 @@ export class CreditNotesService {
     search?: string,
     status?: string,
   ) {
-    let query = this.supabaseService
-      .getClient()
-      .from("credit_notes")
-      .select(
-        `
-        id,
-        credit_note_number,
-        reference_number,
-        credit_note_date,
-        status,
-        grand_total,
-        subtotal,
-        tax_total,
-        source_type,
-        source_id,
-        created_at,
-        customer:customers(id, display_name, customer_number),
-        items:credit_note_items(
-          id,
-          quantity,
-          rate,
-          line_total,
-          description,
-          product:products(id, product_name, item_code)
-        )
-      `,
-        { count: "exact" },
-      )
-      .eq("entity_id", tenant.entityId)
-      .order("credit_note_date", { ascending: false })
-      .range((page - 1) * limit, page * limit - 1);
+    const offset = (page - 1) * limit;
+
+    let sqlQuery = `SELECT * FROM credit_notes WHERE entity_id = $1`;
+    let countQuery = `SELECT COUNT(*)::int as count FROM credit_notes WHERE entity_id = $1`;
+    const params: any[] = [tenant.entityId];
 
     if (status) {
-      query = query.eq("status", status.toUpperCase());
+      params.push(status.toUpperCase());
+      const stIdx = params.length;
+      sqlQuery += ` AND status = $${stIdx}`;
+      countQuery += ` AND status = $${stIdx}`;
     }
 
     if (search) {
-      query = query.or(
-        `credit_note_number.ilike.%${search}%,reference_number.ilike.%${search}%`,
-      );
+      params.push(`%${search}%`);
+      const sIdx = params.length;
+      sqlQuery += ` AND (credit_note_number ILIKE $${sIdx} OR reference_number ILIKE $${sIdx})`;
+      countQuery += ` AND (credit_note_number ILIKE $${sIdx} OR reference_number ILIKE $${sIdx})`;
     }
 
-    const { data, error, count } = await query;
-    if (error) throw new InternalServerErrorException(error.message);
+    sqlQuery += ` ORDER BY credit_note_date DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 
-    return { data: data ?? [], total: count ?? 0, page, limit };
+    try {
+      const [rows, countRes] = await Promise.all([
+        client.unsafe(sqlQuery, [...params, limit, offset]),
+        client.unsafe(countQuery, params),
+      ]);
+
+      const totalCount = countRes[0]?.count ?? 0;
+
+      for (const row of rows ?? []) {
+        if (row.customer_id) {
+          const cust = await client.unsafe(
+            `SELECT id, display_name, customer_number FROM customers WHERE id = $1 LIMIT 1`,
+            [row.customer_id],
+          );
+          row.customer = cust[0] ?? null;
+        } else {
+          row.customer = null;
+        }
+
+        const items = await client.unsafe(
+          `SELECT cni.id, cni.quantity, cni.rate, cni.line_total, cni.description, cni.product_id, p.product_name, p.item_code
+           FROM credit_note_items cni
+           LEFT JOIN products p ON p.id = cni.product_id
+           WHERE cni.credit_note_id = $1`,
+          [row.id],
+        );
+
+        row.items = (items ?? []).map((item: any) => ({
+          ...item,
+          product: item.product_id
+            ? { id: item.product_id, product_name: item.product_name, item_code: item.item_code }
+            : null,
+        }));
+      }
+
+      return { data: rows ?? [], total: totalCount, page, limit };
+    } catch (error) {
+      throw new InternalServerErrorException((error as Error).message);
+    }
   }
 
   async create(dto: CreateCreditNoteDto, tenant: TenantContext) {
-    const supabase = this.supabaseService.getClient();
-
-    const { data: cn, error: cnError } = await supabase
-      .from("credit_notes")
-      .insert({
-        entity_id: tenant.entityId,
-        customer_id: dto.customerId,
-        credit_note_number: dto.creditNoteNumber,
-        reference_number: dto.referenceNumber ?? null,
-        credit_note_date:
+    try {
+      const createdRows = await client.unsafe(
+        `INSERT INTO credit_notes (
+          entity_id, customer_id, credit_note_number, reference_number, credit_note_date,
+          status, grand_total, subtotal, tax_total, shipping_charges, adjustment_amount,
+          customer_notes, terms_conditions
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        RETURNING id`,
+        [
+          tenant.entityId,
+          dto.customerId,
+          dto.creditNoteNumber,
+          dto.referenceNumber ?? null,
           dto.creditNoteDate ?? new Date().toISOString().split("T")[0],
-        status: dto.status,
-        grand_total: dto.grandTotal,
-        subtotal: dto.subTotal ?? 0,
-        tax_total: dto.taxTotal ?? 0,
-        shipping_charges: dto.shippingAmount ?? 0,
-        adjustment_amount: dto.adjustmentAmount ?? 0,
-        customer_notes: dto.customerNotes ?? null,
-        terms_conditions: dto.termsAndConditions ?? null,
-      })
-      .select("id")
-      .single();
+          dto.status,
+          dto.grandTotal,
+          dto.subTotal ?? 0,
+          dto.taxTotal ?? 0,
+          dto.shippingAmount ?? 0,
+          dto.adjustmentAmount ?? 0,
+          dto.customerNotes ?? null,
+          dto.termsAndConditions ?? null,
+        ],
+      );
 
-    if (cnError) {
-      throw new Error(`Failed to create credit note: ${cnError.message}`);
-    }
-
-    const validItems = (dto.items ?? []).filter((item) => item.productId);
-    if (validItems.length > 0) {
-      const itemRows = validItems.map((item) => ({
-        credit_note_id: cn.id,
-        product_id: item.productId,
-        description: item.description ?? null,
-        quantity: item.quantity,
-        rate: item.rate,
-        discount_type: item.discountType ?? "PERCENTAGE",
-        discount_value: item.discountValue ?? 0,
-        discount_amount: item.discountAmount ?? 0,
-        taxable_amount: item.taxableAmount ?? item.lineTotal,
-        tax_percentage: item.taxPercentage ?? 0,
-        tax_amount: item.taxAmount ?? 0,
-        line_total: item.lineTotal,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from("credit_note_items")
-        .insert(itemRows);
-
-      if (itemsError) {
-        throw new Error(
-          `Failed to create credit note items: ${itemsError.message}`,
-        );
+      const cn = createdRows[0];
+      if (!cn) {
+        throw new Error("Failed to create credit note");
       }
-    }
 
-    return { id: cn.id, status: dto.status };
+      const validItems = (dto.items ?? []).filter((item) => item.productId);
+      if (validItems.length > 0) {
+        for (const item of validItems) {
+          await client.unsafe(
+            `INSERT INTO credit_note_items (
+              credit_note_id, product_id, description, quantity, rate, discount_type,
+              discount_value, discount_amount, taxable_amount, tax_percentage, tax_amount, line_total
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            [
+              cn.id,
+              item.productId,
+              item.description ?? null,
+              item.quantity,
+              item.rate,
+              item.discountType ?? "PERCENTAGE",
+              item.discountValue ?? 0,
+              item.discountAmount ?? 0,
+              item.taxableAmount ?? item.lineTotal,
+              item.taxPercentage ?? 0,
+              item.taxAmount ?? 0,
+              item.lineTotal,
+            ],
+          );
+        }
+      }
+
+      return { id: cn.id, status: dto.status };
+    } catch (err) {
+      throw new Error(`Failed to create credit note: ${(err as Error).message}`);
+    }
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("credit_notes")
-      .select(
-        `
-        *,
-        customer:customers(id, display_name, customer_number, email, phone),
-        items:credit_note_items(
-          id,
-          quantity,
-          rate,
-          discount_type,
-          discount_value,
-          discount_amount,
-          tax_percentage,
-          tax_amount,
-          line_total,
-          description,
-          product:products(id, product_name, item_code)
-        )
-      `,
-      )
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .single();
+    try {
+      const rows = await client.unsafe(
+        `SELECT * FROM credit_notes WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+        [id, tenant.entityId],
+      );
 
-    if (error) throw new InternalServerErrorException(error.message);
-    return data;
+      const data = rows[0];
+      if (!data) throw new Error("Credit note not found");
+
+      if (data.customer_id) {
+        const cust = await client.unsafe(
+          `SELECT id, display_name, customer_number, email, phone FROM customers WHERE id = $1 LIMIT 1`,
+          [data.customer_id],
+        );
+        data.customer = cust[0] ?? null;
+      } else {
+        data.customer = null;
+      }
+
+      const items = await client.unsafe(
+        `SELECT cni.*, p.product_name, p.item_code
+         FROM credit_note_items cni
+         LEFT JOIN products p ON p.id = cni.product_id
+         WHERE cni.credit_note_id = $1`,
+        [id],
+      );
+
+      data.items = (items ?? []).map((item: any) => ({
+        ...item,
+        product: item.product_id
+          ? { id: item.product_id, product_name: item.product_name, item_code: item.item_code }
+          : null,
+      }));
+
+      return data;
+    } catch (error) {
+      throw new InternalServerErrorException((error as Error).message);
+    }
   }
 }

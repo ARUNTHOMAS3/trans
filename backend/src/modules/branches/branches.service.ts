@@ -4,6 +4,18 @@ import { SupabaseService } from "../supabase/supabase.service";
 import { UsersService } from "../users/users.service";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
 import { ResendService } from "../email/resend.service";
+import { db, client } from "../../db/db";
+import {
+  users,
+  settingsBranches,
+  organisationBranchMaster,
+  branchUserAccess,
+  userBranchAccess,
+  warehouses,
+  settingsRoles,
+  settingsBranchTransactionSeries,
+} from "../../db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 
 @Injectable()
 export class BranchesService {
@@ -55,22 +67,19 @@ export class BranchesService {
       );
     }
 
-    const client = this.supabaseService.getClient();
-    const { data: existingUser, error: userFindError } = await client
-      .from("users")
-      .select("id, full_name")
-      .eq("email", normalizedEmail)
-      .maybeSingle();
+    const clientSupabase = this.supabaseService.getClient();
 
-    if (userFindError) {
-      throw new Error(
-        `Failed to fetch users row by email: ${userFindError.message}`,
-      );
-    }
+    const existingUsers = await db
+      .select({ id: users.id, fullName: users.fullName })
+      .from(users)
+      .where(eq(users.email, normalizedEmail))
+      .limit(1);
+
+    const existingUser = existingUsers[0];
 
     if (existingUser?.id) {
       const userId = existingUser.id.toString();
-      const authUpdate = await client.auth.admin.updateUserById(userId, {
+      const authUpdate = await clientSupabase.auth.admin.updateUserById(userId, {
         password: this.generateTemporaryPassword(),
         user_metadata: {
           role: "branch_admin",
@@ -90,27 +99,21 @@ export class BranchesService {
         );
       }
 
-      const { error: usersUpdateError } = await client
-        .from("users")
-        .update({
-          entity_id: orgEntityId,
-          full_name: fullName,
+      await db
+        .update(users)
+        .set({
+          entityId: orgEntityId,
+          fullName,
           role: "branch_admin",
-          is_active: true,
-          updated_at: new Date().toISOString(),
+          isActive: true,
+          updatedAt: new Date(),
         })
-        .eq("id", userId);
-
-      if (usersUpdateError) {
-        throw new Error(
-          `Failed to update users row: ${usersUpdateError.message}`,
-        );
-      }
+        .where(eq(users.id, userId));
 
       return userId;
     }
 
-    const authCreate = await client.auth.admin.createUser({
+    const authCreate = await clientSupabase.auth.admin.createUser({
       email: normalizedEmail,
       password: this.generateTemporaryPassword(),
       email_confirm: true,
@@ -135,24 +138,28 @@ export class BranchesService {
     }
 
     const userId = authCreate.data.user.id;
-    const { error: usersInsertError } = await client.from("users").upsert(
-      {
+    await db
+      .insert(users)
+      .values({
         id: userId,
-        entity_id: orgEntityId,
+        entityId: orgEntityId,
         email: normalizedEmail,
-        full_name: fullName,
+        fullName,
         role: "branch_admin",
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" },
-    );
-
-    if (usersInsertError) {
-      throw new Error(
-        `Failed to insert users row for branch admin: ${usersInsertError.message}`,
-      );
-    }
+        orgId,
+        isActive: true,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          entityId: orgEntityId,
+          fullName,
+          role: "branch_admin",
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
 
     return userId;
   }
@@ -167,113 +174,73 @@ export class BranchesService {
       defaultWarehouseId?: string | null;
     },
   ) {
-    const client = this.supabaseService.getClient();
     const registryEntityId = await this.resolveBranchRegistryEntityId(branchId);
 
-    const { error: branchAccessError } = await client
-      .from("branch_user_access")
-      .delete()
-      .eq("entity_id", registryEntityId)
-      .eq("user_id", userId);
-
-    if (branchAccessError) {
-      throw new Error(
-        `Failed to clear existing branch_user_access for branch admin: ${branchAccessError.message}`,
+    await db
+      .delete(branchUserAccess)
+      .where(
+        and(
+          eq(branchUserAccess.entityId, registryEntityId),
+          eq(branchUserAccess.userId, userId),
+        ),
       );
-    }
 
-    const { error: branchAccessInsertError } = await client
-      .from("branch_user_access")
-      .insert({
-        entity_id: registryEntityId,
-        user_id: userId,
-        role_id: roleId,
-        is_default_branch: true,
-        updated_at: new Date().toISOString(),
-      });
+    await db.insert(branchUserAccess).values({
+      entityId: registryEntityId,
+      userId,
+      roleId,
+      isDefaultBranch: true,
+      updatedAt: new Date(),
+    });
 
-    if (branchAccessInsertError) {
-      throw new Error(
-        `Failed to insert branch_user_access for branch admin: ${branchAccessInsertError.message}`,
-      );
-    }
+    const existingLocationAccess = await db
+      .select({ id: userBranchAccess.id })
+      .from(userBranchAccess)
+      .where(eq(userBranchAccess.userId, userId))
+      .limit(1);
 
-    const { data: existingLocationAccess, error: locationFetchError } =
-      await client
-        .from("user_branch_access")
-        .select("id")
-        .eq("user_id", userId)
-        .limit(1);
-
-    if (locationFetchError) {
-      throw new Error(
-        `Failed to fetch user_branch_access rows: ${locationFetchError.message}`,
-      );
-    }
-
-    const hasAnyLocation = (existingLocationAccess ?? []).length > 0;
+    const hasAnyLocation = existingLocationAccess.length > 0;
     const shouldSeedAsDefault = !hasAnyLocation;
-    const { error: locationUpsertError } = await client
-      .from("user_branch_access")
-      .upsert(
-        {
-          org_id: orgId,
-          user_id: userId,
-          entity_id: registryEntityId,
-          is_default_business: shouldSeedAsDefault,
-          is_default_warehouse:
+
+    await db
+      .insert(userBranchAccess)
+      .values({
+        orgId,
+        userId,
+        entityId: registryEntityId,
+        isDefaultBusiness: shouldSeedAsDefault,
+        isDefaultWarehouse:
+          shouldSeedAsDefault && options?.markDefaultWarehouse === true,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [userBranchAccess.orgId, userBranchAccess.userId, userBranchAccess.entityId],
+        set: {
+          isDefaultBusiness: shouldSeedAsDefault,
+          isDefaultWarehouse:
             shouldSeedAsDefault && options?.markDefaultWarehouse === true,
-          updated_at: new Date().toISOString(),
+          updatedAt: new Date(),
         },
-        { onConflict: "org_id,user_id,entity_id" },
-      );
-
-    if (locationUpsertError) {
-      throw new Error(
-        `Failed to upsert user_branch_access for branch admin: ${locationUpsertError.message}`,
-      );
-    }
-
-    if (
-      shouldSeedAsDefault &&
-      options?.defaultWarehouseId &&
-      options.defaultWarehouseId.trim().length > 0
-    ) {
-      const { error: userUpdateError } = await client
-        .from("users")
-        .update({
-          default_warehouse_id: options.defaultWarehouseId.trim(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", userId);
-
-      if (userUpdateError) {
-        throw new Error(
-          `Failed to set users.default_warehouse_id for branch admin: ${userUpdateError.message}`,
-        );
-      }
-    }
+      });
   }
 
   private async resolveBranchRegistryEntityId(branchId: string): Promise<string> {
-    const client = this.supabaseService.getClient();
-    const { data: registryRow, error: registryError } = await client
-      .from("organisation_branch_master")
-      .select("id")
-      .eq("type", "BRANCH")
-      .eq("ref_id", branchId)
-      .maybeSingle();
+    const rows = await db
+      .select({ id: organisationBranchMaster.id })
+      .from(organisationBranchMaster)
+      .where(
+        and(
+          eq(organisationBranchMaster.type, "BRANCH"),
+          eq(organisationBranchMaster.refId, branchId),
+        ),
+      )
+      .limit(1);
 
-    if (registryError) {
-      throw new Error(
-        `Failed to resolve branch registry entity id: ${registryError.message}`,
-      );
-    }
-    if (!registryRow?.id) {
+    if (!rows[0]?.id) {
       throw new Error("Branch registry entity id not found");
     }
 
-    return registryRow.id.toString();
+    return rows[0].id.toString();
   }
 
   private buildAutoWarehouseName(branch: any): string {
@@ -286,7 +253,7 @@ export class BranchesService {
 
   private buildAutoWarehouseCode(branch: any): string | null {
     const branchCode = branch?.branch_code?.toString().trim() ?? "";
-    if (branchCode.isEmpty) {
+    if (branchCode.length === 0) {
       return null;
     }
     return `${branchCode}-WH`;
@@ -296,145 +263,103 @@ export class BranchesService {
     orgId: string,
     branch: any,
   ): Promise<string | null> {
-    const client = this.supabaseService.getClient();
     const branchId = branch?.id?.toString().trim() ?? "";
-    if (branchId.isEmpty) {
+    if (!branchId) {
       throw new Error("Cannot provision warehouse for branch without id");
     }
 
-    const { data: existingRows, error: existingError } = await client
-      .from("warehouses")
-      .select("id, is_default_for_branch, created_at")
-      .eq("org_id", orgId)
-      .eq("source_branch_id", branchId)
-      .order("is_default_for_branch", { ascending: false })
-      .order("created_at", { ascending: true });
+    const existingRows = await db
+      .select({ id: warehouses.id })
+      .from(warehouses)
+      .where(
+        and(
+          eq(warehouses.orgId, orgId),
+          eq(warehouses.sourceBranchId, branchId),
+        ),
+      )
+      .limit(1);
 
-    if (existingError) {
-      throw new Error(
-        `Failed to fetch branch warehouses during auto-provision: ${existingError.message}`,
-      );
-    }
-
-    const existingWarehouse = (existingRows ?? [])[0];
+    const existingWarehouse = existingRows[0];
     if (existingWarehouse?.id) {
-      if (existingWarehouse.is_default_for_branch !== true) {
-        const { error: defaultUpdateError } = await client
-          .from("warehouses")
-          .update({
-            is_default_for_branch: true,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingWarehouse.id);
-
-        if (defaultUpdateError) {
-          throw new Error(
-            `Failed to mark existing branch warehouse as default: ${defaultUpdateError.message}`,
-          );
-        }
-      }
       return existingWarehouse.id.toString();
     }
 
     const registryEntityId = await this.resolveBranchRegistryEntityId(branchId);
-    const payload = {
-      entity_id: registryEntityId,
-      org_id: orgId,
-      source_branch_id: branchId,
-      is_default_for_branch: true,
-      name: this.buildAutoWarehouseName(branch),
-      warehouse_code: this.buildAutoWarehouseCode(branch),
-      attention: branch?.attention ?? null,
-      street: branch?.street ?? null,
-      place: branch?.place ?? null,
-      city: branch?.city ?? null,
-      state: branch?.state ?? null,
-      district_id: this.normalizeUuid(branch?.district_id),
-      local_body_id: this.normalizeUuid(branch?.local_body_id),
-      assembly_id: this.normalizeUuid(branch?.assembly_id),
-      ward_id: this.normalizeUuid(branch?.ward_id),
-      pincode: branch?.pincode ?? null,
-      country: branch?.country ?? "India",
-      phone: branch?.phone ?? null,
-      email: branch?.email ?? null,
-      is_active: branch?.is_active ?? true,
-    };
-
-    const { data, error } = await client
-      .from("warehouses")
-      .insert(payload)
-      .select("id")
-      .single();
-
-    if (error) {
-      throw new Error(
-        `Failed to auto-create default warehouse for branch: ${error.message}`,
-      );
-    }
+    const [data] = await db
+      .insert(warehouses)
+      .values({
+        entityId: registryEntityId,
+        orgId,
+        sourceBranchId: branchId,
+        name: this.buildAutoWarehouseName(branch),
+        warehouseCode: this.buildAutoWarehouseCode(branch),
+        attention: branch?.attention ?? null,
+        street: branch?.street ?? null,
+        place: branch?.place ?? null,
+        city: branch?.city ?? null,
+        state: branch?.state ?? null,
+        districtId: this.normalizeUuid(branch?.district_id),
+        localBodyId: this.normalizeUuid(branch?.local_body_id),
+        assemblyId: this.normalizeUuid(branch?.assembly_id),
+        wardId: this.normalizeUuid(branch?.ward_id),
+        pincode: branch?.pincode ?? null,
+        country: branch?.country ?? "India",
+        phone: branch?.phone ?? null,
+        email: branch?.email ?? null,
+        isActive: branch?.is_active ?? true,
+      })
+      .returning();
 
     return data?.id?.toString() ?? null;
   }
 
   private async ensureOrganisationMaster(orgId: string) {
-    const client = this.supabaseService.getClient();
     const normalizedOrgId = this.normalizeUuid(orgId);
     if (!normalizedOrgId) return null;
 
-    const existingRes = await client
-      .from("organisation_branch_master")
-      .select("id")
-      .eq("type", "ORG")
-      .eq("ref_id", normalizedOrgId)
-      .maybeSingle();
+    const existingRes = await db
+      .select({ id: organisationBranchMaster.id })
+      .from(organisationBranchMaster)
+      .where(
+        and(
+          eq(organisationBranchMaster.type, "ORG"),
+          eq(organisationBranchMaster.refId, normalizedOrgId),
+        ),
+      )
+      .limit(1);
 
-    if (existingRes.error) {
-      throw new Error(
-        `Failed to fetch organisation_branch_master ORG row: ${existingRes.error.message}`,
-      );
+    if (existingRes[0]?.id) {
+      return existingRes[0].id.toString();
     }
 
-    if (existingRes.data?.id) {
-      return existingRes.data.id.toString();
-    }
+    const orgRes = await client.unsafe(
+      `SELECT id, name, is_active FROM organization WHERE id = $1 LIMIT 1`,
+      [normalizedOrgId],
+    );
 
-    const orgRes = await client
-      .from("organization")
-      .select("id,name,is_active")
-      .eq("id", normalizedOrgId)
-      .maybeSingle();
-
-    if (orgRes.error) {
-      throw new Error(
-        `Failed to fetch organization row: ${orgRes.error.message}`,
-      );
-    }
-
-    if (!orgRes.data?.id || !orgRes.data?.name) {
+    if (!orgRes[0]?.id || !orgRes[0]?.name) {
       return null;
     }
 
-    const upsertRes = await client
-      .from("organisation_branch_master")
-      .upsert(
-        {
-          name: orgRes.data.name,
-          type: "ORG",
-          ref_id: orgRes.data.id,
-          parent_id: null,
-          is_active: orgRes.data.is_active ?? true,
+    const [upserted] = await db
+      .insert(organisationBranchMaster)
+      .values({
+        name: orgRes[0].name,
+        type: "ORG",
+        refId: orgRes[0].id,
+        parentId: null,
+        isActive: orgRes[0].is_active ?? true,
+      })
+      .onConflictDoUpdate({
+        target: [organisationBranchMaster.type, organisationBranchMaster.refId],
+        set: {
+          name: orgRes[0].name,
+          isActive: orgRes[0].is_active ?? true,
         },
-        { onConflict: "type,ref_id" },
-      )
-      .select("id")
-      .single();
+      })
+      .returning();
 
-    if (upsertRes.error) {
-      throw new Error(
-        `Failed to upsert organisation_branch_master ORG row: ${upsertRes.error.message}`,
-      );
-    }
-
-    return upsertRes.data.id?.toString() ?? null;
+    return upserted?.id?.toString() ?? null;
   }
 
   private async syncOrganisationBranchMasterRow(branch: {
@@ -443,40 +368,36 @@ export class BranchesService {
     name: string;
     is_active?: boolean | null;
   }) {
-    const client = this.supabaseService.getClient();
     const parentId = await this.ensureOrganisationMaster(branch.org_id);
 
-    const { error } = await client.from("organisation_branch_master").upsert(
-      {
+    await db
+      .insert(organisationBranchMaster)
+      .values({
         name: branch.name,
         type: "BRANCH",
-        ref_id: branch.id,
-        parent_id: parentId,
-        is_active: branch.is_active ?? true,
-      },
-      { onConflict: "type,ref_id" },
-    );
-
-    if (error) {
-      throw new Error(
-        `Failed to sync organisation_branch_master BRANCH row: ${error.message}`,
-      );
-    }
+        refId: branch.id,
+        parentId,
+        isActive: branch.is_active ?? true,
+      })
+      .onConflictDoUpdate({
+        target: [organisationBranchMaster.type, organisationBranchMaster.refId],
+        set: {
+          name: branch.name,
+          parentId,
+          isActive: branch.is_active ?? true,
+        },
+      });
   }
 
   private async removeOrganisationBranchMasterRow(branchId: string) {
-    const { error } = await this.supabaseService
-      .getClient()
-      .from("organisation_branch_master")
-      .delete()
-      .eq("type", "BRANCH")
-      .eq("ref_id", branchId);
-
-    if (error) {
-      throw new Error(
-        `Failed to delete organisation_branch_master BRANCH row: ${error.message}`,
+    await db
+      .delete(organisationBranchMaster)
+      .where(
+        and(
+          eq(organisationBranchMaster.type, "BRANCH"),
+          eq(organisationBranchMaster.refId, branchId),
+        ),
       );
-    }
   }
 
   private normalizeBranchType(value: unknown) {
@@ -561,20 +482,14 @@ export class BranchesService {
     prefix: string,
     padLength: number,
   ) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("branches")
-      .select("branch_code")
-      .eq("org_id", orgId)
-      .ilike("branch_code", `${prefix}%`);
-
-    if (error) {
-      throw new Error(`Failed to generate branch code: ${error.message}`);
-    }
+    const rows = await db
+      .select({ branchCode: settingsBranches.branchCode })
+      .from(settingsBranches)
+      .where(eq(settingsBranches.orgId, orgId));
 
     let maxValue = 0;
-    for (const row of data ?? []) {
-      const code = row?.branch_code?.toString().trim();
+    for (const row of rows ?? []) {
+      const code = row?.branchCode?.toString().trim();
       if (!code || !code.startsWith(prefix)) continue;
       const suffix = code.substring(prefix.length);
       const numeric = parseInt(suffix, 10);
@@ -588,37 +503,10 @@ export class BranchesService {
   }
 
   private async resolveAssemblyId(
-    districtId?: string | null,
-    assemblyCodeOrName?: string | null,
+    _districtId?: string | null,
+    _assemblyCodeOrName?: string | null,
   ) {
-    // TODO: Re-enable assembly validation once the assemblies_constituencies table is populated.
     return null;
-    /*
-    const normalizedDistrictId = districtId?.toString().trim();
-    const normalizedAssembly = assemblyCodeOrName?.toString().trim();
-    if (!normalizedDistrictId || !normalizedAssembly) {
-      return null;
-    }
-
-    const client = this.supabaseService.getClient();
-    const fetchBy = async (column: "code" | "name") => {
-      const { data, error } = await client
-        .from("assemblies_constituencies")
-        .select("id,code,name")
-        .eq("district_id", normalizedDistrictId)
-        .eq("is_active", true)
-        .eq(column, normalizedAssembly)
-        .maybeSingle();
-
-      if (error) {
-        throw new Error(`Failed to fetch assemblies_constituencies: ${error.message}`);
-      }
-
-      return data ?? null;
-    };
-
-    return (await fetchBy("code")) ?? (await fetchBy("name"));
-    */
   }
 
   private async hydratePaymentStubAssembly(
@@ -634,25 +522,20 @@ export class BranchesService {
       return rawAddress;
     }
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("assemblies_constituencies")
-      .select("id,code,name")
-      .eq("id", assemblyId.trim())
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(
-        `Failed to fetch assemblies_constituencies: ${error.message}`,
+    try {
+      const rows = await client.unsafe(
+        `SELECT id, code, name FROM assemblies_constituencies WHERE id = $1 LIMIT 1`,
+        [assemblyId.trim()],
       );
-    }
-    if (!data) {
+      const data = rows[0];
+      if (!data) return rawAddress;
+
+      parsed["assembly_code"] = data.code ?? parsed["assembly_code"] ?? null;
+      parsed["assembly_name"] = data.name ?? parsed["assembly_name"] ?? null;
+      return JSON.stringify(parsed);
+    } catch {
       return rawAddress;
     }
-
-    parsed["assembly_code"] = data.code ?? parsed["assembly_code"] ?? null;
-    parsed["assembly_name"] = data.name ?? parsed["assembly_name"] ?? null;
-    return JSON.stringify(parsed);
   }
 
   private async resolveBranchAccessRoleIds(
@@ -671,24 +554,22 @@ export class BranchesService {
       return new Map<string, string | null>();
     }
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("roles")
-      .select("id,label")
-      .eq("entity_id", entityId)
-      .eq("is_active", true)
-      .in("label", roleLabels);
-
-    if (error) {
-      throw new Error(`Failed to fetch roles: ${error.message}`);
-    }
+    const data = await db
+      .select({ id: settingsRoles.id, label: settingsRoles.label })
+      .from(settingsRoles)
+      .where(
+        and(
+          eq(settingsRoles.entityId, entityId),
+          eq(settingsRoles.isActive, true),
+          inArray(settingsRoles.label, roleLabels),
+        ),
+      );
 
     const roleIdMap = new Map<string, string | null>();
     for (const role of roleLabels) {
       roleIdMap.set(role, null);
     }
 
-    // Add reserved role mappings
     roleIdMap.set("Admin", "admin");
     roleIdMap.set("HO Admin", "ho_admin");
     roleIdMap.set("Branch Admin", "branch_admin");
@@ -708,145 +589,102 @@ export class BranchesService {
     entityId: string,
     transactionSeriesIds: string[],
   ) {
-    const client = this.supabaseService.getClient();
-
-    const { error: deleteError } = await client
-      .from("branch_transaction_series")
-      .delete()
-      .eq("entity_id", entityId);
-
-    if (deleteError) {
-      throw new Error(
-        `Failed to replace branch_transaction_series: ${deleteError.message}`,
-      );
-    }
+    await db
+      .delete(settingsBranchTransactionSeries)
+      .where(eq(settingsBranchTransactionSeries.entityId, entityId));
 
     if (transactionSeriesIds.length === 0) return;
 
-    const { error: insertError } = await client
-      .from("branch_transaction_series")
-      .insert(
-        transactionSeriesIds.map((transactionSeriesId) => ({
-          entity_id: entityId,
-          transaction_series_id: transactionSeriesId,
-        })),
-      );
-
-    if (insertError) {
-      throw new Error(
-        `Failed to insert branch_transaction_series: ${insertError.message}`,
-      );
-    }
+    await db.insert(settingsBranchTransactionSeries).values(
+      transactionSeriesIds.map((transactionSeriesId) => ({
+        entityId,
+        transactionSeriesId,
+      })),
+    );
   }
 
   private async syncLocationUsers(
     entityId: string,
     locationUsers: Array<{ user_id: string; role: string | null }>,
   ) {
-    const client = this.supabaseService.getClient();
     const roleIdsByLabel = await this.resolveBranchAccessRoleIds(
       entityId,
       locationUsers,
     );
 
-    const { error: deleteError } = await client
-      .from("branch_user_access")
-      .delete()
-      .eq("entity_id", entityId);
-
-    if (deleteError) {
-      throw new Error(
-        `Failed to replace branch_user_access: ${deleteError.message}`,
-      );
-    }
+    await db
+      .delete(branchUserAccess)
+      .where(eq(branchUserAccess.entityId, entityId));
 
     if (locationUsers.length === 0) return;
 
-    const { error: insertError = null } = await client
-      .from("branch_user_access")
-      .insert(
-        locationUsers.map((user) => ({
-          entity_id: entityId,
-          user_id: user.user_id,
-          role_id: user.role ? (roleIdsByLabel.get(user.role) ?? null) : null,
-        })),
-      );
-
-    if (insertError) {
-      throw new Error(
-        `Failed to insert branch_user_access: ${insertError.message}`,
-      );
-    }
+    await db.insert(branchUserAccess).values(
+      locationUsers.map((user) => ({
+        entityId,
+        userId: user.user_id,
+        roleId: user.role ? (roleIdsByLabel.get(user.role) ?? null) : null,
+      })),
+    );
   }
 
   private async attachRelations(branch: any) {
     if (!branch?.id) return branch;
 
-    const client = this.supabaseService.getClient();
+    const obmRows = await db
+      .select({ id: organisationBranchMaster.id })
+      .from(organisationBranchMaster)
+      .where(
+        and(
+          eq(organisationBranchMaster.refId, branch.id),
+          eq(organisationBranchMaster.type, "BRANCH"),
+        ),
+      )
+      .limit(1);
 
-    // Resolve entity_id for this branch via organisation_branch_master
-    const { data: obmRow } = await client
-      .from("organisation_branch_master")
-      .select("id")
-      .eq("ref_id", branch.id)
-      .eq("type", "BRANCH")
-      .maybeSingle();
-    const entityId = obmRow?.id ?? null;
+    const entityId = obmRows[0]?.id ?? null;
 
     if (!entityId) {
       return { ...branch, transaction_series_ids: [], location_users: [] };
     }
 
     const [transactionSeriesRes, locationUsersRes] = await Promise.all([
-      client
-        .from("branch_transaction_series")
-        .select("transaction_series_id")
-        .eq("entity_id", entityId),
-      client
-        .from("branch_user_access")
-        .select("user_id, role_id")
-        .eq("entity_id", entityId),
+      db
+        .select({
+          transactionSeriesId: settingsBranchTransactionSeries.transactionSeriesId,
+        })
+        .from(settingsBranchTransactionSeries)
+        .where(eq(settingsBranchTransactionSeries.entityId, entityId)),
+      db
+        .select({
+          userId: branchUserAccess.userId,
+          roleId: branchUserAccess.roleId,
+        })
+        .from(branchUserAccess)
+        .where(eq(branchUserAccess.entityId, entityId)),
     ]);
 
-    if (transactionSeriesRes.error) {
-      throw new Error(
-        `Failed to fetch branch transaction series: ${transactionSeriesRes.error.message}`,
-      );
-    }
-    if (locationUsersRes.error) {
-      throw new Error(
-        `Failed to fetch branch user access: ${locationUsersRes.error.message}`,
-      );
-    }
-
-    const transactionSeriesIds = (transactionSeriesRes.data ?? [])
-      .map((row: any) => row.transaction_series_id?.toString())
+    const transactionSeriesIds = (transactionSeriesRes ?? [])
+      .map((row) => row.transactionSeriesId?.toString())
       .filter((value: unknown): value is string => Boolean(value));
 
-    const assignedUserIds = (locationUsersRes.data ?? [])
-      .map((row: any) => row.user_id?.toString())
+    const assignedUserIds = (locationUsersRes ?? [])
+      .map((row) => row.userId?.toString())
       .filter((value: unknown): value is string => Boolean(value));
-    const assignedRoleIds = (locationUsersRes.data ?? [])
-      .map((row: any) => row.role_id?.toString())
-      .filter(
-        (value: unknown): value is string =>
-          typeof value === "string" && value.length > 0,
-      );
+
+    const assignedRoleIds = (locationUsersRes ?? [])
+      .map((row) => row.roleId?.toString())
+      .filter((value: unknown): value is string => Boolean(value));
 
     const usersRes =
       assignedUserIds.length > 0
-        ? await client.from("users").select("id,role").in("id", assignedUserIds)
-        : { data: [], error: null };
+        ? await db
+            .select({ id: users.id, role: users.role })
+            .from(users)
+            .where(inArray(users.id, assignedUserIds))
+        : [];
 
-    if (usersRes.error) {
-      throw new Error(
-        `Failed to fetch branch users: ${usersRes.error.message}`,
-      );
-    }
-
-    // Also collect role IDs from the users' default roles
-    const userDefaultRoleIds = (usersRes.data ?? [])
-      .map((row: any) => row.role?.toString())
+    const userDefaultRoleIds = usersRes
+      .map((row) => row.role?.toString())
       .filter(
         (value: unknown): value is string =>
           typeof value === "string" &&
@@ -860,29 +698,22 @@ export class BranchesService {
 
     const rolesRes =
       allRoleIds.length > 0
-        ? await client.from("roles").select("id,label").in("id", allRoleIds)
-        : { data: [], error: null };
-
-    if (rolesRes.error) {
-      throw new Error(
-        `Failed to fetch branch roles: ${rolesRes.error.message}`,
-      );
-    }
+        ? await db
+            .select({ id: settingsRoles.id, label: settingsRoles.label })
+            .from(settingsRoles)
+            .where(inArray(settingsRoles.id, allRoleIds))
+        : [];
 
     const roleLabelMap = new Map(
-      (rolesRes.data ?? []).map((row: any) => [
-        row.id?.toString(),
-        row.label?.toString() ?? null,
-      ]),
+      rolesRes.map((row) => [row.id?.toString(), row.label?.toString() ?? null]),
     );
 
-    // Standard labels for reserved roles
     roleLabelMap.set("admin", "Admin");
     roleLabelMap.set("ho_admin", "HO Admin");
     roleLabelMap.set("branch_admin", "Branch Admin");
 
     const userRoleMap = new Map(
-      (usersRes.data ?? []).map((row: any) => {
+      usersRes.map((row) => {
         const rId = row.role?.toString() ?? null;
         return [
           row.id?.toString(),
@@ -900,37 +731,33 @@ export class BranchesService {
       transaction_series_ids: transactionSeriesIds,
       transaction_series_id:
         transactionSeriesIds.length > 0 ? transactionSeriesIds[0] : null,
-      location_users: (locationUsersRes.data ?? []).map((row: any) => ({
-        user_id: row.user_id?.toString(),
+      location_users: (locationUsersRes ?? []).map((row) => ({
+        user_id: row.userId?.toString(),
         role:
-          roleLabelMap.get(row.role_id?.toString()) ??
-          userRoleMap.get(row.user_id?.toString()) ??
+          roleLabelMap.get(row.roleId?.toString() ?? "") ??
+          userRoleMap.get(row.userId?.toString() ?? "") ??
           null,
-        role_id: row.role_id?.toString() ?? null,
+        role_id: row.roleId?.toString() ?? null,
       })),
     };
   }
 
-  async findBusinessTypes(tenant: TenantContext) {
-    const client = this.supabaseService.getClient();
-    const { data, error } = await client
-      .from("business_types")
-      .select("code,label,description,sort_order")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true })
-      .order("label", { ascending: true });
+  async findBusinessTypes(_tenant: TenantContext) {
+    try {
+      const data = await client.unsafe(
+        `SELECT code, label, description, sort_order FROM business_types WHERE is_active = true ORDER BY sort_order ASC, label ASC`,
+      );
 
-    if (error) {
-      throw new Error(`Failed to fetch business_types: ${error.message}`);
+      return (data ?? []).map((row: any) => ({
+        id: row.code?.toString() ?? "",
+        code: row.code?.toString() ?? "",
+        label: row.label?.toString() ?? "",
+        description: row.description?.toString() ?? "",
+        sort_order: row.sort_order ?? 0,
+      }));
+    } catch (err) {
+      throw new Error(`Failed to fetch business_types: ${(err as Error).message}`);
     }
-
-    return (data ?? []).map((row: any) => ({
-      id: row.code?.toString() ?? "",
-      code: row.code?.toString() ?? "",
-      label: row.label?.toString() ?? "",
-      description: row.description?.toString() ?? "",
-      sort_order: row.sort_order ?? 0,
-    }));
   }
 
   async createBusinessType(dto: any) {
@@ -947,29 +774,23 @@ export class BranchesService {
       throw new Error("Business type label is required");
     }
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("business_types")
-      .insert({
-        code: businessType,
-        label,
-        description: dto.description?.toString().trim() ?? "",
-        is_active: true,
-      })
-      .select("code,label,description,sort_order")
-      .single();
+    try {
+      const rows = await client.unsafe(
+        `INSERT INTO business_types (code, label, description, is_active) VALUES ($1, $2, $3, true) RETURNING code, label, description, sort_order`,
+        [businessType, label, dto.description?.toString().trim() ?? ""],
+      );
 
-    if (error) {
-      throw new Error(`Failed to create business type: ${error.message}`);
+      const data = rows[0];
+      return {
+        id: data.code?.toString() ?? "",
+        code: data.code?.toString() ?? "",
+        label: data.label?.toString() ?? "",
+        description: data.description?.toString() ?? "",
+        sort_order: data.sort_order ?? 0,
+      };
+    } catch (err) {
+      throw new Error(`Failed to create business type: ${(err as Error).message}`);
     }
-
-    return {
-      id: data.code?.toString() ?? "",
-      code: data.code?.toString() ?? "",
-      label: data.label?.toString() ?? "",
-      description: data.description?.toString() ?? "",
-      sort_order: data.sort_order ?? 0,
-    };
   }
 
   private resolveTenant(tenantOrOrgId: TenantContext | string): {
@@ -988,53 +809,46 @@ export class BranchesService {
         ? null
         : (tenantOrOrgId as TenantContext);
     const { orgId } = this.resolveTenant(tenantOrOrgId);
-    let query = this.supabaseService
-      .getClient()
-      .from("branches")
-      .select(
-        `
-        *,
-        entity:organisation_branch_master!ref_id(id)
-      `,
-      )
-      .eq("org_id", orgId)
-      .order("created_at", { ascending: true });
 
     const scopedBranchIds = tenant?.accessibleBranchIds ?? [];
-    if (
-      tenant &&
-      tenant.role !== "admin" &&
-      scopedBranchIds.length > 0
-    ) {
-      query = query.in("id", scopedBranchIds);
+
+    try {
+      let sqlQuery = `
+        SELECT b.*, obm.id as entity_id
+        FROM branches b
+        LEFT JOIN organisation_branch_master obm ON obm.ref_id = b.id AND obm.type = 'BRANCH'
+        WHERE b.org_id = $1
+      `;
+      const params: any[] = [orgId];
+
+      if (tenant && tenant.role !== "admin" && scopedBranchIds.length > 0) {
+        params.push(scopedBranchIds);
+        sqlQuery += ` AND b.id = ANY($2)`;
+      }
+
+      sqlQuery += ` ORDER BY b.created_at ASC`;
+
+      const data = await client.unsafe(sqlQuery, params);
+      return data ?? [];
+    } catch (err) {
+      throw new Error(`Failed to fetch branches: ${(err as Error).message}`);
     }
-
-    const { data, error } = await query;
-
-    if (error) throw new Error(`Failed to fetch branches: ${error.message}`);
-
-    // Flatten the entity id for easier consumption
-    return (data ?? []).map((branch) => ({
-      ...branch,
-      entity_id:
-        (Array.isArray((branch as any).entity)
-          ? (branch as any).entity?.[0]?.id
-          : (branch as any).entity?.id) || null,
-    }));
   }
 
   async findOne(id: string, tenantOrOrgId: TenantContext | string) {
     const { orgId } = this.resolveTenant(tenantOrOrgId);
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("branches")
-      .select("*")
-      .eq("id", id)
-      .eq("org_id", orgId)
-      .single();
+    try {
+      const rows = await client.unsafe(
+        `SELECT * FROM branches WHERE id = $1 AND org_id = $2 LIMIT 1`,
+        [id, orgId],
+      );
 
-    if (error) return null;
-    return this.attachRelations(data);
+      const data = rows[0];
+      if (!data) return null;
+      return this.attachRelations(data);
+    } catch {
+      return null;
+    }
   }
 
   async create(dto: any, tenant: TenantContext) {
@@ -1066,28 +880,27 @@ export class BranchesService {
             parsedPaymentStubAddress?.assembly_name?.toString(),
         )
       : null;
-    const client = this.supabaseService.getClient();
+
     const parentId = await this.ensureOrganisationMaster(orgId);
     const newBranchId = randomUUID();
 
-    const { error: registryError } = await client
-      .from("organisation_branch_master")
-      .upsert(
-        {
+    await db
+      .insert(organisationBranchMaster)
+      .values({
+        name: dto.name,
+        type: "BRANCH",
+        refId: newBranchId,
+        parentId,
+        isActive: dto.is_active ?? true,
+      })
+      .onConflictDoUpdate({
+        target: [organisationBranchMaster.type, organisationBranchMaster.refId],
+        set: {
           name: dto.name,
-          type: "BRANCH",
-          ref_id: newBranchId,
-          parent_id: parentId,
-          is_active: dto.is_active ?? true,
+          parentId,
+          isActive: dto.is_active ?? true,
         },
-        { onConflict: "type,ref_id" },
-      );
-
-    if (registryError) {
-      throw new Error(
-        `Failed to pre-register branch in organisation_branch_master: ${registryError.message}`,
-      );
-    }
+      });
 
     const codeTemplate = this.parseBranchCodeTemplate(dto.branch_code);
     let branchCodeToUse = dto.branch_code?.toString().trim() || null;
@@ -1100,94 +913,86 @@ export class BranchesService {
     }
 
     const insertBranch = async (code: string | null) =>
-      this.supabaseService.getClient().from("branches").insert({
-        id: newBranchId,
-        org_id: orgId,
-        name: dto.name,
-        branch_code: code,
-        branch_type: this.normalizeBranchType(dto.branch_type),
-        email: dto.email ?? null,
-        phone: dto.phone ?? null,
-        website: dto.website ?? null,
-        attention: dto.attention ?? null,
-        street: dto.street ?? null,
-        place: dto.place ?? null,
-        city: dto.city ?? null,
-        state: dto.state ?? null,
-        district_id: this.normalizeUuid(dto.district_id),
-        local_body_id: this.normalizeUuid(dto.local_body_id),
-        assembly_id: this.normalizeUuid(dto.assembly_id),
-        ward_id: this.normalizeUuid(dto.ward_id),
-        pincode: dto.pincode ?? null,
-        country: dto.country ?? "India",
-        is_child_location: dto.is_child_location ?? false,
-        parent_branch_id: this.normalizeUuid(dto.parent_branch_id),
-        primary_contact_id: this.normalizeUuid(dto.primary_contact_id),
-        gstin: dto.gstin ?? null,
-        gstin_registration_type: dto.gstin_registration_type ?? null,
-        gstin_legal_name: dto.gstin_legal_name ?? null,
-        gstin_trade_name: dto.gstin_trade_name ?? null,
-        gstin_registered_on: dto.gstin_registered_on ?? null,
-        gstin_reverse_charge: dto.gstin_reverse_charge ?? false,
-        gstin_import_export: dto.gstin_import_export ?? false,
-        gstin_import_export_account_id: this.normalizeUuid(
-          dto.gstin_import_export_account_id,
-        ),
-        gstin_digital_services: dto.gstin_digital_services ?? false,
-        gst_treatment: dto.gst_treatment ?? null,
-        pan: dto.pan ?? null,
-        industry: dto.industry ?? null,
-        is_drug_registered: dto.is_drug_registered ?? false,
-        drug_licence_type: dto.drug_licence_type ?? null,
-        drug_licence_20: dto.drug_licence_20 ?? dto.drug_license_20 ?? null,
-        drug_licence_21: dto.drug_licence_21 ?? dto.drug_license_21 ?? null,
-        drug_licence_20b: dto.drug_licence_20b ?? dto.drug_license_20b ?? null,
-        drug_licence_21b: dto.drug_licence_21b ?? dto.drug_license_21b ?? null,
-        is_fssai_registered: dto.is_fssai_registered ?? false,
-        fssai_number: dto.fssai_number ?? null,
-        is_msme_registered: dto.is_msme_registered ?? false,
-        msme_registration_type:
-          dto.msme_registration_type ?? dto.msme_type ?? null,
-        msme_number: dto.msme_number ?? null,
-        msme_type: dto.msme_type ?? dto.msme_registration_type ?? null,
-        fiscal_year: dto.fiscal_year ?? null,
-        report_basis: dto.report_basis ?? null,
-        has_separate_payment_stub_address: hasSeparatePaymentStubAddress,
-        payment_stub_address: paymentStubAddress,
-        payment_stub_assembly_id: assemblyMatch?.id ?? null,
-        logo_url: dto.logo_url ?? null,
-        subscription_from: dto.subscription_from ?? null,
-        subscription_to: dto.subscription_to ?? null,
-        default_transaction_series_id: this.normalizeUuid(
-          dto.default_transaction_series_id,
-        ),
-        is_active: dto.is_active ?? true,
-      }).select().single();
+      db
+        .insert(settingsBranches)
+        .values({
+          id: newBranchId,
+          orgId,
+          name: dto.name,
+          branchCode: code,
+          branchType: this.normalizeBranchType(dto.branch_type) as any,
+          email: dto.email ?? null,
+          phone: dto.phone ?? null,
+          website: dto.website ?? null,
+          attention: dto.attention ?? null,
+          street: dto.street ?? null,
+          place: dto.place ?? null,
+          city: dto.city ?? null,
+          state: dto.state ?? null,
+          districtId: this.normalizeUuid(dto.district_id),
+          localBodyId: this.normalizeUuid(dto.local_body_id),
+          assemblyId: this.normalizeUuid(dto.assembly_id),
+          wardId: this.normalizeUuid(dto.ward_id),
+          pincode: dto.pincode ?? null,
+          country: dto.country ?? "India",
+          isChildLocation: dto.is_child_location ?? false,
+          parentBranchId: this.normalizeUuid(dto.parent_branch_id),
+          primaryContactId: this.normalizeUuid(dto.primary_contact_id),
+          gstin: dto.gstin ?? null,
+          gstinRegistrationType: dto.gstin_registration_type ?? null,
+          gstinLegalName: dto.gstin_legal_name ?? null,
+          gstinTradeName: dto.gstin_trade_name ?? null,
+          gstinRegisteredOn: dto.gstin_registered_on ?? null,
+          gstinReverseCharge: dto.gstin_reverse_charge ?? false,
+          gstinImportExport: dto.gstin_import_export ?? false,
+          gstinImportExportAccountId: this.normalizeUuid(
+            dto.gstin_import_export_account_id,
+          ),
+          gstinDigitalServices: dto.gstin_digital_services ?? false,
+          gstTreatment: dto.gst_treatment ?? null,
+          pan: dto.pan ?? null,
+          industry: dto.industry ?? null,
+          isDrugRegistered: dto.is_drug_registered ?? false,
+          drugLicenceType: dto.drug_licence_type ?? null,
+          drugLicence20: dto.drug_licence_20 ?? dto.drug_license_20 ?? null,
+          drugLicence21: dto.drug_licence_21 ?? dto.drug_license_21 ?? null,
+          drugLicence20b: dto.drug_licence_20b ?? dto.drug_license_20b ?? null,
+          drugLicence21b: dto.drug_licence_21b ?? dto.drug_license_21b ?? null,
+          isFssaiRegistered: dto.is_fssai_registered ?? false,
+          fssaiNumber: dto.fssai_number ?? null,
+          isMsmeRegistered: dto.is_msme_registered ?? false,
+          msmeRegistrationType:
+            dto.msme_registration_type ?? dto.msme_type ?? null,
+          msmeNumber: dto.msme_number ?? null,
+          msmeType: dto.msme_type ?? dto.msme_registration_type ?? null,
+          fiscalYear: dto.fiscal_year ?? null,
+          reportBasis: dto.report_basis ?? null,
+          hasSeparatePaymentStubAddress,
+          paymentStubAddress,
+          paymentStubAssemblyId: (assemblyMatch as any)?.id ?? null,
+          logoUrl: dto.logo_url ?? null,
+          subscriptionFrom: dto.subscription_from ?? null,
+          subscriptionTo: dto.subscription_to ?? null,
+          defaultTransactionSeriesId: this.normalizeUuid(
+            dto.default_transaction_series_id,
+          ),
+          isActive: dto.is_active ?? true,
+        })
+        .returning();
 
-    let insertResult = await insertBranch(branchCodeToUse);
-    const firstError = insertResult.error;
-    if (
-      firstError?.message?.includes("settings_branches_org_code_unique") ||
-      firstError?.message?.toLowerCase().includes("duplicate key value")
-    ) {
+    let insertedRows;
+    try {
+      insertedRows = await insertBranch(branchCodeToUse);
+    } catch {
       branchCodeToUse = await this.generateNextBranchCode(
         orgId,
         codeTemplate.prefix,
         codeTemplate.padLength,
       );
-      insertResult = await insertBranch(branchCodeToUse);
+      insertedRows = await insertBranch(branchCodeToUse);
     }
 
-    const { data, error } = insertResult;
-
-    if (error) {
-      await client
-        .from("organisation_branch_master")
-        .delete()
-        .eq("type", "BRANCH")
-        .eq("ref_id", newBranchId);
-      throw new Error(`Failed to create branch: ${error.message}`);
-    }
+    const data = insertedRows[0];
 
     let defaultWarehouseId: string | null = null;
     try {
@@ -1243,10 +1048,6 @@ export class BranchesService {
           accessError,
         );
       }
-    } else if (branchEmail && branchAdminRoleId && !orgEntityId) {
-      console.error(
-        "[Branches] branch admin auto-link skipped: org entity id not resolved",
-      );
     }
 
     if (branchEmail) {
@@ -1256,20 +1057,8 @@ export class BranchesService {
           process.env.APP_LOGIN_URL?.trim() ||
           "https://zerpai--erp.web.app/";
         const defaultPassword = this.generateTemporaryPassword();
-        const branchCode = data.branch_code ?? dto.branch_code ?? "—";
-        const branchSystemId = data.system_id ?? "—";
-        const address = [dto.place, dto.city, dto.state, dto.country]
-          .map((v) => v?.toString().trim())
-          .filter((v) => !!v)
-          .join(", ");
-        const subscriptionWindow = [dto.subscription_from, dto.subscription_to]
-          .map((v) => v?.toString().trim())
-          .filter((v) => !!v)
-          .join(" to ");
-
-        console.log(
-          `[Branches] sending branch creation email -> branch_id=${data.id} email=${this.maskEmail(branchEmail)} from=${process.env.RESEND_FROM_EMAIL?.trim() ?? "missing"} login_url=${loginUrl}`,
-        );
+        const branchCode = data.branchCode ?? dto.branch_code ?? "—";
+        const branchSystemId = data.systemId ?? "—";
 
         await this.resendService.sendEmail({
           to: branchEmail,
@@ -1284,217 +1073,143 @@ export class BranchesService {
                 <p style="margin: 5px 0;"><strong>Branch Code:</strong> ${this.escapeHtml(branchCode)}</p>
                 <p style="margin: 5px 0;"><strong>System ID:</strong> ${this.escapeHtml(branchSystemId)}</p>
                 <p style="margin: 5px 0;"><strong>Email:</strong> ${this.escapeHtml(branchEmail)}</p>
-                <p style="margin: 5px 0;"><strong>Phone:</strong> ${this.escapeHtml(dto.phone ?? "—")}</p>
-                <p style="margin: 5px 0;"><strong>Address:</strong> ${this.escapeHtml(address || "—")}</p>
-                <p style="margin: 5px 0;"><strong>Business Type:</strong> ${this.escapeHtml(dto.branch_type ?? "—")}</p>
-                <p style="margin: 5px 0;"><strong>Industry:</strong> ${this.escapeHtml(dto.industry ?? "—")}</p>
-                <p style="margin: 5px 0;"><strong>Subscription:</strong> ${this.escapeHtml(subscriptionWindow || "—")}</p>
                 <p style="margin: 0;"><strong>Default Password:</strong> <code style="background: #eee; padding: 2px 4px;">${this.escapeHtml(defaultPassword)}</code></p>
               </div>
-              <p><strong>Sign in</strong> to continue:</p>
-              <p style="margin-top: 25px;">
-                <a href="${loginUrl}" style="background-color: #0088FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Click here to Login</a>
-              </p>
-              <p style="margin-top: 30px; font-size: 0.9em; color: #777;">
-                If the button above doesn't work, copy and paste this URL into your browser:<br>
-                <a href="${loginUrl}">${loginUrl}</a>
-              </p>
-              <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
-              <p style="font-size: 0.8em; color: #999;">This is an automated message, please do not reply.</p>
+              <p><a href="${loginUrl}" style="background-color: #0088FF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Click here to Login</a></p>
             </div>
           `,
         });
-
-        console.log(
-          `[Branches] branch creation email sent -> branch_id=${data.id} email=${this.maskEmail(branchEmail)}`,
-        );
       } catch (emailError) {
         console.error(
-          `[Branches] failed to send branch creation email -> branch_id=${data.id} email=${this.maskEmail(branchEmail)}`,
+          `[Branches] failed to send branch creation email -> branch_id=${data.id}`,
           emailError,
         );
       }
     }
 
     try {
-      await this.syncOrganisationBranchMasterRow(data);
+      await this.syncOrganisationBranchMasterRow({
+        id: data.id,
+        org_id: orgId,
+        name: data.name,
+        is_active: data.isActive,
+      });
     } catch (syncMasterError) {
       console.error(
         "[Branches] organisation_branch_master sync failed after branch create:",
         syncMasterError,
       );
     }
-    try {
-      await this.syncTransactionSeries(tenant.entityId, transactionSeriesIds);
-    } catch (syncSeriesError) {
-      console.error(
-        "[Branches] transaction series sync failed after branch create:",
-        syncSeriesError,
-      );
+    if (tenant.entityId) {
+      try {
+        await this.syncTransactionSeries(tenant.entityId, transactionSeriesIds);
+      } catch (syncSeriesError) {
+        console.error(
+          "[Branches] transaction series sync failed after branch create:",
+          syncSeriesError,
+        );
+      }
+      try {
+        await this.syncLocationUsers(tenant.entityId, locationUsers);
+      } catch (syncUsersError) {
+        console.error(
+          "[Branches] location users sync failed after branch create:",
+          syncUsersError,
+        );
+      }
     }
-    try {
-      await this.syncLocationUsers(tenant.entityId, locationUsers);
-    } catch (syncUsersError) {
-      console.error(
-        "[Branches] location users sync failed after branch create:",
-        syncUsersError,
-      );
-    }
+
     return this.findOne(data.id, tenant);
   }
 
   async update(id: string, tenant: TenantContext, dto: any) {
     const orgId = tenant.orgId;
-    const fields = [
-      "name",
-      "branch_code",
-      "branch_type",
-      "email",
-      "phone",
-      "website",
-      "attention",
-      "street",
-      "place",
-      "city",
-      "state",
-      "district_id",
-      "local_body_id",
-      "assembly_id",
-      "ward_id",
-      "pincode",
-      "country",
-      "gstin",
-      "gstin_registration_type",
-      "is_child_location",
-      "parent_branch_id",
-      "primary_contact_id",
-      "gstin_legal_name",
-      "gstin_trade_name",
-      "gstin_registered_on",
-      "gstin_reverse_charge",
-      "gstin_import_export",
-      "gstin_import_export_account_id",
-      "gstin_digital_services",
-      "gst_treatment",
-      "pan",
-      "industry",
-      "is_drug_registered",
-      "drug_licence_type",
-      "drug_licence_20",
-      "drug_licence_21",
-      "drug_licence_20b",
-      "drug_licence_21b",
-      "is_fssai_registered",
-      "fssai_number",
-      "is_msme_registered",
-      "msme_registration_type",
-      "msme_number",
-      "msme_type",
-      "fiscal_year",
-      "report_basis",
-      "has_separate_payment_stub_address",
-      "payment_stub_address",
-      "logo_url",
-      "subscription_from",
-      "subscription_to",
-      "default_transaction_series_id",
-      "is_active",
-    ];
-
-    const payload: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    };
     if (dto.phone) {
       const mobileRegex = /^[0-9]{10}$/;
       if (!mobileRegex.test(dto.phone.toString().trim())) {
         throw new BadRequestException("Phone number must be exactly 10 digits.");
       }
     }
-    for (const field of fields) {
-      if (field in dto) payload[field] = dto[field] ?? null;
-    }
-    if ("branch_type" in payload) {
-      payload.branch_type = this.normalizeBranchType(payload.branch_type);
-    }
-    if ("parent_branch_id" in payload) {
-      payload.parent_branch_id = this.normalizeUuid(payload.parent_branch_id);
-    }
-    if ("primary_contact_id" in payload) {
-      payload.primary_contact_id = this.normalizeUuid(
-        payload.primary_contact_id,
-      );
-    }
-    if ("district_id" in payload) {
-      payload.district_id = this.normalizeUuid(payload.district_id);
-    }
-    if ("local_body_id" in payload) {
-      payload.local_body_id = this.normalizeUuid(payload.local_body_id);
-    }
-    if ("assembly_id" in payload) {
-      payload.assembly_id = this.normalizeUuid(payload.assembly_id);
-    }
-    if ("ward_id" in payload) {
-      payload.ward_id = this.normalizeUuid(payload.ward_id);
-    }
-    if ("gstin_import_export_account_id" in payload) {
-      payload.gstin_import_export_account_id = this.normalizeUuid(
-        payload.gstin_import_export_account_id,
-      );
-    }
-    if ("default_transaction_series_id" in payload) {
-      payload.default_transaction_series_id = this.normalizeUuid(
-        payload.default_transaction_series_id,
-      );
-    }
-    if ("has_separate_payment_stub_address" in payload) {
-      payload.has_separate_payment_stub_address = Boolean(
-        payload.has_separate_payment_stub_address,
-      );
-    }
-    if ("drug_licence_20" in payload && payload.drug_licence_20 === "") {
-      payload.drug_licence_20 = null;
-    }
-    if ("drug_licence_21" in payload && payload.drug_licence_21 === "") {
-      payload.drug_licence_21 = null;
-    }
-    if ("drug_licence_20b" in payload && payload.drug_licence_20b === "") {
-      payload.drug_licence_20b = null;
-    }
-    if ("drug_licence_21b" in payload && payload.drug_licence_21b === "") {
-      payload.drug_licence_21b = null;
-    }
-    if (payload.has_separate_payment_stub_address === false) {
-      payload.payment_stub_assembly_id = null;
-    } else if (typeof payload.payment_stub_address === "string") {
-      const parsedAddress = this.parseJsonObject(payload.payment_stub_address);
-      const assemblyMatch = await this.resolveAssemblyId(
-        parsedAddress?.district_id?.toString(),
-        parsedAddress?.assembly_code?.toString() ??
-          parsedAddress?.assembly_name?.toString(),
-      );
-      payload.payment_stub_assembly_id = assemblyMatch?.id ?? null;
-    }
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("branches")
-      .update(payload)
-      .eq("id", id)
-      .eq("org_id", orgId)
-      .select()
-      .single();
+    const updatePayload: Record<string, any> = { updatedAt: new Date() };
 
-    if (error) throw new Error(`Failed to update branch: ${error.message}`);
-    await this.syncOrganisationBranchMasterRow(data);
+    if ("name" in dto) updatePayload.name = dto.name;
+    if ("branch_code" in dto) updatePayload.branchCode = dto.branch_code;
+    if ("branch_type" in dto) updatePayload.branchType = this.normalizeBranchType(dto.branch_type);
+    if ("email" in dto) updatePayload.email = dto.email;
+    if ("phone" in dto) updatePayload.phone = dto.phone;
+    if ("website" in dto) updatePayload.website = dto.website;
+    if ("attention" in dto) updatePayload.attention = dto.attention;
+    if ("street" in dto) updatePayload.street = dto.street;
+    if ("place" in dto) updatePayload.place = dto.place;
+    if ("city" in dto) updatePayload.city = dto.city;
+    if ("state" in dto) updatePayload.state = dto.state;
+    if ("district_id" in dto) updatePayload.districtId = this.normalizeUuid(dto.district_id);
+    if ("local_body_id" in dto) updatePayload.localBodyId = this.normalizeUuid(dto.local_body_id);
+    if ("assembly_id" in dto) updatePayload.assemblyId = this.normalizeUuid(dto.assembly_id);
+    if ("ward_id" in dto) updatePayload.wardId = this.normalizeUuid(dto.ward_id);
+    if ("pincode" in dto) updatePayload.pincode = dto.pincode;
+    if ("country" in dto) updatePayload.country = dto.country;
+    if ("is_child_location" in dto) updatePayload.isChildLocation = dto.is_child_location;
+    if ("parent_branch_id" in dto) updatePayload.parentBranchId = this.normalizeUuid(dto.parent_branch_id);
+    if ("primary_contact_id" in dto) updatePayload.primaryContactId = this.normalizeUuid(dto.primary_contact_id);
+    if ("gstin" in dto) updatePayload.gstin = dto.gstin;
+    if ("gstin_registration_type" in dto) updatePayload.gstinRegistrationType = dto.gstin_registration_type;
+    if ("gstin_legal_name" in dto) updatePayload.gstinLegalName = dto.gstin_legal_name;
+    if ("gstin_trade_name" in dto) updatePayload.gstinTradeName = dto.gstin_trade_name;
+    if ("gstin_registered_on" in dto) updatePayload.gstinRegisteredOn = dto.gstin_registered_on;
+    if ("gstin_reverse_charge" in dto) updatePayload.gstinReverseCharge = dto.gstin_reverse_charge;
+    if ("gstin_import_export" in dto) updatePayload.gstinImportExport = dto.gstin_import_export;
+    if ("gstin_import_export_account_id" in dto) updatePayload.gstinImportExportAccountId = this.normalizeUuid(dto.gstin_import_export_account_id);
+    if ("gstin_digital_services" in dto) updatePayload.gstinDigitalServices = dto.gstin_digital_services;
+    if ("gst_treatment" in dto) updatePayload.gstTreatment = dto.gst_treatment;
+    if ("pan" in dto) updatePayload.pan = dto.pan;
+    if ("industry" in dto) updatePayload.industry = dto.industry;
+    if ("is_drug_registered" in dto) updatePayload.isDrugRegistered = dto.is_drug_registered;
+    if ("drug_licence_type" in dto) updatePayload.drugLicenceType = dto.drug_licence_type;
+    if ("drug_licence_20" in dto) updatePayload.drugLicence20 = dto.drug_licence_20 || null;
+    if ("drug_licence_21" in dto) updatePayload.drugLicence21 = dto.drug_licence_21 || null;
+    if ("drug_licence_20b" in dto) updatePayload.drugLicence20b = dto.drug_licence_20b || null;
+    if ("drug_licence_21b" in dto) updatePayload.drugLicence21b = dto.drug_licence_21b || null;
+    if ("is_fssai_registered" in dto) updatePayload.isFssaiRegistered = dto.is_fssai_registered;
+    if ("fssai_number" in dto) updatePayload.fssaiNumber = dto.fssai_number;
+    if ("is_msme_registered" in dto) updatePayload.isMsmeRegistered = dto.is_msme_registered;
+    if ("msme_registration_type" in dto) updatePayload.msmeRegistrationType = dto.msme_registration_type;
+    if ("msme_number" in dto) updatePayload.msmeNumber = dto.msme_number;
+    if ("msme_type" in dto) updatePayload.msmeType = dto.msme_type;
+    if ("fiscal_year" in dto) updatePayload.fiscalYear = dto.fiscal_year;
+    if ("report_basis" in dto) updatePayload.reportBasis = dto.report_basis;
+    if ("has_separate_payment_stub_address" in dto) updatePayload.hasSeparatePaymentStubAddress = Boolean(dto.has_separate_payment_stub_address);
+    if ("payment_stub_address" in dto) updatePayload.paymentStubAddress = dto.payment_stub_address;
+    if ("logo_url" in dto) updatePayload.logoUrl = dto.logo_url;
+    if ("subscription_from" in dto) updatePayload.subscriptionFrom = dto.subscription_from;
+    if ("subscription_to" in dto) updatePayload.subscriptionTo = dto.subscription_to;
+    if ("default_transaction_series_id" in dto) updatePayload.defaultTransactionSeriesId = this.normalizeUuid(dto.default_transaction_series_id);
+    if ("is_active" in dto) updatePayload.isActive = dto.is_active;
 
-    if ("transaction_series_ids" in dto) {
+    const [data] = await db
+      .update(settingsBranches)
+      .set(updatePayload)
+      .where(and(eq(settingsBranches.id, id), eq(settingsBranches.orgId, orgId)))
+      .returning();
+
+    if (!data) throw new Error("Branch not found or failed to update");
+
+    await this.syncOrganisationBranchMasterRow({
+      id: data.id,
+      org_id: orgId,
+      name: data.name,
+      is_active: data.isActive,
+    });
+
+    if ("transaction_series_ids" in dto && tenant.entityId) {
       await this.syncTransactionSeries(
         tenant.entityId,
         this.normalizeUuidList(dto.transaction_series_ids),
       );
     }
 
-    if ("location_users" in dto) {
+    if ("location_users" in dto && tenant.entityId) {
       await this.syncLocationUsers(
         tenant.entityId,
         this.normalizeLocationUsers(dto.location_users),
@@ -1505,16 +1220,16 @@ export class BranchesService {
   }
 
   async remove(id: string, tenant: TenantContext) {
-    const { error } = await this.supabaseService
-      .getClient()
-      .from("branches")
-      .delete()
-      .eq("id", id)
-      .eq("org_id", tenant.orgId);
+    await db
+      .delete(settingsBranches)
+      .where(
+        and(
+          eq(settingsBranches.id, id),
+          eq(settingsBranches.orgId, tenant.orgId),
+        ),
+      );
 
-    if (error) throw new Error(`Failed to delete branch: ${error.message}`);
     await this.removeOrganisationBranchMasterRow(id);
     return { success: true };
   }
 }
-

@@ -4,6 +4,7 @@ import { SupabaseService } from "../../supabase/supabase.service";
 import { R2StorageService } from "../../accountant/r2-storage.service";
 import { TenantContext } from "../../../common/middleware/tenant.middleware";
 import { SequencesService } from "../../../sequences/sequences.service";
+import { db, client } from "../../../db/db";
 import {
   CustomerDetailActivityDto,
   CustomerDetailCommentDto,
@@ -23,21 +24,39 @@ export class CustomersService {
 
   private normalizeGstTreatment(val: string | null | undefined): string | null {
     if (!val) return null;
-    const clean = val.trim().toLowerCase().replace(/\s+/g, '_');
-    if (clean === 'registered_business' || clean === 'registered_business_regular' || clean.includes('regular')) {
-      return 'registered_business_regular';
+    const clean = val.trim().toLowerCase().replace(/\s+/g, "_");
+    if (
+      clean === "registered_business" ||
+      clean === "registered_business_regular" ||
+      clean.includes("regular")
+    ) {
+      return "registered_business_regular";
     }
-    if (clean === 'registered_business_composition' || clean.includes('composition')) {
-      return 'registered_business_composition';
+    if (
+      clean === "registered_business_composition" ||
+      clean.includes("composition")
+    ) {
+      return "registered_business_composition";
     }
-    if (clean.includes('unregistered_business') || clean === 'unregistered_business') {
-      return 'unregistered_business';
+    if (
+      clean.includes("unregistered_business") ||
+      clean === "unregistered_business"
+    ) {
+      return "unregistered_business";
     }
-    if (clean === 'overseas' || clean === 'special_economic_zone' || clean === 'deemed_export' || clean === 'deemed_exports' || clean === 'de_emed_exports') {
-      return clean === 'deemed_exports' || clean === 'de_emed_exports' ? 'deemed_export' : clean;
+    if (
+      clean === "overseas" ||
+      clean === "special_economic_zone" ||
+      clean === "deemed_export" ||
+      clean === "deemed_exports" ||
+      clean === "de_emed_exports"
+    ) {
+      return clean === "deemed_exports" || clean === "de_emed_exports"
+        ? "deemed_export"
+        : clean;
     }
-    if (clean === 'consumer') {
-      return 'consumer';
+    if (clean === "consumer") {
+      return "consumer";
     }
     return val;
   }
@@ -50,37 +69,44 @@ export class CustomersService {
   ) {
     const offset = (page - 1) * limit;
 
-    const { data, error, count } = await this.supabaseService
-      .getClient()
-      .from("customers")
-      .select("*", { count: "exact" })
-      .eq("entity_id", tenant.entityId)
-      .range(offset, offset + limit - 1);
+    try {
+      const [data, countRes] = await Promise.all([
+        client.unsafe(
+          `SELECT * FROM customers WHERE entity_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+          [tenant.entityId, limit, offset],
+        ),
+        client.unsafe(
+          `SELECT COUNT(*)::int as count FROM customers WHERE entity_id = $1`,
+          [tenant.entityId],
+        ),
+      ]);
 
-    if (error) {
-      throw new Error(`Failed to fetch customers: ${error.message}`);
+      const totalCount = countRes[0]?.count ?? 0;
+      const mapped = data ? await Promise.all(data.map((c: any) => this.mapCustomer(c))) : [];
+
+      return {
+        data: mapped,
+        total: totalCount,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch customers: ${(error as Error).message}`);
     }
-
-    return {
-      data: data ? await Promise.all(data.map((c) => this.mapCustomer(c))) : [],
-      total: count || 0,
-    };
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("customers")
-      .select("*")
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId)
-      .single();
+    try {
+      const rows = await client.unsafe(
+        `SELECT * FROM customers WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+        [id, tenant.entityId],
+      );
 
-    if (error) {
+      const data = rows[0];
+      if (!data) return null;
+
+      return this.mapCustomer(data);
+    } catch {
       return null;
     }
-
-    return this.mapCustomer(data);
   }
 
   async getDetailContext(
@@ -92,75 +118,58 @@ export class CustomersService {
       return null;
     }
 
-    const client = this.supabaseService.getClient();
     const [
-      salesOrdersResult,
-      salesPaymentsResult,
-      invoicesResult,
-      paymentsReceivedResult,
-      allocationsResult,
-      linkedOrdersResult,
-      auditLogsResult,
+      salesOrders,
+      salesPayments,
+      invoices,
+      paymentsReceived,
+      allocations,
+      linkedOrders,
+      auditLogsRes,
     ] = await Promise.all([
-      client
-        .from("sales_orders")
-        .select(
-          "id, sale_number, reference, sale_date, created_at, status, total, document_type, place_of_supply",
-        )
-        .eq("customer_id", id)
-        .eq("entity_id", tenant.entityId)
-        .order("sale_date", { ascending: false }),
-      client
-        .from("sales_payments")
-        .select(
-          "id, payment_number, payment_date, payment_mode, reference, amount, notes, created_at",
-        )
-        .eq("customer_id", id)
-        .eq("entity_id", tenant.entityId)
-        .order("payment_date", { ascending: false }),
-      client
-        .from("invoice_master")
-        .select(
-          "id, invoice_number, invoice_date, due_date, grand_total, status, place_of_supply, is_delete, created_at",
-        )
-        .eq("customer_id", id)
-        .eq("entity_id", tenant.entityId)
-        .eq("is_delete", false)
-        .order("invoice_date", { ascending: false }),
-      client
-        .from("payments_received")
-        .select(
-          "id, payment_number, payment_date, payment_mode, reference_number, amount_received, amount_used_for_payments, excess_amount, status, place_of_supply, is_delete, created_at",
-        )
-        .eq("customer_id", id)
-        .eq("entity_id", tenant.entityId)
-        .eq("is_delete", false)
-        .order("payment_date", { ascending: false }),
-      client
-        .from("payment_received_allocations")
-        .select("invoice_id, allocated_amount"),
-      client
-        .from("invoice_sales_orders")
-        .select("invoice_id, sales_order_id"),
-      client
-        .from("audit_logs")
-        .select(
-          "id, table_name, record_id, action, actor_name, created_at, changed_columns, new_values, old_values",
-        )
-        .eq("entity_id", tenant.entityId)
-        .in("table_name", ["customers", "sales_orders", "sales_payments", "invoice_master", "payments_received"])
-        .order("created_at", { ascending: false })
-        .limit(200),
+      client.unsafe(
+        `SELECT id, sale_number, reference, sale_date, created_at, status, total, document_type, place_of_supply
+         FROM sales_orders WHERE customer_id = $1 AND entity_id = $2 ORDER BY sale_date DESC`,
+        [id, tenant.entityId],
+      ),
+      client.unsafe(
+        `SELECT id, payment_number, payment_date, payment_mode, reference, amount, notes, created_at
+         FROM sales_payments WHERE customer_id = $1 AND entity_id = $2 ORDER BY payment_date DESC`,
+        [id, tenant.entityId],
+      ),
+      client.unsafe(
+        `SELECT id, invoice_number, invoice_date, due_date, grand_total, status, place_of_supply, is_delete, created_at
+         FROM invoice_master WHERE customer_id = $1 AND entity_id = $2 AND is_delete = false ORDER BY invoice_date DESC`,
+        [id, tenant.entityId],
+      ),
+      client.unsafe(
+        `SELECT id, payment_number, payment_date, payment_mode, reference_number, amount_received, amount_used_for_payments, excess_amount, status, place_of_supply, is_delete, created_at
+         FROM payments_received WHERE customer_id = $1 AND entity_id = $2 AND is_delete = false ORDER BY payment_date DESC`,
+        [id, tenant.entityId],
+      ),
+      client.unsafe(
+        `SELECT invoice_id, allocated_amount FROM payment_received_allocations`,
+      ),
+      client.unsafe(
+        `SELECT invoice_id, sales_order_id FROM invoice_sales_orders`,
+      ),
+      client.unsafe(
+        `SELECT id, table_name, record_id, action, actor_name, created_at, changed_columns, new_values, old_values
+         FROM audit_logs WHERE entity_id = $1 AND table_name = ANY($2) ORDER BY created_at DESC LIMIT 200`,
+        [
+          tenant.entityId,
+          [
+            "customers",
+            "sales_orders",
+            "sales_payments",
+            "invoice_master",
+            "payments_received",
+          ],
+        ],
+      ),
     ]);
 
-    const salesOrders = salesOrdersResult.data ?? [];
-    const salesPayments = salesPaymentsResult.data ?? [];
-    const invoices = invoicesResult.data ?? [];
-    const paymentsReceived = paymentsReceivedResult.data ?? [];
-    const allocations = allocationsResult.data ?? [];
-    const linkedOrders = linkedOrdersResult.data ?? [];
-
-    const auditLogs = (auditLogsResult.data ?? []).filter((log: any) => {
+    const auditLogs = (auditLogsRes ?? []).filter((log: any) => {
       if (log.record_id === id && log.table_name === "customers") {
         return true;
       }
@@ -171,20 +180,20 @@ export class CustomersService {
 
     return {
       transactions: this.buildTransactionGroups(
-        salesOrders,
-        salesPayments,
-        invoices,
-        paymentsReceived,
-        allocations,
-        linkedOrders,
+        salesOrders ?? [],
+        salesPayments ?? [],
+        invoices ?? [],
+        paymentsReceived ?? [],
+        allocations ?? [],
+        linkedOrders ?? [],
       ),
       activities: this.buildActivities(auditLogs),
       comments: this.buildComments(),
       mails: this.buildMails(),
       statementEntries: this.buildStatementEntries(
         customer,
-        salesOrders,
-        salesPayments,
+        salesOrders ?? [],
+        salesPayments ?? [],
       ),
     };
   }
@@ -207,25 +216,30 @@ export class CustomersService {
       },
     );
 
-    const { data: customer, error: customerError } = await this.supabaseService
-      .getClient()
-      .from("customers")
-      .insert(customerData)
-      .select()
-      .single();
+    const keys = Object.keys(customerData);
+    const values = Object.values(customerData);
+    const cols = keys.map((k) => `"${k}"`).join(", ");
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
 
-    if (customerError) {
-      if (customerError.message.includes("customers_customer_number_key")) {
+    let customer: any;
+    try {
+      const rows = await client.unsafe(
+        `INSERT INTO customers (${cols}) VALUES (${placeholders}) RETURNING *`,
+        values,
+      );
+      customer = rows[0];
+    } catch (customerError: any) {
+      if (customerError.message?.includes("customers_customer_number_key")) {
         throw new Error("Customer number already exists");
       }
       throw new Error(`Failed to create customer: ${customerError.message}`);
     }
 
     if (createCustomerDto.billingAddress) {
-      await this.saveAddress(customer.id, tenant, 'billing', createCustomerDto.billingAddress);
+      await this.saveAddress(customer.id, tenant, "billing", createCustomerDto.billingAddress);
     }
     if (createCustomerDto.shippingAddress) {
-      await this.saveAddress(customer.id, tenant, 'shipping', createCustomerDto.shippingAddress);
+      await this.saveAddress(customer.id, tenant, "shipping", createCustomerDto.shippingAddress);
     }
 
     await this.sequencesService.incrementSequence(
@@ -234,94 +248,81 @@ export class CustomersService {
       resolvedCustomerNumber,
     );
 
-    // Insert contact persons if any
     if (
       createCustomerDto.contactPersons &&
       createCustomerDto.contactPersons.length > 0
     ) {
-      const contactsData = createCustomerDto.contactPersons.map(
-        (contact, index) => ({
-          customer_id: customer.id,
-          salutation: contact.salutation,
-          first_name: contact.firstName,
-          last_name: contact.lastName,
-          email: contact.email,
-          work_phone: contact.workPhone,
-          mobile_phone: contact.mobilePhone,
-          display_order: index,
-        }),
-      );
-
-      const { error: contactsError } = await this.supabaseService
-        .getClient()
-        .from("customer_contact_persons")
-        .insert(contactsData);
-
-      if (contactsError) {
-        console.error(
-          `Failed to save contact persons: ${contactsError.message}`,
-        );
-        throw new Error(
-          `Failed to save contact persons: ${contactsError.message}`,
+      for (let index = 0; index < createCustomerDto.contactPersons.length; index++) {
+        const contact = createCustomerDto.contactPersons[index];
+        await client.unsafe(
+          `INSERT INTO customer_contact_persons (customer_id, salutation, first_name, last_name, email, work_phone, mobile_phone, display_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            customer.id,
+            contact.salutation ?? null,
+            contact.firstName ?? null,
+            contact.lastName ?? null,
+            contact.email ?? null,
+            contact.workPhone ?? null,
+            contact.mobilePhone ?? null,
+            index,
+          ],
         );
       }
     }
 
-    // Create or update customer account in accounts table
     try {
-      const customerName = customer.display_name || customer.company_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.customer_number;
-      const customerRemarks = (customer.remarks || createCustomerDto.remarks || '').toString().trim() || null;
-      const customerCurrency = createCustomerDto.currency || createCustomerDto.currencyCode || customer.currency || 'INR';
+      const customerName =
+        customer.display_name ||
+        customer.company_name ||
+        `${customer.first_name || ""} ${customer.last_name || ""}`.trim() ||
+        customer.customer_number;
+      const customerRemarks = (customer.remarks || createCustomerDto.remarks || "")
+        .toString()
+        .trim() || null;
+      const customerCurrency =
+        createCustomerDto.currency ||
+        createCustomerDto.currencyCode ||
+        customer.currency ||
+        "INR";
 
-      const client = this.supabaseService.getClient();
-      const { data: existingAccount } = await client
-        .from("accounts")
-        .select("id")
-        .eq("entity_id", tenant.entityId)
-        .eq("account_type", "Accounts Receivable")
-        .or(`system_account_name.eq.${customerName},user_account_name.eq.${customerName}`)
-        .maybeSingle();
+      const existingAccountRows = await client.unsafe(
+        `SELECT id FROM accounts
+         WHERE entity_id = $1 AND account_type = 'Accounts Receivable'
+         AND (system_account_name = $2 OR user_account_name = $2) LIMIT 1`,
+        [tenant.entityId, customerName],
+      );
 
+      const existingAccount = existingAccountRows[0];
       let accountId = existingAccount?.id;
 
       if (!existingAccount) {
-        const { data: newAcc } = await client
-          .from("accounts")
-          .insert({
-            system_account_name: customerName,
-            user_account_name: customerName,
-            account_type: "Accounts Receivable",
-            account_group: "Assets",
-            account_code: customer.customer_number || null,
-            description: customerRemarks,
-            currency: customerCurrency,
-            is_active: true,
-            is_system: false,
-            is_deletable: true,
-            show_in_zerpai_expense: false,
-            is_deleted: false,
-            entity_id: tenant.entityId,
-            org_id: tenant.orgId || "00000000-0000-0000-0000-000000000000",
-          })
-          .select("id")
-          .single();
-
-        accountId = newAcc?.id;
+        const newAccRows = await client.unsafe(
+          `INSERT INTO accounts (system_account_name, user_account_name, account_type, account_group, account_code, description, currency, is_active, is_system, is_deletable, show_in_zerpai_expense, is_deleted, entity_id, org_id)
+           VALUES ($1, $1, 'Accounts Receivable', 'Assets', $2, $3, $4, true, false, true, false, false, $5, $6)
+           RETURNING id`,
+          [
+            customerName,
+            customer.customer_number || null,
+            customerRemarks,
+            customerCurrency,
+            tenant.entityId,
+            tenant.orgId || "00000000-0000-0000-0000-000000000000",
+          ],
+        );
+        accountId = newAccRows[0]?.id;
       } else {
-        await client
-          .from("accounts")
-          .update({
-            description: customerRemarks,
-            currency: customerCurrency,
-          })
-          .eq("id", existingAccount.id);
+        await client.unsafe(
+          `UPDATE accounts SET description = $1, currency = $2 WHERE id = $3`,
+          [customerRemarks, customerCurrency, existingAccount.id],
+        );
       }
 
       if (accountId) {
-        await client
-          .from("customers")
-          .update({ account_id: accountId })
-          .eq("id", customer.id);
+        await client.unsafe(
+          `UPDATE customers SET account_id = $1 WHERE id = $2`,
+          [accountId, customer.id],
+        );
         customer.account_id = accountId;
       }
     } catch (accErr) {
@@ -349,62 +350,43 @@ export class CustomersService {
       includeCreateDefaults: false,
     });
 
-    // Clean undefined values from payload
     const cleanedPayload = Object.fromEntries(
-      Object.entries(payload).filter(([_, v]) => v !== undefined)
+      Object.entries(payload).filter(([_, v]) => v !== undefined),
     );
 
     let customerData: any = null;
     if (Object.keys(cleanedPayload).length > 0) {
-      const { data, error } = await this.supabaseService
-        .getClient()
-        .from("customers")
-        .update(cleanedPayload)
-        .eq("id", id)
-        .eq("entity_id", tenant.entityId)
-        .select()
-        .single();
+      const keys = Object.keys(cleanedPayload);
+      const setClauses = keys.map((k, i) => `"${k}" = $${i + 1}`).join(", ");
+      const values = Object.values(cleanedPayload);
 
-      if (error) {
-        if (error.message.includes("customers_customer_number_key")) {
+      try {
+        const rows = await client.unsafe(
+          `UPDATE customers SET ${setClauses} WHERE id = $${keys.length + 1} AND entity_id = $${keys.length + 2} RETURNING *`,
+          [...values, id, tenant.entityId],
+        );
+        customerData = rows[0];
+        if (!customerData) return null;
+      } catch (error: any) {
+        if (error.message?.includes("customers_customer_number_key")) {
           throw new Error("Customer number already exists");
-        }
-        if (
-          error.code == "PGRST116" ||
-          error.message.toLowerCase().includes("no rows")
-        ) {
-          return null;
         }
         throw new Error(`Failed to update customer: ${error.message}`);
       }
-      customerData = data;
     } else {
-      // Just fetch the existing customer
-      const { data, error } = await this.supabaseService
-        .getClient()
-        .from("customers")
-        .select()
-        .eq("id", id)
-        .eq("entity_id", tenant.entityId)
-        .single();
-
-      if (error) {
-        if (
-          error.code == "PGRST116" ||
-          error.message.toLowerCase().includes("no rows")
-        ) {
-          return null;
-        }
-        throw new Error(`Failed to fetch customer: ${error.message}`);
-      }
-      customerData = data;
+      const rows = await client.unsafe(
+        `SELECT * FROM customers WHERE id = $1 AND entity_id = $2 LIMIT 1`,
+        [id, tenant.entityId],
+      );
+      customerData = rows[0];
+      if (!customerData) return null;
     }
 
     if (updateCustomerDto.billingAddress) {
-      await this.saveAddress(id, tenant, 'billing', updateCustomerDto.billingAddress);
+      await this.saveAddress(id, tenant, "billing", updateCustomerDto.billingAddress);
     }
     if (updateCustomerDto.shippingAddress) {
-      await this.saveAddress(id, tenant, 'shipping', updateCustomerDto.shippingAddress);
+      await this.saveAddress(id, tenant, "shipping", updateCustomerDto.shippingAddress);
     }
 
     return this.mapCustomer(customerData);
@@ -486,14 +468,14 @@ export class CustomersService {
       record_id: summaryRecordId,
       action: "BULK_UPDATE_REQUEST",
       old_values: null,
-      new_values: {
+      new_values: JSON.stringify({
         requestId,
         requestedCount: customerIds.length,
         changedColumns,
         updateData,
         updatedCount: updated.length,
         failedCount: failed.length,
-      },
+      }),
       user_id: tenant.userId,
       org_id: orgId,
       entity_id: entityId,
@@ -512,12 +494,12 @@ export class CustomersService {
         record_id: row.id,
         action: "BULK_UPDATE_ITEM_SUCCESS",
         old_values: null,
-        new_values: {
+        new_values: JSON.stringify({
           requestId,
           status: "success",
           changedColumns,
           updateData,
-        },
+        }),
         user_id: tenant.userId,
         org_id: orgId,
         entity_id: entityId,
@@ -534,13 +516,13 @@ export class CustomersService {
         record_id: entry.id,
         action: "BULK_UPDATE_ITEM_FAILED",
         old_values: null,
-        new_values: {
+        new_values: JSON.stringify({
           requestId,
           status: "failed",
           reason: entry.reason,
           changedColumns,
           updateData,
-        },
+        }),
         user_id: tenant.userId,
         org_id: orgId,
         entity_id: entityId,
@@ -554,8 +536,29 @@ export class CustomersService {
       })),
     ];
 
-    const client = this.supabaseService.getClient();
-    await client.from("audit_logs").insert([summaryEntry, ...itemEntries]);
+    for (const log of [summaryEntry, ...itemEntries]) {
+      await client.unsafe(
+        `INSERT INTO audit_logs (table_name, record_id, action, old_values, new_values, user_id, org_id, entity_id, actor_name, schema_name, record_pk, changed_columns, source, module_name, request_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        [
+          log.table_name,
+          log.record_id,
+          log.action,
+          log.old_values,
+          log.new_values,
+          log.user_id,
+          log.org_id,
+          log.entity_id,
+          log.actor_name,
+          log.schema_name,
+          log.record_pk,
+          log.changed_columns,
+          log.source,
+          log.module_name,
+          log.request_id,
+        ],
+      );
+    }
   }
 
   private buildCustomerWriteModel(
@@ -568,7 +571,6 @@ export class CustomersService {
     },
   ) {
     const customerData: Record<string, any> = {
-      // Basic Info
       customer_type: dto.customerType,
       customer_number: options.resolvedCustomerNumber,
       salutation: dto.salutation,
@@ -577,7 +579,6 @@ export class CustomersService {
       company_name: dto.companyName,
       display_name: dto.displayName,
 
-      // Contact Info
       email: dto.email,
       phone: dto.phone,
       mobile_phone: dto.mobilePhone,
@@ -587,7 +588,6 @@ export class CustomersService {
       business_type: dto.businessType,
       customer_language: dto.customerLanguage,
 
-      // Individual Customer Fields
       date_of_birth: dto.dateOfBirth,
       age: dto.age,
       gender: dto.gender,
@@ -595,7 +595,6 @@ export class CustomersService {
       privilege_card_number: dto.privilegeCardNumber,
       parent_customer_id: dto.parentCustomerId,
 
-      // Tax & Regulatory
       gst_treatment: this.normalizeGstTreatment(dto.gstTreatment),
       gstin: dto.gstin,
       pan: dto.pan,
@@ -603,7 +602,6 @@ export class CustomersService {
       tax_preference: dto.taxPreference,
       exemption_reason: dto.exemptionReason,
 
-      // License Details
       is_drug_registered: dto.isDrugRegistered,
       is_fssai_registered: dto.isFssaiRegistered,
       is_msme_registered: dto.isMsmeRegistered,
@@ -616,7 +614,6 @@ export class CustomersService {
       msme_registration_type: dto.msmeRegistrationType,
       msme_number: dto.msmeNumber,
 
-      // License Documents
       drug_license_20_doc_url: dto.drugLicense20DocUrl,
       drug_license_21_doc_url: dto.drugLicense21DocUrl,
       drug_license_20b_doc_url: dto.drugLicense20BDocUrl,
@@ -625,7 +622,6 @@ export class CustomersService {
       msme_doc_url: dto.msmeDocUrl,
       document_urls: dto.documentUrls,
 
-      // Financial
       currency_id: options.resolvedCurrencyId,
       opening_balance: dto.openingBalance,
       credit_limit: dto.creditLimit,
@@ -633,14 +629,12 @@ export class CustomersService {
       price_list_id: dto.priceListId,
       receivable_balance: dto.receivableBalance,
 
-      // Social & CRM
       enable_portal: dto.enablePortal,
       facebook_handle: dto.facebookHandle,
       twitter_handle: dto.twitterHandle,
       whatsapp_number: dto.whatsappNumber,
       is_recurring: dto.isRecurring,
 
-      // Metadata
       remarks: dto.remarks,
     };
 
@@ -670,19 +664,15 @@ export class CustomersService {
   }
 
   async remove(id: string, tenant: TenantContext) {
-    // 1. Fetch document fields for R2 cleanup
     const customer = await this.findOne(id, tenant);
     if (!customer) return false;
 
-    const { error } = await this.supabaseService
-      .getClient()
-      .from("customers")
-      .delete()
-      .eq("id", id)
-      .eq("entity_id", tenant.entityId);
+    try {
+      await client.unsafe(
+        `DELETE FROM customers WHERE id = $1 AND entity_id = $2`,
+        [id, tenant.entityId],
+      );
 
-    if (!error) {
-      // 2. Cleanup R2 Files
       const docFields = [
         "drug_license_20_doc_url",
         "drug_license_21_doc_url",
@@ -695,7 +685,6 @@ export class CustomersService {
 
       for (const field of docFields) {
         const key = customer[field];
-        // Only delete if it's a key (not a public URL)
         if (key && typeof key === "string" && !key.startsWith("http")) {
           try {
             await this.r2StorageService.deleteFile(key);
@@ -708,29 +697,30 @@ export class CustomersService {
         }
       }
       return true;
+    } catch {
+      return false;
     }
-
-    return false;
   }
 
   async getStatistics(tenant: TenantContext) {
-    const { data: totalCustomers } = await this.supabaseService
-      .getClient()
-      .from("customers")
-      .select("*", { count: "exact" })
-      .eq("entity_id", tenant.entityId);
+    const [totalRes, activeRes] = await Promise.all([
+      client.unsafe(
+        `SELECT COUNT(*)::int as count FROM customers WHERE entity_id = $1`,
+        [tenant.entityId],
+      ),
+      client.unsafe(
+        `SELECT COUNT(*)::int as count FROM customers WHERE entity_id = $1 AND status = 'active'`,
+        [tenant.entityId],
+      ),
+    ]);
 
-    const { data: activeCustomers } = await this.supabaseService
-      .getClient()
-      .from("customers")
-      .select("*", { count: "exact" })
-      .eq("entity_id", tenant.entityId)
-      .eq("status", "active");
+    const total = totalRes[0]?.count ?? 0;
+    const active = activeRes[0]?.count ?? 0;
 
     return {
-      total: totalCustomers?.length || 0,
-      active: activeCustomers?.length || 0,
-      inactive: (totalCustomers?.length || 0) - (activeCustomers?.length || 0),
+      total,
+      active,
+      inactive: total - active,
     };
   }
 
@@ -761,18 +751,15 @@ export class CustomersService {
       }
     }
 
-    // Fetch addresses from customer_addresses
     try {
-      const client = this.supabaseService.getClient();
-      const { data: addresses, error: addrError } = await client
-        .from("customer_addresses")
-        .select("*")
-        .eq("customer_id", customer.id)
-        .eq("is_active", true);
+      const addresses = await client.unsafe(
+        `SELECT * FROM customer_addresses WHERE customer_id = $1 AND is_active = true`,
+        [customer.id],
+      );
 
-      if (!addrError && addresses) {
-        const billing = addresses.find((a) => a.is_default_billing) ||
-                        addresses.find((a) => a.address_type === "billing");
+      if (addresses) {
+        const billing = addresses.find((a: any) => a.is_default_billing) ||
+                        addresses.find((a: any) => a.address_type === "billing");
         if (billing) {
           customer.billingAddressStreet1 = billing.address_street;
           customer.billingAddressStreet2 = billing.address_place;
@@ -783,8 +770,8 @@ export class CustomersService {
           customer.billingAddressPhone = billing.phone;
         }
 
-        const shipping = addresses.find((a) => a.is_default_shipping) ||
-                         addresses.find((a) => a.address_type === "shipping");
+        const shipping = addresses.find((a: any) => a.is_default_shipping) ||
+                          addresses.find((a: any) => a.address_type === "shipping");
         if (shipping) {
           customer.shippingAddressStreet1 = shipping.address_street;
           customer.shippingAddressStreet2 = shipping.address_place;
@@ -805,55 +792,52 @@ export class CustomersService {
   private async saveAddress(
     customerId: string,
     tenant: TenantContext,
-    addressType: 'billing' | 'shipping',
+    addressType: "billing" | "shipping",
     addressDto: any,
   ) {
     if (!addressDto) return;
 
     try {
-      const client = this.supabaseService.getClient();
+      const existing = await client.unsafe(
+        `SELECT id FROM customer_addresses WHERE customer_id = $1 AND address_type = $2 LIMIT 1`,
+        [customerId, addressType],
+      );
 
-      // Check if address already exists
-      const { data: existing } = await client
-        .from("customer_addresses")
-        .select("id")
-        .eq("customer_id", customerId)
-        .eq("address_type", addressType)
-        .maybeSingle();
-
-      const addressData: any = {
-        entity_id: tenant.entityId,
-        customer_id: customerId,
-        address_type: addressType,
-        address_street: addressDto.street1 ?? addressDto.street,
-        address_place: addressDto.place,
-        city: addressDto.city,
-        state: addressDto.stateId,
-        pincode: addressDto.zip,
-        country_region: addressDto.countryId ?? 'India',
-        phone: addressDto.phone,
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (existing?.id) {
-        const { error: updateError } = await client
-          .from("customer_addresses")
-          .update(addressData)
-          .eq("id", existing.id);
-        if (updateError) {
-          console.error(`Failed to update customer ${addressType} address: ${updateError.message}`);
-        }
+      if (existing[0]?.id) {
+        await client.unsafe(
+          `UPDATE customer_addresses SET
+             address_street = $1, address_place = $2, city = $3, state = $4, pincode = $5, country_region = $6, phone = $7, is_active = true, updated_at = NOW()
+           WHERE id = $8`,
+          [
+            addressDto.street1 ?? addressDto.street,
+            addressDto.place,
+            addressDto.city,
+            addressDto.stateId,
+            addressDto.zip,
+            addressDto.countryId ?? "India",
+            addressDto.phone,
+            existing[0].id,
+          ],
+        );
       } else {
-        addressData.is_default_billing = addressType === 'billing';
-        addressData.is_default_shipping = addressType === 'shipping';
-        addressData.created_at = new Date().toISOString();
-        const { error: insertError } = await client
-          .from("customer_addresses")
-          .insert(addressData);
-        if (insertError) {
-          console.error(`Failed to insert customer ${addressType} address: ${insertError.message}`);
-        }
+        await client.unsafe(
+          `INSERT INTO customer_addresses (entity_id, customer_id, address_type, address_street, address_place, city, state, pincode, country_region, phone, is_active, is_default_billing, is_default_shipping)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11, $12)`,
+          [
+            tenant.entityId,
+            customerId,
+            addressType,
+            addressDto.street1 ?? addressDto.street,
+            addressDto.place,
+            addressDto.city,
+            addressDto.stateId,
+            addressDto.zip,
+            addressDto.countryId ?? "India",
+            addressDto.phone,
+            addressType === "billing",
+            addressType === "shipping",
+          ],
+        );
       }
     } catch (e) {
       console.error(`Error in saveAddress:`, e);
@@ -879,19 +863,15 @@ export class CustomersService {
       return trimmed;
     }
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("currencies")
-      .select("id")
-      .eq("code", trimmed.toUpperCase())
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`Failed to resolve currency: ${error.message}`);
+    try {
+      const rows = await client.unsafe(
+        `SELECT id FROM currencies WHERE UPPER(code) = $1 AND is_active = true LIMIT 1`,
+        [trimmed.toUpperCase()],
+      );
+      return rows[0]?.id ?? null;
+    } catch (error) {
+      throw new Error(`Failed to resolve currency: ${(error as Error).message}`);
     }
-
-    return data?.id ?? null;
   }
 
   private async resolveCustomerNumber(
@@ -914,7 +894,6 @@ export class CustomersService {
     allocations: any[] = [],
     linkedOrders: any[] = [],
   ): CustomerDetailTransactionGroupDto[] {
-    // Build allocation map per invoice_id
     const allocatedByInvoice = new Map<string, number>();
     for (const alloc of allocations) {
       if (alloc.invoice_id) {
@@ -926,7 +905,6 @@ export class CustomersService {
       }
     }
 
-    // Build sales order number map per sales_order_id for linked orders
     const soNumberMap = new Map<string, string>();
     for (const so of salesOrders) {
       if (so.id && so.sale_number) {
@@ -934,7 +912,6 @@ export class CustomersService {
       }
     }
 
-    // Build order number map per invoice_id from linked orders
     const invoiceOrderNumMap = new Map<string, string>();
     for (const link of linkedOrders) {
       if (link.invoice_id && link.sales_order_id) {
@@ -1001,7 +978,6 @@ export class CustomersService {
       }
 
       if (group.key === "payment") {
-        // Prefer payments_received table if populated, fallback to sales_payments
         const sourceList =
           paymentsReceived.length > 0 ? paymentsReceived : salesPayments;
 

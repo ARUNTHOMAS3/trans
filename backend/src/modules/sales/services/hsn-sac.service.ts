@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { db } from "../../../db/db";
+import { db, client } from "../../../db/db";
 import { hsnSacCodes, product } from "../../../db/schema";
 import { ilike, or, and, eq, isNotNull } from "drizzle-orm";
 import { SupabaseService } from "../../supabase/supabase.service";
@@ -10,23 +10,22 @@ export class HsnSacService {
 
   constructor(private readonly supabaseService: SupabaseService) {}
 
-  private async searchHsnSacFromSupabase(query: string, type: "HSN" | "SAC") {
-    const client = this.supabaseService.getClient();
-    const { data, error } = await client
-      .from("hsn_sac_codes")
-      .select("code,description")
-      .eq("type", type)
-      .or(`code.ilike.%${query}%,description.ilike.%${query}%`)
-      .limit(50);
+  private async searchHsnSacFromClient(query: string, type: "HSN" | "SAC") {
+    try {
+      const data = await client.unsafe(
+        `SELECT code, description FROM hsn_sac_codes
+         WHERE type = $1 AND (code ILIKE $2 OR description ILIKE $2)
+         LIMIT 50`,
+        [type, `%${query}%`],
+      );
 
-    if (error) {
-      throw new Error(error.message);
+      return (data ?? []).map((row: any) => ({
+        code: row.code,
+        description: row.description,
+      }));
+    } catch (error) {
+      throw new Error((error as Error).message);
     }
-
-    return (data ?? []).map((row) => ({
-      code: row.code,
-      description: row.description,
-    }));
   }
 
   private async searchHsnFromProducts(query: string) {
@@ -56,34 +55,6 @@ export class HsnSacService {
             {
               code: (row.code ?? "").trim(),
               description: row.description ?? "",
-            },
-          ]),
-      ).values(),
-    ).slice(0, 50);
-  }
-
-  private async searchHsnFromProductsSupabase(query: string) {
-    const client = this.supabaseService.getClient();
-    const { data, error } = await client
-      .from("products")
-      .select("hsn_sac_code,product_name")
-      .not("hsn_sac_code", "is", null)
-      .or(`hsn_sac_code.ilike.%${query}%,product_name.ilike.%${query}%`)
-      .limit(100);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return Array.from(
-      new Map(
-        (data ?? [])
-          .filter((row) => (row.hsn_sac_code ?? "").trim().length > 0)
-          .map((row) => [
-            (row.hsn_sac_code ?? "").trim(),
-            {
-              code: (row.hsn_sac_code ?? "").trim(),
-              description: row.product_name ?? "",
             },
           ]),
       ).values(),
@@ -148,74 +119,23 @@ export class HsnSacService {
           : JSON.stringify(error);
 
       this.logger.error(`Error searching ${type} via Drizzle: ${errorMessage}`);
-      this.logger.error(
-        `[HSN_DEBUG] phase=master_error type=${type} query="${query}" error="${errorMessage}"`,
-      );
 
       try {
-        const masterFallback = await this.searchHsnSacFromSupabase(query, type);
-        this.logger.warn(
-          `[HSN_DEBUG] phase=supabase_master_fallback type=${type} query="${query}" fallback_count=${masterFallback.length}`,
-        );
+        const masterFallback = await this.searchHsnSacFromClient(query, type);
         if (masterFallback.length > 0) {
           return masterFallback;
         }
-      } catch (supabaseError: unknown) {
-        const supabaseErrorMessage =
-          supabaseError instanceof Error
-            ? supabaseError.message
-            : typeof supabaseError === "string"
-            ? supabaseError
-            : JSON.stringify(supabaseError);
-
+      } catch (clientError: unknown) {
         this.logger.error(
-          `[HSN_DEBUG] phase=supabase_master_fallback_error type=${type} query="${query}" error="${supabaseErrorMessage}"`,
+          `Fallback search error: ${clientError instanceof Error ? clientError.message : String(clientError)}`,
         );
       }
 
       if (type === "HSN") {
         try {
-          const deduped = await this.searchHsnFromProducts(query);
-          this.logger.warn(
-            `Recovered HSN search via product fallback after master error; results=${deduped.length}`,
-          );
-          this.logger.warn(
-            `[HSN_DEBUG] phase=fallback_after_error type=${type} query="${query}" fallback_count=${deduped.length}`,
-          );
-          return deduped;
-        } catch (fallbackError: unknown) {
-          try {
-            const supabaseDeduped = await this.searchHsnFromProductsSupabase(query);
-            this.logger.warn(
-              `[HSN_DEBUG] phase=supabase_product_fallback type=${type} query="${query}" fallback_count=${supabaseDeduped.length}`,
-            );
-            return supabaseDeduped;
-          } catch (supabaseFallbackError: unknown) {
-            const supabaseFallbackErrorMessage =
-              supabaseFallbackError instanceof Error
-                ? supabaseFallbackError.message
-                : typeof supabaseFallbackError === "string"
-                ? supabaseFallbackError
-                : JSON.stringify(supabaseFallbackError);
-
-            this.logger.error(
-              `[HSN_DEBUG] phase=supabase_product_fallback_error type=${type} query="${query}" error="${supabaseFallbackErrorMessage}"`,
-            );
-          }
-
-          const fallbackErrorMessage =
-            fallbackError instanceof Error
-              ? fallbackError.message
-              : typeof fallbackError === "string"
-              ? fallbackError
-              : JSON.stringify(fallbackError);
-
-          this.logger.error(
-            `HSN product fallback also failed: ${fallbackErrorMessage}`,
-          );
-          this.logger.error(
-            `[HSN_DEBUG] phase=fallback_error type=${type} query="${query}" error="${fallbackErrorMessage}"`,
-          );
+          return await this.searchHsnFromProducts(query);
+        } catch {
+          // ignore
         }
       }
 

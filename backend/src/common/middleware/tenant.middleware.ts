@@ -7,6 +7,9 @@ import {
 import { Request, Response, NextFunction } from "express";
 import { AuthService } from "../auth/auth.service";
 import { SupabaseService } from "../../modules/supabase/supabase.service";
+import { db } from "../../db/db";
+import { warehouses, organisationBranchMaster } from "../../db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 
 export interface TenantContext {
   userId: string;
@@ -210,19 +213,25 @@ export class TenantMiddleware implements NestMiddleware {
       return [];
     }
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("warehouses")
-      .select("id, source_branch_id")
-      .in("id", warehouseIds);
+    try {
+      const data = await db
+        .select({
+          id: warehouses.id,
+          sourceBranchId: warehouses.sourceBranchId,
+        })
+        .from(warehouses)
+        .where(inArray(warehouses.id, warehouseIds));
 
-    if (error || !Array.isArray(data) || data.length === 0) {
+      if (!Array.isArray(data) || data.length === 0) {
+        return [];
+      }
+
+      return data
+        .map((row) => row?.sourceBranchId?.toString().trim() ?? "")
+        .filter((value: string) => value.length > 0);
+    } catch {
       return [];
     }
-
-    return data
-      .map((row: any) => row?.source_branch_id?.toString().trim() ?? "")
-      .filter((value: string) => value.length > 0);
   }
 
   private readSelectedTenantId(req: Request): string | null {
@@ -307,17 +316,23 @@ export class TenantMiddleware implements NestMiddleware {
 
     // If x-entity-id is provided, validate against tenant scope
     if (requestedEntityId) {
-      const { data } = await this.supabaseService
-        .getClient()
-        .from("organisation_branch_master")
-        .select("id, type, ref_id, parent_id")
-        .eq("id", requestedEntityId)
-        .maybeSingle();
+      const rows = await db
+        .select({
+          id: organisationBranchMaster.id,
+          type: organisationBranchMaster.type,
+          refId: organisationBranchMaster.refId,
+          parentId: organisationBranchMaster.parentId,
+        })
+        .from(organisationBranchMaster)
+        .where(eq(organisationBranchMaster.id, requestedEntityId))
+        .limit(1);
+
+      const data = rows[0];
 
       if (data) {
         const type = data.type?.toString().trim().toUpperCase();
-        const refId = data.ref_id?.toString().trim() ?? "";
-        const parentId = data.parent_id?.toString().trim() ?? "";
+        const refId = data.refId?.toString().trim() ?? "";
+        const parentId = data.parentId?.toString().trim() ?? "";
 
         if (context.role !== "admin") {
           if (type === "ORG") {
@@ -347,15 +362,20 @@ export class TenantMiddleware implements NestMiddleware {
         if (type === "BRANCH") {
           context.branchId = refId || context.branchId;
           if (parentId) {
-            const { data: parent } = await this.supabaseService
-              .getClient()
-              .from("organisation_branch_master")
-              .select("ref_id")
-              .eq("id", parentId)
-              .eq("type", "ORG")
-              .maybeSingle();
-            if (parent?.ref_id) {
-              context.orgId = parent.ref_id.toString();
+            const parentRows = await db
+              .select({ refId: organisationBranchMaster.refId })
+              .from(organisationBranchMaster)
+              .where(
+                and(
+                  eq(organisationBranchMaster.id, parentId),
+                  eq(organisationBranchMaster.type, "ORG"),
+                ),
+              )
+              .limit(1);
+
+            const parent = parentRows[0];
+            if (parent?.refId) {
+              context.orgId = parent.refId.toString();
             }
           }
         } else if (type === "ORG") {
@@ -369,25 +389,33 @@ export class TenantMiddleware implements NestMiddleware {
     if (!context.entityId) {
       try {
         if (context.branchId) {
-          const { data } = await this.supabaseService
-            .getClient()
-            .from("organisation_branch_master")
-            .select("id")
-            .eq("ref_id", context.branchId)
-            .eq("type", "BRANCH")
-            .maybeSingle();
-          if (data?.id) context.entityId = data.id;
+          const rows = await db
+            .select({ id: organisationBranchMaster.id })
+            .from(organisationBranchMaster)
+            .where(
+              and(
+                eq(organisationBranchMaster.refId, context.branchId),
+                eq(organisationBranchMaster.type, "BRANCH"),
+              ),
+            )
+            .limit(1);
+
+          if (rows[0]?.id) context.entityId = rows[0].id;
         }
 
         if (!context.entityId && context.orgId) {
-          const { data } = await this.supabaseService
-            .getClient()
-            .from("organisation_branch_master")
-            .select("id")
-            .eq("ref_id", context.orgId)
-            .eq("type", "ORG")
-            .maybeSingle();
-          if (data?.id) context.entityId = data.id;
+          const rows = await db
+            .select({ id: organisationBranchMaster.id })
+            .from(organisationBranchMaster)
+            .where(
+              and(
+                eq(organisationBranchMaster.refId, context.orgId),
+                eq(organisationBranchMaster.type, "ORG"),
+              ),
+            )
+            .limit(1);
+
+          if (rows[0]?.id) context.entityId = rows[0].id;
         }
       } catch (err) {
         // Ignore — entityId stays null, service layer will throw a clear error

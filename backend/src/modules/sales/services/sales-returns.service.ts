@@ -3,6 +3,7 @@ import { TenantContext } from "../../../common/middleware/tenant.middleware";
 import { SupabaseService } from "../../supabase/supabase.service";
 import { CreateSalesReturnDto } from "../dto/create-sales-return.dto";
 import { SequencesService } from "../../../sequences/sequences.service";
+import { client } from "../../../db/db";
 
 @Injectable()
 export class SalesReturnsService {
@@ -39,7 +40,6 @@ export class SalesReturnsService {
   ): Promise<Array<T & { customer: any | null }>> {
     if (!rows.length) return [];
 
-    const client = this.supabaseService.getClient();
     const customerIds = Array.from(
       new Set(
         rows
@@ -52,17 +52,13 @@ export class SalesReturnsService {
       return rows.map((row) => ({ ...row, customer: null }));
     }
 
-    const { data: customers, error } = await client
-      .from("customers")
-      .select("id, display_name, first_name, last_name, company_name")
-      .in("id", customerIds);
+    const customers = await client.unsafe(
+      `SELECT id, display_name, first_name, last_name, company_name FROM customers WHERE id = ANY($1)`,
+      [customerIds],
+    );
 
-    if (error) {
-      throw new Error(`Failed to fetch related customers: ${error.message}`);
-    }
-
-    const customerMap = new Map(
-      (customers ?? []).map((customer: any) => [customer.id, customer]),
+    const customerMap = new Map<string, any>(
+      (customers ?? []).map((customer: any) => [customer.id, customer] as [string, any]),
     );
 
     return rows.map((row) => ({
@@ -72,7 +68,6 @@ export class SalesReturnsService {
   }
 
   async create(tenant: TenantContext, dto: CreateSalesReturnDto) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
 
     const nowIso = new Date().toISOString();
@@ -89,47 +84,48 @@ export class SalesReturnsService {
         )
       ).trim();
 
-      const headerPayload = {
-        entity_id: entityId,
-        customer_id: dto.customer_id,
-        rma_number: resolvedRmaNumber,
-        return_date: dto.return_date,
-        warehouse_id: dto.warehouse_id,
-        reason: dto.reason ?? null,
-        reference_number: dto.reference_number ?? null,
-        contains_credit_only_goods: dto.contains_credit_only_goods ?? false,
-        status,
-        notes: dto.notes ?? null,
-        created_by: tenant.userId || null,
-        created_at: nowIso,
-        updated_at: nowIso,
-      };
-
-      const { data: createdHeader, error: headerError } = await client
-        .from("sales_returns")
-        .insert([headerPayload])
-        .select("*")
-        .single();
-
-      if (!headerError && createdHeader) {
-        header = createdHeader;
-        break;
-      }
-
-      lastCreateError = headerError;
-
-      if (this.isDuplicateRmaError(headerError)) {
-        await this.sequencesService.incrementSequence(
-          SalesReturnsService.RMA_SEQUENCE_MODULE,
-          tenant,
-          resolvedRmaNumber,
+      try {
+        const rows = await client.unsafe(
+          `INSERT INTO sales_returns (entity_id, customer_id, rma_number, return_date, warehouse_id, reason, reference_number, contains_credit_only_goods, status, notes, created_by, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+           RETURNING *`,
+          [
+            entityId,
+            dto.customer_id,
+            resolvedRmaNumber,
+            dto.return_date,
+            dto.warehouse_id,
+            dto.reason ?? null,
+            dto.reference_number ?? null,
+            dto.contains_credit_only_goods ?? false,
+            status,
+            dto.notes ?? null,
+            tenant.userId || null,
+            nowIso,
+            nowIso,
+          ],
         );
-        continue;
-      }
 
-      throw new Error(
-        `Failed to create sales return: ${(headerError as any)?.message ?? "Unknown error"}`,
-      );
+        if (rows[0]) {
+          header = rows[0];
+          break;
+        }
+      } catch (err) {
+        lastCreateError = err;
+
+        if (this.isDuplicateRmaError(err)) {
+          await this.sequencesService.incrementSequence(
+            SalesReturnsService.RMA_SEQUENCE_MODULE,
+            tenant,
+            resolvedRmaNumber,
+          );
+          continue;
+        }
+
+        throw new Error(
+          `Failed to create sales return: ${(err as any)?.message ?? "Unknown error"}`,
+        );
+      }
     }
 
     if (!header) {
@@ -155,14 +151,30 @@ export class SalesReturnsService {
     }));
 
     if (rows.length > 0) {
-      const { error: itemsError } = await client
-        .from("sales_return_items")
-        .insert(rows);
-
-      if (itemsError) {
-        await client.from("sales_returns").delete().eq("id", header.id);
+      try {
+        for (const item of rows) {
+          await client.unsafe(
+            `INSERT INTO sales_return_items (sales_return_id, product_id, sales_invoice_item_id, invoiced_qty, already_returned_qty, return_qty, receivable_qty, credit_only_qty, remarks, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            [
+              item.sales_return_id,
+              item.product_id,
+              item.sales_invoice_item_id,
+              item.invoiced_qty,
+              item.already_returned_qty,
+              item.return_qty,
+              item.receivable_qty,
+              item.credit_only_qty,
+              item.remarks,
+              item.created_at,
+              item.updated_at,
+            ],
+          );
+        }
+      } catch (itemsError) {
+        await client.unsafe(`DELETE FROM sales_returns WHERE id = $1`, [header.id]);
         throw new Error(
-          `Failed to create sales return items: ${itemsError.message}`,
+          `Failed to create sales return items: ${(itemsError as any).message}`,
         );
       }
     }
@@ -173,9 +185,6 @@ export class SalesReturnsService {
       resolvedRmaNumber,
     );
 
-    // Avoid a second strict-tenant read immediately after insert, which can
-    // intermittently return not found in some environments and surface as 404
-    // for otherwise successful create calls.
     return {
       ...header,
       items: rows,
@@ -189,102 +198,103 @@ export class SalesReturnsService {
     search?: string,
     status?: string,
   ) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
     const offset = (page - 1) * limit;
 
-    let query = client
-      .from("sales_returns")
-      .select(
-        "*, items:sales_return_items(return_qty, receivable_qty, credit_only_qty)",
-        { count: "exact" },
-      )
-      .eq("entity_id", entityId)
-      .range(offset, offset + limit - 1)
-      .order("created_at", { ascending: false });
+    let sqlQuery = `SELECT * FROM sales_returns WHERE entity_id = $1`;
+    let countQuery = `SELECT COUNT(*)::int as count FROM sales_returns WHERE entity_id = $1`;
+    const params: any[] = [entityId];
 
     if (search?.trim()) {
-      const q = search.trim();
-      query = query.or(
-        `rma_number.ilike.%${q}%,reference_number.ilike.%${q}%,reason.ilike.%${q}%`,
-      );
+      params.push(`%${search.trim()}%`);
+      const searchIdx = params.length;
+      sqlQuery += ` AND (rma_number ILIKE $${searchIdx} OR reference_number ILIKE $${searchIdx} OR reason ILIKE $${searchIdx})`;
+      countQuery += ` AND (rma_number ILIKE $${searchIdx} OR reference_number ILIKE $${searchIdx} OR reason ILIKE $${searchIdx})`;
     }
 
     if (status?.trim()) {
-      query = query.eq("status", status.trim().toLowerCase());
+      params.push(status.trim().toLowerCase());
+      const statusIdx = params.length;
+      sqlQuery += ` AND status = $${statusIdx}`;
+      countQuery += ` AND status = $${statusIdx}`;
     }
 
-    const { data, error, count } = await query;
+    sqlQuery += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
 
-    if (error) {
-      throw new Error(`Failed to fetch sales returns: ${error.message}`);
-    }
+    const [data, countRes] = await Promise.all([
+      client.unsafe(sqlQuery, [...params, limit, offset]),
+      client.unsafe(countQuery, params),
+    ]);
 
-    const rowsWithCustomers = await this.attachCustomers(data ?? []);
+    const totalCount = countRes[0]?.count ?? 0;
+    const rowsWithCustomers = await this.attachCustomers((data as any[]) ?? []);
 
     return {
       data: rowsWithCustomers,
       meta: {
-        total: count ?? 0,
+        total: totalCount,
         page,
         limit,
-        totalPages: Math.ceil((count ?? 0) / limit),
+        totalPages: Math.ceil(totalCount / limit),
       },
     };
   }
 
   async findOne(id: string, tenant: TenantContext) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
 
-    const { data, error } = await client
-      .from("sales_returns")
-      .select(
-        `
-        *,
-        items:sales_return_items(
-          *,
-          product:products(id, product_name, item_code)
-        )
-      `,
-      )
-      .eq("id", id)
-      // Keep tenant scoping, but allow legacy rows where entity_id is null.
-      .or(`entity_id.eq.${entityId},entity_id.is.null`)
-      .single();
+    const rows = await client.unsafe(
+      `SELECT * FROM sales_returns WHERE id = $1 AND (entity_id = $2 OR entity_id IS NULL) LIMIT 1`,
+      [id, entityId],
+    );
 
-    if (error || !data) {
+    const data = rows[0];
+    if (!data) {
       throw new NotFoundException(`Sales return ${id} not found`);
     }
 
-    const [rowWithCustomer] = await this.attachCustomers([data]);
+    const items = await client.unsafe(
+      `SELECT sri.*, p.product_name, p.item_code
+       FROM sales_return_items sri
+       LEFT JOIN products p ON p.id = sri.product_id
+       WHERE sri.sales_return_id = $1`,
+      [id],
+    );
+
+    data.items = (items ?? []).map((item: any) => ({
+      ...item,
+      product: item.product_id
+        ? {
+            id: item.product_id,
+            product_name: item.product_name,
+            item_code: item.item_code,
+          }
+        : null,
+    }));
+
+    const [rowWithCustomer] = await this.attachCustomers([data as any]);
     return rowWithCustomer ?? data;
   }
 
   async updateStatus(id: string, tenant: TenantContext, status: string) {
-    const client = this.supabaseService.getClient();
     const entityId = this.ensureEntityId(tenant);
     const normalizedStatus = status.trim().toLowerCase();
 
-    const updatePayload: Record<string, unknown> = {
-      status: normalizedStatus,
-      updated_at: new Date().toISOString(),
-    };
+    let sqlQuery = `UPDATE sales_returns SET status = $1, updated_at = NOW()`;
+    const params: any[] = [normalizedStatus];
 
     if (normalizedStatus === "approved") {
-      updatePayload.approved_by = tenant.userId || null;
-      updatePayload.approved_at = new Date().toISOString();
+      params.push(tenant.userId || null);
+      sqlQuery += `, approved_by = $2, approved_at = NOW()`;
     }
 
-    const { data, error } = await client
-      .from("sales_returns")
-      .update(updatePayload)
-      .eq("id", id)
-      .eq("entity_id", entityId)
-      .select("*")
-      .single();
+    params.push(id, entityId);
+    sqlQuery += ` WHERE id = $${params.length - 1} AND entity_id = $${params.length} RETURNING *`;
 
-    if (error || !data) {
+    const rows = await client.unsafe(sqlQuery, params);
+    const data = rows[0];
+
+    if (!data) {
       throw new NotFoundException(`Sales return ${id} not found`);
     }
 

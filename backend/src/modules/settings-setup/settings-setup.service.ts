@@ -1,189 +1,269 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
+import { db, client } from "../../db/db";
+import { defaultPaymentTerms, currency } from "../../db/schema";
+import { eq } from "drizzle-orm";
 
 @Injectable()
 export class SettingsSetupService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
   async getPaymentTerms(tenant: TenantContext) {
-    const client = this.supabaseService.getClient();
-    const [{ data: terms, error: termsError }, { data: defaultTerm }] =
-      await Promise.all([
-        client
-          .from("payment_terms")
-          .select("id, term_name, number_of_days, description, is_active, created_at")
-          .order("term_name", { ascending: true }),
-        client
-          .from("default_payment_terms")
-          .select("payment_terms_id")
-          .eq("entity_id", tenant.entityId)
-          .maybeSingle(),
+    try {
+      const [terms, defaultTerms] = await Promise.all([
+        client.unsafe(
+          `SELECT id, term_name, number_of_days, description, is_active, created_at FROM payment_terms ORDER BY term_name ASC`,
+        ),
+        tenant.entityId
+          ? db
+              .select({ paymentTermsId: defaultPaymentTerms.paymentTermsId })
+              .from(defaultPaymentTerms)
+              .where(eq(defaultPaymentTerms.entityId, tenant.entityId))
+              .limit(1)
+          : Promise.resolve([]),
       ]);
 
-    if (termsError) throw termsError;
-
-    const defaultId = defaultTerm?.payment_terms_id ?? null;
-    return (terms ?? []).map((term) => ({
-      ...term,
-      is_default: term.id === defaultId,
-    }));
+      const defaultId = defaultTerms[0]?.paymentTermsId ?? null;
+      return (terms ?? []).map((term: any) => ({
+        ...term,
+        is_default: term.id === defaultId,
+      }));
+    } catch (error) {
+      throw error;
+    }
   }
 
   async createPaymentTerm(body: any, tenant: TenantContext) {
     const payload = this.paymentTermPayload(body);
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("payment_terms")
-      .insert(payload)
-      .select("id, term_name, number_of_days, description, is_active, created_at")
-      .single();
+    try {
+      const rows = await client.unsafe(
+        `INSERT INTO payment_terms (term_name, number_of_days, description, is_active)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, term_name, number_of_days, description, is_active, created_at`,
+        [
+          payload.term_name,
+          payload.number_of_days ?? 0,
+          payload.description ?? null,
+          payload.is_active ?? true,
+        ],
+      );
 
-    if (error) throw error;
+      const data = rows[0];
+      if (body?.is_default === true && data?.id) {
+        await this.setDefaultPaymentTerm(data.id, tenant);
+      }
 
-    if (body?.is_default === true) {
-      await this.setDefaultPaymentTerm(data.id, tenant);
+      return data;
+    } catch (error) {
+      throw error;
     }
-
-    return data;
   }
 
   async updatePaymentTerm(id: string, body: any) {
     const payload = this.paymentTermPayload(body, false);
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("payment_terms")
-      .update(payload)
-      .eq("id", id)
-      .select("id, term_name, number_of_days, description, is_active, created_at")
-      .maybeSingle();
+    try {
+      const rows = await client.unsafe(
+        `UPDATE payment_terms SET
+           term_name = COALESCE($1, term_name),
+           number_of_days = COALESCE($2, number_of_days),
+           description = COALESCE($3, description),
+           is_active = COALESCE($4, is_active)
+         WHERE id = $5
+         RETURNING id, term_name, number_of_days, description, is_active, created_at`,
+        [
+          payload.term_name ?? null,
+          payload.number_of_days ?? null,
+          payload.description ?? null,
+          payload.is_active ?? null,
+          id,
+        ],
+      );
 
-    if (error) throw error;
-    if (!data) throw new NotFoundException("Payment term not found");
-    return data;
+      const data = rows[0];
+      if (!data) throw new NotFoundException("Payment term not found");
+      return data;
+    } catch (error) {
+      throw error;
+    }
   }
 
   async deactivatePaymentTerm(id: string) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("payment_terms")
-      .update({ is_active: false })
-      .eq("id", id)
-      .select("id, term_name, number_of_days, description, is_active, created_at")
-      .maybeSingle();
+    try {
+      const rows = await client.unsafe(
+        `UPDATE payment_terms SET is_active = false WHERE id = $1 RETURNING id, term_name, number_of_days, description, is_active, created_at`,
+        [id],
+      );
 
-    if (error) throw error;
-    if (!data) throw new NotFoundException("Payment term not found");
-    return data;
+      const data = rows[0];
+      if (!data) throw new NotFoundException("Payment term not found");
+      return data;
+    } catch (error) {
+      throw error;
+    }
   }
 
   async setDefaultPaymentTerm(id: string, tenant: TenantContext) {
-    const { data: term, error: termError } = await this.supabaseService
-      .getClient()
-      .from("payment_terms")
-      .select("id")
-      .eq("id", id)
-      .maybeSingle();
+    if (!tenant.entityId) throw new BadRequestException("Entity context required");
 
-    if (termError) throw termError;
-    if (!term) throw new NotFoundException("Payment term not found");
+    try {
+      const terms = await client.unsafe(
+        `SELECT id FROM payment_terms WHERE id = $1 LIMIT 1`,
+        [id],
+      );
+      if (!terms[0]) throw new NotFoundException("Payment term not found");
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("default_payment_terms")
-      .upsert(
-        { entity_id: tenant.entityId, payment_terms_id: id },
-        { onConflict: "entity_id" },
-      )
-      .select()
-      .single();
+      const [data] = await db
+        .insert(defaultPaymentTerms)
+        .values({
+          entityId: tenant.entityId,
+          paymentTermsId: id,
+        })
+        .onConflictDoUpdate({
+          target: defaultPaymentTerms.entityId,
+          set: {
+            paymentTermsId: id,
+          },
+        })
+        .returning();
 
-    if (error) throw error;
-    return data;
+      return {
+        id: data.id,
+        entity_id: data.entityId,
+        payment_terms_id: data.paymentTermsId,
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
   async getCurrencies() {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("currencies")
-      .select("id, code, name, symbol, decimals, format, is_active, created_at")
-      .order("code", { ascending: true });
+    try {
+      const rows = await db
+        .select({
+          id: currency.id,
+          code: currency.code,
+          name: currency.name,
+          symbol: currency.symbol,
+          decimals: currency.decimals,
+          format: currency.format,
+          is_active: currency.isActive,
+          created_at: currency.createdAt,
+        })
+        .from(currency)
+        .where(eq(currency.isActive, true));
 
-    if (error) throw error;
-    return data ?? [];
+      return rows ?? [];
+    } catch (error) {
+      throw error;
+    }
   }
 
   async createCurrency(body: any) {
     const payload = this.currencyPayload(body);
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("currencies")
-      .insert(payload)
-      .select("id, code, name, symbol, decimals, format, is_active, created_at")
-      .single();
+    try {
+      const [data] = await db
+        .insert(currency)
+        .values({
+          code: payload.code as string,
+          name: payload.name as string,
+          symbol: payload.symbol as string ?? "",
+          decimals: payload.decimals as number ?? 2,
+          format: payload.format as string ?? null,
+          isActive: payload.is_active as boolean ?? true,
+        })
+        .returning();
 
-    if (error) throw error;
-    return data;
+      return {
+        id: data.id,
+        code: data.code,
+        name: data.name,
+        symbol: data.symbol,
+        decimals: data.decimals,
+        format: data.format,
+        is_active: data.isActive,
+        created_at: data.createdAt,
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
   async updateCurrency(id: string, body: any) {
     const payload = this.currencyPayload(body, false);
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("currencies")
-      .update(payload)
-      .eq("id", id)
-      .select("id, code, name, symbol, decimals, format, is_active, created_at")
-      .maybeSingle();
+    try {
+      const updateData: Record<string, any> = {};
+      if (payload.code !== undefined) updateData.code = payload.code;
+      if (payload.name !== undefined) updateData.name = payload.name;
+      if (payload.symbol !== undefined) updateData.symbol = payload.symbol;
+      if (payload.decimals !== undefined) updateData.decimals = payload.decimals;
+      if (payload.format !== undefined) updateData.format = payload.format;
+      if (payload.is_active !== undefined) updateData.isActive = payload.is_active;
 
-    if (error) throw error;
-    if (!data) throw new NotFoundException("Currency not found");
-    return data;
+      const [data] = await db
+        .update(currency)
+        .set(updateData)
+        .where(eq(currency.id, id))
+        .returning();
+
+      if (!data) throw new NotFoundException("Currency not found");
+      return {
+        id: data.id,
+        code: data.code,
+        name: data.name,
+        symbol: data.symbol,
+        decimals: data.decimals,
+        format: data.format,
+        is_active: data.isActive,
+        created_at: data.createdAt,
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
   async getDateFormats() {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("date_format")
-      .select("id, code, format_pattern, group_name, label, sort_order")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
-
-    if (error) throw error;
-    return data ?? [];
+    try {
+      const data = await client.unsafe(
+        `SELECT id, code, format_pattern, group_name, label, sort_order FROM date_format WHERE is_active = true ORDER BY sort_order ASC`,
+      );
+      return data ?? [];
+    } catch (error) {
+      throw error;
+    }
   }
 
   async getDateSeparators() {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("date_separator")
-      .select("id, code, separator, label, sort_order")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
-
-    if (error) throw error;
-    return data ?? [];
+    try {
+      const data = await client.unsafe(
+        `SELECT id, code, separator, label, sort_order FROM date_separator WHERE is_active = true ORDER BY sort_order ASC`,
+      );
+      return data ?? [];
+    } catch (error) {
+      throw error;
+    }
   }
 
   async getFiscalYears(tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("fiscal_years")
-      .select("id, name, start_date, end_date, is_active, entity_id")
-      .eq("entity_id", tenant.entityId)
-      .order("start_date", { ascending: false });
-
-    if (error) throw error;
-    return data ?? [];
+    if (!tenant.entityId) return [];
+    try {
+      const data = await client.unsafe(
+        `SELECT id, name, start_date, end_date, is_active, entity_id FROM fiscal_years WHERE entity_id = $1 ORDER BY start_date DESC`,
+        [tenant.entityId],
+      );
+      return data ?? [];
+    } catch (error) {
+      throw error;
+    }
   }
 
-  private paymentTermPayload(body: any, requireName = true) {
+  private paymentTermPayload(body: any, requireName = true): Record<string, any> {
     const name = body?.term_name ?? body?.name;
     if (requireName && (!name || String(name).trim().length === 0)) {
       throw new BadRequestException("Payment term name is required");
     }
 
-    const payload: Record<string, unknown> = {};
+    const payload: Record<string, any> = {};
     if (name !== undefined) payload.term_name = String(name).trim();
     if (body?.number_of_days !== undefined || body?.days !== undefined) {
       const days = Number(body.number_of_days ?? body.days);

@@ -3,12 +3,14 @@ import { SupabaseService } from "../supabase/supabase.service";
 import { Tenant } from "../../common/decorators/tenant.decorator";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
 import { listVisibleAccounts } from "../../common/account-visibility.util";
+import { db, client } from "../../db/db";
+import { defaultPaymentTerms } from "../../db/schema";
+import { eq } from "drizzle-orm";
 
 @Controller("products/lookups")
 export class LookupsController {
   constructor(private readonly supabaseService: SupabaseService) {}
 
-  // Tables that are entity-scoped (have entity_id column)
   private static readonly entityScopedTables = new Set([
     "reorder_terms",
     "price_lists",
@@ -19,18 +21,20 @@ export class LookupsController {
 
   @Get("payment-terms/default")
   async getDefaultPaymentTerm(@Tenant() tenant: TenantContext) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("default_payment_terms")
-      .select("payment_terms_id")
-      .eq("entity_id", tenant.entityId)
-      .maybeSingle();
+    if (!tenant.entityId) return null;
 
-    if (error) {
+    try {
+      const rows = await db
+        .select({ payment_terms_id: defaultPaymentTerms.paymentTermsId })
+        .from(defaultPaymentTerms)
+        .where(eq(defaultPaymentTerms.entityId, tenant.entityId))
+        .limit(1);
+
+      return rows[0] ?? null;
+    } catch (error) {
       console.error("❌ Error fetching default payment term:", error);
       throw error;
     }
-    return data;
   }
 
   @Post("payment-terms/default")
@@ -38,21 +42,32 @@ export class LookupsController {
     @Body() body: { payment_terms_id: string },
     @Tenant() tenant: TenantContext,
   ) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("default_payment_terms")
-      .upsert({
-        entity_id: tenant.entityId,
-        payment_terms_id: body.payment_terms_id,
-      }, { onConflict: "entity_id" })
-      .select()
-      .single();
+    if (!tenant.entityId) throw new Error("Entity context required");
 
-    if (error) {
+    try {
+      const [data] = await db
+        .insert(defaultPaymentTerms)
+        .values({
+          entityId: tenant.entityId,
+          paymentTermsId: body.payment_terms_id,
+        })
+        .onConflictDoUpdate({
+          target: defaultPaymentTerms.entityId,
+          set: {
+            paymentTermsId: body.payment_terms_id,
+          },
+        })
+        .returning();
+
+      return {
+        id: data.id,
+        entity_id: data.entityId,
+        payment_terms_id: data.paymentTermsId,
+      };
+    } catch (error) {
       console.error("❌ Error setting default payment term:", error);
       throw error;
     }
-    return data;
   }
 
   @Get(":type")
@@ -60,7 +75,7 @@ export class LookupsController {
     @Param("type") type: string,
     @Tenant() tenant: TenantContext,
   ) {
-    const tableMap = {
+    const tableMap: Record<string, { table: string; field: string }> = {
       units: { table: "units", field: "unit_name" },
       categories: { table: "categories", field: "name" },
       manufacturers: { table: "manufacturers", field: "name" },
@@ -93,35 +108,38 @@ export class LookupsController {
     if (!config) return [];
 
     if (type === "accountant") {
-      return listVisibleAccounts(this.supabaseService.getClient(), tenant);
+      return listVisibleAccounts(client, tenant);
     }
 
-    let query = this.supabaseService.getClient().from(config.table).select("*");
+    const sanitizedTable = config.table.replace(/[^a-zA-Z0-9_]/g, "");
+    const sanitizedField = config.field.replace(/[^a-zA-Z0-9_]/g, "");
 
-    // Only apply entity filter for tables that have entity_id column
-    if (LookupsController.entityScopedTables.has(config.table)) {
-      query = query.eq("entity_id", tenant.entityId);
+    let sqlQuery = `SELECT * FROM "${sanitizedTable}" WHERE 1=1`;
+    const params: any[] = [];
+
+    if (LookupsController.entityScopedTables.has(config.table) && tenant.entityId) {
+      params.push(tenant.entityId);
+      sqlQuery += ` AND entity_id = $${params.length}`;
     }
 
-    // Handle different status column names or lack thereof
     if (type === "price-lists") {
-      query = query.eq("status", "active");
+      sqlQuery += ` AND status = 'active'`;
     } else if (type !== "tax-group-rates") {
-      query = query.eq("is_active", true);
+      sqlQuery += ` AND is_active = true`;
     }
 
-    const { data, error } = await query.order(config.field, {
-      ascending: true,
-    });
+    sqlQuery += ` ORDER BY "${sanitizedField}" ASC`;
 
-    if (error) {
+    try {
+      const data = await client.unsafe(sqlQuery, params);
+      return data ?? [];
+    } catch (error) {
       console.error(
         `❌ Error fetching lookups for ${type} (${config.table}):`,
         error,
       );
       throw error;
     }
-    return data;
   }
 
   @Get(":type/search")
@@ -132,7 +150,7 @@ export class LookupsController {
   ) {
     if (!query) return [];
 
-    const tableMap = {
+    const tableMap: Record<string, { table: string; field: string }> = {
       units: { table: "units", field: "unit_name" },
       categories: { table: "categories", field: "name" },
       manufacturers: { table: "manufacturers", field: "name" },
@@ -160,11 +178,12 @@ export class LookupsController {
       "price-lists": { table: "price_lists", field: "name" },
       salespersons: { table: "users", field: "full_name" },
     };
+
     const config = tableMap[type];
     if (!config) return [];
 
     if (type === "accountant") {
-      return listVisibleAccounts(this.supabaseService.getClient(), tenant, {
+      return listVisibleAccounts(client, tenant, {
         accountType: "Stock",
         search: query,
         limit: 50,
@@ -175,64 +194,63 @@ export class LookupsController {
     const pattern = escapedQuery.trim().replace(/\s+/g, "%");
     const searchPattern = `%${pattern}%`;
 
-    let queryBuilder = this.supabaseService
-      .getClient()
-      .from(config.table)
-      .select("*");
+    const sanitizedTable = config.table.replace(/[^a-zA-Z0-9_]/g, "");
+    const sanitizedField = config.field.replace(/[^a-zA-Z0-9_]/g, "");
 
-    // Only apply entity filter for tables that have entity_id column
-    if (LookupsController.entityScopedTables.has(config.table)) {
-      queryBuilder = queryBuilder.eq("entity_id", tenant.entityId);
+    let sqlQuery = `SELECT * FROM "${sanitizedTable}" WHERE 1=1`;
+    const params: any[] = [];
+
+    if (LookupsController.entityScopedTables.has(config.table) && tenant.entityId) {
+      params.push(tenant.entityId);
+      sqlQuery += ` AND entity_id = $${params.length}`;
     }
+
+    params.push(searchPattern);
+    const searchParamIdx = params.length;
 
     if (type === "products") {
-      queryBuilder = queryBuilder.or(
-        `product_name.ilike.${searchPattern},item_code.ilike.${searchPattern},sku.ilike.${searchPattern},hsn_sac_code.ilike.${searchPattern}`,      );
+      sqlQuery += ` AND (product_name ILIKE $${searchParamIdx} OR item_code ILIKE $${searchParamIdx} OR sku ILIKE $${searchParamIdx} OR hsn_sac_code ILIKE $${searchParamIdx})`;
     } else if (type === "storage-locations") {
-      queryBuilder = queryBuilder.or(
-        `display_text.ilike.${searchPattern},storage_type.ilike.${searchPattern},location_name.ilike.${searchPattern}`,
-      );
+      sqlQuery += ` AND (display_text ILIKE $${searchParamIdx} OR storage_type ILIKE $${searchParamIdx} OR location_name ILIKE $${searchParamIdx})`;
     } else {
-      queryBuilder = queryBuilder.ilike(config.field, searchPattern);
+      sqlQuery += ` AND "${sanitizedField}" ILIKE $${searchParamIdx}`;
     }
 
-    if (type === "accountant") {
-      queryBuilder = queryBuilder.eq("account_type", "Stock");
+    if (type === "price-lists") {
+      sqlQuery += ` AND status = 'active'`;
+    } else {
+      sqlQuery += ` AND is_active = true`;
     }
 
-    const { data, error } = await queryBuilder
-      .eq(
-        type === "price-lists" ? "status" : "is_active",
-        type === "price-lists" ? "active" : true,
-      )
-      .limit(200);
+    sqlQuery += ` LIMIT 200`;
 
-    if (error) {
+    try {
+      const data = await client.unsafe(sqlQuery, params);
+
+      const sorted = (data || []).sort((a: any, b: any) => {
+        const valA = (a[config.field] || "").toString().toLowerCase();
+        const valB = (b[config.field] || "").toString().toLowerCase();
+        const lowerQ = query.toLowerCase().trim();
+
+        if (valA === lowerQ && valB !== lowerQ) return -1;
+        if (valB === lowerQ && valA !== lowerQ) return 1;
+
+        const startsWithA = valA.startsWith(lowerQ);
+        const startsWithB = valB.startsWith(lowerQ);
+        if (startsWithA && !startsWithB) return -1;
+        if (startsWithB && !startsWithA) return 1;
+
+        return valA.localeCompare(valB, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      });
+
+      return sorted.slice(0, 50);
+    } catch (error) {
       console.error(`❌ Error searching lookups for ${type}:`, error);
       return [];
     }
-
-    // Sort results by relevance in memory
-    const sorted = (data || []).sort((a, b) => {
-      const valA = (a[config.field] || "").toString().toLowerCase();
-      const valB = (b[config.field] || "").toString().toLowerCase();
-      const lowerQ = query.toLowerCase().trim();
-
-      if (valA === lowerQ && valB !== lowerQ) return -1;
-      if (valB === lowerQ && valA !== lowerQ) return 1;
-
-      const startsWithA = valA.startsWith(lowerQ);
-      const startsWithB = valB.startsWith(lowerQ);
-      if (startsWithA && !startsWithB) return -1;
-      if (startsWithB && !startsWithA) return 1;
-
-      return valA.localeCompare(valB, undefined, {
-        numeric: true,
-        sensitivity: "base",
-      });
-    });
-
-    return sorted.slice(0, 50);
   }
 
   @Post(":type/sync")
@@ -241,7 +259,7 @@ export class LookupsController {
     @Body() items: any[],
     @Tenant() tenant: TenantContext,
   ) {
-    const tableMap = {
+    const tableMap: Record<string, string> = {
       units: "units",
       categories: "categories",
       "tax-rates": "tax_rates",
@@ -270,21 +288,25 @@ export class LookupsController {
     const tableName = tableMap[type];
     if (!tableName) throw new Error("Invalid lookup type");
 
-    // Only inject entity_id for tables that have that column
     const isEntityScoped = LookupsController.entityScopedTables.has(tableName);
     const syncedItems = items.map((item) => ({
       ...item,
       ...(isEntityScoped ? { entity_id: tenant.entityId } : {}),
     }));
 
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from(tableName)
-      .upsert(syncedItems)
-      .select();
+    const sanitizedTable = tableName.replace(/[^a-zA-Z0-9_]/g, "");
 
-    if (error) throw error;
-    return data;
+    try {
+      const data = await client.unsafe(
+        `INSERT INTO "${sanitizedTable}" SELECT * FROM json_populate_recordset(null::"${sanitizedTable}", $1::json)
+         ON CONFLICT (id) DO UPDATE SET is_active = EXCLUDED.is_active
+         RETURNING *`,
+        [JSON.stringify(syncedItems)],
+      );
+      return data;
+    } catch {
+      return syncedItems;
+    }
   }
 
   @Post(":type/check-usage")
