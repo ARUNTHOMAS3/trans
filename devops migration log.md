@@ -133,8 +133,21 @@ This document tracks every phase, step, execution timestamp, build status, and v
   - Registered ECS task definition `zerpai-backend:10` and deployed to `zerpai-cluster` / `zerpai-backend-service` in `ap-south-2` (Hyderabad).
   - Built Flutter Web with `--dart-define=API_BASE_URL=http://18.60.159.83:3001` and synced assets to S3 bucket `zerpai-web-app-009736588281`.
   - Committed and pushed all fixes to GitHub (`main -> main`).
-- **Result**: **RESOLVED & VERIFIED ON LOCALHOST + AWS PRODUCTION ✅**
+### Log 016 — Phase 4.1: CloudFront HTTPS Reverse Proxy for /api/* & Same-Origin Migration
+- **Timestamp**: 2026-08-20
+- **Scope**: AWS CloudFront Distribution `ENDXK0TWGZT7G` (`d18ibzmbsnopg4.cloudfront.net`), Flutter Web API Client configuration, S3 build script.
+- **Actions Taken**:
+  - Identified active backend ECS Fargate task (`arn:aws:ecs:ap-south-2:009736588281:task/zerpai-cluster/80ab5c96bde7439f95bdf74c93749f4d`) on public DNS `ec2-18-61-25-142.ap-south-2.compute.amazonaws.com` (verified port 3001 reachability and Elastic IP 16.113.13.68 isolation as RDS-only).
+  - Configured CloudFront distribution `ENDXK0TWGZT7G`:
+    - Added Custom HTTP Origin `zerpai-backend-ecs-origin` targeting `ec2-18-61-25-142.ap-south-2.compute.amazonaws.com:3001` (HTTP-only).
+    - Added Cache Behavior for `/api/*` with `Managed-CachingDisabled` and `Managed-AllViewerExceptHostHeader` forwarding all HTTP methods, headers, and query parameters untouched.
+    - Configured SPA Custom Error Responses (403/404 -> `/index.html` with HTTP 200).
+  - Updated `lib/core/services/api_client.dart` and `lib/core/api/dio_client.dart` to use `https://d18ibzmbsnopg4.cloudfront.net` in production while preserving `http://localhost:3001` for local development.
+  - Updated `scripts/aws/03-deploy-frontend-s3.ps1` with `--dart-define=API_BASE_URL="https://d18ibzmbsnopg4.cloudfront.net"`.
+  - Recompiled Flutter Web release bundle, synced to S3 bucket `zerpai-web-app-009736588281`, and created CloudFront invalidation `/*`.
+  - Verified full authentication and subsequent API endpoints (`/api/v1/auth/login`, `/api/v1/auth/profile`, `/api/v1/branches`) directly through `https://d18ibzmbsnopg4.cloudfront.net`.
+- **Result**: **SUCCESSFULLY DEPLOYED & TESTED OVER SECURE HTTPS ✅**
 
 ---
 
-*Last Updated: 2026-08-20 09:48:00 IST*
+*Last Updated: 2026-08-20 13:05:00 IST*

@@ -50,7 +50,7 @@ class DioClient {
     if (envDefinedBaseUrl.isNotEmpty) {
       rawUrl = envDefinedBaseUrl;
     } else if (const bool.fromEnvironment('dart.vm.product')) {
-      rawUrl = 'http://18.61.25.142:3001';
+      rawUrl = 'https://d18ibzmbsnopg4.cloudfront.net';
     } else {
       rawUrl = 'http://127.0.0.1:3001';
     }

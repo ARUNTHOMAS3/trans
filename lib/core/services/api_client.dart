@@ -249,7 +249,7 @@ class ApiClient {
     } else if (kDebugMode && kIsWeb) {
       rawBaseUrl = 'http://localhost:3001';
     } else {
-      rawBaseUrl = 'http://18.61.25.142:3001';
+      rawBaseUrl = 'https://d18ibzmbsnopg4.cloudfront.net';
     }
 
     rawBaseUrl = rawBaseUrl.trim().replaceFirst(RegExp(r'/$'), '');
