@@ -286,16 +286,15 @@ Future<void> _initApp() async {
 
     debugPrint('Loading environment variables...');
 
-    const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-    const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+    const envSupabaseUrl = String.fromEnvironment('SUPABASE_URL');
+    const envSupabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-    if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
-      debugPrint('CRITICAL ERROR: Supabase configuration missing!');
-      throw Exception(
-        'Supabase URL or Anon Key is missing. Pass SUPABASE_URL and '
-        'SUPABASE_ANON_KEY via --dart-define.',
-      );
-    }
+    final supabaseUrl = envSupabaseUrl.isNotEmpty
+        ? envSupabaseUrl
+        : 'https://jhaqdcstdxynrbsomadt.supabase.co';
+    final supabaseAnonKey = envSupabaseAnonKey.isNotEmpty
+        ? envSupabaseAnonKey
+        : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoYXFkY3N0ZHh5bnJic29tYWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4MTcxMTQsImV4cCI6MjA4MzM5MzExNH0.aShXKu2qX2tL8UYTrDkaSyA-GRCidvpmG-X0Bi3QEqg';
 
     debugPrint('Initializing Supabase...');
     final supabaseWatch = Stopwatch()..start();

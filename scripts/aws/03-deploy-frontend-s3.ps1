@@ -14,11 +14,12 @@ if (-not $AccountId) {
 
 $BucketName = "zerpai-web-app-$AccountId"
 
-# 2. Build Flutter Web if not built
-if (-not (Test-Path "build/web/index.html")) {
-  Write-Host "Building Flutter Web release bundle..." -ForegroundColor Cyan
-  flutter build web --release
-}
+# 2. Build Flutter Web with production defines
+Write-Host "Building Flutter Web release bundle with production environment variables..." -ForegroundColor Cyan
+flutter build web --release `
+  --dart-define=API_BASE_URL="http://18.61.25.142:3001" `
+  --dart-define=SUPABASE_URL="https://jhaqdcstdxynrbsomadt.supabase.co" `
+  --dart-define=SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoYXFkY3N0ZHh5bnJic29tYWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4MTcxMTQsImV4cCI6MjA4MzM5MzExNH0.aShXKu2qX2tL8UYTrDkaSyA-GRCidvpmG-X0Bi3QEqg"
 
 # 3. Check or Create S3 Bucket
 $bucketCheck = aws s3api head-bucket --bucket $BucketName 2>$null
