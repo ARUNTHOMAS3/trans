@@ -27,8 +27,16 @@ if (-not $bucketCheck) {
   aws s3 mb "s3://$BucketName" --region $Region
 }
 
-# 4. Sync Web Assets to S3 Bucket
+# 4. Sync Web Assets to S3 Bucket with proper Cache-Control
 Write-Host "Syncing build/web assets to s3://$BucketName..." -ForegroundColor Cyan
 aws s3 sync build/web/ "s3://$BucketName/" --delete
+
+# 5. Invalidate cache on HTML and Service Worker files
+Write-Host "Setting no-cache headers on entrypoint files..." -ForegroundColor Cyan
+aws s3 cp build/web/index.html "s3://$BucketName/index.html" --metadata-directive REPLACE --cache-control "no-cache, no-store, must-revalidate" --content-type "text/html"
+aws s3 cp build/web/flutter_bootstrap.js "s3://$BucketName/flutter_bootstrap.js" --metadata-directive REPLACE --cache-control "no-cache, no-store, must-revalidate" --content-type "application/javascript"
+aws s3 cp build/web/flutter_service_worker.js "s3://$BucketName/flutter_service_worker.js" --metadata-directive REPLACE --cache-control "no-cache, no-store, must-revalidate" --content-type "application/javascript"
+aws s3 cp build/web/main.dart.js "s3://$BucketName/main.dart.js" --metadata-directive REPLACE --cache-control "no-cache, no-store, must-revalidate" --content-type "application/javascript"
+aws s3 cp build/web/version.json "s3://$BucketName/version.json" --metadata-directive REPLACE --cache-control "no-cache, no-store, must-revalidate" --content-type "application/json"
 
 Write-Host "🎉 Flutter Web successfully deployed to S3: s3://$BucketName/" -ForegroundColor Green
