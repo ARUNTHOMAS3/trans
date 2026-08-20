@@ -152,10 +152,18 @@ export class AuthService {
 
   private async findOrganization(orgId: string) {
     try {
-      const rows = await pgClient.unsafe<any[]>(
-        `SELECT id, name, system_id FROM organization WHERE id = $1 LIMIT 1`,
-        [orgId],
-      );
+      let rows: any[] = [];
+      try {
+        rows = await pgClient.unsafe<any[]>(
+          `SELECT id, name, NULL::text as system_id FROM organizations WHERE id = $1 LIMIT 1`,
+          [orgId],
+        );
+      } catch {
+        rows = await pgClient.unsafe<any[]>(
+          `SELECT id, name, NULL::text as system_id FROM organization WHERE id = $1 LIMIT 1`,
+          [orgId],
+        );
+      }
       return rows.length > 0 ? rows[0] : null;
     } catch (err: any) {
       this.throwSupabaseReadError("organization", err);

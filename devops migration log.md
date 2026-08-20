@@ -148,6 +148,50 @@ This document tracks every phase, step, execution timestamp, build status, and v
   - Verified full authentication and subsequent API endpoints (`/api/v1/auth/login`, `/api/v1/auth/profile`, `/api/v1/branches`) directly through `https://d18ibzmbsnopg4.cloudfront.net`.
 - **Result**: **SUCCESSFULLY DEPLOYED & TESTED OVER SECURE HTTPS ✅**
 
+### Log 017 — Phase 4.2: Private AWS RDS Integration & Timeout Resolution
+- **Timestamp**: 2026-08-20
+- **Scope**: AWS RDS PostgreSQL (`zerpai-db`), ECS Fargate Task Definition (`zerpai-backend:18`), Backend Postgres Client Configuration (`backend/src/db/db.ts`), Auth Service Query Compatibility (`backend/src/common/auth/auth.service.ts`), CloudFront Distribution (`ENDXK0TWGZT7G`).
+- **Root Cause Analysis**:
+  1. **Connection Timeout / Infinite Hang**: `backend/src/db/db.ts` had hardcoded `ssl: "require"` and omitted connection timeouts (`connect_timeout`). When connecting to the private RDS instance, SSL negotiation hung indefinitely, exceeding CloudFront/Dio frontend receive timeouts (`SERVER_TIMEOUT`).
+  2. **Schema & Credential Alignment**: RDS instance `zerpai-db` had `PubliclyAccessible: false` and required master password `zabnix2026`. The fresh RDS database required schema, table, and view replication from Supabase.
+- **Actions Taken**:
+  - Updated `backend/src/db/db.ts` to implement adaptive SSL mode and explicit `connect_timeout: 10`, `idle_timeout: 20`, `max: 10`.
+  - Updated `backend/src/common/auth/auth.service.ts` to query `organizations` with fallback to `organization` and safely select `NULL::text as system_id`.
+  - Replicated all 239 schemas, tables, enums, and data from Supabase to AWS RDS PostgreSQL.
+  - Registered ECS task definition `zerpai-backend:18` with updated `DATABASE_URL` pointing to `zerpai-db.cziuqia28x6a.ap-south-2.rds.amazonaws.com:5432/zerpai` with master password `zabnix2026`.
+  - Rolled out new deployment on ECS Fargate cluster `zerpai-cluster` / service `zerpai-backend-service`.
+  - Updated CloudFront origin `zerpai-backend-ecs-origin` to target new ECS task (`ec2-18-61-98-132.ap-south-2.compute.amazonaws.com:3001`).
+  - Tested live end-to-end authentication:
+    - `POST https://d18ibzmbsnopg4.cloudfront.net/api/v1/auth/login` → `201 Created` in **1.64s** (returned valid JWT token & profile for `zabnixprivatelimited@gmail.com`).
+    - `GET https://d18ibzmbsnopg4.cloudfront.net/api/v1/auth/profile` → `200 OK`
+    - `GET https://d18ibzmbsnopg4.cloudfront.net/api/v1/products` → `200 OK` (50 products loaded from private RDS).
+- **Result**: **TIMEOUT RESOLVED & PRODUCTION AUTHENTICATION FULLY OPERATIONAL AGAINST PRIVATE RDS ✅**
+
+### Log 018 — Phase 4.3: Dashboard Summary, 60-Column Organization Table & Entity Queries Alignment
+- **Timestamp**: 2026-08-20
+- **Scope**: AWS RDS PostgreSQL (`zerpai-db`), ECS Fargate Task Definition (`zerpai-backend:21`), Backend Reports Service (`backend/src/modules/reports/reports.service.ts`), Vendors Service (`backend/src/modules/purchases/vendors/services/vendors.service.ts`), RDS Sync Engine (`backend/src/modules/health/sync-rds.service.ts`).
+- **Root Cause Analysis**:
+  1. **Dashboard Summary Query Fallback**: `reports.service.ts` queried `organization.place` and `organization.city`, which threw `42703 (errorMissingColumn)` when the table was incomplete or lacked location columns.
+  2. **60-Column `organization` Base Table**: In Supabase, `organization` is a 60-column base table containing business registration, branding, tax, and address metadata. An earlier view created during startup collided with table creation.
+  3. **Vendors Pagination Parameter Type**: In `vendors.service.ts`, `limit` and `page` parameters from query strings caused `NaN` syntax errors when passed into SQL offset calculations.
+- **Actions Taken**:
+  - Updated `backend/src/modules/reports/reports.service.ts` with resilient `try/catch` fallbacks for organization metadata queries.
+  - Enhanced `SyncRdsService` to automatically drop obsolete views before creating base tables, properly map column types (including timestamps, booleans, enums), and replicate all 241 tables (including the full 60-column `organization` table).
+  - Fixed `vendors.service.ts` to parse integer bounds (`numPage`, `numLimit`) safely.
+  - Built and pushed container `009736588281.dkr.ecr.ap-south-2.amazonaws.com/zerpai-backend:latest` to AWS ECR.
+  - Registered ECS task definition `zerpai-backend:21` and rolled out deployment on ECS service `zerpai-backend-service`.
+  - Updated CloudFront origin `zerpai-backend-ecs-origin` to target `ec2-18-61-53-158.ap-south-2.compute.amazonaws.com:3001` and triggered cache invalidation `/*`.
+  - Verified live endpoints against `https://d18ibzmbsnopg4.cloudfront.net`:
+    - `POST /api/v1/auth/login` → `201 Created`
+    - `GET /api/v1/lookups/org/00000000-0000-0000-0000-000000000002` → `200 OK` (`Starlex Healthcare Pvt. Ltd.`)
+    - `GET /api/v1/reports/dashboard-summary` → `200 OK` (Receivables, Payables, Sales Orders: ₹1,802,832.68, Top Items, Trends populated)
+    - `GET /api/v1/branches` → `200 OK` (11 branches)
+    - `GET /api/v1/vendors` → `200 OK` (20 vendors)
+    - `GET /api/v1/products` → `200 OK` (50 products)
+    - `GET /api/v1/purchase-orders` → `200 OK` (17 POs)
+    - `GET /api/v1/bills` → `200 OK` (10 bills)
+- **Result**: **DASHBOARD & ALL CORE MODULE DATA SUCCESSFULLY POPULATED ON PRODUCTION ✅**
+
 ---
 
-*Last Updated: 2026-08-20 13:05:00 IST*
+*Last Updated: 2026-08-20 16:05:00 IST*

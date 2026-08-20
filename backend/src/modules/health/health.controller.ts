@@ -1,6 +1,7 @@
 import { Controller, Get } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
 import { RedisService } from "../redis/redis.service";
+import { SyncRdsService } from "./sync-rds.service";
 import { db } from "../../db/db";
 import { unit } from "../../db/schema";
 import { sql } from "drizzle-orm";
@@ -10,7 +11,13 @@ export class HealthController {
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly redisService: RedisService,
+    private readonly syncRdsService: SyncRdsService,
   ) {}
+
+  @Get("sync-rds")
+  async syncRds() {
+    return this.syncRdsService.syncSupabaseToRds();
+  }
 
   @Get()
   async checkHealth() {

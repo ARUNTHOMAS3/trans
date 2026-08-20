@@ -62,7 +62,9 @@ export class VendorsService {
     limit: number = 100,
     search?: string,
   ) {
-    const offset = (page - 1) * limit;
+    const numPage = Math.max(1, parseInt(page as any, 10) || 1);
+    const numLimit = Math.max(1, Math.min(500, parseInt(limit as any, 10) || 100));
+    const offset = (numPage - 1) * numLimit;
 
     let isStarlexBranch = false;
     if (tenant.branchId) {
@@ -104,7 +106,7 @@ export class VendorsService {
 
     try {
       const [vendors, countRes] = await Promise.all([
-        client.unsafe(sqlQuery, [...params, limit, offset]),
+        client.unsafe(sqlQuery, [...params, numLimit, offset]),
         client.unsafe(countQuery, params),
       ]);
 
@@ -125,9 +127,9 @@ export class VendorsService {
         data: vendors?.map((vendor: any) => this.mapVendorAddresses(vendor)) ?? [],
         meta: {
           total: totalCount,
-          page,
-          limit,
-          totalPages: Math.ceil(totalCount / limit),
+          page: numPage,
+          limit: numLimit,
+          totalPages: Math.ceil(totalCount / numLimit),
         },
       };
     } catch (error: any) {

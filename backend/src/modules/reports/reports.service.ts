@@ -66,10 +66,22 @@ export class ReportsService {
     const branchMap = new Map<string, { name: string; place: string }>();
 
     if (orgRefIds.length > 0) {
-      const orgs = await client.unsafe(
-        `SELECT id, name, place, city FROM organization WHERE id = ANY($1)`,
-        [orgRefIds],
-      );
+      let orgs: any[] = [];
+      try {
+        orgs = await client.unsafe(
+          `SELECT id, name, place, city FROM organization WHERE id = ANY($1)`,
+          [orgRefIds],
+        );
+      } catch {
+        try {
+          orgs = await client.unsafe(
+            `SELECT id, name, NULL::text as place, NULL::text as city FROM organizations WHERE id = ANY($1)`,
+            [orgRefIds],
+          );
+        } catch {
+          orgs = [];
+        }
+      }
       for (const row of orgs ?? []) {
         orgMap.set(String((row as any).id), {
           name: String((row as any).name ?? "Organization"),

@@ -21,9 +21,17 @@ if (!connectionString) {
 
 // Disable prefetch/prepare for "Transaction" pool mode (PgBouncer)
 const observability = new ObservabilityService();
+const isSslDisabled =
+  connectionString.includes("sslmode=disable") ||
+  process.env.DB_SSL === "false";
+const isSslNoVerify = connectionString.includes("sslmode=no-verify");
+
 const rawClient = postgres(connectionString, {
   prepare: false,
-  ssl: "require",
+  ssl: isSslDisabled ? false : isSslNoVerify ? { rejectUnauthorized: false } : "prefer",
+  connect_timeout: 10,
+  idle_timeout: 20,
+  max: 10,
   debug: observability.isEnabled
     ? (_connection, query) => {
         observability.record("database_query_submitted", "database", {

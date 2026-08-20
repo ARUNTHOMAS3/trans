@@ -12,8 +12,8 @@
     "environment": [
       { "name": "NODE_ENV", "value": "production" },
       { "name": "PORT", "value": "3001" },
-      { "name": "DATABASE_URL", "value": "postgresql://postgres:688iOB8UhgYAsTgF@db.jhaqdcstdxynrbsomadt.supabase.co:5432/postgres" },
-      { "name": "DRIZZLE_DATABASE_URL", "value": "postgresql://postgres.jhaqdcstdxynrbsomadt:688iOB8UhgYAsTgF@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=no-verify" },
+      { "name": "DATABASE_URL", "value": "postgresql://postgres:zabnix2026@zerpai-db.cziuqia28x6a.ap-south-2.rds.amazonaws.com:5432/zerpai" },
+      { "name": "DRIZZLE_DATABASE_URL", "value": "postgresql://postgres:zabnix2026@zerpai-db.cziuqia28x6a.ap-south-2.rds.amazonaws.com:5432/zerpai" },
       { "name": "SUPABASE_URL", "value": "https://jhaqdcstdxynrbsomadt.supabase.co" },
       { "name": "SUPABASE_SERVICE_ROLE_KEY", "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoYXFkY3N0ZHh5bnJic29tYWR0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzgxNzExNCwiZXhwIjoyMDgzMzkzMTE0fQ.Ex2gT00VKFqkXawHH3H16GUPVX4MXb7lFyWpxxJL154" },
       { "name": "SUPABASE_ANON_KEY", "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoYXFkY3N0ZHh5bnJic29tYWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4MTcxMTQsImV4cCI6MjA4MzM5MzExNH0.aShXKu2qX2tL8UYTrDkaSyA-GRCidvpmG-X0Bi3QEqg" },
