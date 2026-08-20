@@ -8,6 +8,7 @@ import {
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { SupabaseService } from "../../modules/supabase/supabase.service";
 import { ResendService } from "../../modules/email/resend.service";
+import { client as pgClient } from "../../db/db";
 
 export interface JwtPayload {
   sub: string;
@@ -135,36 +136,31 @@ export class AuthService {
   }
 
   private async findPublicUser(userId: string) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("users")
-      .select("id, email, full_name, role, entity_id, is_active")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (error) {
+    try {
+      const rows = await pgClient.unsafe<any[]>(
+        `SELECT id, email, full_name, role, entity_id, org_id, is_active FROM users WHERE id = $1 LIMIT 1`,
+        [userId],
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (err: any) {
       this.logger.error(
-        `Failed to fetch public users row for ${userId}: ${error.message}`,
+        `Failed to fetch public users row for ${userId}: ${err.message}`,
       );
       return null;
     }
-
-    return data ?? null;
   }
 
   private async findOrganization(orgId: string) {
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .from("organization")
-      .select("id, name, system_id")
-      .eq("id", orgId)
-      .maybeSingle();
-
-    if (error) {
-      this.throwSupabaseReadError("organization", error);
+    try {
+      const rows = await pgClient.unsafe<any[]>(
+        `SELECT id, name, system_id FROM organization WHERE id = $1 LIMIT 1`,
+        [orgId],
+      );
+      return rows.length > 0 ? rows[0] : null;
+    } catch (err: any) {
+      this.throwSupabaseReadError("organization", err);
+      return null;
     }
-
-    return data ?? null;
   }
 
   private async findBranchSystemId(branchId?: string | null) {
