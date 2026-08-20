@@ -46,13 +46,12 @@ class DioClient {
 
   static String _getBaseUrl() {
     String rawUrl;
-    // In production, use the hosted backend
-    if (const bool.fromEnvironment('dart.vm.product')) {
-      // rawUrl = 'https://zerpai-production.up.railway.app';
-      rawUrl = 'https://zerpai-production.up.railway.app';
+    const envDefinedBaseUrl = String.fromEnvironment('API_BASE_URL');
+    if (envDefinedBaseUrl.isNotEmpty) {
+      rawUrl = envDefinedBaseUrl;
+    } else if (const bool.fromEnvironment('dart.vm.product')) {
+      rawUrl = 'http://18.61.25.142:3001';
     } else {
-      // In development, prefer IPv4 loopback to avoid browser localhost
-      // resolution issues that can surface as XHR onError NETWORK_ERROR.
       rawUrl = 'http://127.0.0.1:3001';
     }
 

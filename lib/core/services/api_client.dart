@@ -244,16 +244,12 @@ class ApiClient {
     String rawBaseUrl;
     final envDefinedBaseUrl = const String.fromEnvironment('API_BASE_URL');
 
-    if (kReleaseMode) {
-      rawBaseUrl = 'https://zerpai-production.up.railway.app';
+    if (envDefinedBaseUrl.isNotEmpty) {
+      rawBaseUrl = envDefinedBaseUrl;
     } else if (kDebugMode && kIsWeb) {
-      rawBaseUrl = envDefinedBaseUrl.isNotEmpty
-          ? envDefinedBaseUrl
-          : 'http://localhost:3001';
+      rawBaseUrl = 'http://localhost:3001';
     } else {
-      rawBaseUrl = envDefinedBaseUrl.isNotEmpty
-          ? envDefinedBaseUrl
-          : 'https://zerpai-production.up.railway.app';
+      rawBaseUrl = 'http://18.61.25.142:3001';
     }
 
     rawBaseUrl = rawBaseUrl.trim().replaceFirst(RegExp(r'/$'), '');
