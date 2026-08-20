@@ -121,8 +121,20 @@ This document tracks every phase, step, execution timestamp, build status, and v
 ### Log 014 — Phase 3.5: Direct SQL Auth Fix Restoration & AWS Deployment Rollout
 - **Timestamp**: 2026-08-19
 - **Action**: Restored `pgClient.unsafe<any[]>(...)` direct SQL database queries in `auth.service.ts` to fix Supabase PostgREST alias/schema errors (`Failed query: select "id", "email", ... from "users" where "users"."id" = $1 limit $2`). Verified local login returning `200 OK` with valid JWT access token and user profile (`Starlex Healthcare Pvt. Ltd.`). Built and pushed production container `009736588281.dkr.ecr.ap-south-2.amazonaws.com/zerpai-backend:latest` (Digest `sha256:42d56316b84eca04361b1b82a49a24e255234e3b5966001f61b95a5646a8c0cd`), and executed `--force-new-deployment` on ECS Fargate service `zerpai-backend-service` in Hyderabad (`ap-south-2`).
-- **Result**: **COMPLETED & DEPLOYED ✅**
+### Log 015 — Phase 3.6: Localhost Docker Collision Fix & ECS Production Environment Alignment
+- **Timestamp**: 2026-08-20
+- **Root Cause Analysis**:
+  1. **Localhost Auth Issue**: Opening Docker Desktop launched a stale background container (`zerpai-backend` created 25h prior) binding `0.0.0.0:3001->3001/tcp`, intercepting all `localhost:3001` Flutter requests with old unpatched code while blocking fresh NestJS builds.
+  2. **AWS Auth Issue**: ECS task definition container definition lacked `SUPABASE_ANON_KEY` and had an outdated `SUPABASE_SERVICE_ROLE_KEY` & RDS `DATABASE_URL` instead of the active Supabase PostgreSQL connection.
+- **Actions Taken**:
+  - Stopped stale local `zerpai-backend` Docker container.
+  - Cleared all socket listeners on port 3001 and restarted local NestJS dev server (`npm run start:dev`). Verified `localhost:3001/api/v1/auth/login` returns `200 OK` with valid JWT token.
+  - Updated `scripts/aws/ecs-container-def.json` with correct `DRIZZLE_DATABASE_URL`, `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_ANON_KEY`.
+  - Registered ECS task definition `zerpai-backend:10` and deployed to `zerpai-cluster` / `zerpai-backend-service` in `ap-south-2` (Hyderabad).
+  - Built Flutter Web with `--dart-define=API_BASE_URL=http://18.60.159.83:3001` and synced assets to S3 bucket `zerpai-web-app-009736588281`.
+  - Committed and pushed all fixes to GitHub (`main -> main`).
+- **Result**: **RESOLVED & VERIFIED ON LOCALHOST + AWS PRODUCTION ✅**
 
 ---
 
-*Last Updated: 2026-08-19 16:42:15 IST*
+*Last Updated: 2026-08-20 09:48:00 IST*
