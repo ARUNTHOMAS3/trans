@@ -1,35 +1,51 @@
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_table_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/routing/app_routes.dart';
+import 'package:zerpai_erp/shared/widgets/texts/zerpai_link_text.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_action_buttons.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_customize_columns_button.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
+import 'package:zerpai_erp/modules/reports/presentation/widgets/report_searchable_filter_dropdown.dart';
+import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_more_filters_panel.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_sticky_header_scroll_table.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_scaffold.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_compare_section.dart';
 import 'package:zerpai_erp/modules/reports/utils/report_formatter_cache.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/modules/reports/business_overview/data/providers/balance_sheet_provider.dart';
 
-class BalanceSheetScreen extends StatefulWidget {
+class BalanceSheetScreen extends ConsumerStatefulWidget {
   const BalanceSheetScreen({super.key});
 
   @override
-  State<BalanceSheetScreen> createState() => _BalanceSheetScreenState();
+  ConsumerState<BalanceSheetScreen> createState() => _BalanceSheetScreenState();
 }
 
-class _BalanceSheetScreenState extends State<BalanceSheetScreen> {
-  static const String _dateLabel = 'As of 14-07-2026';
+class _BalanceSheetScreenState extends ConsumerState<BalanceSheetScreen> {
+  static final DateTime _defaultDate = DateTime.now(); // Mock anchor date
+  static const List<String> _reportBasisOptions = <String>['Accrual', 'Cash'];
+  static final _displayDateFormat = ReportFormatterCache.date('dd-MM-yyyy');
 
   bool _isMoreFiltersOpen = false;
   bool _hasPendingFilterChanges = false;
   bool _collapseSubAccounts = false;
-  String _reportBasis = 'Accrual';
   
-  static final DateTime _defaultDate = DateTime(2026, 7, 14); // Mock anchor date
-  final DateTime _appliedEndDate = _defaultDate;
-  static final _displayDateFormat = ReportFormatterCache.date('dd-MM-yyyy');
+  String _asOfOption = 'Today';
+  DateTime _asOfDate = _defaultDate;
+  DateTime _appliedAsOfDate = _defaultDate;
+  String _reportBasis = 'Accrual';
+  String _appliedReportBasis = 'Accrual';
+  
+  final GlobalKey _dateFilterKey = GlobalKey();
+
+  String get _dateLabel => 'As of ${_displayDateFormat.format(_appliedAsOfDate)}';
 
   ReportCompareSelection _compareSelection = const ReportCompareSelection.none();
   ReportCompareSelection _appliedCompareSelection = const ReportCompareSelection.none();
@@ -51,13 +67,37 @@ class _BalanceSheetScreenState extends State<BalanceSheetScreen> {
   void _toggleCollapseSubAccounts() {
     setState(() {
       _collapseSubAccounts = !_collapseSubAccounts;
-      _hasPendingFilterChanges = true;
     });
   }
 
-  void _cycleReportBasis() {
+  void _handleAsOfOptionChanged(String option) async {
+    if (option == 'Custom') {
+      final picked = await ZerpaiDatePicker.show(
+        context,
+        initialDate: _asOfDate,
+        targetKey: _dateFilterKey,
+      );
+      if (picked != null) {
+        setState(() {
+          _asOfOption = 'Custom';
+          _asOfDate = picked;
+          _hasPendingFilterChanges = true;
+        });
+      }
+    } else {
+      final range = ReportDateRangePresets.resolveRange(option, anchor: _defaultDate);
+      setState(() {
+        _asOfOption = option;
+        _asOfDate = range.endDate;
+        _hasPendingFilterChanges = true;
+      });
+    }
+  }
+
+  void _handleReportBasisChanged(String value) {
+    if (_reportBasis == value) return;
     setState(() {
-      _reportBasis = _reportBasis == 'Accrual' ? 'Cash' : 'Accrual';
+      _reportBasis = value;
       _hasPendingFilterChanges = true;
     });
   }
@@ -80,9 +120,9 @@ class _BalanceSheetScreenState extends State<BalanceSheetScreen> {
     for (int i = count; i >= 1; i--) {
       if (type == 'Previous Year(s)') {
         final dt = DateTime(
-          _appliedEndDate.year - i,
-          _appliedEndDate.month,
-          _appliedEndDate.day,
+          _appliedAsOfDate.year - i,
+          _appliedAsOfDate.month,
+          _appliedAsOfDate.day,
         );
         periods.add(_displayDateFormat.format(dt));
       } else if (type == 'Previous Period(s)') {
@@ -91,13 +131,19 @@ class _BalanceSheetScreenState extends State<BalanceSheetScreen> {
         periods.add('Compare $i');
       }
     }
-    periods.add(_displayDateFormat.format(_appliedEndDate));
+    periods.add(_displayDateFormat.format(_appliedAsOfDate));
     return periods;
   }
 
   void _runReport() {
     _closeMoreFilters();
-    setState(() => _hasPendingFilterChanges = false);
+    setState(() {
+      _appliedAsOfDate = _asOfDate;
+      _appliedReportBasis = _reportBasis;
+      _appliedCompareSelection = _compareSelection;
+      _hasPendingFilterChanges = false;
+    });
+    ref.invalidate(balanceSheetProvider);
   }
 
   @override
@@ -108,15 +154,19 @@ class _BalanceSheetScreenState extends State<BalanceSheetScreen> {
       dateLabel: _dateLabel,
       companyName: '',
       filters: [
-        ReportFilterChip(
+        ReportSearchableFilterDropdown(
+          key: _dateFilterKey,
           label: 'As of',
-          value: 'Today',
-          onPressed: _markFiltersDirty,
+          value: _asOfOption == 'Custom' ? _displayDateFormat.format(_asOfDate) : _asOfOption,
+          options: ReportDateRangePresets.options,
+          menuMaxHeight: 350,
+          onChanged: _handleAsOfOptionChanged,
         ),
-        ReportFilterChip(
+        ReportSearchableFilterDropdown(
           label: 'Report Basis',
           value: _reportBasis,
-          onPressed: _cycleReportBasis,
+          options: _reportBasisOptions,
+          onChanged: _handleReportBasisChanged,
         ),
         ReportFilterChip(
           label: 'More Filters',
@@ -181,8 +231,10 @@ class _BalanceSheetScreenState extends State<BalanceSheetScreen> {
         openReportFromReportsModule(context, reportName);
       },
       reportContent: _BalanceSheetBody(
-        reportBasis: _reportBasis,
+        appliedAsOfDate: _appliedAsOfDate,
+        reportBasis: _appliedReportBasis,
         comparisonPeriods: _buildComparisonPeriods(),
+        collapseSubAccounts: _collapseSubAccounts,
       ),
     );
   }
@@ -230,507 +282,204 @@ class _CollapseSubAccountsAction extends StatelessWidget {
 
 class _BalanceSheetRowData {
   final String account;
+  final String? accountId;
   final String total;
   final int indentLevel;
   final bool isSection;
   final bool isTotal;
   final bool isLink;
-  final bool showCollapseIcon;
+  
+
+  final bool showCollapseIcon = false;
 
   const _BalanceSheetRowData({
     required this.account,
+    this.accountId,
     required this.total,
     this.indentLevel = 0,
     this.isSection = false,
     this.isTotal = false,
     this.isLink = false,
-    this.showCollapseIcon = false,
-  });
+    });
 }
 
-class _BalanceSheetBody extends StatelessWidget {
+class _BalanceSheetBody extends ConsumerWidget {
+  final DateTime appliedAsOfDate;
   final String reportBasis;
   final List<String> comparisonPeriods;
+  final bool collapseSubAccounts;
 
   const _BalanceSheetBody({
+    required this.appliedAsOfDate,
     required this.reportBasis,
     required this.comparisonPeriods,
+    required this.collapseSubAccounts,
   });
 
-  static const List<_BalanceSheetRowData> _rows = [
-    _BalanceSheetRowData(account: 'Assets', total: '', isSection: true),
-    _BalanceSheetRowData(
-      account: 'Current Assets',
-      total: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Cash and Cash Equivalents',
-      total: '',
-      indentLevel: 2,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Cash',
-      total: '',
-      indentLevel: 3,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Petty Cash',
-      total: '210.55',
-      indentLevel: 4,
-      isLink: true,
-      showCollapseIcon: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'TESTINGS CASH',
-      total: '-169.00',
-      indentLevel: 5,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Petty Cash',
-      total: '41.55',
-      indentLevel: 4,
-      isTotal: true,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Undeposited Funds',
-      total: '210.00',
-      indentLevel: 4,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Cash',
-      total: '251.55',
-      indentLevel: 3,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Bank',
-      total: '',
-      indentLevel: 3,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Bandhan Bank',
-      total: '8,79,240.48',
-      indentLevel: 4,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Bank',
-      total: '8,79,240.48',
-      indentLevel: 3,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Cash and Cash Equivalents',
-      total: '8,79,492.03',
-      indentLevel: 2,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Accounts Receivable',
-      total: '',
-      indentLevel: 2,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Accounts Receivable',
-      total: '7,10,737.00',
-      indentLevel: 3,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Accounts Receivable',
-      total: '7,10,737.00',
-      indentLevel: 2,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Other current assets',
-      total: '',
-      indentLevel: 2,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Finished Goods',
-      total: '15,004.50',
-      indentLevel: 3,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Goods In Transit',
-      total: '2,710.90',
-      indentLevel: 3,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Inventory Asset',
-      total: '3,14,988.70',
-      indentLevel: 3,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Prepaid Expenses',
-      total: '13,17,984.10',
-      indentLevel: 3,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'TCS Receivable',
-      total: '23.17',
-      indentLevel: 3,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Input Tax Credits',
-      total: '0.00',
-      indentLevel: 3,
-      isLink: true,
-      showCollapseIcon: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Input CGST',
-      total: '52.59',
-      indentLevel: 4,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Input IGST',
-      total: '1,029.33',
-      indentLevel: 4,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Input SGST',
-      total: '52.59',
-      indentLevel: 4,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Input Tax Credits',
-      total: '1,134.51',
-      indentLevel: 3,
-      isTotal: true,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Other current assets',
-      total: '16,51,845.88',
-      indentLevel: 2,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Current Assets',
-      total: '32,42,074.91',
-      indentLevel: 1,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Non Current Assets',
-      total: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Non Current Assets',
-      total: '0.00',
-      indentLevel: 1,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Fixed Assets',
-      total: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Fixed Assets',
-      total: '0.00',
-      indentLevel: 1,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Other Assets',
-      total: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'd',
-      total: '100.00',
-      indentLevel: 2,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Other Assets',
-      total: '100.00',
-      indentLevel: 1,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Assets',
-      total: '32,42,174.91',
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Liabilities & Equities',
-      total: '',
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Liabilities',
-      total: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Current Liabilities',
-      total: '',
-      indentLevel: 2,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Accounts Payable',
-      total: '',
-      indentLevel: 3,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Accounts Payable',
-      total: '74,831.05',
-      indentLevel: 4,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Accounts Payable',
-      total: '74,831.05',
-      indentLevel: 3,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Other Current Liabilities',
-      total: '',
-      indentLevel: 3,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'GST PAYABLE',
-      total: '-4,680.00',
-      indentLevel: 4,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Opening Balance Adjustments',
-      total: '37,500.00',
-      indentLevel: 4,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Unearned Revenue',
-      total: '21,73,340.00',
-      indentLevel: 4,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Staff Salary Payable',
-      total: '0.00',
-      indentLevel: 4,
-      isLink: true,
-      showCollapseIcon: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Althaf -Salary',
-      total: '2,07,131.62',
-      indentLevel: 5,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Bijisha -Salary',
-      total: '29,404.92',
-      indentLevel: 5,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Deepthi -Salary',
-      total: '2,19,788.00',
-      indentLevel: 5,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Nandana -Salary',
-      total: '87,049.54',
-      indentLevel: 5,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'RAHUL MURALEEDARAN - SALARY',
-      total: '74,538.00',
-      indentLevel: 5,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Staff Salary Payable',
-      total: '6,17,912.08',
-      indentLevel: 4,
-      isTotal: true,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Output Payable',
-      total: '0.00',
-      indentLevel: 4,
-      isLink: true,
-      showCollapseIcon: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Output CGST',
-      total: '54,053.53',
-      indentLevel: 5,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Output SGST',
-      total: '54,053.53',
-      indentLevel: 5,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Output Payable',
-      total: '1,08,107.06',
-      indentLevel: 4,
-      isTotal: true,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Other Current Liabilities',
-      total: '29,32,179.14',
-      indentLevel: 3,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Current Liabilities',
-      total: '30,07,010.19',
-      indentLevel: 2,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Non Current Liabilities',
-      total: '',
-      indentLevel: 2,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Non Current Liabilities',
-      total: '0.00',
-      indentLevel: 2,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Other Liabilities',
-      total: '',
-      indentLevel: 2,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Other Liabilities',
-      total: '0.00',
-      indentLevel: 2,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Liabilities',
-      total: '30,07,010.19',
-      indentLevel: 1,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Equities',
-      total: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Current Year Earnings',
-      total: '2,23,122.34',
-      indentLevel: 2,
-      isLink: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Retained Earnings',
-      total: '12,042.38',
-      indentLevel: 2,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Equities',
-      total: '2,35,164.72',
-      indentLevel: 1,
-      isTotal: true,
-    ),
-    _BalanceSheetRowData(
-      account: 'Total for Liabilities & Equities',
-      total: '32,42,174.91',
-      isTotal: true,
-    ),
-  ];
+  
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final int extraCols = comparisonPeriods.isEmpty ? 0 : comparisonPeriods.length - 1;
-        final double minWidth = 825.0 + (extraCols * 170.0);
-        final tableWidth = constraints.maxWidth < minWidth ? constraints.maxWidth : minWidth;
-        
-        final tableHeight = constraints.hasBoundedHeight
-            ? constraints.maxHeight
-            : 480.0;
-        final table = SizedBox(
-          width: tableWidth,
-          height: tableHeight,
-          child: ReportStickyHeaderScrollTable(
-            header: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Basis : $reportBasis',
-                  textAlign: TextAlign.center,
-                  style: AppTheme.bodyText.copyWith(
-                    color: AppTheme.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: AppTheme.space8),
-                _BalanceSheetTableHeader(comparisonPeriods: comparisonPeriods),
-              ],
-            ),
-            emptyBody: const SizedBox.shrink(),
-            children: [
-              for (final row in _rows) 
-                _BalanceSheetTableRow(
-                  row: row,
-                  comparisonPeriods: comparisonPeriods,
-                ),
-              const SizedBox(height: AppTheme.space24),
-              const _BaseCurrencyNote(),
-              const SizedBox(height: AppTheme.space10),
-            ],
-          ),
-        );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final request = BalanceSheetRequest(
+      startDate: DateTime(2026, 4, 1),
+      endDate: appliedAsOfDate,
+      basis: reportBasis,
+    );
 
-        if (constraints.maxWidth < tableWidth) {
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: table,
-          );
+    final asyncData = ref.watch(balanceSheetProvider(request));
+
+    return asyncData.when(
+      loading: () => const Padding(padding: EdgeInsets.all(AppTheme.space16), child: SingleChildScrollView(physics: NeverScrollableScrollPhysics(), child: ZTableSkeleton(rows: 5, columns: 3))),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (data) {
+        final List<_BalanceSheetRowData> dynamicRows = [];
+
+        void processAccounts(List<dynamic> accounts, int indentLevel) {
+          for (final acc in accounts) {
+            final accMap = acc as Map<String, dynamic>;
+            dynamicRows.add(_BalanceSheetRowData(
+              account: accMap['accountName'] as String? ?? '',
+              accountId: accMap['accountId'] as String?,
+              total: (double.tryParse(accMap['totalAmount']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2),
+              indentLevel: indentLevel,
+              isLink: true,
+            ));
+            final children = accMap['children'] as List<dynamic>? ?? [];
+            if (children.isNotEmpty && !collapseSubAccounts) {
+              processAccounts(children, indentLevel + 1);
+              dynamicRows.add(_BalanceSheetRowData(
+                account: 'Total for ${accMap['accountName']}',
+                total: (double.tryParse(accMap['totalAmount']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2),
+                indentLevel: indentLevel,
+                isTotal: true,
+              ));
+            }
+          }
         }
 
-        return Center(child: table);
+        void processSubCategories(Map<String, dynamic> subCategories, int indentLevel) {
+          final sortedKeys = subCategories.keys.toList()..sort();
+          for (final subCat in sortedKeys) {
+            final subCatData = subCategories[subCat] as Map<String, dynamic>;
+            final accountGroups = subCatData['accountGroups'] as Map<String, dynamic>? ?? {};
+            if (accountGroups.isEmpty) continue;
+
+            dynamicRows.add(_BalanceSheetRowData(account: subCat, total: '', indentLevel: indentLevel, isSection: true));
+            
+            final sortedGroups = accountGroups.keys.toList()..sort();
+            for (final group in sortedGroups) {
+              final groupData = accountGroups[group] as Map<String, dynamic>;
+              final accountTypes = groupData['accountTypes'] as Map<String, dynamic>? ?? {};
+              if (accountTypes.isEmpty) continue;
+
+              dynamicRows.add(_BalanceSheetRowData(account: group, total: '', indentLevel: indentLevel + 1, isSection: true));
+
+              final sortedTypes = accountTypes.keys.toList()..sort();
+              for (final type in sortedTypes) {
+                final typeData = accountTypes[type] as Map<String, dynamic>;
+                final accounts = typeData['accounts'] as List<dynamic>? ?? [];
+                
+                // Usually Zoho doesn't show Account Type explicitly unless needed, but let's show it if it's different
+                if (type != group) {
+                  // We skip showing the account type as a header to match Zoho layout closely, 
+                  // or show it if needed. Zoho groups by type internally. We will just render accounts under the group.
+                }
+
+                processAccounts(accounts, indentLevel + 2);
+              }
+              
+              dynamicRows.add(_BalanceSheetRowData(
+                account: 'Total for $group',
+                total: (double.tryParse(groupData['total']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2),
+                indentLevel: indentLevel + 1,
+                isTotal: true,
+              ));
+            }
+
+            dynamicRows.add(_BalanceSheetRowData(
+              account: 'Total for $subCat',
+              total: (double.tryParse(subCatData['total']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2),
+              indentLevel: indentLevel,
+              isTotal: true,
+            ));
+          }
+        }
+
+        final assetsData = data['assets'] as Map<String, dynamic>? ?? {};
+        if (assetsData.isNotEmpty) {
+          dynamicRows.add(const _BalanceSheetRowData(account: 'Assets', total: '', isSection: true));
+          processSubCategories(assetsData['subCategories'] as Map<String, dynamic>? ?? {}, 1);
+          dynamicRows.add(_BalanceSheetRowData(
+            account: 'Total for Assets',
+            total: (double.tryParse(assetsData['total']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2),
+            isTotal: true,
+          ));
+        }
+
+        final liabilitiesData = data['liabilitiesAndEquities'] as Map<String, dynamic>? ?? {};
+        if (liabilitiesData.isNotEmpty) {
+          dynamicRows.add(const _BalanceSheetRowData(account: 'Liabilities & Equities', total: '', isSection: true));
+          processSubCategories(liabilitiesData['subCategories'] as Map<String, dynamic>? ?? {}, 1);
+          dynamicRows.add(_BalanceSheetRowData(
+            account: 'Total for Liabilities and Equities',
+            total: (double.tryParse(liabilitiesData['total']?.toString() ?? '0') ?? 0.0).toStringAsFixed(2),
+            isTotal: true,
+          ));
+        }
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final int extraCols = comparisonPeriods.isEmpty ? 0 : comparisonPeriods.length - 1;
+            final double minWidth = 825.0 + (extraCols * 170.0);
+            final tableWidth = constraints.maxWidth < minWidth ? constraints.maxWidth : minWidth;
+            
+            final tableHeight = constraints.hasBoundedHeight
+                ? constraints.maxHeight
+                : 480.0;
+            final table = SizedBox(
+              width: tableWidth,
+              height: tableHeight,
+              child: ReportStickyHeaderScrollTable(
+                header: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Basis : $reportBasis',
+                      textAlign: TextAlign.center,
+                      style: AppTheme.bodyText.copyWith(
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.space8),
+                    _BalanceSheetTableHeader(comparisonPeriods: comparisonPeriods),
+                  ],
+                ),
+                emptyBody: const SizedBox.shrink(),
+                children: [
+                  for (final row in dynamicRows) 
+                    _BalanceSheetTableRow(
+                      row: row,
+                      comparisonPeriods: comparisonPeriods,
+                      appliedAsOfDate: appliedAsOfDate,
+                    ),
+                  const SizedBox(height: AppTheme.space24),
+                  const _BaseCurrencyNote(),
+                  const SizedBox(height: AppTheme.space10),
+                ],
+              ),
+            );
+
+            if (constraints.maxWidth < tableWidth) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: table,
+              );
+            }
+
+            return Center(child: table);
+          },
+        );
       },
     );
   }
@@ -827,10 +576,12 @@ class _BalanceSheetTableHeader extends StatelessWidget {
 class _BalanceSheetTableRow extends StatelessWidget {
   final _BalanceSheetRowData row;
   final List<String> comparisonPeriods;
+  final DateTime appliedAsOfDate;
 
   const _BalanceSheetTableRow({
     required this.row,
     required this.comparisonPeriods,
+    required this.appliedAsOfDate,
   });
 
   @override
@@ -882,7 +633,29 @@ class _BalanceSheetTableRow extends StatelessWidget {
                     ),
                     const SizedBox(width: AppTheme.space2),
                   ],
-                  Flexible(child: Text(row.account, style: labelStyle)),
+                  Flexible(
+                      child: (row.isLink && row.accountId != null)
+                          ? ZerpaiLinkText(
+                              text: row.account,
+                              style: labelStyle,
+                              onTap: () {
+                                final apiDateFormat = ReportFormatterCache.date('yyyy-MM-dd');
+                                context.push(Uri(
+                                  path: AppRoutes.accountantTransactionsReport,
+                                  queryParameters: {
+                                    'accountId': row.accountId,
+                                    'accountName': row.account,
+                                    'startDate': '2026-04-01',
+                                    'endDate': apiDateFormat.format(appliedAsOfDate),
+                                  },
+                                ).toString());
+                              },
+                            )
+                          : Text(
+                              row.account,
+                              style: labelStyle,
+                            ),
+                    ),
                 ],
               ),
             ),

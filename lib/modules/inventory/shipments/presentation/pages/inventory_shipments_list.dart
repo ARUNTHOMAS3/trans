@@ -2221,7 +2221,7 @@ class _ShipmentDetailPanelState extends ConsumerState<_ShipmentDetailPanel> {
             onTap: onPressed,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 100),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
               decoration: BoxDecoration(
                 color: isHovered ? Colors.white : Colors.transparent,
                 border: Border.all(

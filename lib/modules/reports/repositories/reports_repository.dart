@@ -21,6 +21,24 @@ class ReportsRepository {
     }
   }
 
+  
+  Future<Map<String, dynamic>> getHorizontalBalanceSheet(String asOfDate, {String basis = 'Accrual'}) async {
+    try {
+      final response = await _apiClient.get('reports/business-overview/horizontal-balance-sheet', queryParameters: {
+        'asOfDate': asOfDate,
+        'basis': basis,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error(
+        'Failed to fetch Horizontal Balance Sheet',
+        error: e,
+        module: 'reports',
+      );
+      rethrow;
+    }
+  }
+
   Future<Map<String, dynamic>> getProfitAndLoss(
     String startDate,
     String endDate,
@@ -34,6 +52,46 @@ class ReportsRepository {
     } catch (e) {
       AppLogger.error(
         'Failed to fetch Profit and Loss report',
+        error: e,
+        module: 'reports',
+      );
+      rethrow;
+    }
+  }
+
+
+  Future<Map<String, dynamic>> getHorizontalProfitAndLoss(
+    String startDate,
+    String endDate,
+  ) async {
+    try {
+      final queryParams = {
+        'startDate': startDate,
+        'endDate': endDate,
+      };
+
+      final response = await _apiClient.get(
+        '/reports/horizontal-profit-and-loss',
+        queryParameters: queryParams,
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('Failed to fetch Horizontal Profit and Loss report', error: e, module: 'reports'); rethrow;
+    }
+  }
+  Future<Map<String, dynamic>> getProfitAndLossScheduleIII(
+    String startDate,
+    String endDate,
+  ) async {
+    try {
+      final response = await _apiClient.get(
+        'reports/profit-and-loss-schedule-iii',
+        queryParameters: {'startDate': startDate, 'endDate': endDate},
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error(
+        'Failed to fetch Profit and Loss Schedule III report',
         error: e,
         module: 'reports',
       );
@@ -1931,6 +1989,51 @@ class ReportsRepository {
         module: 'reports',
       );
       rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> getBalanceSheet(
+    String startDate,
+    String endDate,
+  ) async {
+    try {
+      final response = await _apiClient.get(
+        'reports/balance-sheet',
+        queryParameters: {'startDate': startDate, 'endDate': endDate},
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw Exception('Failed to load balance sheet: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getBalanceSheetScheduleIII(
+    String startDate,
+    String endDate,
+  ) async {
+    try {
+      final response = await _apiClient.get(
+        'reports/balance-sheet-schedule-iii',
+        queryParameters: {'startDate': startDate, 'endDate': endDate},
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw Exception('Failed to load balance sheet schedule III: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getCashFlowStatement(
+    String startDate,
+    String endDate,
+  ) async {
+    try {
+      final response = await _apiClient.get(
+        'reports/cash-flow-statement',
+        queryParameters: {'startDate': startDate, 'endDate': endDate},
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw Exception('Failed to load cash flow statement: $e');
     }
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/modules/reports/banking/presentation/widgets/reconciliation_status_content.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_searchable_filter_dropdown.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_scaffold.dart';

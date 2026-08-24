@@ -1831,14 +1831,6 @@ class _SalesOrderOverviewScreenState
                           onPressed: () => _showReasonDialog(context, order, 'confirmed'),
                         ),
                         _buildDivider(),
-                        _ActionSplitMenu(
-                          icon: LucideIcons.plusCircle,
-                          label: 'Create',
-                          menuItems: _getAvailableCreateActions(order),
-                          onPrimaryTap: () => _showUnavailableAction('Create'),
-                          onSelected: (action) => _handleCreateAction(action, order),
-                        ),
-                        _buildDivider(),
                         _buildMoreButton(order),
                       ] else ...[
                         _buildToolbarButton(
@@ -2349,8 +2341,6 @@ class _SalesOrderOverviewScreenState
             },
             menuChildren: order.status.toLowerCase() == 'draft'
                 ? [
-                    _detailActionMenuItem('Convert to Invoice', order),
-                    _detailActionMenuItem('Convert to Purchase Order', order),
                     _detailActionMenuItem('Clone', order),
                     _detailActionMenuItem('Delete', order),
                     const Divider(height: 1, color: AppTheme.borderLight),
@@ -5818,11 +5808,7 @@ class _ActionSplitMenu extends StatelessWidget {
             )
             .toList(),
         child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: AppTheme.borderLight),
-            borderRadius: BorderRadius.circular(6),
-            color: Colors.white,
-          ),
+          color: Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           child: Row(
             mainAxisSize: MainAxisSize.min,

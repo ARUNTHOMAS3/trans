@@ -101,26 +101,37 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
     }
   }
 
+  void _seedVendorNumberPreferencesFromCurrentValue() {
+    final currentNumber = _vendorNumberCtrl.text.trim();
+    final match = RegExp(r'^(.*?)(\d+)$').firstMatch(currentNumber);
+
+    _vendorNumberPrefixCtrl.text = match?.group(1) ?? 'VEN-';
+    _vendorNumberNextCtrl.text = match?.group(2) ?? '1';
+  }
+
   Future<void> _applyVendorNumberPreferences() async {
     final prefix = _vendorNumberPrefixCtrl.text.trim();
     final nextNumberStr = _vendorNumberNextCtrl.text.trim();
     final nextNumber = int.tryParse(nextNumberStr);
 
-    if (nextNumber == null) return;
+    if (prefix.isEmpty) {
+      throw ArgumentError('Prefix is required.');
+    }
+    if (nextNumber == null || nextNumber < 1) {
+      throw ArgumentError('Next Number must be a positive whole number.');
+    }
 
     try {
-      // 1. Update backend settings
       await LookupsApiService().updateSequenceSettings('vendor', {
         'prefix': prefix,
         'nextNumber': nextNumber,
         'padding': 6,
       });
 
-      // 2. Fetch new formatted number
-      final nextFormatted = await LookupsApiService().getNextSequence('vendor');
-      if (nextFormatted != null && mounted) {
+      if (mounted) {
         _state(() {
-          _vendorNumberCtrl.text = nextFormatted;
+          _vendorNumberCtrl.text =
+              '$prefix${nextNumber.toString().padLeft(6, '0')}';
         });
       }
     } catch (e) {
@@ -129,6 +140,7 @@ extension _PurchasesVendorsHelpers on _PurchasesVendorsVendorCreateScreenState {
         error: e,
         module: 'purchases',
       );
+      rethrow;
     }
   }
 

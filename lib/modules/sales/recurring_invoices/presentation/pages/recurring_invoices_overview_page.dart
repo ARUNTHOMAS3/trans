@@ -551,15 +551,11 @@ class _RecurringInvoicesOverviewPageState
 
     final previousSelectedId = _selectedInvoice.id;
     final targetId = widget.invoiceId ?? previousSelectedId;
-    if (targetId != null) {
-      _selectedInvoice = _liveInvoices.firstWhere(
-        (i) => i.id == targetId,
-        orElse: () => _liveInvoices.first,
-      );
-    } else {
-      _selectedInvoice = _liveInvoices.first;
-    }
-
+    _selectedInvoice = _liveInvoices.firstWhere(
+      (i) => i.id == targetId,
+      orElse: () => _liveInvoices.first,
+    );
+  
     _paymentAmountController.text = _selectedInvoice.balanceDue.toStringAsFixed(
       2,
     );

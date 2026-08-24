@@ -764,7 +764,8 @@ class _PurchasesVendorsVendorCreateScreenState
           final updatedVendor = vendor.copyWith(vendorNumber: finalVendorNumber);
 
           // 2. Create the vendor
-          await ref.read(vendorProvider.notifier).createVendor(updatedVendor);
+          final createdVendor =
+              await ref.read(vendorProvider.notifier).createVendor(updatedVendor);
 
           if (mounted) {
             ZerpaiToast.success(context, 'Vendor created successfully');
@@ -777,6 +778,11 @@ class _PurchasesVendorsVendorCreateScreenState
               );
             } catch (e) {
               AppLogger.warning('Failed to increment vendor sequence', error: e, module: 'purchases');
+            }
+
+            if (widget.isDialog) {
+              Navigator.of(context).pop(createdVendor);
+              return;
             }
 
             // 4. RESET FORM & FETCH NEXT NUMBER (Stay on page)

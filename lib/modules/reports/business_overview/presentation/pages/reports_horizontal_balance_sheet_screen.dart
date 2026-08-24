@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:zerpai_erp/modules/reports/business_overview/data/providers/horizontal_balance_sheet_provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_action_buttons.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_more_filters_panel.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_sticky_header_scroll_table.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_scaffold.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 
 class HorizontalBalanceSheetScreen extends StatefulWidget {
   const HorizontalBalanceSheetScreen({super.key});
@@ -100,11 +104,16 @@ class _HorizontalBalanceSheetScreenState
         }
       },
       settingsTooltip: 'Customize the Horizontal Balance Sheet report.',
-      tableHeaderActions: ReportIconActionButton(
-        icon: Icons.settings_outlined,
-        onPressed: () {},
-        tooltip: 'Customize report settings',
-        chromeless: true,
+      tableHeaderActions: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ReportIconActionButton(
+            icon: Icons.settings_outlined,
+            onPressed: () {},
+            tooltip: 'Customize report settings',
+            chromeless: true,
+          ),
+        ],
       ),
       isLoading: false,
       currentNavigationCategory: 'Business Overview',
@@ -120,6 +129,7 @@ class _HorizontalBalanceSheetScreenState
   }
 }
 
+// ignore_for_file: unused_element_parameter
 class _HorizontalBalanceSheetItem {
   final String label;
   final String amount;
@@ -149,347 +159,9 @@ class _HorizontalBalanceSheetStatement extends StatelessWidget {
 
   const _HorizontalBalanceSheetStatement({required this.reportBasis});
 
-  static const List<_HorizontalBalanceSheetItem> _liabilitiesRows = [
-    _HorizontalBalanceSheetItem(
-      label: 'LIABILITIES',
-      amount: '',
-      isSection: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Current Liabilities',
-      amount: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Accounts Payable',
-      amount: '74,831.05',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'GST PAYABLE',
-      amount: '-4,680.00',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Opening Balance Adjustments',
-      amount: '37,500.00',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Output Payable',
-      amount: '0.00',
-      indentLevel: 1,
-      isLink: true,
-      showCollapseIcon: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Output CGST',
-      amount: '54,053.53',
-      indentLevel: 2,
-      isLink: true,
-      isItalic: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Output SGST',
-      amount: '54,053.53',
-      indentLevel: 2,
-      isLink: true,
-      isItalic: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Total for Output Payable',
-      amount: '1,08,107.06',
-      indentLevel: 1,
-      isTotal: true,
-      isLink: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Staff Salary Payable',
-      amount: '0.00',
-      indentLevel: 1,
-      isLink: true,
-      showCollapseIcon: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Althaf -Salary',
-      amount: '2,07,131.62',
-      indentLevel: 2,
-      isLink: true,
-      isItalic: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Bijisha -Salary',
-      amount: '29,404.92',
-      indentLevel: 2,
-      isLink: true,
-      isItalic: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Deepthi -Salary',
-      amount: '2,19,788.00',
-      indentLevel: 2,
-      isLink: true,
-      isItalic: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Nandana -Salary',
-      amount: '87,049.54',
-      indentLevel: 2,
-      isLink: true,
-      isItalic: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'RAHUL MURALEEDARAN - SALARY',
-      amount: '74,538.00',
-      indentLevel: 2,
-      isLink: true,
-      isItalic: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Total for Staff Salary Payable',
-      amount: '6,17,912.08',
-      indentLevel: 1,
-      isTotal: true,
-      isLink: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Unearned Revenue',
-      amount: '21,73,340.00',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Total',
-      amount: '30,07,010.19',
-      isTotal: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'TOTAL LIABILITIES',
-      amount: '30,07,010.19',
-      isTotal: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'EQUITIES',
-      amount: '',
-      isSection: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Current Year Earnings',
-      amount: '2,23,122.34',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Retained Earnings',
-      amount: '12,042.38',
-      indentLevel: 1,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'TOTAL EQUITIES',
-      amount: '2,35,164.72',
-      isTotal: true,
-    ),
-  ];
+  // 
 
-  static const List<_HorizontalBalanceSheetItem> _assetRows = [
-    _HorizontalBalanceSheetItem(
-      label: 'CURRENT ASSETS',
-      amount: '',
-      isSection: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Cash',
-      amount: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Petty Cash',
-      amount: '210.55',
-      indentLevel: 1,
-      isLink: true,
-      showCollapseIcon: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'TESTINGS CASH',
-      amount: '-169.00',
-      indentLevel: 2,
-      isLink: true,
-      isItalic: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Total for Petty Cash',
-      amount: '41.55',
-      indentLevel: 1,
-      isTotal: true,
-      isLink: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Undeposited Funds',
-      amount: '210.00',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Total',
-      amount: '251.55',
-      isTotal: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Bank',
-      amount: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Bandhan Bank',
-      amount: '8,79,240.48',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Total',
-      amount: '8,79,240.48',
-      isTotal: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Accounts Receivable',
-      amount: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Accounts Receivable',
-      amount: '7,10,737.00',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Total',
-      amount: '7,10,737.00',
-      isTotal: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Other Current Assets',
-      amount: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Finished Goods',
-      amount: '15,004.50',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Goods In Transit',
-      amount: '2,710.90',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Input Tax Credits',
-      amount: '0.00',
-      indentLevel: 1,
-      isLink: true,
-      showCollapseIcon: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Input CGST',
-      amount: '52.59',
-      indentLevel: 2,
-      isLink: true,
-      isItalic: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Input IGST',
-      amount: '1,029.33',
-      indentLevel: 2,
-      isLink: true,
-      isItalic: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Input SGST',
-      amount: '52.59',
-      indentLevel: 2,
-      isLink: true,
-      isItalic: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Total for Input Tax Credits',
-      amount: '1,134.51',
-      indentLevel: 1,
-      isTotal: true,
-      isLink: true,
-      highlighted: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Inventory Asset',
-      amount: '3,14,988.70',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Prepaid Expenses',
-      amount: '13,17,984.10',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'TCS Receivable',
-      amount: '23.17',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'Total',
-      amount: '16,51,845.88',
-      isTotal: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'TOTAL CURRENT ASSETS',
-      amount: '32,42,074.91',
-      isTotal: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'OTHER ASSETS',
-      amount: '',
-      isSection: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'd',
-      amount: '100.00',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _HorizontalBalanceSheetItem(
-      label: 'TOTAL OTHER ASSETS',
-      amount: '100.00',
-      isTotal: true,
-    ),
-  ];
+  // 
 
   @override
   Widget build(BuildContext context) {
@@ -527,8 +199,11 @@ class _HorizontalBalanceSheetStatement extends StatelessWidget {
               ],
             ),
             emptyBody: const SizedBox.shrink(),
-            children: const [
-              _HorizontalBalanceSheetGrid(),
+            children: [
+              _HorizontalBalanceSheetGrid(
+                asOfDate: DateTime.now().toIso8601String().split('T')[0], // Mocking current date for now
+                basis: reportBasis,
+              ),
               SizedBox(height: AppTheme.space48),
               _BaseCurrencyNote(),
               SizedBox(height: AppTheme.space10),
@@ -549,47 +224,113 @@ class _HorizontalBalanceSheetStatement extends StatelessWidget {
   }
 }
 
-class _HorizontalBalanceSheetGrid extends StatelessWidget {
-  const _HorizontalBalanceSheetGrid();
+class _HorizontalBalanceSheetGrid extends ConsumerWidget {
+  final String asOfDate;
+  final String basis;
+
+  const _HorizontalBalanceSheetGrid({
+    required this.asOfDate,
+    required this.basis,
+  });
+
+  String _formatAmount(num amount) {
+    if (amount == 0) return '0.00';
+    return NumberFormat.currency(
+      locale: 'en_IN',
+      symbol: '',
+      decimalDigits: 2,
+    ).format(amount);
+  }
+
+  List<_HorizontalBalanceSheetItem> _mapSections(List<dynamic> sections) {
+    final List<_HorizontalBalanceSheetItem> items = [];
+    for (final section in sections) {
+      items.add(_HorizontalBalanceSheetItem(
+        label: section['label'] ?? '',
+        amount: '',
+        isSection: true,
+      ));
+      
+      final rows = section['rows'] as List<dynamic>? ?? [];
+      for (final row in rows) {
+        items.add(_HorizontalBalanceSheetItem(
+          label: row['label'] ?? '',
+          amount: _formatAmount(row['amount'] ?? 0),
+          indentLevel: 1,
+        ));
+      }
+    }
+    return items;
+  }
 
   @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        border: Border.all(color: AppTheme.borderLight),
-        borderRadius: BorderRadius.circular(AppTheme.space4),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: const [
-            Expanded(
-              child: _StatementSide(
-                title: 'Liabilities & Equities',
-                rows: _HorizontalBalanceSheetStatement._liabilitiesRows,
-                totalLabel: 'TOTAL LIABILITIES & EQUITIES',
-                totalAmount: '32,42,174.91',
-              ),
-            ),
-            VerticalDivider(
-              width: 1,
-              thickness: 1,
-              color: AppTheme.borderLight,
-            ),
-            Expanded(
-              child: _StatementSide(
-                title: 'Assets',
-                rows: _HorizontalBalanceSheetStatement._assetRows,
-                totalLabel: 'TOTAL ASSETS',
-                totalAmount: '32,42,174.91',
-              ),
-            ),
-          ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncData = ref.watch(horizontalBalanceSheetProvider(
+      HorizontalBalanceSheetArgs(asOfDate: asOfDate, basis: basis),
+    ));
+
+    return asyncData.when(
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(48.0),
+          child: ZTableSkeleton(rows: 10, columns: 2),
         ),
       ),
+      error: (e, s) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(48.0),
+          child: Text('Failed to load report: $e'),
+        ),
+      ),
+      data: (data) {
+        final liabilitiesAndEquity = data['liabilitiesAndEquity'] ?? {};
+        final assets = data['assets'] ?? {};
+
+        final totalLiabilities = liabilitiesAndEquity['total'] ?? 0;
+        final totalAssets = assets['total'] ?? 0;
+
+        final liabilitiesRows = _mapSections(liabilitiesAndEquity['sections'] ?? []);
+        final assetsRows = _mapSections(assets['sections'] ?? []);
+
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundColor,
+            border: Border.all(color: AppTheme.borderLight),
+            borderRadius: BorderRadius.circular(AppTheme.space4),
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _StatementSide(
+                    title: 'Liabilities & Equities',
+                    rows: liabilitiesRows,
+                    totalLabel: 'TOTAL LIABILITIES & EQUITIES',
+                    totalAmount: _formatAmount(totalLiabilities),
+                  ),
+                ),
+                const VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: AppTheme.borderLight,
+                ),
+                Expanded(
+                  child: _StatementSide(
+                    title: 'Assets',
+                    rows: assetsRows,
+                    totalLabel: 'TOTAL ASSETS',
+                    totalAmount: _formatAmount(totalAssets),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
+
 }
 
 class _StatementSide extends StatelessWidget {

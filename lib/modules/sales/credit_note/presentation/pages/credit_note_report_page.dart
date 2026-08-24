@@ -1,93 +1,381 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/app/routing/app_router.dart';
+import 'package:zerpai_erp/core/logging/app_logger.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/models/credit_note_model.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/providers/credit_note_provider.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
+import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/shared/widgets/tables/table_metrics.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/widgets/credit_note_more_menu.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_bulk_update_dialog.dart';
 import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/column_customizer.dart';
 
-class CreditNotesOverviewPage extends StatefulWidget {
-  const CreditNotesOverviewPage({super.key});
+/// Loading placeholder for the report table: toolbar, sticky header, rows.
+class _CreditNotesReportSkeleton extends StatelessWidget {
+  const _CreditNotesReportSkeleton();
+
+  static const _columnWidths = <double>[
+    90, 130, 120, 90, 150, 100, 80, 90, 80, 90,
+  ];
 
   @override
-  State<CreditNotesOverviewPage> createState() =>
-      _CreditNotesOverviewPageState();
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: const [
+              Skeleton(width: 180, height: 22),
+              Spacer(),
+              Skeleton(width: 72, height: 34, borderRadius: 4),
+              SizedBox(width: 12),
+              Skeleton(width: 36, height: 36, borderRadius: 4),
+            ],
+          ),
+        ),
+        const Divider(height: 1, color: AppTheme.borderLight),
+        Container(
+          height: 40,
+          color: AppTheme.bgLight,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const NeverScrollableScrollPhysics(),
+            child: Row(
+              children: [
+                const Skeleton(width: 16, height: 16, borderRadius: 3),
+                const SizedBox(width: 16),
+                for (final width in _columnWidths) ...[
+                  Skeleton(width: width, height: 12),
+                  const SizedBox(width: 24),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const Divider(height: 1, color: AppTheme.borderLight),
+        Expanded(
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: 10,
+            separatorBuilder: (_, __) =>
+                const Divider(height: 1, color: AppTheme.borderLight),
+            itemBuilder: (_, __) => Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                child: Row(
+                  children: [
+                    const Skeleton(width: 16, height: 16, borderRadius: 3),
+                    const SizedBox(width: 16),
+                    for (final width in _columnWidths) ...[
+                      Skeleton(width: width, height: 12),
+                      const SizedBox(width: 24),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
-  static const double _tableWidth = 1920;
+class CreditNotesReportPage extends ConsumerStatefulWidget {
+  const CreditNotesReportPage({super.key});
 
-  final _rows = <_CreditNoteRow>[
-    _CreditNoteRow(
-      date: '15-05-2026',
-      location: 'ZABNIX PRIVATE LIMITED',
-      creditNoteNumber: 'CN-00011',
-      referenceNumber: '-',
-      customerName: 'CUS-1',
-      invoiceNumber: 'INV-000082',
-      status: 'OPEN',
-      amount: '0.00',
-      balance: '0.00',
-      issueDate: '15-05-2026',
+  @override
+  ConsumerState<CreditNotesReportPage> createState() =>
+      _CreditNotesReportPageState();
+}
+
+class _CreditNotesReportPageState
+    extends ConsumerState<CreditNotesReportPage> {
+  /// Width the header row and every body row lay out to.
+  ///
+  /// Derived from the visible columns rather than hardcoded: the previous
+  /// literal (1920) was 12px short of the real content — the columns sum to
+  /// 1840, plus 28 (column-menu icon), 32 (checkbox) and 2x16 padding = 1932 —
+  /// which overflowed every row by exactly 12px.
+  double get _tableWidth {
+    final colSum = _visibleColumns.fold<double>(
+      0.0,
+      (sum, c) => sum + _CnColumnWidths.forId(c.id),
+    );
+    return colSum +
+        ZTableMetrics.chrome(hasSelection: _selectedIndices.isNotEmpty);
+  }
+
+  /// Rebuilt from `creditNotesListProvider` on every build. Held as a field so
+  /// the last good data survives a background refetch instead of blanking out.
+  List<_CreditNoteRow> _rows = <_CreditNoteRow>[];
+
+  static _CreditNoteRow _rowFromModel(CreditNoteModel m) {
+    return _CreditNoteRow(
+      id: m.id,
+      date: m.formattedDate,
+      location: '-',
+      creditNoteNumber: m.creditNoteNumber,
+      referenceNumber: (m.referenceNumber?.trim().isNotEmpty ?? false)
+          ? m.referenceNumber!.trim()
+          : '-',
+      customerName: m.customerName ?? m.customerNumber ?? '-',
+      invoiceNumber: '-',
+      status: m.status,
+      amount: m.formattedAmount,
+      balance: '-',
+      issueDate: m.formattedDate,
       salesPerson: '-',
+    );
+  }
+
+  final ScrollController _horizontalScrollController = ScrollController();
+  FavoriteFilterOption _activeOption = _cnFilterOptions.first;
+  bool _columnMenuOpen = false;
+  bool _isDeleting = false;
+  String? _sortField;
+  bool _sortAscending = true;
+  final Set<int> _selectedIndices = {};
+  List<ColumnConfig> _columns = _defaultColumns();
+  final _moreMenuKey = GlobalKey();
+
+  /// Shared with the credit note overview page so a view starred in one place
+  /// shows up as a favorite in the other (same `credit_notes` module bucket).
+  static const _cnFilterOptions = <FavoriteFilterOption>[
+    FavoriteFilterOption(label: 'All', value: 'All'),
+    FavoriteFilterOption(label: 'Draft', value: 'Draft'),
+    FavoriteFilterOption(label: 'Locked', value: 'Locked'),
+    FavoriteFilterOption(label: 'Pending Approval', value: 'Pending Approval'),
+    FavoriteFilterOption(label: 'Approved', value: 'Approved'),
+    FavoriteFilterOption(label: 'Open', value: 'Open'),
+    FavoriteFilterOption(label: 'Closed', value: 'Closed'),
+    FavoriteFilterOption(label: 'Void', value: 'Void'),
+    FavoriteFilterOption(
+      label: 'Invoice unassociated',
+      value: 'Invoice unassociated',
     ),
   ];
 
-  final ScrollController _horizontalScrollController = ScrollController();
-  String _selectedView = 'All';
-  bool _dropdownOpen = false;
-  bool _columnMenuOpen = false;
-  final Set<int> _selectedIndices = {};
-  List<ColumnConfig> _columns = _defaultColumns();
+  List<_CreditNoteRow> get _filteredRows {
+    final label = _activeOption.label;
+    final rows = label == 'All'
+        ? List<_CreditNoteRow>.from(_rows)
+        : _rows
+              .where((r) => r.status.toUpperCase() == label.toUpperCase())
+              .toList();
+    final sortField = _sortField;
+    if (sortField == null) return rows;
 
-  static const _viewOptions = [
-    'All',
-    'Draft',
-    'Locked',
-    'Pending Approval',
-    'Approved',
-    'Open',
-    'Closed',
-    'Void',
-    'Invoice unassociated',
-  ];
+    rows.sort((a, b) {
+      final comparison = switch (sortField) {
+        'date' => _displayDate(a.date).compareTo(_displayDate(b.date)),
+        'creditNoteNumber' => a.creditNoteNumber.toLowerCase().compareTo(
+          b.creditNoteNumber.toLowerCase(),
+        ),
+        'customerName' => a.customerName.toLowerCase().compareTo(
+          b.customerName.toLowerCase(),
+        ),
+        'amount' => _amountValue(a.amount).compareTo(_amountValue(b.amount)),
+        _ => 0,
+      };
+      return _sortAscending ? comparison : -comparison;
+    });
+    return rows;
+  }
+
+  DateTime _displayDate(String value) {
+    final parts = value.split('-');
+    if (parts.length == 3) {
+      final day = int.tryParse(parts[0]);
+      final month = int.tryParse(parts[1]);
+      final year = int.tryParse(parts[2]);
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  double _amountValue(String value) =>
+      double.tryParse(value.replaceAll(RegExp(r'[^0-9.-]'), '')) ?? 0;
+
+  void _setSortRows(String field, bool ascending) {
+    setState(() {
+      _sortField = field;
+      _sortAscending = ascending;
+      _selectedIndices.clear();
+    });
+  }
+
+  void _showMoreMenu(BuildContext context) {
+    final box = _moreMenuKey.currentContext?.findRenderObject() as RenderBox?;
+    final screenWidth = MediaQuery.of(context).size.width;
+    var menuTop = 65.0;
+    var menuRight = 24.0;
+    if (box != null) {
+      final position = box.localToGlobal(Offset.zero);
+      menuTop = position.dy + box.size.height + 4;
+      menuRight = screenWidth - (position.dx + box.size.width);
+    }
+
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: true,
+      useRootNavigator: true,
+      builder: (dialogContext) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(dialogContext).pop(),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Positioned(
+            top: menuTop,
+            right: menuRight,
+            child: CreditNoteMoreMenu(
+              sortColumn: _sortField,
+              sortAscending: _sortAscending,
+              onSortChanged: (field, ascending) {
+                Navigator.of(dialogContext).pop();
+                _setSortRows(field, ascending);
+              },
+              onImport: () {
+                Navigator.of(dialogContext).pop();
+                _showUnavailableAction('Import');
+              },
+              onExport: () {
+                Navigator.of(dialogContext).pop();
+                _showUnavailableAction('Export');
+              },
+              onPreferences: () {
+                Navigator.of(dialogContext).pop();
+                _showUnavailableAction('Preferences');
+              },
+              onManageCustomFields: () {
+                Navigator.of(dialogContext).pop();
+                _openColumnCustomizer();
+              },
+              onRefreshList: () {
+                Navigator.of(dialogContext).pop();
+                _refreshRows();
+              },
+              onResetColumnWidth: () {
+                Navigator.of(dialogContext).pop();
+                _resetColumnSettings();
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  void _refreshRows() {
+    ref.invalidate(creditNotesListProvider);
+    ZerpaiToast.success(context, 'Credit notes refreshed.');
+  }
+
+  void _resetColumnSettings() {
+    setState(() => _columns = _defaultColumns());
+    ZerpaiToast.success(context, 'Column widths reset.');
+  }
+
+  void _showUnavailableAction(String action) {
+    ZerpaiToast.info(context, '$action is not available for credit notes yet.');
+  }
 
   bool get _allSelected =>
-      _rows.isNotEmpty && _selectedIndices.length == _rows.length;
+      _filteredRows.isNotEmpty &&
+      _selectedIndices.length == _filteredRows.length;
   bool get _someSelected =>
-      _selectedIndices.isNotEmpty && _selectedIndices.length < _rows.length;
+      _selectedIndices.isNotEmpty &&
+      _selectedIndices.length < _filteredRows.length;
   List<ColumnConfig> get _visibleColumns {
-    final columns =
-        _columns.where((c) => c.isVisible).map((c) => c.copy()).toList()
-          ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    final columns = _columns
+        .where((c) => c.isVisible)
+        .map((c) => c.copy())
+        .toList()
+      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
     return columns;
   }
 
   static List<ColumnConfig> _defaultColumns() => [
-    ColumnConfig(id: 'date', label: 'Date', orderIndex: 0, isLocked: true),
-    ColumnConfig(id: 'location', label: 'Location', orderIndex: 1),
-    ColumnConfig(
-      id: 'creditNoteNumber',
-      label: 'Credit Note#',
-      orderIndex: 2,
-      isLocked: true,
-    ),
-    ColumnConfig(id: 'referenceNumber', label: 'Reference#', orderIndex: 3),
-    ColumnConfig(id: 'customerName', label: 'Customer Name', orderIndex: 4),
-    ColumnConfig(id: 'invoiceNumber', label: 'Invoice#', orderIndex: 5),
-    ColumnConfig(id: 'status', label: 'Status', orderIndex: 6),
-    ColumnConfig(id: 'amount', label: 'Amount', orderIndex: 7),
-    ColumnConfig(id: 'balance', label: 'Balance', orderIndex: 8),
-    ColumnConfig(id: 'issueDate', label: 'Issue Date', orderIndex: 9),
-    ColumnConfig(id: 'salesPerson', label: 'Sales Person', orderIndex: 10),
-  ];
+        ColumnConfig(
+          id: 'date',
+          label: 'Date',
+          orderIndex: 0,
+          isLocked: true,
+        ),
+        ColumnConfig(
+          id: 'creditNoteNumber',
+          label: 'Credit Note#',
+          orderIndex: 2,
+          isLocked: true,
+        ),
+        ColumnConfig(
+          id: 'referenceNumber',
+          label: 'Reference#',
+          orderIndex: 3,
+        ),
+        ColumnConfig(
+          id: 'customerName',
+          label: 'Customer Name',
+          orderIndex: 4,
+        ),
+        ColumnConfig(
+          id: 'invoiceNumber',
+          label: 'Invoice#',
+          orderIndex: 5,
+        ),
+        ColumnConfig(
+          id: 'status',
+          label: 'Status',
+          orderIndex: 6,
+        ),
+        ColumnConfig(
+          id: 'amount',
+          label: 'Amount',
+          orderIndex: 7,
+        ),
+        ColumnConfig(
+          id: 'balance',
+          label: 'Balance',
+          orderIndex: 8,
+        ),
+        ColumnConfig(
+          id: 'issueDate',
+          label: 'Issue Date',
+          orderIndex: 9,
+        ),
+        ColumnConfig(
+          id: 'salesPerson',
+          label: 'Sales Person',
+          orderIndex: 10,
+        ),
+      ];
 
   void _toggleSelectAll(bool? value) {
     setState(() {
       if (value == true) {
-        _selectedIndices.addAll(List.generate(_rows.length, (i) => i));
+        _selectedIndices.addAll(List.generate(_filteredRows.length, (i) => i));
       } else {
         _selectedIndices.clear();
       }
@@ -128,6 +416,104 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
     showCreditNoteBulkUpdateDialog(context);
   }
 
+  /// Deletes every selected row through the API, then refetches. Rows are now
+  /// projected from the provider on each build, so removing them from `_rows`
+  /// locally would simply be undone by the next rebuild.
+  Future<void> _deleteSelected() async {
+    if (_isDeleting) return;
+
+    // Selection indices point at the filtered view, so resolve them to row
+    // objects before touching the backing list.
+    final visible = _filteredRows;
+    final doomed = _selectedIndices
+        .where((i) => i >= 0 && i < visible.length)
+        .map((i) => visible[i])
+        .where((row) => row.id.isNotEmpty)
+        .toList();
+
+    if (doomed.isEmpty) {
+      ZerpaiToast.error(context, 'These credit notes cannot be deleted.');
+      return;
+    }
+
+    setState(() => _isDeleting = true);
+    try {
+      for (final row in doomed) {
+        await ref.read(deleteCreditNoteProvider)(row.id);
+      }
+      if (!mounted) return;
+      setState(() => _selectedIndices.clear());
+      ref.invalidate(creditNotesListProvider);
+      ZerpaiToast.success(
+        context,
+        doomed.length == 1
+            ? 'Credit note deleted successfully.'
+            : '${doomed.length} credit notes deleted successfully.',
+      );
+    } catch (e, st) {
+      AppLogger.error(
+        'Failed to delete credit notes',
+        error: e,
+        stackTrace: st,
+        module: 'credit_note',
+      );
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to delete: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isDeleting = false);
+    }
+  }
+
+  /// Opens the split overview for a row. The sidebar lands here on the report,
+  /// so this is the way through to the overview — `view=overview` is what the
+  /// route builder keys off.
+  void _openInOverview(_CreditNoteRow row) {
+    context.go(
+      Uri(
+        path: AppRoutes.salesCreditNotesOverview,
+        queryParameters: {
+          'cn': row.creditNoteNumber,
+          'view': 'overview',
+        },
+      ).toString(),
+    );
+  }
+
+  Widget _buildLoadErrorState(Object? error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Failed to load credit notes',
+              style: TextStyle(
+                color: AppTheme.errorRed,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$error',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ZButton.secondary(
+              label: 'Retry',
+              onPressed: () => ref.invalidate(creditNotesListProvider),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _horizontalScrollController.dispose();
@@ -136,6 +522,16 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
 
   @override
   Widget build(BuildContext context) {
+    final creditNotesAsync = ref.watch(creditNotesListProvider(null));
+    final models = creditNotesAsync.valueOrNull;
+    if (models != null) {
+      _rows = models.map(_rowFromModel).toList();
+    }
+    // Only stand in for content that isn't there yet — a background refetch
+    // with rows already on screen must not flash the skeleton.
+    final showLoading = creditNotesAsync.isLoading && _rows.isEmpty;
+    final showError = creditNotesAsync.hasError && _rows.isEmpty;
+
     return ZerpaiLayout(
       pageTitle: '',
       enableBodyScroll: false,
@@ -144,16 +540,17 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () {
-          if (_dropdownOpen || _columnMenuOpen) {
-            setState(() {
-              _dropdownOpen = false;
-              _columnMenuOpen = false;
-            });
+          if (_columnMenuOpen) {
+            setState(() => _columnMenuOpen = false);
           }
         },
         child: Container(
           color: AppTheme.backgroundColor,
-          child: Stack(
+          child: showLoading
+              ? const _CreditNotesReportSkeleton()
+              : showError
+                  ? _buildLoadErrorState(creditNotesAsync.error)
+                  : Stack(
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -163,7 +560,8 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                       : _buildToolbar(context),
                   const Divider(height: 1, color: AppTheme.borderLight),
                   Expanded(
-                    child: Scrollbar(
+                    child: LayoutBuilder(
+                      builder: (context, tableConstraints) => Scrollbar(
                       controller: _horizontalScrollController,
                       thumbVisibility: true,
                       trackVisibility: true,
@@ -173,8 +571,11 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                         controller: _horizontalScrollController,
                         scrollDirection: Axis.horizontal,
                         child: ConstrainedBox(
+                          // Floor at the viewport width, not the window width:
+                          // MediaQuery still counts the sidebar and left the
+                          // table permanently scrolled right.
                           constraints: BoxConstraints(
-                            minWidth: MediaQuery.of(context).size.width,
+                            minWidth: tableConstraints.maxWidth,
                           ),
                           child: SizedBox(
                             width: _tableWidth,
@@ -188,7 +589,6 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                                   onSelectAll: _toggleSelectAll,
                                   columnMenuOpen: _columnMenuOpen,
                                   onColumnMenuTap: () => setState(() {
-                                    _dropdownOpen = false;
                                     _columnMenuOpen = !_columnMenuOpen;
                                   }),
                                   columns: _visibleColumns,
@@ -200,23 +600,26 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                                 Expanded(
                                   child: ListView.separated(
                                     padding: EdgeInsets.zero,
-                                    itemCount: _rows.length,
-                                    separatorBuilder: (_, __) => const Divider(
+                                    itemCount: _filteredRows.length,
+                                    separatorBuilder: (_, __) =>
+                                        const Divider(
                                       height: 1,
                                       color: AppTheme.borderLight,
                                     ),
                                     itemBuilder: (context, index) =>
                                         _CnTableRow(
-                                          row: _rows[index],
-                                          selected: _selectedIndices.contains(
-                                            index,
-                                          ),
-                                          hasSelection:
-                                              _selectedIndices.isNotEmpty,
-                                          onChanged: (v) =>
-                                              _toggleRow(index, v),
-                                          columns: _visibleColumns,
-                                        ),
+                                      row: _filteredRows[index],
+                                      selected: _selectedIndices
+                                          .contains(index),
+                                      hasSelection:
+                                          _selectedIndices.isNotEmpty,
+                                      onChanged: (v) =>
+                                          _toggleRow(index, v),
+                                      onTap: () => _openInOverview(
+                                        _filteredRows[index],
+                                      ),
+                                      columns: _visibleColumns,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -225,84 +628,10 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
                         ),
                       ),
                     ),
+                    ),
                   ),
                 ],
               ),
-              // Dropdown overlay
-              if (_dropdownOpen)
-                Positioned(
-                  top: 60,
-                  left: 24,
-                  child: Material(
-                    elevation: 0,
-                    color: Colors.transparent,
-                    child: Container(
-                      width: 240,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.borderLight),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ..._viewOptions.map(
-                            (opt) => _ViewFilterOption(
-                              label: opt,
-                              selected: opt == _selectedView,
-                              onTap: () => setState(() {
-                                _selectedView = opt;
-                                _dropdownOpen = false;
-                              }),
-                            ),
-                          ),
-                          const Divider(height: 1, color: AppTheme.borderLight),
-                          InkWell(
-                            onTap: () => setState(() => _dropdownOpen = false),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 20,
-                                    height: 20,
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryBlue,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      LucideIcons.plus,
-                                      size: 12,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Text(
-                                    'New Custom View',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: AppTheme.primaryBlue,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
               if (_columnMenuOpen)
                 Positioned(
                   top: 90,
@@ -358,29 +687,18 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => setState(() => _dropdownOpen = !_dropdownOpen),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _selectedView == 'All' ? 'All Credit Notes' : _selectedView,
-                  style: AppTheme.pageTitle.copyWith(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  _dropdownOpen
-                      ? LucideIcons.chevronUp
-                      : LucideIcons.chevronDown,
-                  size: 18,
-                  color: AppTheme.primaryBlueDark,
-                ),
-              ],
-            ),
+          FavoriteFilterDropdown(
+            moduleName: 'credit_notes',
+            options: _cnFilterOptions,
+            selectedOption: _activeOption,
+            showChevron: true,
+            onChanged: (opt) {
+              setState(() {
+                _activeOption = opt;
+                _columnMenuOpen = false;
+                _selectedIndices.clear();
+              });
+            },
           ),
           const Spacer(),
           ZButton.primary(
@@ -389,17 +707,10 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
             onPressed: () => context.go(AppRoutes.creditNotesCreate),
           ),
           const SizedBox(width: 12),
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.borderLight),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: IconButton(
-              icon: const Icon(LucideIcons.moreHorizontal, size: 18),
-              onPressed: () {},
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              padding: EdgeInsets.zero,
-              color: AppTheme.textPrimary,
+          SizedBox(
+            key: _moreMenuKey,
+            child: _CreditNoteMoreActionButton(
+              onTap: () => _showMoreMenu(context),
             ),
           ),
         ],
@@ -415,7 +726,10 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
       child: Row(
         children: [
           // Bulk Update
-          _BulkActionButton(label: 'Bulk Update', onTap: _openBulkUpdateDialog),
+          _BulkActionButton(
+            label: 'Bulk Update',
+            onTap: _openBulkUpdateDialog,
+          ),
           const SizedBox(width: 8),
           // Download with chevron
           _BulkActionButton(
@@ -425,7 +739,10 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
           ),
           const SizedBox(width: 8),
           // Print
-          _BulkActionButton(icon: LucideIcons.printer, onTap: () {}),
+          _BulkActionButton(
+            icon: LucideIcons.printer,
+            onTap: () {},
+          ),
           // Separator
           Container(
             height: 24,
@@ -436,16 +753,7 @@ class _CreditNotesOverviewPageState extends State<CreditNotesOverviewPage> {
           // Delete
           _BulkActionButton(
             label: 'Delete',
-            onTap: () {
-              setState(() {
-                final sorted = _selectedIndices.toList()
-                  ..sort((a, b) => b.compareTo(a));
-                for (final i in sorted) {
-                  _rows.removeAt(i);
-                }
-                _selectedIndices.clear();
-              });
-            },
+            onTap: _deleteSelected,
           ),
           // Separator
           Container(
@@ -513,16 +821,19 @@ class _BulkActionButtonState extends State<_BulkActionButton> {
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,
+        // Hover lifts the button onto a white chip with a darker border, the
+        // same treatment as the document action bars elsewhere in sales.
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: _hovered
-                ? AppTheme.primaryBlue.withValues(alpha: 0.06)
-                : Colors.transparent,
-            border: Border.all(color: AppTheme.borderLight),
+            color: _hovered ? Colors.white : Colors.transparent,
+            border: Border.all(
+              color: _hovered ? AppTheme.borderColor : AppTheme.borderLight,
+            ),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
@@ -548,91 +859,6 @@ class _BulkActionButtonState extends State<_BulkActionButton> {
                   color: AppTheme.textSecondary,
                 ),
               ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ViewFilterOption extends StatefulWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _ViewFilterOption({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  State<_ViewFilterOption> createState() => _ViewFilterOptionState();
-}
-
-class _ViewFilterOptionState extends State<_ViewFilterOption> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-          decoration: BoxDecoration(
-            color: widget.selected
-                ? AppTheme.primaryBlue
-                : _hovered
-                ? AppTheme.primaryBlue.withValues(alpha: 0.06)
-                : Colors.transparent,
-          ),
-          child: Row(
-            children: [
-              if (widget.selected)
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.white, width: 2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Icon(
-                    LucideIcons.check,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                )
-              else
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.borderLight),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: widget.selected
-                        ? Colors.white
-                        : AppTheme.textPrimary,
-                  ),
-                ),
-              ),
-              Icon(
-                LucideIcons.star,
-                size: 14,
-                color: widget.selected
-                    ? Colors.white.withValues(alpha: 0.7)
-                    : AppTheme.borderLight,
-              ),
             ],
           ),
         ),
@@ -667,13 +893,14 @@ class _ColumnMenuOptionState extends State<_ColumnMenuOption> {
     final foreground = filled
         ? AppTheme.backgroundColor
         : widget.selected
-        ? AppTheme.primaryBlue
-        : AppTheme.textPrimary;
+            ? AppTheme.primaryBlue
+            : AppTheme.textPrimary;
     final iconColor = filled ? foreground : AppTheme.primaryBlue;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,
         child: Container(
@@ -686,7 +913,10 @@ class _ColumnMenuOptionState extends State<_ColumnMenuOption> {
                 : AppTheme.backgroundColor,
             borderRadius: BorderRadius.circular(6),
             border: filled
-                ? Border.all(color: AppTheme.primaryBlueDark, width: 2)
+                ? Border.all(
+                    color: AppTheme.primaryBlueDark,
+                    width: 2,
+                  )
                 : null,
           ),
           child: Row(
@@ -737,12 +967,12 @@ class _CnTableHeader extends StatelessWidget {
     return Container(
       height: 40,
       color: AppTheme.bgLight,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: ZTableMetrics.hPad),
       child: Row(
         children: [
           if (!hasSelection)
             SizedBox(
-              width: 28,
+              width: ZTableMetrics.menuIcon,
               child: GestureDetector(
                 onTap: onColumnMenuTap,
                 child: Icon(
@@ -755,7 +985,7 @@ class _CnTableHeader extends StatelessWidget {
               ),
             ),
           SizedBox(
-            width: 32,
+            width: ZTableMetrics.checkbox,
             child: Checkbox(
               value: allSelected ? true : (someSelected ? null : false),
               tristate: true,
@@ -782,48 +1012,73 @@ class _CnTableHeader extends StatelessWidget {
   }
 }
 
-class _CnTableRow extends StatelessWidget {
+class _CnTableRow extends StatefulWidget {
   const _CnTableRow({
     required this.row,
     required this.selected,
     required this.hasSelection,
     required this.onChanged,
+    required this.onTap,
     required this.columns,
   });
   final _CreditNoteRow row;
   final bool selected;
   final bool hasSelection;
   final ValueChanged<bool?> onChanged;
+  final VoidCallback onTap;
   final List<ColumnConfig> columns;
 
   @override
+  State<_CnTableRow> createState() => _CnTableRowState();
+}
+
+class _CnTableRowState extends State<_CnTableRow> {
+  bool _hovered = false;
+
+  _CreditNoteRow get row => widget.row;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 48,
-      color: selected
-          ? AppTheme.primaryBlue.withValues(alpha: 0.07)
-          : Colors.transparent,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          if (!hasSelection) const SizedBox(width: 28),
-          SizedBox(
-            width: 32,
-            child: Checkbox(
-              value: selected,
-              onChanged: onChanged,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              activeColor: AppTheme.primaryBlue,
-              side: const BorderSide(color: AppTheme.borderLight, width: 1.5),
-              visualDensity: VisualDensity.compact,
+    // Matches the sales return report: selection is the stronger tint, hover a
+    // lighter one, so a hovered row never outshines the selected one.
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+        height: 48,
+        color: widget.selected
+            ? AppTheme.primaryBlue.withValues(alpha: 0.07)
+            : _hovered
+            ? AppTheme.primaryBlue.withValues(alpha: 0.03)
+            : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: ZTableMetrics.hPad),
+        child: Row(
+          children: [
+            if (!widget.hasSelection)
+              const SizedBox(width: ZTableMetrics.menuIcon),
+            SizedBox(
+              width: ZTableMetrics.checkbox,
+              child: Checkbox(
+                value: widget.selected,
+                onChanged: widget.onChanged,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                activeColor: AppTheme.primaryBlue,
+                side: const BorderSide(color: AppTheme.borderLight, width: 1.5),
+                visualDensity: VisualDensity.compact,
+              ),
             ),
-          ),
-          for (final column in columns)
-            _CnBodyCell(
-              width: _CnColumnWidths.forId(column.id),
-              child: _buildCell(column.id),
-            ),
-        ],
+            for (final column in widget.columns)
+              _CnBodyCell(
+                width: _CnColumnWidths.forId(column.id),
+                child: _buildCell(column.id),
+              ),
+          ],
+        ),
+        ),
       ),
     );
   }
@@ -849,7 +1104,11 @@ class _CnTableRow extends StatelessWidget {
       case 'status':
         return _CnBodyText(
           row.status,
-          color: AppTheme.primaryBlue,
+          color: switch (row.status.toUpperCase()) {
+            'CLOSED' => AppTheme.successGreen,
+            'DRAFT' => AppTheme.textSecondary,
+            _ => AppTheme.primaryBlue,
+          },
           fontWeight: FontWeight.w500,
         );
       case 'amount':
@@ -984,6 +1243,7 @@ class _CnBodyText extends StatelessWidget {
 
 class _CreditNoteRow {
   const _CreditNoteRow({
+    required this.id,
     required this.date,
     required this.location,
     required this.creditNoteNumber,
@@ -997,6 +1257,7 @@ class _CreditNoteRow {
     required this.salesPerson,
   });
 
+  final String id;
   final String date;
   final String location;
   final String creditNoteNumber;
@@ -1008,4 +1269,35 @@ class _CreditNoteRow {
   final String balance;
   final String issueDate;
   final String salesPerson;
+}
+
+class _CreditNoteMoreActionButton extends StatelessWidget {
+  const _CreditNoteMoreActionButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppTheme.borderLight),
+            color: AppTheme.backgroundColor,
+          ),
+          child: const Icon(
+            LucideIcons.moreHorizontal,
+            size: 16,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
 }

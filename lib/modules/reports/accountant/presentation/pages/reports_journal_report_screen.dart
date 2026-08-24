@@ -6,7 +6,7 @@ import 'package:zerpai_erp/modules/reports/utils/report_formatter_cache.dart';
 import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/accountant/providers/currency_provider.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_pagination_footer.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_schedule_dialog.dart';
@@ -56,7 +56,7 @@ class _JournalReportScreenState extends ConsumerState<JournalReportScreen> {
   bool _hasPendingFilterChanges = false;
   bool _showAssociatedTags = false;
   int _page = 1;
-  int _pageSize = 25;
+  final int _pageSize = 25;
   DateTime? _startDate;
   DateTime? _endDate;
   DateTime? _appliedStartDate;

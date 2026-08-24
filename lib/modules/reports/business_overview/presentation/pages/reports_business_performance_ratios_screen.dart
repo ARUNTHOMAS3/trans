@@ -1,7 +1,7 @@
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_table_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_action_buttons.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_scaffold.dart';

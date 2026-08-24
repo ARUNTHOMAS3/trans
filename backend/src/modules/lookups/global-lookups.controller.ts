@@ -15,9 +15,6 @@ import { SupabaseService } from "../supabase/supabase.service";
 import { R2StorageService } from "../accountant/r2-storage.service";
 import { Tenant } from "../../common/decorators/tenant.decorator";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
-import { db, client } from "../../db/db";
-import { organizations, organisationBranchMaster } from "../../db/schema";
-import { eq, and } from "drizzle-orm";
 
 @Controller("lookups")
 export class GlobalLookupsController {
@@ -27,51 +24,30 @@ export class GlobalLookupsController {
   ) {}
 
   private async syncOrganisationMaster(orgId: string) {
-    try {
-      const rows = await db
-        .select({
-          id: organizations.id,
-          name: organizations.name,
-          isActive: organizations.isActive,
-        })
-        .from(organizations)
-        .where(eq(organizations.id, orgId))
-        .limit(1);
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("organization")
+      .select("id,name,is_active")
+      .eq("id", orgId)
+      .maybeSingle();
 
-      const data = rows[0];
-      if (!data?.id || !data?.name) return;
+    if (error) throw error;
+    if (!data?.id || !data?.name) return;
 
-      const existingMaster = await db
-        .select({ id: organisationBranchMaster.id })
-        .from(organisationBranchMaster)
-        .where(
-          and(
-            eq(organisationBranchMaster.type, "ORG"),
-            eq(organisationBranchMaster.refId, data.id),
-          ),
-        )
-        .limit(1);
-
-      if (existingMaster[0]) {
-        await db
-          .update(organisationBranchMaster)
-          .set({
-            name: data.name,
-            isActive: data.isActive ?? true,
-          })
-          .where(eq(organisationBranchMaster.id, existingMaster[0].id));
-      } else {
-        await db.insert(organisationBranchMaster).values({
+    const { error: upsertError } = await client
+      .from("organisation_branch_master")
+      .upsert(
+        {
           name: data.name,
           type: "ORG",
-          refId: data.id,
-          parentId: null,
-          isActive: data.isActive ?? true,
-        });
-      }
-    } catch (err) {
-      console.error("[GlobalLookupsController] syncOrganisationMaster error:", err);
-    }
+          ref_id: data.id,
+          parent_id: null,
+          is_active: data.is_active ?? true,
+        },
+        { onConflict: "type,ref_id" },
+      );
+
+    if (upsertError) throw upsertError;
   }
 
   private async resolveLogoUrl(
@@ -109,32 +85,46 @@ export class GlobalLookupsController {
   private async resolveTimezoneRow(
     rawTimezone: string,
   ): Promise<{ display: string; tzdb_name: string } | null> {
-    try {
-      const rows = await client.unsafe(
-        `SELECT display, tzdb_name FROM timezones WHERE is_active = true AND (tzdb_name = $1 OR display = $1 OR name = $1) LIMIT 1`,
-        [rawTimezone],
-      );
-      return (
-        ((rows[0] as unknown) as { display: string; tzdb_name: string } | null) ??
-        null
-      );
-    } catch {
-      return null;
-    }
+    const client = this.supabaseService.getClient();
+
+    const matchBy = async (column: "tzdb_name" | "display" | "name") => {
+      const { data, error } = await client
+        .from("timezones")
+        .select("display, tzdb_name")
+        .eq("is_active", true)
+        .eq(column, rawTimezone)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      return data ?? null;
+    };
+
+    return (
+      (await matchBy("tzdb_name")) ??
+      (await matchBy("display")) ??
+      (await matchBy("name"))
+    );
   }
 
   private async resolveCompanyIdLabel(
     rawLabel: string,
   ): Promise<string | null> {
-    try {
-      const rows = await client.unsafe(
-        `SELECT label FROM company_id_labels WHERE is_active = true AND label = $1 LIMIT 1`,
-        [rawLabel],
-      );
-      return rows[0]?.label ?? null;
-    } catch {
-      return null;
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("company_id_labels")
+      .select("label")
+      .eq("is_active", true)
+      .eq("label", rawLabel)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
     }
+
+    return data?.label ?? null;
   }
 
   private async fetchActiveOptions(
@@ -142,23 +132,16 @@ export class GlobalLookupsController {
     select: string,
     orderBy: string[] = ["sort_order", "label"],
   ) {
-    const sanitizedTable = table.replace(/[^a-zA-Z0-9_]/g, "");
-    const sanitizedSelect = select.replace(/[^a-zA-Z0-9_,]/g, "");
+    const client = this.supabaseService.getClient();
+    let query = client.from(table).select(select).eq("is_active", true);
 
-    let sqlQuery = `SELECT ${sanitizedSelect} FROM "${sanitizedTable}" WHERE is_active = true`;
-    if (orderBy.length > 0) {
-      const sanitizedOrderBy = orderBy
-        .map((col) => `"${col.replace(/[^a-zA-Z0-9_]/g, "")}" ASC`)
-        .join(", ");
-      sqlQuery += ` ORDER BY ${sanitizedOrderBy}`;
+    for (const column of orderBy) {
+      query = query.order(column, { ascending: true });
     }
 
-    try {
-      const data = await client.unsafe(sqlQuery);
-      return data ?? [];
-    } catch {
-      return [];
-    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return data ?? [];
   }
 
   private parseJsonObject(rawValue?: string | null) {
@@ -203,10 +186,34 @@ export class GlobalLookupsController {
   }
 
   private async resolveAssemblyId(
-    _districtId?: string | null,
-    _assemblyCodeOrName?: string | null,
+    districtId?: string | null,
+    assemblyCodeOrName?: string | null,
   ) {
+    // TODO: Re-enable assembly validation once the assemblies_constituencies table is populated.
     return null;
+    /*
+    const normalizedDistrictId = districtId?.toString().trim();
+    const normalizedAssembly = assemblyCodeOrName?.toString().trim();
+    if (!normalizedDistrictId || !normalizedAssembly) {
+      return null;
+    }
+
+    const client = this.supabaseService.getClient();
+    const fetchBy = async (column: "code" | "name") => {
+      const { data, error } = await client
+        .from("assemblies_constituencies")
+        .select("id,code,name")
+        .eq("district_id", normalizedDistrictId)
+        .eq("is_active", true)
+        .eq(column, normalizedAssembly)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data ?? null;
+    };
+
+    return (await fetchBy("code")) ?? (await fetchBy("name"));
+    */
   }
 
   private async hydratePaymentStubAssembly(
@@ -222,20 +229,21 @@ export class GlobalLookupsController {
       return rawAddress;
     }
 
-    try {
-      const rows = await client.unsafe(
-        `SELECT id, code, name FROM assemblies_constituencies WHERE id = $1 LIMIT 1`,
-        [assemblyId.trim()],
-      );
-      const data = rows[0];
-      if (!data) return rawAddress;
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("assemblies_constituencies")
+      .select("id,code,name")
+      .eq("id", assemblyId.trim())
+      .maybeSingle();
 
-      parsed["assembly_code"] = data.code ?? parsed["assembly_code"] ?? null;
-      parsed["assembly_name"] = data.name ?? parsed["assembly_name"] ?? null;
-      return JSON.stringify(parsed);
-    } catch {
+    if (error) throw error;
+    if (!data) {
       return rawAddress;
     }
+
+    parsed["assembly_code"] = data.code ?? parsed["assembly_code"] ?? null;
+    parsed["assembly_name"] = data.name ?? parsed["assembly_name"] ?? null;
+    return JSON.stringify(parsed);
   }
 
   private assertOrgAccess(tenant: TenantContext, requestedOrgId: string) {
@@ -246,88 +254,83 @@ export class GlobalLookupsController {
 
   @Get("currencies")
   async getCurrencies(@Query("q") q?: string) {
+    const client = this.supabaseService.getClient();
     const search = q?.trim();
-    let sqlQuery = `SELECT id, code, name, symbol, decimals, format FROM currencies WHERE is_active = true`;
-    const params: any[] = [];
+
+    let query = client
+      .from("currencies")
+      .select("id,code,name,symbol,decimals,format")
+      .eq("is_active", true);
 
     if (search) {
-      params.push(`%${search}%`);
-      sqlQuery += ` AND (code ILIKE $1 OR name ILIKE $1)`;
+      query = query.or(`code.ilike.%${search}%,name.ilike.%${search}%`);
     }
 
-    sqlQuery += ` ORDER BY code ASC`;
-
-    try {
-      const data = await client.unsafe(sqlQuery, params);
-      return data ?? [];
-    } catch {
-      return [];
-    }
+    const { data, error } = await query.order("code", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
   }
 
   @Get("countries")
   async getCountries(@Query("q") q?: string) {
+    const client = this.supabaseService.getClient();
     const search = q?.trim();
-    let sqlQuery = `SELECT id, name, full_label, phone_code, short_code FROM countries WHERE is_active = true`;
-    const params: any[] = [];
+
+    let query = client
+      .from("countries")
+      .select("id,name,full_label,phone_code,short_code")
+      .eq("is_active", true);
 
     if (search) {
-      params.push(`%${search}%`);
-      sqlQuery += ` AND (name ILIKE $1 OR full_label ILIKE $1 OR phone_code ILIKE $1)`;
+      query = query.or(
+        `name.ilike.%${search}%,full_label.ilike.%${search}%,phone_code.ilike.%${search}%`,
+      );
     }
 
-    sqlQuery += ` ORDER BY name ASC`;
-
-    try {
-      const data = await client.unsafe(sqlQuery, params);
-      return data ?? [];
-    } catch {
-      return [];
-    }
+    const { data, error } = await query.order("name", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
   }
 
   @Get("industries")
   async getIndustries() {
-    try {
-      const data = await client.unsafe(
-        `SELECT name FROM industries WHERE is_active = true ORDER BY sort_order ASC`,
-      );
-      return (data ?? []).map((r: any) => r.name);
-    } catch {
-      return [];
-    }
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("industries")
+      .select("name")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((r) => r.name);
   }
 
   @Get("timezones")
   async getTimezones(@Query("countryId") countryId?: string) {
-    let sqlQuery = `SELECT id, name, tzdb_name, utc_offset, display, country_id FROM timezones WHERE is_active = true`;
-    const params: any[] = [];
-
+    const client = this.supabaseService.getClient();
+    let query = client
+      .from("timezones")
+      .select("id, name, tzdb_name, utc_offset, display, country_id")
+      .eq("is_active", true);
     if (countryId) {
-      params.push(countryId);
-      sqlQuery += ` AND country_id = $1`;
+      query = query.eq("country_id", countryId);
     }
-
-    sqlQuery += ` ORDER BY sort_order ASC, display ASC`;
-
-    try {
-      const data = await client.unsafe(sqlQuery, params);
-      return data ?? [];
-    } catch {
-      return [];
-    }
+    const { data, error } = await query
+      .order("sort_order", { ascending: true })
+      .order("display", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
   }
 
   @Get("company-id-labels")
   async getCompanyIdLabels() {
-    try {
-      const data = await client.unsafe(
-        `SELECT label FROM company_id_labels WHERE is_active = true ORDER BY sort_order ASC`,
-      );
-      return (data ?? []).map((r: any) => r.label);
-    } catch {
-      return [];
-    }
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("company_id_labels")
+      .select("label")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((r) => r.label);
   }
 
   @Get("business-types")
@@ -413,45 +416,43 @@ export class GlobalLookupsController {
     @Query("countryId") countryIdQuery?: string,
     @Query("q") q?: string,
   ) {
+    const client = this.supabaseService.getClient();
     const search = q?.trim();
     const countryValue = countryCodeParam || countryIdQuery;
     let resolvedCountryId = countryValue;
 
+    // Handle 2-letter country codes (e.g., "IN")
     if (countryValue && countryValue.length === 2) {
-      try {
-        const countryRows = await client.unsafe(
-          `SELECT id FROM countries WHERE UPPER(short_code) = $1 LIMIT 1`,
-          [countryValue.toUpperCase()],
-        );
-        if (countryRows[0]?.id) {
-          resolvedCountryId = countryRows[0].id;
-        }
-      } catch {
-        // ignore
+      const { data: countryData } = await client
+        .from("countries")
+        .select("id")
+        .eq("short_code", countryValue.toUpperCase())
+        .single();
+
+      if (countryData) {
+        resolvedCountryId = countryData.id;
       }
     }
 
-    let sqlQuery = `SELECT id, name, code FROM states WHERE is_active = true`;
-    const params: any[] = [];
+    // Canonical schema: states.state_id references countries.id.
+    let query = client
+      .from("states")
+      .select("id,name,code")
+      .eq("is_active", true);
 
     if (resolvedCountryId) {
-      params.push(resolvedCountryId);
-      sqlQuery += ` AND (country_id = $1 OR state_id = $1)`;
+      query = query.eq("state_id", resolvedCountryId);
     }
 
     if (search) {
-      params.push(`%${search}%`);
-      sqlQuery += ` AND name ILIKE $${params.length}`;
+      query = query.ilike("name", `%${search}%`);
     }
 
-    sqlQuery += ` ORDER BY name ASC`;
+    const { data, error } = await query.order("name", { ascending: true });
 
-    try {
-      const data = await client.unsafe(sqlQuery, params);
-      return data ?? [];
-    } catch {
-      return [];
-    }
+    if (error) throw error;
+
+    return data ?? [];
   }
 
   @Get("districts")
@@ -460,15 +461,16 @@ export class GlobalLookupsController {
       throw new BadRequestException("stateId is required");
     }
 
-    try {
-      const data = await client.unsafe(
-        `SELECT id, name, code FROM lsgd_districts WHERE state_id = $1 AND is_active = true ORDER BY name ASC`,
-        [stateId.trim()],
-      );
-      return data ?? [];
-    } catch {
-      return [];
-    }
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("lsgd_districts")
+      .select("id,name,code")
+      .eq("state_id", stateId.trim())
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+    return data ?? [];
   }
 
   @Get("local-bodies")
@@ -480,22 +482,20 @@ export class GlobalLookupsController {
       throw new BadRequestException("districtId is required");
     }
 
-    let sqlQuery = `SELECT id, name, code, body_type FROM lsgd_local_bodies WHERE district_id = $1 AND is_active = true`;
-    const params: any[] = [districtId.trim()];
+    const client = this.supabaseService.getClient();
+    let query = client
+      .from("lsgd_local_bodies")
+      .select("id,name,code,body_type")
+      .eq("district_id", districtId.trim())
+      .eq("is_active", true);
 
     if (bodyType?.trim()) {
-      params.push(bodyType.trim());
-      sqlQuery += ` AND body_type = $2`;
+      query = query.eq("body_type", bodyType.trim());
     }
 
-    sqlQuery += ` ORDER BY name ASC`;
-
-    try {
-      const data = await client.unsafe(sqlQuery, params);
-      return data ?? [];
-    } catch {
-      return [];
-    }
+    const { data, error } = await query.order("name", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
   }
 
   @Get("wards")
@@ -504,20 +504,22 @@ export class GlobalLookupsController {
       throw new BadRequestException("localBodyId is required");
     }
 
-    try {
-      const data = await client.unsafe(
-        `SELECT id, ward_no, name, code FROM lsgd_wards WHERE local_body_id = $1 AND is_active = true ORDER BY ward_no ASC, name ASC`,
-        [localBodyId.trim()],
-      );
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("lsgd_wards")
+      .select("id,ward_no,name,code")
+      .eq("local_body_id", localBodyId.trim())
+      .eq("is_active", true)
+      .order("ward_no", { ascending: true })
+      .order("name", { ascending: true });
 
-      return (data ?? []).map((ward: any) => ({
-        ...ward,
-        display_name:
-          ward.ward_no != null ? `${ward.ward_no} - ${ward.name}` : ward.name,
-      }));
-    } catch {
-      return [];
-    }
+    if (error) throw error;
+
+    return (data ?? []).map((ward: any) => ({
+      ...ward,
+      display_name:
+        ward.ward_no != null ? `${ward.ward_no} - ${ward.name}` : ward.name,
+    }));
   }
 
   @Get("assemblies")
@@ -526,116 +528,118 @@ export class GlobalLookupsController {
       throw new BadRequestException("districtId is required");
     }
 
-    try {
-      const data = await client.unsafe(
-        `SELECT id, code, name FROM assemblies_constituencies WHERE district_id = $1 AND is_active = true ORDER BY name ASC`,
-        [districtId.trim()],
-      );
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("assemblies_constituencies")
+      .select("id,code,name")
+      .eq("district_id", districtId.trim())
+      .eq("is_active", true)
+      .order("name", { ascending: true });
 
-      return (data ?? []).map((assembly: any) => ({
-        id: assembly.id,
-        code: assembly.code,
-        name: assembly.name,
-      }));
-    } catch {
-      return [];
-    }
+    if (error) throw error;
+    return (data ?? []).map((assembly: any) => ({
+      id: assembly.id,
+      code: assembly.code,
+      name: assembly.name,
+    }));
   }
 
+  /** Returns full org profile — all columns live directly on the organization table,
+   *  merged with branding settings from branding.
+   *  Also resolves country name from state_id → states.state_id → countries. */
   @Get("org/:orgId")
   async getOrgDetails(
     @Param("orgId") orgId: string,
     @Tenant() tenant: TenantContext,
   ) {
     this.assertOrgAccess(tenant, orgId);
+    const client = this.supabaseService.getClient();
 
-    try {
-      const orgRows = await client.unsafe(
-        `SELECT id, system_id, name, state_id, industry, logo_url, base_currency, base_currency_decimals, base_currency_format, fiscal_year, organization_language, communication_languages, timezone, date_format, date_separator, company_id_label, company_id_value, attention, street, place, city, pincode, phone, email, district_id, local_body_id, assembly_id, ward_id, payment_stub_address, has_separate_payment_stub_address, payment_stub_assembly_id, additional_fields, gstin, gst_treatment, source_of_supply, is_drug_registered, drug_licence_type, drug_license_20, drug_license_21, drug_license_20b, drug_license_21b, drug_license_20_url, drug_license_21_url, drug_license_20b_url, drug_license_21b_url, is_fssai_registered, fssai_number, fssai_url, is_msme_registered, msme_registration_type, msme_number, msme_url FROM organization WHERE id = $1 LIMIT 1`,
-        [orgId],
-      );
+    const [orgResult, brandingResult] = await Promise.all([
+      client
+        .from("organization")
+        .select(
+          "id, system_id, name, state_id, industry, logo_url, base_currency, base_currency_decimals, base_currency_format, fiscal_year, organization_language, communication_languages, timezone, date_format, date_separator, company_id_label, company_id_value, attention, street, place, city, pincode, phone, email, district_id, local_body_id, assembly_id, ward_id, payment_stub_address, has_separate_payment_stub_address, payment_stub_assembly_id, additional_fields, gstin, gst_treatment, source_of_supply, is_drug_registered, drug_licence_type, drug_license_20, drug_license_21, drug_license_20b, drug_license_21b, drug_license_20_url, drug_license_21_url, drug_license_20b_url, drug_license_21b_url, is_fssai_registered, fssai_number, fssai_url, is_msme_registered, msme_registration_type, msme_number, msme_url",
+        )
+        .eq("id", orgId)
+        .single(),
+      client
+        .from("branding")
+        .select("accent_color, theme_mode, keep_branding")
+        .eq("org_id", orgId)
+        .maybeSingle(),
+    ]);
 
-      const org = orgRows[0];
-      if (!org) throw new BadRequestException("Organization not found");
+    if (orgResult.error) throw orgResult.error;
 
-      let branding = null;
-      try {
-        const brandingRows = await client.unsafe(
-          `SELECT accent_color, theme_mode, keep_branding FROM branding WHERE org_id = $1 OR entity_id = $2 LIMIT 1`,
-          [orgId, tenant.entityId],
-        );
-        branding = brandingRows[0];
-      } catch {
-        // ignore
-      }
+    const org = orgResult.data as any;
 
-      let timezoneDisplay: string | null = null;
-      let timezoneTzdbName: string | null = null;
-      if (org?.timezone) {
-        const timezoneRow = await this.resolveTimezoneRow(org.timezone);
-        timezoneDisplay = timezoneRow?.display ?? null;
-        timezoneTzdbName = timezoneRow?.tzdb_name ?? null;
-      }
-
-      let countryName: string | null = null;
-      if (org?.state_id) {
-        try {
-          const countryRows = await client.unsafe(
-            `SELECT c.name FROM states s JOIN countries c ON c.id = s.country_id OR c.id = s.state_id WHERE s.id = $1 LIMIT 1`,
-            [org.state_id],
-          );
-          countryName = countryRows[0]?.name ?? null;
-        } catch {
-          // ignore
-        }
-      }
-
-      return {
-        ...org,
-        payment_stub_address: await this.hydratePaymentStubAssembly(
-          org?.payment_stub_address,
-          org?.payment_stub_assembly_id,
-        ),
-        country: countryName,
-        timezone_display: timezoneDisplay,
-        timezone_tzdb_name: timezoneTzdbName,
-        logo_url: await this.resolveLogoUrl(org?.logo_url),
-        accent_color: branding?.accent_color ?? "#22A95E",
-        theme_mode: branding?.theme_mode ?? "dark",
-        keep_branding: branding?.keep_branding ?? false,
-      };
-    } catch (error) {
-      throw error;
+    let timezoneDisplay: string | null = null;
+    let timezoneTzdbName: string | null = null;
+    if (org?.timezone) {
+      const timezoneRow = await this.resolveTimezoneRow(org.timezone);
+      timezoneDisplay = timezoneRow?.display ?? null;
+      timezoneTzdbName = timezoneRow?.tzdb_name ?? null;
     }
+
+    // Resolve country name: state_id → states(state_id FK = countries.id) → countries(name)
+    let countryName: string | null = null;
+    if (org?.state_id) {
+      const { data: stateRow } = await client
+        .from("states")
+        .select("state_id")
+        .eq("id", org.state_id)
+        .maybeSingle();
+
+      if (stateRow?.state_id) {
+        const { data: countryRow } = await client
+          .from("countries")
+          .select("name")
+          .eq("id", stateRow.state_id)
+          .maybeSingle();
+        countryName = countryRow?.name ?? null;
+      }
+    }
+
+    return {
+      ...org,
+      payment_stub_address: await this.hydratePaymentStubAssembly(
+        org?.payment_stub_address,
+        org?.payment_stub_assembly_id,
+      ),
+      country: countryName,
+      timezone_display: timezoneDisplay,
+      timezone_tzdb_name: timezoneTzdbName,
+      logo_url: await this.resolveLogoUrl(org?.logo_url),
+      // Branding defaults if no row exists yet
+      accent_color: brandingResult.data?.accent_color ?? "#22A95E",
+      theme_mode: brandingResult.data?.theme_mode ?? "dark",
+      keep_branding: brandingResult.data?.keep_branding ?? false,
+    };
   }
 
+  /** GET branding settings for an org. */
   @Get("org/:orgId/branding")
   async getOrgBranding(
     @Param("orgId") orgId: string,
     @Tenant() tenant: TenantContext,
   ) {
     this.assertOrgAccess(tenant, orgId);
-
-    try {
-      const rows = await client.unsafe(
-        `SELECT accent_color, theme_mode, keep_branding FROM branding WHERE entity_id = $1 LIMIT 1`,
-        [tenant.entityId],
-      );
-      const data = rows[0];
-      return {
-        accent_color: data?.accent_color ?? "#22A95E",
-        theme_mode: data?.theme_mode ?? "dark",
-        keep_branding: data?.keep_branding ?? false,
-      };
-    } catch {
-      return {
-        accent_color: "#22A95E",
-        theme_mode: "dark",
-        keep_branding: false,
-      };
-    }
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from("branding")
+      .select("accent_color, theme_mode, keep_branding")
+      .eq("entity_id", tenant.entityId)
+      .maybeSingle();
+    if (error) throw error;
+    return {
+      accent_color: data?.accent_color ?? "#22A95E",
+      theme_mode: data?.theme_mode ?? "dark",
+      keep_branding: data?.keep_branding ?? false,
+    };
   }
 
+  /** Upsert branding settings — creates or updates the branding row. */
   @Post("org/:orgId/branding")
   @HttpCode(HttpStatus.OK)
   async saveOrgBranding(
@@ -649,40 +653,84 @@ export class GlobalLookupsController {
     @Tenant() tenant: TenantContext,
   ) {
     this.assertOrgAccess(tenant, orgId);
+    const client = this.supabaseService.getClient();
 
-    try {
-      await client.unsafe(
-        `INSERT INTO branding (entity_id, org_id, accent_color, theme_mode, keep_branding)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (entity_id) DO UPDATE SET
-           accent_color = COALESCE(EXCLUDED.accent_color, branding.accent_color),
-           theme_mode = COALESCE(EXCLUDED.theme_mode, branding.theme_mode),
-           keep_branding = COALESCE(EXCLUDED.keep_branding, branding.keep_branding)`,
-        [
-          tenant.entityId,
-          orgId,
-          body.accent_color ?? "#22A95E",
-          body.theme_mode ?? "dark",
-          body.keep_branding ?? false,
-        ],
-      );
-    } catch (err) {
-      console.error("[GlobalLookupsController] saveOrgBranding error:", err);
-    }
+    const payload: Record<string, unknown> = { entity_id: tenant.entityId };
+    if (body.accent_color !== undefined)
+      payload.accent_color = body.accent_color;
+    if (body.theme_mode !== undefined) payload.theme_mode = body.theme_mode;
+    if (body.keep_branding !== undefined)
+      payload.keep_branding = body.keep_branding;
 
+    const { error } = await client
+      .from("branding")
+      .upsert(payload, { onConflict: "entity_id" });
+
+    if (error) throw error;
     return { success: true };
   }
 
+  /** Save org profile settings — all fields stored directly on the organization table. */
   @Post("org/:orgId/save")
   @HttpCode(HttpStatus.OK)
   async saveOrgProfile(
     @Param("orgId") orgId: string,
     @Body()
-    body: Record<string, any>,
+    body: {
+      name?: string;
+      state_id?: string;
+      industry?: string;
+      base_currency?: string;
+      base_currency_decimals?: number;
+      base_currency_format?: string;
+      fiscal_year?: string;
+      organization_language?: string;
+      communication_languages?: string[];
+      timezone?: string;
+      date_format?: string;
+      date_separator?: string;
+      company_id_label?: string;
+      company_id_value?: string;
+      attention?: string;
+      street?: string;
+      place?: string;
+      city?: string;
+      pincode?: string;
+      phone?: string;
+      district_id?: string;
+      local_body_id?: string;
+      assembly_id?: string;
+      ward_id?: string;
+      payment_stub_address?: string;
+      has_separate_payment_stub_address?: boolean;
+      payment_stub_assembly_id?: string;
+      additional_fields?: any;
+      gstin?: string;
+      gst_treatment?: string;
+      source_of_supply?: string;
+      is_drug_registered?: boolean;
+      drug_licence_type?: string;
+      drug_license_20?: string;
+      drug_license_21?: string;
+      drug_license_20b?: string;
+      drug_license_21b?: string;
+      drug_license_20_url?: string;
+      drug_license_21_url?: string;
+      drug_license_20b_url?: string;
+      drug_license_21b_url?: string;
+      is_fssai_registered?: boolean;
+      fssai_number?: string;
+      fssai_url?: string;
+      is_msme_registered?: boolean;
+      msme_registration_type?: string;
+      msme_number?: string;
+      msme_url?: string;
+    },
     @Tenant() tenant: TenantContext,
   ) {
     this.assertOrgAccess(tenant, orgId);
-    const payload = { ...body };
+    const client = this.supabaseService.getClient();
+    const payload = { ...body } as Record<string, unknown>;
 
     if (typeof body.phone === "string" && body.phone.trim().length > 0) {
       const mobileRegex = /^[0-9]{10}$/;
@@ -735,71 +783,23 @@ export class GlobalLookupsController {
         parsedAddress?.assembly_code?.toString() ??
           parsedAddress?.assembly_name?.toString(),
       );
-      payload.payment_stub_assembly_id = (assemblyMatch as any)?.id ?? null;
+      payload.payment_stub_assembly_id = assemblyMatch?.id ?? null;
     } else if (body.payment_stub_assembly_id !== undefined) {
       payload.payment_stub_assembly_id =
         body.payment_stub_assembly_id?.toString().trim() || null;
     }
 
-    try {
-      await db
-        .update(organizations)
-        .set({
-          name: payload.name,
-          stateId: payload.state_id,
-          industry: payload.industry,
-          baseCurrency: payload.base_currency,
-          baseCurrencyDecimals: payload.base_currency_decimals,
-          baseCurrencyFormat: payload.base_currency_format,
-          fiscalYear: payload.fiscal_year,
-          organizationLanguage: payload.organization_language,
-          communicationLanguages: payload.communication_languages,
-          timezone: payload.timezone,
-          dateFormat: payload.date_format,
-          dateSeparator: payload.date_separator,
-          companyIdLabel: payload.company_id_label,
-          companyIdValue: payload.company_id_value,
-          attention: payload.attention,
-          street: payload.street,
-          place: payload.place,
-          city: payload.city,
-          pincode: payload.pincode,
-          phone: payload.phone,
-          districtId: payload.district_id,
-          localBodyId: payload.local_body_id,
-          wardId: payload.ward_id,
-          paymentStubAddress: payload.payment_stub_address,
-          hasSeparatePaymentStubAddress: payload.has_separate_payment_stub_address,
-          additionalFields: payload.additional_fields,
-          isDrugRegistered: payload.is_drug_registered,
-          drugLicenceType: payload.drug_licence_type,
-          drugLicense20: payload.drug_license_20,
-          drugLicense21: payload.drug_license_21,
-          drugLicense20b: payload.drug_license_20b,
-          drugLicense21b: payload.drug_license_21b,
-          drugLicense20Url: payload.drug_license_20_url,
-          drugLicense21Url: payload.drug_license_21_url,
-          drugLicense20bUrl: payload.drug_license_20b_url,
-          drugLicense21bUrl: payload.drug_license_21b_url,
-          isFssaiRegistered: payload.is_fssai_registered,
-          fssaiNumber: payload.fssai_number,
-          fssaiUrl: payload.fssai_url,
-          isMsmeRegistered: payload.is_msme_registered,
-          msmeRegistrationType: payload.msme_registration_type,
-          msmeNumber: payload.msme_number,
-          msmeUrl: payload.msme_url,
-          updatedAt: new Date(),
-        })
-        .where(eq(organizations.id, orgId));
-    } catch (err) {
-      console.error("[GlobalLookupsController] saveOrgProfile error:", err);
-      throw err;
-    }
-
+    const { error } = await client
+      .from("organization")
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq("id", orgId);
+    if (error) throw error;
     await this.syncOrganisationMaster(orgId);
+
     return { success: true };
   }
 
+  /** Upload or replace the organization logo. Accepts base64-encoded image. */
   @Post("org/:orgId/logo")
   async uploadOrgLogo(
     @Param("orgId") orgId: string,
@@ -838,10 +838,13 @@ export class GlobalLookupsController {
       "org-logos",
     );
 
-    await db
-      .update(organizations)
-      .set({ logoUrl: key, updatedAt: new Date() })
-      .where(eq(organizations.id, orgId));
+    // Update logo_url on the organization row
+    const client = this.supabaseService.getClient();
+    const { error } = await client
+      .from("organization")
+      .update({ logo_url: key, updated_at: new Date().toISOString() })
+      .eq("id", orgId);
+    if (error) throw error;
 
     return { logoUrl: await this.resolveLogoUrl(key) };
   }

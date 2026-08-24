@@ -120,7 +120,7 @@ describe("ReportsService.getAuditLogs", () => {
     );
     expect(calls.lte).toHaveBeenCalledWith(
       "created_at",
-      "2026-03-17T00:00:00.000Z",
+      "2026-03-17T23:59:59.999Z",
     );
     expect(calls.not).toHaveBeenCalledWith("archived_at", "is", null);
     expect(calls.or).toHaveBeenCalledWith(

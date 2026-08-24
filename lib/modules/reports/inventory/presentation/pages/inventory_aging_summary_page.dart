@@ -4,7 +4,7 @@ import 'package:zerpai_erp/modules/reports/utils/report_formatter_cache.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/reports/inventory/presentation/widgets/inventory_aging_summary_table.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_aging_interval_section.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_customize_columns_button.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';

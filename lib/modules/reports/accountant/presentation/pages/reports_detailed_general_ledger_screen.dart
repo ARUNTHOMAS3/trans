@@ -6,7 +6,7 @@ import 'package:zerpai_erp/modules/reports/utils/report_formatter_cache.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_customize_columns_button.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
@@ -60,7 +60,7 @@ class _DetailedGeneralLedgerScreenState
   bool _hasPendingFilterChanges = false;
   bool _showAssociatedTags = false;
   int _page = 1;
-  int _pageSize = 25;
+  final int _pageSize = 25;
   DateTime? _startDate;
   DateTime? _endDate;
   DateTime? _appliedStartDate;

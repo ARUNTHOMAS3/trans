@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
 
@@ -236,6 +237,10 @@ class _SalesOrderPreferencesDialogState extends State<SalesOrderPreferencesDialo
                                         const SizedBox(height: 4),
                                         TextField(
                                           controller: _nextNumberController,
+                                          keyboardType: TextInputType.number,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.digitsOnly,
+                                          ],
                                           decoration: InputDecoration(
                                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                             border: OutlineInputBorder(

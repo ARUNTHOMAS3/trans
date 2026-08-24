@@ -158,20 +158,25 @@ class _CreditNoteBulkUpdateDialogState
                   const SizedBox(height: 12),
                   if (_isAddressField) ...[
                     // Address layout: field dropdown on top row, form section below
-                    SizedBox(width: 220, child: _buildFieldDropdown()),
+                    SizedBox(
+                      width: 220,
+                      child: _buildFieldDropdown(),
+                    ),
                     const SizedBox(height: 12),
                     _BulkAddressFormSection(
                       addresses: _addresses,
                       selectedIndex: _selectedAddressIndex,
                       customerName: 'CUS-1',
-                      onSelected: (i) =>
-                          setState(() => _selectedAddressIndex = i),
+                      onSelected: (i) => setState(() => _selectedAddressIndex = i),
                     ),
                   ] else
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(width: 220, child: _buildFieldDropdown()),
+                        SizedBox(
+                          width: 220,
+                          child: _buildFieldDropdown(),
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: _selectedField == 'Sales Person'
@@ -184,123 +189,92 @@ class _CreditNoteBulkUpdateDialogState
                                   menuMaxHeight: 200,
                                   fillColor: AppTheme.backgroundColor,
                                   displayStringForValue: (v) => v,
-                                  itemBuilder: (val, isSelected, isHovered) =>
-                                      Container(
-                                        height: 36,
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                        ),
-                                        alignment: Alignment.centerLeft,
-                                        color: isHovered
-                                            ? AppTheme.primaryBlue
-                                            : Colors.white,
-                                        child: Text(
-                                          val,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: isHovered
-                                                ? Colors.white
-                                                : AppTheme.textPrimary,
-                                            fontWeight: isSelected
-                                                ? FontWeight.w600
-                                                : FontWeight.w400,
-                                          ),
-                                        ),
+                                  itemBuilder: (val, isSelected, isHovered) => Container(
+                                    height: 36,
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                                    alignment: Alignment.centerLeft,
+                                    color: isHovered ? AppTheme.primaryBlue : Colors.white,
+                                    child: Text(
+                                      val,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isHovered ? Colors.white : AppTheme.textPrimary,
+                                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                                       ),
-                                  onChanged: (val) => setState(
-                                    () => _selectedSalesPerson = val,
+                                    ),
                                   ),
+                                  onChanged: (val) => setState(() => _selectedSalesPerson = val),
                                 )
                               : _selectedField == 'PDF Template'
-                              ? FormDropdown<String>(
-                                  value: _selectedPdfTemplate,
-                                  items: _pdfTemplateOptions,
-                                  hint: 'Select template',
-                                  height: 36,
-                                  showSearch: false,
-                                  menuMaxHeight: 120,
-                                  fillColor: AppTheme.backgroundColor,
-                                  displayStringForValue: (v) => v,
-                                  itemBuilder: (val, isSelected, isHovered) =>
-                                      Container(
+                                  ? FormDropdown<String>(
+                                      value: _selectedPdfTemplate,
+                                      items: _pdfTemplateOptions,
+                                      hint: 'Select template',
+                                      height: 36,
+                                      showSearch: false,
+                                      menuMaxHeight: 120,
+                                      fillColor: AppTheme.backgroundColor,
+                                      displayStringForValue: (v) => v,
+                                      itemBuilder: (val, isSelected, isHovered) => Container(
                                         height: 36,
                                         width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 14),
                                         alignment: Alignment.centerLeft,
-                                        color: isHovered
-                                            ? AppTheme.primaryBlue
-                                            : Colors.white,
+                                        color: isHovered ? AppTheme.primaryBlue : Colors.white,
                                         child: Text(
                                           val,
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: isHovered
-                                                ? Colors.white
-                                                : AppTheme.textPrimary,
-                                            fontWeight: isSelected
-                                                ? FontWeight.w600
-                                                : FontWeight.w400,
+                                            color: isHovered ? Colors.white : AppTheme.textPrimary,
+                                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                                           ),
                                         ),
                                       ),
-                                  onChanged: (val) => setState(
-                                    () => _selectedPdfTemplate = val,
-                                  ),
-                                )
-                              : _isTextAreaField
-                              ? TextField(
-                                  controller: _valueController,
-                                  focusNode: _valueFocusNode,
-                                  autofocus: true,
-                                  maxLines: 5,
-                                  minLines: 5,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: AppTheme.backgroundColor,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                      borderSide: const BorderSide(
-                                        color: AppTheme.borderColor,
-                                      ),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                      borderSide: const BorderSide(
-                                        color: AppTheme.borderColor,
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                      borderSide: const BorderSide(
-                                        color: AppTheme.primaryBlue,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : CustomTextField(
-                                  controller: _valueController,
-                                  focusNode: _valueFocusNode,
-                                  autoFocus: true,
-                                  height: 36,
-                                  hintText: '',
-                                  fillColor: AppTheme.backgroundColor,
-                                  borderRadius: BorderRadius.circular(4),
-                                  textStyle: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
+                                      onChanged: (val) => setState(() => _selectedPdfTemplate = val),
+                                    )
+                                  : _isTextAreaField
+                                      ? TextField(
+                                          controller: _valueController,
+                                          focusNode: _valueFocusNode,
+                                          autofocus: true,
+                                          maxLines: 5,
+                                          minLines: 5,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimary,
+                                          ),
+                                          decoration: InputDecoration(
+                                            filled: true,
+                                            fillColor: AppTheme.backgroundColor,
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(4),
+                                              borderSide: const BorderSide(color: AppTheme.borderColor),
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(4),
+                                              borderSide: const BorderSide(color: AppTheme.borderColor),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(4),
+                                              borderSide: const BorderSide(color: AppTheme.primaryBlue),
+                                            ),
+                                          ),
+                                        )
+                                      : CustomTextField(
+                                          controller: _valueController,
+                                          focusNode: _valueFocusNode,
+                                          autoFocus: true,
+                                          height: 36,
+                                          hintText: '',
+                                          fillColor: AppTheme.backgroundColor,
+                                          borderRadius: BorderRadius.circular(4),
+                                          textStyle: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimary,
+                                          ),
+                                        ),
                         ),
                       ],
                     ),
@@ -428,63 +402,59 @@ class _BulkAddressFormSectionState extends State<_BulkAddressFormSection> {
 
   void _openPicker() {
     _overlay?.remove();
-    final entry = OverlayEntry(
-      builder: (ctx) {
-        return Stack(
-          children: [
-            GestureDetector(
-              onTap: _closePicker,
-              behavior: HitTestBehavior.translucent,
-              child: const SizedBox.expand(),
-            ),
-            CompositedTransformFollower(
-              link: _layerLink,
-              showWhenUnlinked: false,
-              offset: const Offset(0, 4),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: Material(
-                  color: Colors.transparent,
-                  child: Container(
-                    width: 360,
-                    decoration: BoxDecoration(
-                      color: AppTheme.backgroundColor,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.borderLight),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.textPrimary.withValues(alpha: 0.10),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+    final entry = OverlayEntry(builder: (ctx) {
+      return Stack(children: [
+        GestureDetector(
+          onTap: _closePicker,
+          behavior: HitTestBehavior.translucent,
+          child: const SizedBox.expand(),
+        ),
+        CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: const Offset(0, 4),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 360,
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.borderLight),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.textPrimary.withValues(alpha: 0.10),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ...widget.addresses.asMap().entries.map((entry) {
-                          final i = entry.key;
-                          final addr = entry.value;
-                          final isSelected = i == widget.selectedIndex;
-                          return _BulkAddressCard(
-                            address: addr,
-                            isSelected: isSelected,
-                            onSelected: () {
-                              widget.onSelected(i);
-                              _closePicker();
-                            },
-                          );
-                        }),
-                      ],
-                    ),
-                  ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ...widget.addresses.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final addr = entry.value;
+                      final isSelected = i == widget.selectedIndex;
+                      return _BulkAddressCard(
+                        address: addr,
+                        isSelected: isSelected,
+                        onSelected: () {
+                          widget.onSelected(i);
+                          _closePicker();
+                        },
+                      );
+                    }),
+                  ],
                 ),
               ),
             ),
-          ],
-        );
-      },
-    );
+          ),
+        ),
+      ]);
+    });
 
     _overlay = entry;
     Overlay.of(context).insert(entry);
@@ -562,10 +532,7 @@ class _BulkAddressFormSectionState extends State<_BulkAddressFormSection> {
                   ),
                 ),
               ] else
-                CompositedTransformTarget(
-                  link: _layerLink,
-                  child: const SizedBox.shrink(),
-                ),
+                CompositedTransformTarget(link: _layerLink, child: const SizedBox.shrink()),
             ],
           ),
           if (selected != null) ...[
@@ -584,10 +551,7 @@ class _BulkAddressFormSectionState extends State<_BulkAddressFormSection> {
             ...(selected['lines'] as List<dynamic>? ?? const []).map(
               (line) => Text(
                 line as String,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textSecondary,
-                ),
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
             ),
           ],
@@ -623,11 +587,9 @@ class _BulkAddressCardState extends State<_BulkAddressCard> {
     final bgColor = _hovered
         ? AppTheme.primaryBlue
         : widget.isSelected
-        ? AppTheme.bgDisabled
-        : AppTheme.backgroundColor;
-    final titleColor = _hovered
-        ? AppTheme.backgroundColor
-        : AppTheme.textPrimary;
+            ? AppTheme.bgDisabled
+            : AppTheme.backgroundColor;
+    final titleColor = _hovered ? AppTheme.backgroundColor : AppTheme.textPrimary;
     final detailColor = _hovered
         ? AppTheme.backgroundColor.withValues(alpha: 0.82)
         : AppTheme.textSecondary;
@@ -676,9 +638,7 @@ class _BulkAddressCardState extends State<_BulkAddressCard> {
                   child: Icon(
                     LucideIcons.pencil,
                     size: 14,
-                    color: _hovered
-                        ? AppTheme.backgroundColor
-                        : AppTheme.primaryBlue,
+                    color: _hovered ? AppTheme.backgroundColor : AppTheme.primaryBlue,
                   ),
                 ),
             ],
@@ -715,11 +675,10 @@ class _BulkDialogActionButtonState extends State<_BulkDialogActionButton> {
     final background = widget.primary
         ? AppTheme.accentGreen
         : _hovered
-        ? AppTheme.bgLight
-        : AppTheme.backgroundColor;
-    final textColor = widget.primary
-        ? AppTheme.backgroundColor
-        : AppTheme.textPrimary;
+            ? AppTheme.bgLight
+            : AppTheme.backgroundColor;
+    final textColor =
+        widget.primary ? AppTheme.backgroundColor : AppTheme.textPrimary;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),

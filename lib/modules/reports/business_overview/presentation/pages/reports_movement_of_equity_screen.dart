@@ -2,7 +2,7 @@ import 'package:zerpai_erp/modules/reports/presentation/widgets/report_table_typ
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_action_buttons.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_customize_columns_button.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
@@ -26,7 +26,7 @@ class _MovementOfEquityScreenState extends State<MovementOfEquityScreen> {
   bool _hasPendingFilterChanges = false;
   String _reportBasis = 'Accrual';
 
-  static final DateTime _defaultDate = DateTime(2026, 7, 31); // Mock anchor date
+  static final DateTime _defaultDate = DateTime.now(); // Mock anchor date
   final DateTime _appliedEndDate = _defaultDate;
   static final _displayDateFormat = ReportFormatterCache.date('dd-MM-yyyy');
 

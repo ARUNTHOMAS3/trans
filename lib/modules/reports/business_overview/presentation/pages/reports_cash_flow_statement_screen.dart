@@ -1,38 +1,55 @@
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_table_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_customize_columns_button.dart';
+import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_more_filters_panel.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_sticky_header_scroll_table.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_scaffold.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_compare_section.dart';
 import 'package:zerpai_erp/modules/reports/utils/report_formatter_cache.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/modules/reports/business_overview/data/providers/cash_flow_statement_provider.dart';
 
-class CashFlowStatementScreen extends StatefulWidget {
+class CashFlowStatementScreen extends ConsumerStatefulWidget {
   const CashFlowStatementScreen({super.key});
 
   @override
-  State<CashFlowStatementScreen> createState() =>
+  ConsumerState<CashFlowStatementScreen> createState() =>
       _CashFlowStatementScreenState();
 }
 
-class _CashFlowStatementScreenState extends State<CashFlowStatementScreen> {
-  static const String _dateLabel = 'From 01-07-2026 To 31-07-2026';
+class _CashFlowStatementScreenState extends ConsumerState<CashFlowStatementScreen> {
+
 
   bool _isMoreFiltersOpen = false;
   bool _hasPendingFilterChanges = false;
   bool _collapseSubAccounts = false;
   
-  static final DateTime _defaultDate = DateTime(2026, 7, 28); // Mock anchor date
-  final DateTime _appliedEndDate = _defaultDate;
+  static final DateTime _defaultDate = DateTime.now();
+  late DateTime _startDate = DateTime(_defaultDate.year, _defaultDate.month, 1);
+  late DateTime _endDate = _defaultDate;
+  late DateTime _appliedStartDate = DateTime(_defaultDate.year, _defaultDate.month, 1);
+  late DateTime _appliedEndDate = _defaultDate;
   static final _displayDateFormat = ReportFormatterCache.date('dd-MM-yyyy');
 
   ReportCompareSelection _compareSelection = const ReportCompareSelection.none();
   ReportCompareSelection _appliedCompareSelection = const ReportCompareSelection.none();
+
+  void _handleDateRangeChanged(ReportDateRangeSelection selection) {
+    DateTime start = selection.startDate;
+    DateTime end = selection.endDate;
+    setState(() {
+      _startDate = start;
+      _endDate = end;
+      _hasPendingFilterChanges = true;
+    });
+  }
 
   void _markFiltersDirty() {
     setState(() => _hasPendingFilterChanges = true);
@@ -51,7 +68,6 @@ class _CashFlowStatementScreenState extends State<CashFlowStatementScreen> {
   void _toggleCollapseSubAccounts() {
     setState(() {
       _collapseSubAccounts = !_collapseSubAccounts;
-      _hasPendingFilterChanges = true;
     });
   }
 
@@ -90,7 +106,13 @@ class _CashFlowStatementScreenState extends State<CashFlowStatementScreen> {
 
   void _runReport() {
     _closeMoreFilters();
-    setState(() => _hasPendingFilterChanges = false);
+    setState(() {
+      _appliedStartDate = _startDate;
+      _appliedEndDate = _endDate;
+      _appliedCompareSelection = _compareSelection;
+      _hasPendingFilterChanges = false;
+    });
+    ref.invalidate(cashFlowStatementProvider);
   }
 
   @override
@@ -98,13 +120,14 @@ class _CashFlowStatementScreenState extends State<CashFlowStatementScreen> {
     return ReportViewScaffold(
       categoryLabel: 'Business Overview',
       reportTitle: 'Cash Flow Statement',
-      dateLabel: _dateLabel,
+      dateLabel: 'From ${_displayDateFormat.format(_appliedStartDate)} To ${_displayDateFormat.format(_appliedEndDate)}',
       companyName: '',
       filters: [
-        ReportFilterChip(
+        ReportDateRangeFilter(
           label: 'Date Range',
-          value: 'This Month',
-          onPressed: _markFiltersDirty,
+          initialStartDate: _startDate,
+          initialEndDate: _endDate,
+          onChanged: _handleDateRangeChanged,
         ),
         ReportFilterChip(
           label: 'More Filters',
@@ -162,7 +185,10 @@ class _CashFlowStatementScreenState extends State<CashFlowStatementScreen> {
         openReportFromReportsModule(context, reportName);
       },
       reportContent: _CashFlowStatementBody(
+        startDate: _appliedStartDate,
+        endDate: _appliedEndDate,
         comparisonPeriods: _buildComparisonPeriods(),
+        collapseSubAccounts: _collapseSubAccounts,
       ),
     );
   }
@@ -214,8 +240,8 @@ class _CashFlowRowData {
   final int indentLevel;
   final bool isSection;
   final bool isTotal;
-  final bool isLink;
-  final bool showCollapseIcon;
+  final bool isLink = false;
+  final bool showCollapseIcon = false;
 
   const _CashFlowRowData({
     required this.account,
@@ -223,188 +249,133 @@ class _CashFlowRowData {
     this.indentLevel = 0,
     this.isSection = false,
     this.isTotal = false,
-    this.isLink = false,
-    this.showCollapseIcon = false,
-  });
+    });
 }
 
-class _CashFlowStatementBody extends StatelessWidget {
+class _CashFlowStatementBody extends ConsumerWidget {
+  final DateTime startDate;
+  final DateTime endDate;
   final List<String> comparisonPeriods;
+  final bool collapseSubAccounts;
 
-  const _CashFlowStatementBody({required this.comparisonPeriods});
+  const _CashFlowStatementBody({
+    required this.startDate,
+    required this.endDate,
+    required this.comparisonPeriods,
+    required this.collapseSubAccounts,
+  });
 
-  static const List<_CashFlowRowData> _rows = [
-    _CashFlowRowData(
-      account: 'Beginning Cash Balance',
-      total: '8,79,382.03',
-      isTotal: true,
-    ),
-    _CashFlowRowData(
-      account: 'Cash Flow from Operating Activities',
-      total: '',
-      isSection: true,
-    ),
-    _CashFlowRowData(
-      account: 'Accounts Receivable',
-      total: '-209.00',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _CashFlowRowData(
-      account: 'Finished Goods',
-      total: '-1,410.00',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _CashFlowRowData(
-      account: 'Inventory Asset',
-      total: '300.20',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _CashFlowRowData(
-      account: 'Net Income',
-      total: '1,287.40',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _CashFlowRowData(
-      account: 'Non-cash adjustments',
-      total: '',
-      indentLevel: 1,
-      isSection: true,
-    ),
-    _CashFlowRowData(
-      account: 'Non-cash adjustments Total',
-      total: '0.00',
-      indentLevel: 1,
-      isTotal: true,
-    ),
-    _CashFlowRowData(
-      account: 'Output Payable',
-      total: '0.00',
-      isLink: true,
-      showCollapseIcon: true,
-    ),
-    _CashFlowRowData(
-      account: 'Output CGST',
-      total: '-4.30',
-      indentLevel: 2,
-      isLink: true,
-    ),
-    _CashFlowRowData(
-      account: 'Output SGST',
-      total: '-4.30',
-      indentLevel: 2,
-      isLink: true,
-    ),
-    _CashFlowRowData(
-      account: 'Total for Output Payable',
-      total: '-8.60',
-      indentLevel: 1,
-      isTotal: true,
-      isLink: true,
-    ),
-    _CashFlowRowData(
-      account: 'Staff Salary Payable',
-      total: '0.00',
-      isLink: true,
-      showCollapseIcon: true,
-    ),
-    _CashFlowRowData(
-      account: 'Althaf -Salary',
-      total: '250.00',
-      indentLevel: 2,
-      isLink: true,
-    ),
-    _CashFlowRowData(
-      account: 'Total for Staff Salary Payable',
-      total: '250.00',
-      indentLevel: 1,
-      isTotal: true,
-      isLink: true,
-    ),
-    _CashFlowRowData(
-      account: 'Net cash provided by Operating Activities',
-      total: '210.00',
-      isTotal: true,
-    ),
-    _CashFlowRowData(
-      account: 'Cash Flow from Investing Activities',
-      total: '',
-      isSection: true,
-    ),
-    _CashFlowRowData(
-      account: 'd',
-      total: '-100.00',
-      indentLevel: 1,
-      isLink: true,
-    ),
-    _CashFlowRowData(
-      account: 'Net cash provided by Investing Activities',
-      total: '-100.00',
-      isTotal: true,
-    ),
-    _CashFlowRowData(
-      account: 'Cash Flow from Financing Activities',
-      total: '',
-      isSection: true,
-    ),
-    _CashFlowRowData(
-      account: 'Net cash provided by Financing Activities',
-      total: '0.00',
-      isTotal: true,
-    ),
-    _CashFlowRowData(
-      account: 'Net Change in cash',
-      total: '110.00',
-      isTotal: true,
-    ),
-    _CashFlowRowData(
-      account: 'Ending Cash Balance',
-      total: '8,79,492.03',
-      isTotal: true,
-    ),
-  ];
+  
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final int extraCols = comparisonPeriods.isEmpty ? 0 : comparisonPeriods.length - 1;
-        final double minWidth = 825.0 + (extraCols * 170.0);
-        final tableWidth = constraints.maxWidth < minWidth ? constraints.maxWidth : minWidth;
-        
-        final tableHeight = constraints.hasBoundedHeight
-            ? constraints.maxHeight
-            : 360.0;
-        final table = SizedBox(
-          width: tableWidth,
-          height: tableHeight,
-          child: ReportStickyHeaderScrollTable(
-            header: _CashFlowTableHeader(comparisonPeriods: comparisonPeriods),
-            emptyBody: const SizedBox.shrink(),
-            children: [
-              for (final row in _rows) 
-                _CashFlowTableRow(
-                  row: row,
-                  comparisonPeriods: comparisonPeriods,
-                ),
-              const SizedBox(height: AppTheme.space24),
-              const _BaseCurrencyNote(),
-              const SizedBox(height: AppTheme.space10),
-            ],
-          ),
-        );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final request = CashFlowStatementRequest(
+      startDate: startDate,
+      endDate: endDate,
+      basis: 'Accrual',
+    );
 
-        if (constraints.maxWidth < tableWidth) {
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: table,
-          );
+    final asyncData = ref.watch(cashFlowStatementProvider(request));
+
+    return asyncData.when(
+      loading: () => const Padding(padding: EdgeInsets.all(AppTheme.space16), child: SingleChildScrollView(physics: NeverScrollableScrollPhysics(), child: ZTableSkeleton(rows: 5, columns: 3))),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (data) {
+        final operating = (data['operatingActivities'] as List<dynamic>?) ?? [];
+        final investing = (data['investingActivities'] as List<dynamic>?) ?? [];
+        final financing = (data['financingActivities'] as List<dynamic>?) ?? [];
+
+        final List<_CashFlowRowData> dynamicRows = [];
+
+        // Operating Activities
+        dynamicRows.add(const _CashFlowRowData(account: 'Cash Flow from Operating Activities', total: '', isSection: true));
+        double totalOperating = 0;
+        for (final item in operating) {
+          final amount = double.tryParse(item['amount'].toString()) ?? 0.0;
+          totalOperating += amount;
+          if (!collapseSubAccounts) {
+            dynamicRows.add(_CashFlowRowData(
+              account: item['accountName'] as String,
+              total: amount.toStringAsFixed(2),
+              indentLevel: 1,
+            ));
+          }
         }
+        dynamicRows.add(_CashFlowRowData(account: 'Net Cash from Operating Activities', total: totalOperating.toStringAsFixed(2), isTotal: true));
 
-        return Center(child: table);
+        // Investing Activities
+        dynamicRows.add(const _CashFlowRowData(account: 'Cash Flow from Investing Activities', total: '', isSection: true));
+        double totalInvesting = 0;
+        for (final item in investing) {
+          final amount = double.tryParse(item['amount'].toString()) ?? 0.0;
+          totalInvesting += amount;
+          if (!collapseSubAccounts) {
+            dynamicRows.add(_CashFlowRowData(
+              account: item['accountName'] as String,
+              total: amount.toStringAsFixed(2),
+              indentLevel: 1,
+            ));
+          }
+        }
+        dynamicRows.add(_CashFlowRowData(account: 'Net Cash from Investing Activities', total: totalInvesting.toStringAsFixed(2), isTotal: true));
+
+        // Financing Activities
+        dynamicRows.add(const _CashFlowRowData(account: 'Cash Flow from Financing Activities', total: '', isSection: true));
+        double totalFinancing = 0;
+        for (final item in financing) {
+          final amount = double.tryParse(item['amount'].toString()) ?? 0.0;
+          totalFinancing += amount;
+          if (!collapseSubAccounts) {
+            dynamicRows.add(_CashFlowRowData(
+              account: item['accountName'] as String,
+              total: amount.toStringAsFixed(2),
+              indentLevel: 1,
+            ));
+          }
+        }
+        dynamicRows.add(_CashFlowRowData(account: 'Net Cash from Financing Activities', total: totalFinancing.toStringAsFixed(2), isTotal: true));
+
+        final totalChange = totalOperating + totalInvesting + totalFinancing;
+        dynamicRows.add(_CashFlowRowData(account: 'Net Change in Cash', total: totalChange.toStringAsFixed(2), isTotal: true, indentLevel: 0, isSection: true));
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final int extraCols = comparisonPeriods.isEmpty ? 0 : comparisonPeriods.length - 1;
+            final double minWidth = 825.0 + (extraCols * 170.0);
+            final tableWidth = constraints.maxWidth < minWidth ? constraints.maxWidth : minWidth;
+            
+            final tableHeight = constraints.hasBoundedHeight
+                ? constraints.maxHeight
+                : 360.0;
+            final table = SizedBox(
+              width: tableWidth,
+              height: tableHeight,
+              child: ReportStickyHeaderScrollTable(
+                header: _CashFlowTableHeader(comparisonPeriods: comparisonPeriods),
+                emptyBody: const SizedBox.shrink(),
+                children: [
+                  for (final row in dynamicRows) 
+                    _CashFlowTableRow(
+                      row: row,
+                      comparisonPeriods: comparisonPeriods,
+                    ),
+                  const SizedBox(height: AppTheme.space24),
+                  const _BaseCurrencyNote(),
+                  const SizedBox(height: AppTheme.space10),
+                ],
+              ),
+            );
+
+            if (constraints.maxWidth < tableWidth) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: table,
+              );
+            }
+
+            return Center(child: table);
+          },
+        );
       },
     );
   }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_scaffold.dart';
 import 'package:zerpai_erp/modules/reports/purchases_expenses/presentation/widgets/purchase_details_for_item_table.dart';
 

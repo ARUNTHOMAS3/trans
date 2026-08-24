@@ -1,25 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_more_filters_panel.dart';
+import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
+import 'package:zerpai_erp/modules/reports/utils/report_formatter_cache.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_scaffold.dart';
 
-class HorizontalProfitAndLossScreen extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/modules/reports/business_overview/data/providers/horizontal_profit_and_loss_provider.dart';
+
+class HorizontalProfitAndLossScreen extends ConsumerStatefulWidget {
   const HorizontalProfitAndLossScreen({super.key});
 
   @override
-  State<HorizontalProfitAndLossScreen> createState() =>
+  ConsumerState<HorizontalProfitAndLossScreen> createState() =>
       _HorizontalProfitAndLossScreenState();
 }
 
 class _HorizontalProfitAndLossScreenState
-    extends State<HorizontalProfitAndLossScreen> {
-  static const String _dateLabel = 'From 01-07-2026 To 31-07-2026';
+    extends ConsumerState<HorizontalProfitAndLossScreen> {
+  static final DateTime _defaultDate = DateTime.now();
+  DateTime _startDate = _defaultDate;
+  DateTime _endDate = _defaultDate;
+  DateTime _appliedStartDate = _defaultDate;
+  DateTime _appliedEndDate = _defaultDate;
 
   bool _isMoreFiltersOpen = false;
   bool _hasPendingFilterChanges = false;
+
+  String get _dateLabel {
+    final f = ReportFormatterCache.date('dd-MM-yyyy');
+    return 'From ${f.format(_appliedStartDate)} To ${f.format(_appliedEndDate)}';
+  }
+
+  void _handleDateRangeChanged(ReportDateRangeSelection selection) {
+    setState(() {
+      _startDate = selection.startDate;
+      _endDate = selection.endDate;
+      _hasPendingFilterChanges = true;
+    });
+  }
 
   void _markFiltersDirty() {
     setState(() => _hasPendingFilterChanges = true);
@@ -37,21 +59,124 @@ class _HorizontalProfitAndLossScreenState
 
   void _runReport() {
     _closeMoreFilters();
-    setState(() => _hasPendingFilterChanges = false);
+    setState(() {
+      _appliedStartDate = _startDate;
+      _appliedEndDate = _endDate;
+      _hasPendingFilterChanges = false;
+    });
+  }
+
+
+  List<_HorizontalLineItem> _buildRows(List<dynamic> items, dynamic f, bool isExpense, num netPL) {
+    List<_HorizontalLineItem> rows = [];
+    
+    // Group by accountType
+    Map<String, List<dynamic>> grouped = {};
+    for (var item in items) {
+      final type = item['accountType'] ?? 'Uncategorized';
+      grouped.putIfAbsent(type, () => []).add(item);
+    }
+    
+    for (var entry in grouped.entries) {
+      final type = entry.key;
+      final groupItems = entry.value;
+      
+      rows.add(_HorizontalLineItem(
+        label: type.toUpperCase(),
+        amount: '',
+        isSection: true,
+      ));
+      
+      num sectionTotal = 0;
+      for (var item in groupItems) {
+        final amount = item['amount'] ?? 0;
+        sectionTotal += amount;
+        rows.add(_HorizontalLineItem(
+          label: item['accountName'] ?? 'Unknown',
+          amount: f.format(amount),
+          isIndented: true,
+          isLink: true,
+        ));
+      }
+      
+      rows.add(_HorizontalLineItem(
+        label: 'TOTAL ${type.toUpperCase()}',
+        amount: f.format(sectionTotal),
+        isTotal: true,
+      ));
+    }
+    
+    // Add Net Profit/Loss if applicable
+    if (isExpense && netPL > 0) {
+      rows.add(_HorizontalLineItem(
+        label: 'NET PROFIT',
+        amount: f.format(netPL),
+        hasBox: true,
+      ));
+    } else if (!isExpense && netPL < 0) {
+      rows.add(_HorizontalLineItem(
+        label: 'NET LOSS',
+        amount: f.format(netPL.abs()),
+        hasBox: true,
+      ));
+    }
+    
+    return rows;
   }
 
   @override
   Widget build(BuildContext context) {
+    final request = HorizontalProfitAndLossRequest(
+      startDate: _appliedStartDate,
+      endDate: _appliedEndDate,
+      basis: 'Accrual',
+    );
+    final reportState = ref.watch(horizontalProfitAndLossProvider(request));
+    final isLoading = reportState.isLoading;
+    final hasError = reportState.hasError;
+    
+    List<_HorizontalLineItem> expenseRows = [];
+    List<_HorizontalLineItem> incomeRows = [];
+    String expenseTotal = '0.00';
+    String incomeTotal = '0.00';
+    
+    if (reportState.hasValue && reportState.value != null) {
+      final data = reportState.value!;
+      final f = ReportFormatterCache.number('#,##,##0.00');
+      
+      final rawExpenseSide = data['expenseSide'] as List<dynamic>? ?? [];
+      final rawIncomeSide = data['incomeSide'] as List<dynamic>? ?? [];
+      final num totalE = data['totalExpense'] ?? 0;
+      final num totalI = data['totalIncome'] ?? 0;
+      final num netPL = data['netProfitLoss'] ?? 0;
+      
+      expenseRows = _buildRows(rawExpenseSide, f, true, netPL);
+      incomeRows = _buildRows(rawIncomeSide, f, false, netPL);
+      
+      num balancingTotalE = totalE;
+      num balancingTotalI = totalI;
+      if (netPL > 0) {
+        balancingTotalE += netPL;
+      } else if (netPL < 0) {
+        balancingTotalI += netPL.abs();
+      }
+      
+      expenseTotal = f.format(balancingTotalE);
+      incomeTotal = f.format(balancingTotalI);
+    }
+
     return ReportViewScaffold(
+
       categoryLabel: 'Business Overview',
       reportTitle: 'Horizontal Profit and Loss',
       dateLabel: _dateLabel,
       companyName: '',
       filters: [
-        ReportFilterChip(
+        ReportDateRangeFilter(
           label: 'Date Range',
-          value: 'This Month',
-          onPressed: _markFiltersDirty,
+          initialStartDate: _startDate,
+          initialEndDate: _endDate,
+          onChanged: _handleDateRangeChanged,
         ),
         ReportFilterChip(
           label: 'More Filters',
@@ -85,14 +210,14 @@ class _HorizontalProfitAndLossScreenState
         }
       },
       settingsTooltip: 'Customize the Horizontal Profit and Loss report.',
-      isLoading: false,
+      isLoading: isLoading,
       currentNavigationCategory: 'Business Overview',
       currentNavigationReport: 'Horizontal Profit and Loss',
       onReportSelected: (reportName, category) {
         if (reportName == 'Horizontal Profit and Loss') return;
         openReportFromReportsModule(context, reportName);
       },
-      reportContent: const _HorizontalProfitAndLossStatement(),
+      reportContent: hasError ? const Center(child: Text('Failed to load data.')) : _HorizontalProfitAndLossStatement(expenseRows: expenseRows, incomeRows: incomeRows, expenseTotal: expenseTotal, incomeTotal: incomeTotal),
     );
   }
 }
@@ -118,105 +243,21 @@ class _HorizontalLineItem {
 }
 
 class _HorizontalProfitAndLossStatement extends StatelessWidget {
-  const _HorizontalProfitAndLossStatement();
+  final List<_HorizontalLineItem> expenseRows;
+  final List<_HorizontalLineItem> incomeRows;
+  final String expenseTotal;
+  final String incomeTotal;
 
-  static const List<_HorizontalLineItem> _expenseRows = [
-    _HorizontalLineItem(
-      label: 'OPENING STOCK',
-      amount: '3,29,094.30',
-      isLink: true,
-    ),
-    _HorizontalLineItem(label: 'PURCHASES', amount: '0.00', isLink: true),
-    _HorizontalLineItem(label: 'VENDOR CREDITS', amount: '0.00', isLink: true),
-    _HorizontalLineItem(
-      label: 'INVENTORY ADJUSTMENT',
-      amount: '-0.20',
-      isLink: true,
-    ),
-    _HorizontalLineItem(
-      label: 'COST OF GOODS SOLD',
-      amount: '',
-      isSection: true,
-    ),
-    _HorizontalLineItem(
-      label: 'Cost of Goods Sold',
-      amount: '0.20',
-      isIndented: true,
-      isLink: true,
-    ),
-    _HorizontalLineItem(
-      label: 'TOTAL COST OF GOODS SOLD',
-      amount: '0.20',
-      isTotal: true,
-    ),
-    _HorizontalLineItem(
-      label: 'OPERATING EXPENSE',
-      amount: '',
-      isSection: true,
-    ),
-    _HorizontalLineItem(
-      label: 'Fuel/Mileage Expenses',
-      amount: '250.00',
-      isIndented: true,
-      isLink: true,
-    ),
-    _HorizontalLineItem(
-      label: 'TOTAL OPERATING EXPENSE',
-      amount: '250.00',
-      isTotal: true,
-    ),
-    _HorizontalLineItem(
-      label: 'NON OPERATING EXPENSE',
-      amount: '',
-      isSection: true,
-    ),
-    _HorizontalLineItem(
-      label: 'TOTAL NON OPERATING EXPENSE',
-      amount: '0.00',
-      isTotal: true,
-    ),
-    _HorizontalLineItem(
-      label: 'NET PROFIT/LOSS',
-      amount: '1,287.40',
-      hasBox: true,
-    ),
-  ];
+  const _HorizontalProfitAndLossStatement({
+    required this.expenseRows,
+    required this.incomeRows,
+    required this.expenseTotal,
+    required this.incomeTotal,
+  });
 
-  static const List<_HorizontalLineItem> _incomeRows = [
-    _HorizontalLineItem(label: 'OPERATING INCOME', amount: '', isSection: true),
-    _HorizontalLineItem(
-      label: 'Other Charges',
-      amount: '28.60',
-      isIndented: true,
-      isLink: true,
-    ),
-    _HorizontalLineItem(
-      label: 'Sales',
-      amount: '399.00',
-      isIndented: true,
-      isLink: true,
-    ),
-    _HorizontalLineItem(
-      label: 'TOTAL OPERATING INCOME',
-      amount: '427.60',
-      isTotal: true,
-    ),
-    _HorizontalLineItem(
-      label: 'CLOSING STOCK',
-      amount: '3,30,204.10',
-      isLink: true,
-    ),
-    _HorizontalLineItem(
-      label: 'NON OPERATING INCOME',
-      amount: '',
-      isSection: true,
-    ),
-    _HorizontalLineItem(
-      label: 'TOTAL NON OPERATING INCOME',
-      amount: '0.00',
-      isTotal: true,
-    ),
-  ];
+  
+
+  
 
   @override
   Widget build(BuildContext context) {
@@ -230,8 +271,8 @@ class _HorizontalProfitAndLossStatement extends StatelessWidget {
             physics: const ClampingScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: const [
-                Text(
+              children: [
+                const Text(
                   'Basis : Accrual',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -240,11 +281,11 @@ class _HorizontalProfitAndLossStatement extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(height: AppTheme.space24),
-                _HorizontalStatementGrid(),
-                SizedBox(height: AppTheme.space48),
-                _BaseCurrencyNote(),
-                SizedBox(height: AppTheme.space10),
+                const SizedBox(height: AppTheme.space24),
+                _HorizontalStatementGrid(expenseRows: expenseRows, incomeRows: incomeRows, expenseTotal: expenseTotal, incomeTotal: incomeTotal),
+                const SizedBox(height: AppTheme.space48),
+                const _BaseCurrencyNote(),
+                const SizedBox(height: AppTheme.space10),
               ],
             ),
           ),
@@ -264,7 +305,17 @@ class _HorizontalProfitAndLossStatement extends StatelessWidget {
 }
 
 class _HorizontalStatementGrid extends StatelessWidget {
-  const _HorizontalStatementGrid();
+  final List<_HorizontalLineItem> expenseRows;
+  final List<_HorizontalLineItem> incomeRows;
+  final String expenseTotal;
+  final String incomeTotal;
+
+  const _HorizontalStatementGrid({
+    required this.expenseRows,
+    required this.incomeRows,
+    required this.expenseTotal,
+    required this.incomeTotal,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -279,14 +330,14 @@ class _HorizontalStatementGrid extends StatelessWidget {
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: const [
+              children: [
                 Expanded(
                   child: _StatementSide(
                     title: 'Expense',
-                    rows: _HorizontalProfitAndLossStatement._expenseRows,
+                    rows: expenseRows,
                   ),
                 ),
-                VerticalDivider(
+                const VerticalDivider(
                   width: 1,
                   thickness: 1,
                   color: AppTheme.borderLight,
@@ -294,14 +345,14 @@ class _HorizontalStatementGrid extends StatelessWidget {
                 Expanded(
                   child: _StatementSide(
                     title: 'Income',
-                    rows: _HorizontalProfitAndLossStatement._incomeRows,
+                    rows: incomeRows,
                   ),
                 ),
               ],
             ),
           ),
           const Divider(height: 1, thickness: 1, color: AppTheme.borderLight),
-          const _StatementTotalsRow(),
+          _StatementTotalsRow(expenseTotal: expenseTotal, incomeTotal: incomeTotal),
         ],
       ),
     );
@@ -419,19 +470,25 @@ class _StatementRow extends StatelessWidget {
 }
 
 class _StatementTotalsRow extends StatelessWidget {
-  const _StatementTotalsRow();
+  final String expenseTotal;
+  final String incomeTotal;
+
+  const _StatementTotalsRow({
+    required this.expenseTotal,
+    required this.incomeTotal,
+  });
 
   @override
   Widget build(BuildContext context) {
     return IntrinsicHeight(
       child: Row(
-        children: const [
+        children: [
           Expanded(
-            child: _TotalCell(label: 'Total', amount: '3,30,631.70'),
+            child: _TotalCell(label: 'Total', amount: expenseTotal),
           ),
-          VerticalDivider(width: 1, thickness: 1, color: AppTheme.borderLight),
+          const VerticalDivider(width: 1, thickness: 1, color: AppTheme.borderLight),
           Expanded(
-            child: _TotalCell(label: 'Total', amount: '3,30,631.70'),
+            child: _TotalCell(label: 'Total', amount: incomeTotal),
           ),
         ],
       ),

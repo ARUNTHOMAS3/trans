@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/reports/advanced_inventory/presentation/widgets/serial_number_details_table.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_customize_columns_button.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
@@ -108,7 +108,7 @@ class _SerialNumberDetailsPageState
   DateTime _endDate = DateTime(2026, 7, 31, 23, 59, 59);
   DateTime _appliedStartDate = DateTime(2026, 7, 1);
   DateTime _appliedEndDate = DateTime(2026, 7, 31, 23, 59, 59);
-  String _reportBy = _defaultReportBy;
+  final String _reportBy = _defaultReportBy;
   String _appliedReportBy = _defaultReportBy;
   bool _isMoreFiltersOpen = false;
   bool _hasPendingFilterChanges = false;

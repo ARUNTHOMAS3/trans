@@ -156,6 +156,7 @@ class PurchaseOrderRepositoryImpl implements PurchaseOrderRepository {
   ) async {
     try {
       final payload = {
+        'isActive': settings['isAuto'],
         'prefix': settings['prefix'],
         'nextNumber': settings['nextNumber'],
         'padding': settings['padding'],

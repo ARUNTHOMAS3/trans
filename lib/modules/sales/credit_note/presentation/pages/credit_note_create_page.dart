@@ -1,72 +1,137 @@
+
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/widgets/cn_account_dropdown.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
+import 'package:zerpai_erp/modules/auth/providers/user_provider.dart';
+import 'package:zerpai_erp/modules/auth/models/user_model.dart';
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/logging/app_logger.dart';
+import 'package:zerpai_erp/core/routing/app_routes.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/providers/credit_note_provider.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
+import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/sales/sales_return/providers/sales_return_provider.dart';
+import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/modules/items/items/models/item_model.dart';
-import 'package:zerpai_erp/shared/widgets/dialogs/item_quick_edit_dialog.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/sales_item_quick_edit_dialog.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_orders/presentation/widgets/manage_tds_tcs_rates_dialog.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/bulk_items_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/dialogs/inventory_bin_batch_foc.dart';
+import 'package:zerpai_erp/modules/inventory/models/warehouse_model.dart';
 import 'package:zerpai_erp/shared/constants/phone_prefixes.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/custom_text_field.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/dropdown_input.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/file_upload_button.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/inputs/custom_text_field.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/inputs/dropdown_input.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/inputs/file_upload_button.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/dialogs/advanced_customer_search_modal.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/z_tooltip.dart';
-import 'package:zerpai_erp/shared/widgets/inputs/warehouse_popover.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/inputs/z_tooltip.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/inputs/warehouse_popover.dart';
 import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/widgets/cn_grid_header.dart';
+import 'package:zerpai_erp/modules/accounts/chart_of_accounts/providers/accountant_chart_of_accounts_provider.dart';
+import 'package:zerpai_erp/modules/accounts/chart_of_accounts/models/accountant_chart_of_accounts_account_model.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:zerpai_erp/shared/widgets/skeleton.dart';
+import 'package:zerpai_erp/shared/services/lookup_service.dart';
+import 'package:zerpai_erp/shared/constants/currency_constants.dart';
+import 'package:zerpai_erp/modules/sales/customers/data/models/sales_customer_model.dart';
+import 'package:zerpai_erp/modules/sales/customers/presentation/widgets/customer_sidebar.dart';
+import 'package:zerpai_erp/modules/pricelists/pricelist/providers/pricelist_provider.dart';
+import 'package:zerpai_erp/modules/pricelists/pricelist/models/pricelist_model.dart';
 
 /// Credit Note Add Page
 class CreditNoteCreatePage extends ConsumerStatefulWidget {
   final String? initialCustomer;
   final String? creditNoteId;
 
+  /// RMA# of a sales return this credit note is being raised from. The form
+  /// loads that return and pre-fills its lines.
+  ///
+  /// Carried as a query parameter rather than `state.extra`: the app's
+  /// top-level redirect rewrites every path to add the org system id, and
+  /// GoRouter drops `extra` across a redirect.
+  final String? fromRmaNumber;
+
+  /// Id of an existing credit note to edit. When set, the form loads that note
+  /// (header + lines) and saving updates it in place rather than creating one.
+  final String? editId;
+
   const CreditNoteCreatePage({
     super.key,
     this.initialCustomer,
     this.creditNoteId,
+    this.fromRmaNumber,
+    this.editId,
   });
 
   @override
-  ConsumerState<CreditNoteCreatePage> createState() =>
-      _CreditNoteCreatePageState();
+  ConsumerState<CreditNoteCreatePage> createState() => _CreditNoteCreatePageState();
 }
 
 class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
+  static const String _cnSequenceModule = 'credit_note';
+  final _lookupsApiService = LookupsApiService();
   static const double _tableFieldHeight = 44;
-  static const double _accountColumnWidth = 150;
-  static const double _quantityColumnWidth = 105;
-  static const double _rateColumnWidth = 140;
+  static const double _accountColumnWidth = 160;
+  static const double _quantityColumnWidth = 100;
+  static const double _rateColumnWidth = 120;
   static const double _discountColumnWidth = 120;
-  static const double _taxColumnWidth = 160;
-  static const double _amountColumnWidth = 170;
+  static const double _taxColumnWidth = 140;
+  static const double _amountColumnWidth = 140;
+  static const List<String> _creditNoteReasonOptions = [
+    'Sales Return',
+    'Post Sale Discount',
+    'Deficiency in service',
+    'Correction in invoice',
+    'Change in POS',
+    'Finalization of Provisional assessment',
+    'Others',
+  ];
+
   // --- Form State ---
   String? _selectedCustomer;
   String? _selectedReason;
+
+  bool _isSaving = false;
+
+  /// Set when editing an existing credit note; saving then updates this id.
+  String? _editingId;
+  bool _isLoadingEdit = false;
+
+  /// Source sales return, when this credit note was raised from one. Sent to
+  /// the server so it can resolve the batches behind the credited quantities.
+  String? _sourceRmaNumber;
+  String? _sourceWarehouseId;
+  String? _selectedWarehouseId;
   String? _selectedTransactionSeries = 'Default Transaction Series';
   String? _selectedSalesperson;
   String? _selectedPlaceOfSupply;
   String? _selectedInvoiceNumber;
   String? _selectedInvoiceType;
   late final TextEditingController _referenceNumberController;
+  late final TextEditingController _subjectController;
   late final TextEditingController _customerNotesController;
   late final TextEditingController _termsController;
 
+  bool _isLoadingSequence = true;
   late final TextEditingController _rmaNumberController;
   late final TextEditingController _rmaDateController;
   final _rmaDateKey = GlobalKey();
   DateTime _rmaDate = DateTime.now();
   late final TextEditingController _rmaReasonController;
-  bool _creditOnlyGoods = false;
+  final bool _creditOnlyGoods = false;
 
-  String _warehouseLocation = 'ZABNIX PRIVATE LIMITED';
+  String _warehouseLocation = '';
   String _priceLevel = 'At Transaction Level';
   String? _selectedPriceList;
 
@@ -76,12 +141,70 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
 
   // Summary section state
   String _taxType = 'TDS';
-  String? _selectedTaxRate;
+
+  /// Selected `tds_rates.id` / `tcs_rates.id`, or null when no withholding is
+  /// applied. Holds the id rather than a label so the row survives a rename.
+  String? _selectedTdsTcsId;
+
+  /// TDS/TCS lookups behind the summary selector. `sections` are
+  /// `tds_sections` for TDS and `tcs_natures` for TCS — the rates group under
+  /// them in the dropdown and in the manage dialog.
+  List<Map<String, dynamic>> _tdsRatesList = const [];
+  List<Map<String, dynamic>> _tdsSectionsList = const [];
+  List<Map<String, dynamic>> _tcsRatesList = const [];
+  List<Map<String, dynamic>> _tcsNaturesList = const [];
+  bool _isLoadingTdsTcsRates = false;
+
+  bool get _isTcs => _taxType == 'TCS';
+
+  List<Map<String, dynamic>> get _activeTdsTcsRates =>
+      _isTcs ? _tcsRatesList : _tdsRatesList;
+
+  Map<String, dynamic>? get _selectedTdsTcsRate {
+    final id = _selectedTdsTcsId;
+    if (id == null) return null;
+    for (final rate in _activeTdsTcsRates) {
+      if (rate['id']?.toString() == id) return rate;
+    }
+    return null;
+  }
+
+  /// TCS rows carry `rate`, TDS rows carry `base_rate`.
+  double _tdsTcsPercentOf(Map<String, dynamic> rate) {
+    final raw = (_isTcs ? rate['rate'] : rate['base_rate'])?.toString();
+    return double.tryParse(raw ?? '') ?? 0;
+  }
+
+  /// Label shown in the dropdown, e.g. `Professional Fees [10%]`.
+  String _tdsTcsLabel(Map<String, dynamic> rate) {
+    final name = (rate['tax_name'] ?? '').toString();
+    final percent = _tdsTcsPercentOf(rate);
+    return name.isEmpty ? '—' : '$name [${_formatRate(percent)}%]';
+  }
+
+  /// TDS/TCS amount, applied to the running total above this row (sub total +
+  /// shipping + GST), which is what the panel reads top-to-bottom.
+  double get _taxWithholdingAmount {
+    final rate = _selectedTdsTcsRate;
+    if (rate == null) return 0;
+    final base = _subTotal + _shippingAmount + _taxSummaryAmount;
+    return base * _tdsTcsPercentOf(rate) / 100;
+  }
+
+  /// TDS is withheld from what the customer pays; TCS is collected on top.
+  double get _signedTaxWithholding =>
+      _taxType == 'TDS' ? -_taxWithholdingAmount : _taxWithholdingAmount;
   late final TextEditingController _shippingController;
   late final TextEditingController _adjustmentController;
 
   bool _showItemDetailsPanel = false;
   _CnLineItem? _detailsItem;
+  int _detailsInitialTab = _CnItemTab.details;
+  int _detailsOpenRequest = 0;
+  /// Full customer record backing the shared customer sidebar.
+  SalesCustomer? _customerDetails;
+  String? _customerCurrencyLabel;
+  bool _isLoadingCustomerDetails = false;
   bool _showCustomerDetailsPanel = false;
 
   // Adjusted constants: Reduced width as requested, fixed overflow by ensuring 32px height is handled by components
@@ -91,6 +214,75 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
   static const double _fieldWidth = _rowMaxWidth - _labelWidth - _gapWidth;
   static const double _customerFieldWidth = 500.0;
   static const double _fieldHeight = 32.0;
+  static const TextStyle _fieldTextStyle = TextStyle(
+    fontSize: 13,
+    color: AppTheme.textPrimary,
+  );
+
+  
+  String _formatSequenceNumber({
+    required String prefix,
+    required int nextNumber,
+    required int padding,
+    String suffix = '',
+  }) {
+    final padCount = padding < 0 ? 0 : padding;
+    final numberPart = nextNumber.toString().padLeft(padCount, '0');
+    return '$prefix$numberPart$suffix';
+  }
+
+  Future<void> _loadSequenceSettings() async {
+    final settings = await _lookupsApiService.getSequenceSettings(
+      _cnSequenceModule,
+    );
+    if (!mounted || settings == null) return;
+
+    final rawPrefix = (settings['prefix'] ?? '').toString().trim();
+    final prefix = rawPrefix.isEmpty ? 'CN-' : rawPrefix;
+    final suffix = (settings['suffix'] ?? '').toString();
+    final nextNumber = (settings['next_number'] as num?)?.toInt() ?? 1;
+    final padding = (settings['padding'] as num?)?.toInt() ?? 0;
+    final autoGenerateRaw = settings['auto_generate'];
+    final autoGenerate = autoGenerateRaw is bool ? autoGenerateRaw : true;
+    final formatted = _formatSequenceNumber(
+      prefix: prefix,
+      nextNumber: nextNumber,
+      padding: padding,
+      suffix: suffix,
+    );
+
+    setState(() {
+      _isLoadingSequence = false;
+      _rmaAutoGenerate = autoGenerate;
+      _rmaPrefixController.text = prefix;
+      _rmaNextNumberController.text = nextNumber.toString();
+      if (_rmaAutoGenerate && widget.creditNoteId == null && widget.editId == null) {
+        _rmaNumberController.text = formatted;
+      }
+    });
+  }
+
+
+
+  void _closeCreatePage() {
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+    context.go(AppRoutes.salesCreditNotes);
+  }
+
+  /// How far right of the form's `_rowMaxWidth` the "&lt;name&gt;'s Details" tag
+  /// sits. Raise this to push the tag further right.
+  ///
+  /// This widens the header band and the customer row by the same amount, so
+  /// the tag is genuinely inside its parents' bounds. That matters for more
+  /// than tidiness: `RenderBox.hitTest` only descends into children when the
+  /// pointer is within its own `size`, so a tag merely *painted* past the cap
+  /// (via `Transform`/`OverflowBox`) renders correctly but stops receiving
+  /// taps outside the cap. Everything below the header band stays pinned to
+  /// `_rowMaxWidth`, so the item grid and totals do not move.
+  static const double _customerDetailsTagOffset = 228.0;
 
   final List<_CnLineItem> _items = [];
 
@@ -98,11 +290,17 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
   void initState() {
     super.initState();
     _referenceNumberController = TextEditingController();
+    _subjectController = TextEditingController();
     _customerNotesController = TextEditingController();
     _termsController = TextEditingController();
-    _rmaNumberController = TextEditingController(
-      text: widget.creditNoteId ?? 'CN-00001',
-    );
+    _rmaNumberController = TextEditingController();
+
+    if (widget.creditNoteId == null && widget.editId == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _loadSequenceSettings();
+      });
+    }
+
     _rmaDateController = TextEditingController(
       text: DateFormat('dd-MM-yyyy').format(_rmaDate),
     );
@@ -114,6 +312,523 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
     _selectedCustomer = widget.initialCustomer;
     _items.clear();
     _addItem(); // Add first row by default
+
+    // Populates the item master lookups. The page never requested lookups
+    // before, so nothing else on this route loads them.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(itemsControllerProvider.notifier).loadLookupData();
+    });
+    _loadTdsTcsRates();
+
+    final editId = widget.editId;
+    final fromRma = widget.fromRmaNumber;
+    if (editId != null && editId.trim().isNotEmpty) {
+      _editingId = editId.trim();
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _loadCreditNoteForEdit(editId.trim()),
+      );
+    } else if (fromRma != null && fromRma.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _loadFromSalesReturn(fromRma.trim()),
+      );
+    }
+  }
+
+  /// Loads an existing credit note and pre-fills the whole form for editing.
+  ///
+  /// Products are resolved from the item master so each line carries a real
+  /// `sourceItem` (the picker, tax and warehouse popover all key off it), the
+  /// same way the sales-return prefill does.
+  Future<void> _loadCreditNoteForEdit(String id) async {
+    setState(() => _isLoadingEdit = true);
+    try {
+      final note = await ref.read(getCreditNoteProvider)(id);
+      if (!mounted) return;
+
+      // 1. Resolve Customer name if missing
+      if (_selectedCustomer == null || _selectedCustomer!.trim().isEmpty) {
+        if (note.customerName != null && note.customerName!.trim().isNotEmpty) {
+          _selectedCustomer = note.customerName;
+        } else if (note.customerId != null && note.customerId!.trim().isNotEmpty) {
+          try {
+            final customers = await ref.read(salesCustomersProvider.future);
+            final c = customers
+                .where((cust) => cust.id == note.customerId)
+                .firstOrNull;
+            if (c != null) _selectedCustomer = c.displayName;
+          } catch (_) {}
+        }
+      }
+
+      // 2. Resolve products for the note's lines so the grid has full item data.
+      final controller = ref.read(itemsControllerProvider.notifier);
+      final allProducts = ref.read(itemsControllerProvider).items;
+      final cached = <String, Item>{
+        for (final p in allProducts)
+          if (p.id != null && p.id!.isNotEmpty) p.id!: p,
+      };
+
+      final missing = note.items
+          .map((i) => i.productId)
+          .whereType<String>()
+          .where((pid) => pid.isNotEmpty && !cached.containsKey(pid))
+          .toSet();
+
+      if (missing.isNotEmpty) {
+        try {
+          final fetched = await Future.wait(
+            missing.map((pid) => controller.ensureItemLoaded(pid).catchError((_) => null)),
+          );
+          if (mounted) {
+            for (final p in fetched) {
+              if (p?.id != null && p!.id!.isNotEmpty) cached[p.id!] = p;
+            }
+          }
+        } catch (e) {
+          AppLogger.info(
+            'Some item master details could not be loaded: $e',
+            module: 'CreditNoteCreate',
+          );
+        }
+      }
+
+      final lines = <_CnLineItem>[];
+      for (final item in note.items) {
+        Item? product = item.productId != null ? cached[item.productId] : null;
+
+        // If product is still null, construct a resilient placeholder Item
+        // so sourceItem is non-null and the line item is editable and saveable.
+        if (product == null && item.productId != null && item.productId!.isNotEmpty) {
+          product = Item(
+            id: item.productId,
+            type: 'goods',
+            unitId: '',
+            productName: (item.productName?.trim().isNotEmpty ?? false)
+                ? item.productName!
+                : ((item.itemCode?.trim().isNotEmpty ?? false)
+                    ? item.itemCode!
+                    : 'Item'),
+            itemCode: item.itemCode ?? '',
+            sellingPrice: item.rate,
+            costPrice: item.rate,
+          );
+        }
+
+        final itemName = (product?.productName.trim().isNotEmpty ?? false)
+            ? product!.productName
+            : ((item.productName?.trim().isNotEmpty ?? false)
+                ? item.productName!
+                : ((item.itemCode?.trim().isNotEmpty ?? false)
+                    ? item.itemCode!
+                    : (item.productId ?? 'Item')));
+
+        final line = _CnLineItem(
+          name: itemName,
+          description: item.description ?? '',
+          shipped: '0',
+          returned: '0',
+          returnQty: _quantityText(item.quantity),
+          stock: '0 pcs',
+          hsnCode: product?.hsnCode ?? '30049084',
+          rate: item.rate.toStringAsFixed(2),
+          discountValue: item.discountValue == 0
+              ? ''
+              : _quantityText(item.discountValue),
+          discountIsPercent: item.discountType != 'FIXED',
+          tax: _taxLabelFromPercent(item.taxPercentage),
+          costPrice: product?.costPrice ?? 0,
+        )..sourceItem = product;
+
+        if (product != null && product.salesAccountId != null &&
+          product.salesAccountId!.trim().isNotEmpty) {
+        line.accountId = product.salesAccountId;
+      } else {
+        line.accountId = null;
+      }
+        lines.add(line);
+      }
+
+      setState(() {
+        _isLoadingSequence = false;
+        _rmaNumberController.text = note.creditNoteNumber;
+        _referenceNumberController.text = note.referenceNumber ?? '';
+        _customerNotesController.text = note.customerNotes ?? '';
+        _termsController.text = note.termsConditions ?? '';
+        if (note.creditNoteDate != null) {
+          _rmaDate = note.creditNoteDate!;
+          _rmaDateController.text =
+              DateFormat('dd-MM-yyyy').format(note.creditNoteDate!);
+        }
+
+        for (final existing in _items) {
+          existing.dispose();
+        }
+        _items.clear();
+        if (lines.isEmpty) {
+          _addItem();
+        } else {
+          _items.addAll(lines);
+        }
+        _isLoadingEdit = false;
+      });
+    } catch (e, st) {
+      AppLogger.error(
+        'Failed to load credit note for edit',
+        error: e,
+        stackTrace: st,
+        module: 'CreditNoteCreate',
+      );
+      if (mounted) {
+        setState(() => _isLoadingEdit = false);
+        ZerpaiToast.error(context, 'Could not load this credit note to edit.');
+      }
+    }
+  }
+
+  /// Maps a stored GST percentage back onto one of the grid's tax labels.
+  String _taxLabelFromPercent(double percent) {
+    if (percent <= 0) return 'Non-Taxable';
+    for (final option in _cnTaxOptions) {
+      if (option.isHeader) continue;
+      final match = RegExp(r'(\d+(?:\.\d+)?)\s*%').firstMatch(option.label);
+      if (match == null) continue;
+      if (double.tryParse(match.group(1)!) == percent) return option.label;
+    }
+    return 'GST 5%';
+  }
+
+  static String _quantityText(double value) =>
+      value % 1 == 0 ? value.toInt().toString() : value.toString();
+
+  static DateTime? _parseSalesReturnDate(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    final parsed = DateTime.tryParse(trimmed);
+    if (parsed != null) return parsed;
+    try {
+      return DateFormat('dd-MM-yyyy').parseStrict(trimmed);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String? _creditNoteReasonFromSalesReturn(String? reason) {
+    final normalized = reason?.trim().toLowerCase();
+    if (normalized == null || normalized.isEmpty) return null;
+    for (final option in _creditNoteReasonOptions) {
+      if (option.toLowerCase() == normalized) return option;
+    }
+    if (normalized == 'others') return 'Other';
+    return null;
+  }
+
+  Future<Warehouse?> _warehouseFromReturn(String? warehouseId) async {
+    final id = warehouseId?.trim();
+    if (id == null || id.isEmpty) return null;
+    try {
+      final warehouses = await ref.read(creditNotesWarehousesProvider.future);
+      if (!mounted) return null;
+      return warehouses.where((warehouse) => warehouse.id == id).firstOrNull;
+    } catch (e) {
+      AppLogger.warning(
+        'Could not resolve warehouse for sales return credit note',
+        module: 'CreditNoteCreate',
+        data: {'warehouseId': id},
+      );
+      return null;
+    }
+  }
+
+  /// Pre-fills the form from the sales return being credited.
+  ///
+  /// Loads the return by RMA# and maps every line into the grid. The product
+  /// master supplies what `sales_return_items` does not carry — display name,
+  /// HSN and rate — so it is awaited rather than read as a snapshot.
+  Future<void> _loadFromSalesReturn(String rmaNumber) async {
+    try {
+      final returns = await ref.read(salesReturnsListProvider(null).future);
+      if (!mounted) return;
+
+      final source =
+          returns.where((r) => r.rmaNumber == rmaNumber).firstOrNull;
+      if (source == null) {
+        ZerpaiToast.error(context, 'Could not load $rmaNumber to credit.');
+        return;
+      }
+
+      final products = ref.read(itemsControllerProvider).items;
+      final productById = {
+        for (final p in products)
+          if (p.id != null) p.id!: p,
+      };
+
+      // Returned lines can reference products outside the cached first page.
+      // Fetch those individually so no line falls back to a raw product id.
+      final missingIds = source.items
+          .map((line) => line.productId)
+          .where((id) => id.isNotEmpty && !productById.containsKey(id))
+          .toSet();
+      if (missingIds.isNotEmpty) {
+        final controller = ref.read(itemsControllerProvider.notifier);
+        final fetched = await Future.wait(
+          missingIds.map(controller.ensureItemLoaded),
+        );
+        if (!mounted) return;
+        for (final product in fetched) {
+          if (product?.id != null) productById[product!.id!] = product;
+        }
+      }
+
+      String qty(double v) =>
+          v % 1 == 0 ? v.toInt().toString() : v.toString();
+
+      final lines = <_CnLineItem>[];
+      for (final line in source.items) {
+        final product = productById[line.productId];
+        lines.add(
+          _CnLineItem(
+            name: product?.productName ?? line.productId,
+            description: line.remarks ?? '',
+            shipped: qty(line.invoicedQty),
+            returned: qty(line.alreadyReturnedQty),
+            returnQty: qty(line.returnQty),
+            stock: '0 pcs',
+            hsnCode: product?.hsnCode ?? '30049084',
+            rate: _cnProductRate(product).toStringAsFixed(2),
+            costPrice: product?.costPrice ?? 0,
+          )..sourceItem = product,
+        );
+      }
+
+      if (lines.isEmpty) {
+        ZerpaiToast.error(context, '$rmaNumber has no items to credit.');
+        return;
+      }
+
+      final sourceReference = source.referenceNumber?.trim();
+      final sourceNotes = source.notes?.trim();
+      final sourceReason = source.reason?.trim();
+      final matchedReason = _creditNoteReasonFromSalesReturn(sourceReason);
+      final returnDate = _parseSalesReturnDate(source.returnDate);
+      final warehouse = await _warehouseFromReturn(source.warehouseId);
+      if (!mounted) return;
+
+      setState(() {
+        _sourceRmaNumber = source.rmaNumber;
+        _sourceWarehouseId = source.warehouseId;
+        _selectedWarehouseId = warehouse?.id ?? source.warehouseId;
+        _referenceNumberController.text = sourceReference?.isNotEmpty == true
+            ? sourceReference!
+            : source.rmaNumber;
+        if (returnDate != null) {
+          _rmaDate = returnDate;
+          _rmaDateController.text = DateFormat('dd-MM-yyyy').format(returnDate);
+        }
+        if (matchedReason != null) {
+          _selectedReason = matchedReason;
+        }
+        if (sourceNotes?.isNotEmpty == true) {
+          _customerNotesController.text = sourceNotes!;
+        }
+        if (_rmaReasonController.text.trim().isEmpty) {
+          _rmaReasonController.text = sourceReason ?? '';
+        }
+        if (warehouse != null) {
+          _warehouseLocation = warehouse.name;
+        }
+        for (final existing in _items) {
+          existing.dispose();
+        }
+        _items
+          ..clear()
+          ..addAll(lines);
+      });
+
+      await _applyCustomerFromReturn(source.customerId);
+    } catch (e) {
+      AppLogger.error('Failed to pre-fill credit note from sales return',
+          error: e, module: 'CreditNoteCreate');
+      if (mounted) {
+        ZerpaiToast.error(context, 'Could not load $rmaNumber to credit.');
+      }
+    }
+  }
+
+  /// Selects the return's customer.
+  ///
+  /// The dropdown is still backed by a hardcoded name list, so a real customer
+  /// is injected into the options via [_customerOptions] — otherwise
+  /// `FormDropdown` would find no matching item and render the field blank.
+  Future<void> _applyCustomerFromReturn(String customerId) async {
+    try {
+      final customers = await ref.read(salesCustomersProvider.future);
+      if (!mounted) return;
+      final match = customers.where((c) => c.id == customerId).firstOrNull;
+      if (match != null) {
+        setState(() => _selectedCustomer = match.displayName);
+      }
+    } catch (e) {
+      AppLogger.warning('Could not resolve customer for credit note',
+          module: 'CreditNoteCreate', data: {'customerId': customerId});
+    }
+  }
+
+  /// Saves a draft or open credit note. Both remain unposted until a separate
+  /// approval action occurs.
+  Future<void> _saveCreditNote({required String status}) async {
+    if (_isSaving) return;
+
+    final customerName = _selectedCustomer?.trim();
+    if (customerName == null || customerName.isEmpty) {
+      ZerpaiToast.error(context, 'Please select a customer');
+      return;
+    }
+
+    // Only lines bound to a real product can be persisted — product_id is
+    // required on credit_note_items and on the ledger.
+    final lines = _items
+        .where((i) => (i.sourceItem?.id ?? '').isNotEmpty)
+        .toList();
+    if (lines.isEmpty) {
+      ZerpaiToast.error(context, 'Please add at least one item');
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final customers = await ref.read(salesCustomersProvider.future);
+      if (!mounted) return;
+      final customer =
+          customers.where((c) => c.displayName == customerName).firstOrNull;
+      if (customer == null) {
+        ZerpaiToast.error(
+          context,
+          'Could not resolve "$customerName" in the customer master.',
+        );
+        return;
+      }
+
+      final payload = <String, dynamic>{
+        'customerId': customer.id,
+        'creditNoteNumber': _rmaNumberController.text.trim(),
+        if (_selectedSalesperson != null) 'salespersonId': _selectedSalesperson,
+        if (_referenceNumberController.text.trim().isNotEmpty)
+          'referenceNumber': _referenceNumberController.text.trim(),
+        'creditNoteDate': DateFormat('yyyy-MM-dd').format(_rmaDate),
+        'status': status,
+        'grandTotal': _grandTotal,
+        'subTotal': _subTotal,
+        'taxTotal': _taxSummaryAmount,
+        'shippingAmount': _shippingAmount,
+        'adjustmentAmount': _adjustmentAmount,
+        // Stored unsigned; `_taxType` decides which of the two is populated.
+        'tdsTotal': _taxType == 'TDS' ? _taxWithholdingAmount : 0.0,
+        'tcsTotal': _taxType == 'TCS' ? _taxWithholdingAmount : 0.0,
+        if (_subjectController.text.trim().isNotEmpty)
+          'subject': _subjectController.text.trim(),
+        if (_customerNotesController.text.trim().isNotEmpty)
+          'customerNotes': _customerNotesController.text.trim(),
+        if (_termsController.text.trim().isNotEmpty)
+          'termsAndConditions': _termsController.text.trim(),
+        // Lets the server resolve which batches the credited goods came back
+        // on — a credit note carries no batch detail of its own.
+        if (_sourceRmaNumber != null) 'fromRmaNumber': _sourceRmaNumber,
+        if (_selectedWarehouseId != null) 'warehouseId': _selectedWarehouseId,
+        'items': [
+          for (final item in lines)
+            () {
+              final quantity = _parseMoney(item.returnQtyController.text);
+              final rate = _parseMoney(item.rateController.text);
+              final discount = _parseMoney(item.discountController.text);
+              final gross = quantity * rate;
+              final discountAmount =
+                  item.discountIsPercent ? gross * discount / 100 : discount;
+              final taxable = _lineSubtotal(item);
+              final taxPercent = _taxPercentFromLabel(item.tax);
+              return <String, dynamic>{
+                'productId': item.sourceItem!.id,
+                if (item.descriptionController.text.trim().isNotEmpty)
+                  'description': item.descriptionController.text.trim(),
+                'quantity': quantity,
+                'rate': rate,
+                'discountType':
+                    item.discountIsPercent ? 'PERCENTAGE' : 'FIXED',
+                'discountValue': discount,
+                'discountAmount': discountAmount,
+                'taxableAmount': taxable,
+                'taxPercentage': taxPercent,
+                'taxAmount': taxable * taxPercent / 100,
+                'lineTotal': taxable + (taxable * taxPercent / 100),
+              };
+            }(),
+        ],
+      };
+
+      final editingId = _editingId;
+      if (editingId != null) {
+        // PUT replaces the header and full line set and reposts the ledger.
+        await ref.read(updateCreditNoteProvider)(editingId, payload);
+      } else {
+        final id = await ref.read(createCreditNoteProvider)(payload);
+        if (_rmaAutoGenerate) await _loadSequenceSettings();
+        if (!mounted) return;
+        if (id == null) {
+          ZerpaiToast.error(context, 'Failed to save credit note.');
+          return;
+        }
+      }
+      if (!mounted) return;
+
+      // Wait for persisted header and line items before returning so the overview
+      // never rebuilds with its previous cached item content.
+      final _ = await ref.refresh(creditNotesListProvider(null).future);
+      if (!mounted) return;
+
+      ZerpaiToast.show(
+        context,
+        _editingId != null
+            ? (status == 'OPEN'
+                  ? 'Credit note updated as open.'
+                  : 'Credit note updated.')
+            : (status == 'OPEN'
+                  ? 'Credit note saved as open.'
+                  : 'Credit note saved as draft.'),
+      );
+      context.go(AppRoutes.salesCreditNotes);
+    } catch (e) {
+      AppLogger.error('Failed to save credit note',
+          error: e, module: 'CreditNoteCreate');
+      if (mounted) ZerpaiToast.error(context, 'Failed to save credit note.');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  /// Customer master, refreshed from the provider on every build. Backing the
+  /// dropdown with real records is what lets the details tag resolve an id — a
+  /// hardcoded name list can only be matched by string, which silently fails
+  /// whenever the master spells a name differently.
+  List<SalesCustomer> _customers = const <SalesCustomer>[];
+
+  SalesCustomer? _customerByName(String? name) {
+    final needle = name?.trim();
+    if (needle == null || needle.isEmpty) return null;
+    return _customers
+        .where((c) => c.displayName.trim() == needle)
+        .firstOrNull;
+  }
+
+  /// Dropdown options: every customer in the master, plus the currently
+  /// selected name when it is not among them (an edit whose customer has since
+  /// been renamed, say) so `FormDropdown` still renders the field.
+  List<String> get _customerOptions {
+    final names = _customers.map((c) => c.displayName).toList();
+    final selected = _selectedCustomer;
+    if (selected != null && selected.isNotEmpty && !names.contains(selected)) {
+      return [selected, ...names];
+    }
+    return names;
   }
 
   void _addItem() {
@@ -162,7 +877,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
             hsnCode: source.hsnCode,
             discount: source.discount,
             reportingTag: source.reportingTag,
-            account: source.account,
+            accountId: source.accountId,
             tax: source.tax,
             rate: source.rateController.text,
             discountValue: source.discountController.text,
@@ -214,6 +929,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
   @override
   void dispose() {
     _referenceNumberController.dispose();
+    _subjectController.dispose();
     _customerNotesController.dispose();
     _termsController.dispose();
     _rmaNumberController.dispose();
@@ -236,10 +952,15 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
     });
   }
 
-  void _openItemDetails(_CnLineItem item) {
+  void _openItemDetails(
+    _CnLineItem item, [
+    int tab = _CnItemTab.details,
+  ]) {
     setState(() {
       _showItemDetailsPanel = true;
       _detailsItem = item;
+      _detailsInitialTab = tab;
+      _detailsOpenRequest++;
       _showCustomerDetailsPanel = false;
     });
   }
@@ -266,68 +987,183 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
     showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.4),
-      builder: (ctx) => ItemQuickEditDialog(
+      builder: (ctx) => SalesItemQuickEditDialog(
         item: fullItem,
         onUpdated: (updated) {
           setState(() {
             lineItem.sourceItem = updated;
             lineItem.name = updated.productName;
             lineItem.hsnCode = updated.hsnCode ?? lineItem.hsnCode;
-            lineItem.rateController.text = updated.sellingPrice.toString();
+            lineItem.costPrice = updated.costPrice ?? lineItem.costPrice;
+            // The dialog is seeded with this row's rate as `sellingPrice`, so
+            // the edited value comes back on the same field. Guarded and
+            // formatted: a bare `.toString()` on a null price wrote the literal
+            // text "null" into the rate cell, and printed "152.0" for the rest.
+            lineItem.rateController.text =
+                (updated.sellingPrice ?? updated.costPrice ?? 0)
+                    .toStringAsFixed(2);
           });
         },
       ),
     );
   }
 
-  void _openBatchDialog(_CnLineItem lineItem) {
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.4),
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.white,
-        insetPadding: const EdgeInsets.only(
-          top: 0,
-          left: 40,
-          right: 40,
-          bottom: 24,
-        ),
-        alignment: Alignment.topCenter,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(8),
-            bottomRight: Radius.circular(8),
-          ),
-        ),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-          ),
-          child: _CnAddBatchesPopover(
-            item: lineItem,
-            onClose: () => Navigator.of(ctx).pop(),
-            onSave: (batches) {
-              setState(() {
-                lineItem.savedBatches
-                  ..clear()
-                  ..addAll(batches);
-              });
-              Navigator.of(ctx).pop();
-            },
-          ),
-        ),
-      ),
-    );
+  /// Bins are warehouse-scoped, so the batch dialog needs a real warehouse.
+  /// Prefers the one recorded on the source return, then the branch default.
+  Warehouse? _resolveBatchWarehouse(List<Warehouse> warehouses) {
+    if (warehouses.isEmpty) return null;
+
+    final sourceId = _selectedWarehouseId ?? _sourceWarehouseId;
+    if (sourceId != null && sourceId.isNotEmpty) {
+      final match = warehouses.where((w) => w.id == sourceId).firstOrNull;
+      if (match != null) return match;
+    }
+
+    final active = warehouses.where((w) => w.isActive).toList();
+    final pool = active.isEmpty ? warehouses : active;
+    return pool.where((w) => w.isDefaultForBranch).firstOrNull ?? pool.first;
   }
 
-  void _openCustomerDetails() {
-    if (_selectedCustomer == null) return;
+  Future<void> _openBatchDialog(_CnLineItem lineItem) async {
+    final productId = lineItem.sourceItem?.id ?? '';
+    if (productId.isEmpty) {
+      ZerpaiToast.error(context, 'Select an item before adding batches.');
+      return;
+    }
+
+    // Await the master rather than reading a snapshot: on a cold open the
+    // list is still in flight, and an empty snapshot leaves bins unscoped.
+    List<Warehouse> warehouses;
+    try {
+      warehouses = await ref.read(creditNotesWarehousesProvider.future);
+    } catch (e, st) {
+      AppLogger.error(
+        'Failed to load warehouses for batch selection',
+        error: e,
+        stackTrace: st,
+        module: 'credit_note',
+      );
+      warehouses = const [];
+    }
+    if (!mounted) return;
+
+    final warehouse = _resolveBatchWarehouse(warehouses);
+    if (warehouse == null) {
+      ZerpaiToast.error(
+        context,
+        'No warehouse is available — bins are warehouse-specific.',
+      );
+      return;
+    }
+
+    final result = await showDialog<PicklistBatchDialogResult>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => PicklistSelectBatchesDialog(
+        itemName: lineItem.name,
+        productId: productId,
+        warehouseName: warehouse.name,
+        warehouseId: warehouse.id,
+        totalQuantity: _parseMoney(lineItem.returnQtyController.text),
+        savedBatchData: lineItem.savedBatchData.isEmpty
+            ? null
+            : lineItem.savedBatchData,
+      ),
+    );
+
+    if (result == null || !mounted) return;
+    setState(() {
+      lineItem.savedBatchData =
+          result.batchDataList ?? const <Map<String, String>>[];
+      // The dialog offers to push the binned quantity back onto the line.
+      if (result.overwriteLineItem) {
+        lineItem.returnQtyController.text = _formatRate(result.appliedQuantity);
+      }
+    });
+  }
+
+  /// Resolves the label for a currency id, falling back to INR — same shape as
+  /// the sales order create page, whose sidebar this now shares.
+  String _resolveCurrencyLabel(
+    String? currencyId,
+    List<CurrencyOption> currencies,
+  ) {
+    final raw = (currencyId ?? '').trim();
+    if (raw.isEmpty) return 'INR - Indian Rupee';
+
+    for (final currency in currencies) {
+      if (currency.id == raw) {
+        return currency.label.isNotEmpty
+            ? currency.label
+            : '${currency.code} - ${currency.name}';
+      }
+    }
+    return raw;
+  }
+
+  /// Opens the shared customer sidebar with the real customer record.
+  ///
+  /// The dropdown only tracks the display name, so the id is resolved from the
+  /// customer master first and the full record fetched by id — the list payload
+  /// is a lighter projection and would leave the sidebar's figures blank.
+  Future<void> _openCustomerDetails() async {
+    final name = _selectedCustomer?.trim();
+    if (name == null || name.isEmpty || _isLoadingCustomerDetails) return;
 
     setState(() {
-      _showCustomerDetailsPanel = true;
+      _isLoadingCustomerDetails = true;
       _showItemDetailsPanel = false;
       _detailsItem = null;
     });
+
+    try {
+      // Prefer the already-loaded master; fall back to a fetch if the tag is
+      // tapped before the provider has resolved.
+      var match = _customerByName(name);
+      if (match == null) {
+        final customers = await ref.read(salesCustomersProvider.future);
+        match = customers
+            .where((c) => c.displayName.trim() == name)
+            .firstOrNull;
+      }
+      if (match == null) {
+        if (mounted) {
+          ZerpaiToast.error(
+            context,
+            'Could not resolve "$name" in the customer master.',
+          );
+        }
+        return;
+      }
+
+      final customer = await ref.read(
+        salesCustomerByIdProvider(match.id).future,
+      );
+      final currencies = await ref.read(currenciesProvider(null).future);
+      if (!mounted) return;
+
+      setState(() {
+        _customerDetails = customer;
+        _customerCurrencyLabel = _resolveCurrencyLabel(
+          customer.currencyId,
+          currencies,
+        );
+        _showCustomerDetailsPanel = true;
+      });
+    } catch (e, st) {
+      AppLogger.error(
+        'Failed to load customer details',
+        error: e,
+        stackTrace: st,
+        module: 'CreditNoteCreate',
+      );
+      if (mounted) {
+        ZerpaiToast.error(context, 'Failed to load customer details: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingCustomerDetails = false);
+    }
   }
 
   void _showAddContactPersonDialog() {
@@ -366,11 +1202,24 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
     );
   }
 
-  void _showRmaPreferencesDialog() {
+  Future<void> _showCnPreferencesDialog() async {
+    // Read synchronously before the async gap so the linter is satisfied.
+    final selectedEntityName = ref.read(entityProvider).name?.trim();
+    final signedInOrgName = ref.read(authUserProvider)?.orgName.trim();
+    final activeBranchName =
+        (selectedEntityName != null && selectedEntityName.isNotEmpty)
+        ? selectedEntityName
+        : (signedInOrgName != null && signedInOrgName.isNotEmpty)
+        ? signedInOrgName
+        : 'Select Branch';
+
+    await _loadSequenceSettings();
+    if (!mounted) return;
     showGeneralDialog(
       context: context,
+
       barrierDismissible: true,
-      barrierLabel: 'RMA Preferences',
+      barrierLabel: 'Credit Note Preferences',
       barrierColor: Colors.black54,
       transitionDuration: Duration.zero,
       pageBuilder: (ctx, _, __) => Align(
@@ -380,16 +1229,33 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
           child: Material(
             borderRadius: BorderRadius.circular(8),
             color: Colors.white,
-            child: _RmaPreferencesDialog(
+            child: _CnPreferencesDialog(
               prefix: _rmaPrefixController.text,
               nextNumber: _rmaNextNumberController.text,
               autoGenerate: _rmaAutoGenerate,
-              onSave: (prefix, nextNumber, autoGenerate) {
-                setState(() {
-                  _rmaAutoGenerate = autoGenerate;
-                  _rmaPrefixController.text = prefix;
-                  _rmaNextNumberController.text = nextNumber;
-                });
+              branchLabel: activeBranchName,
+              onSave: (prefix, nextNumber, autoGenerate) async {
+                final parsedNext = int.tryParse(nextNumber.trim()) ?? 1;
+                final currentSettings =
+                    await _lookupsApiService.getSequenceSettings(
+                      _cnSequenceModule,
+                    ) ??
+                    <String, dynamic>{};
+                final padding =
+                    (currentSettings['padding'] as num?)?.toInt() ?? 0;
+                final suffix = (currentSettings['suffix'] ?? '').toString();
+
+                await _lookupsApiService.updateSequenceSettings(
+                  _cnSequenceModule,
+                  <String, dynamic>{
+                    'prefix': prefix.trim(),
+                    'nextNumber': parsedNext,
+                    'auto_generate': autoGenerate,
+                    'padding': padding,
+                    'suffix': suffix,
+                  },
+                );
+                await _loadSequenceSettings();
               },
             ),
           ),
@@ -398,7 +1264,10 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
     );
   }
 
-  double _parseMoney(String value) {
+  /// Static so the line-item row can parse with exactly the same rules the
+  /// totals use — a row that parsed differently showed 0.00 against a total
+  /// that counted the line.
+  static double _parseMoney(String value) {
     return double.tryParse(value.trim().replaceAll(',', '')) ?? 0;
   }
 
@@ -521,25 +1390,49 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
   }
 
   double get _grandTotal {
-    return _subTotal + _shippingAmount + _taxSummaryAmount + _adjustmentAmount;
+    return _subTotal +
+        _shippingAmount +
+        _taxSummaryAmount +
+        _signedTaxWithholding +
+        _adjustmentAmount;
   }
 
   @override
   Widget build(BuildContext context) {
+    final usersAsync = ref.watch(supabaseUsersProvider);
+    final salespersonItems = usersAsync.valueOrNull ?? [];
+    final warehousesAsync = ref.watch(creditNotesWarehousesProvider);
+    final activeWarehouses = (warehousesAsync.valueOrNull ?? const <Warehouse>[])
+        .where((warehouse) => warehouse.isActive)
+        .toList(growable: false);
+
     final taxSummaryLines = _taxSummaryLines;
+    // Customer master backing the name dropdown and the details tag.
+    _customers =
+        ref.watch(salesCustomersProvider).valueOrNull ??
+        const <SalesCustomer>[];
+    final accountsState = ref.watch(chartOfAccountsProvider);
+    // Item master (Supabase `products`) backing the line-item picker. Watched so
+    // rows repaint as the first page streams in and as searches merge results.
+    final products = ref.watch(itemsControllerProvider).items;
+    final priceListsAsync = ref.watch(activeSalesPriceListsAsyncProvider);
+    final List<AccountNode> accountRoots = accountsState.roots;
 
     return Stack(
       children: [
         Container(
           color: Colors.white,
           child: ZerpaiLayout(
-            pageTitle: widget.creditNoteId != null
+            pageTitle: _editingId != null
                 ? 'Edit Credit Note'
                 : 'New Credit Note',
             enableBodyScroll: true,
             onSave: () {
               // Implementation for saving
             },
+            actions: [
+              _CreditNoteCreateCloseButton(onPressed: _closeCreatePage),
+            ],
             useHorizontalPadding: true,
             footer: Container(
               width: double.infinity,
@@ -549,16 +1442,24 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                 maxWidth: _rowMaxWidth,
                 child: Row(
                   children: [
-                    ZButton.primary(label: 'Save as Draft', onPressed: () {}),
-                    const SizedBox(width: 12),
                     ZButton.secondary(
-                      label: 'Save and Approve',
-                      onPressed: () {},
+                      label: 'Save as Draft',
+                      onPressed: (_isSaving || _isLoadingEdit)
+                          ? null
+                          : () => _saveCreditNote(status: 'DRAFT'),
+                    ),
+                    const SizedBox(width: 12),
+                    ZButton.primary(
+                      label: 'Save as Open',
+                      loading: _isSaving,
+                      onPressed: (_isSaving || _isLoadingEdit)
+                          ? null
+                          : () => _saveCreditNote(status: 'OPEN'),
                     ),
                     const SizedBox(width: 12),
                     ZButton.secondary(
                       label: 'Cancel',
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: _closeCreatePage,
                     ),
                   ],
                 ),
@@ -567,10 +1468,22 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
             child: Container(
               width: double.infinity,
               color: Colors.white,
-              child: MaxWidthContainer(
-                maxWidth: _rowMaxWidth,
+              child: LayoutBuilder(
+                builder: (context, bodyConstraints) {
+                  // Editing fetches the note, its customer and every line's
+                  // product before the form can be populated. Without this the
+                  // user stares at a blank form that fills in field by field.
+                  if (_isLoadingEdit) {
+                    return const _CreditNoteFormSkeleton();
+                  }
+                  return MaxWidthContainer(
+                // Wider than `_rowMaxWidth` so the customer row has real estate
+                // to place its details tag right of the form. Everything below
+                // the header band is pinned back to `_rowMaxWidth`, so only the
+                // tag moves.
+                maxWidth: _rowMaxWidth + _customerDetailsTagOffset,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 24),
 
@@ -579,7 +1492,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _CompactFormRow(
                               label: 'Customer Name',
@@ -587,7 +1500,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                               labelColor: AppTheme.errorRed,
                               fieldWidth: _selectedCustomer == null
                                   ? _customerFieldWidth
-                                  : _fieldWidth,
+                                  : _fieldWidth + _customerDetailsTagOffset,
                               child: Row(
                                 children: [
                                   SizedBox(
@@ -597,7 +1510,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                         Expanded(
                                           child: FormDropdown<String>(
                                             value: _selectedCustomer,
-                                            items: _cnCustomerDropdownNames,
+                                            items: _customerOptions,
                                             hint: 'Select a customer',
                                             placeholder: 'Search',
                                             height: _fieldHeight,
@@ -606,14 +1519,16 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                             displayStringForValue: (customer) =>
                                                 customer,
                                             searchStringForValue: (customer) {
-                                              final details =
-                                                  _cnCustomerDropdownDetails[customer];
+                                              final match = _customerByName(
+                                                customer,
+                                              );
                                               return [
                                                 customer,
-                                                if (details != null)
-                                                  details.code,
-                                                if (details != null)
-                                                  details.addressLine,
+                                                if (match?.customerNumber !=
+                                                    null)
+                                                  match!.customerNumber!,
+                                                if (match?.companyName != null)
+                                                  match!.companyName!,
                                               ].join(' ');
                                             },
                                             itemBuilder:
@@ -622,15 +1537,15 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                                   isSelected,
                                                   isHovered,
                                                 ) {
-                                                  final details =
-                                                      _cnCustomerDropdownDetails[customer];
+                                                  final match =
+                                                      _customerByName(customer);
                                                   return _CnCustomerDropdownItem(
                                                     customerName: customer,
                                                     customerCode:
-                                                        details?.code ??
-                                                        'CUS-00000',
+                                                        match?.customerNumber ??
+                                                        '-',
                                                     addressLine:
-                                                        details?.addressLine ??
+                                                        match?.companyName ??
                                                         customer,
                                                     highlighted:
                                                         isSelected || isHovered,
@@ -692,23 +1607,14 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                   if (_selectedCustomer != null) ...[
                                     const SizedBox(width: 12),
                                     const _CnCurrencyBadge(),
-                                    Expanded(
-                                      child: Align(
-                                        alignment: Alignment.centerRight,
-                                        child: Transform.translate(
-                                          offset: Offset(
-                                            MediaQuery.of(context).size.width <
-                                                    1000
-                                                ? 16.0
-                                                : 40.0,
-                                            0,
-                                          ),
-                                          child: _CnCustomerDetailsTag(
-                                            customerName: _selectedCustomer!,
-                                            onTap: _openCustomerDetails,
-                                          ),
-                                        ),
-                                      ),
+                                    // Inline (not absolutely positioned) so the
+                                    // tag stays inside the content box — the
+                                    // scroll viewport clips anything past it.
+                                    const Spacer(),
+                                    _CnCustomerDetailsTag(
+                                      customerName: _selectedCustomer!,
+                                      isLoading: _isLoadingCustomerDetails,
+                                      onTap: _openCustomerDetails,
                                     ),
                                   ],
                                 ],
@@ -720,11 +1626,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                 fieldWidth: 330,
                                 child: FormDropdown<String>(
                                   value: _selectedReason,
-                                  items: const [
-                                    'Damaged',
-                                    'Wrong item',
-                                    'Other',
-                                  ],
+                                  items: _creditNoteReasonOptions,
                                   hint: 'Select a reason',
                                   height: _fieldHeight,
                                   onChanged: (val) =>
@@ -793,11 +1695,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                 fieldWidth: 330,
                                 child: FormDropdown<String>(
                                   value: _selectedReason,
-                                  items: const [
-                                    'Damaged',
-                                    'Wrong item',
-                                    'Other',
-                                  ],
+                                  items: _creditNoteReasonOptions,
                                   hint: 'Select a reason',
                                   height: _fieldHeight,
                                   onChanged: (val) =>
@@ -809,6 +1707,13 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                         ),
                       ),
                     ),
+                    // Everything from here down keeps the original form width;
+                    // only the header band above gets the extra room.
+                    MaxWidthContainer(
+                      maxWidth: _rowMaxWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                     const SizedBox(height: 16),
                     // --- Credit Note Section ---
                     _CompactFormRow(
@@ -826,6 +1731,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                 'Manual',
                               ],
                               height: _fieldHeight,
+                              textStyle: _fieldTextStyle,
                               onChanged: (val) => setState(
                                 () => _selectedTransactionSeries = val,
                               ),
@@ -833,22 +1739,25 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: CustomTextField(
-                              controller: _rmaNumberController,
-                              suffixWidget: ZTooltip(
-                                message:
-                                    'Click here to enable or disable auto-generation of Credit Note numbers.',
-                                child: GestureDetector(
-                                  onTap: _showRmaPreferencesDialog,
-                                  child: const Icon(
-                                    LucideIcons.settings,
-                                    size: 14,
-                                    color: AppTheme.primaryBlue,
+                            child: _isLoadingSequence
+                                ? const ZBone(height: 32, width: double.infinity)
+                                : CustomTextField(
+                                    controller: _rmaNumberController,
+                                    suffixWidget: ZTooltip(
+                                      message:
+                                          'Click here to enable or disable auto-generation of Credit Note numbers.',
+                                      child: GestureDetector(
+                                        onTap: _showCnPreferencesDialog,
+                                        child: const Icon(
+                                          LucideIcons.settings,
+                                          size: 14,
+                                          color: AppTheme.primaryBlue,
+                                        ),
+                                      ),
+                                    ),
+                                    height: _fieldHeight,
+                                    textStyle: _fieldTextStyle,
                                   ),
-                                ),
-                              ),
-                              height: _fieldHeight,
-                            ),
                           ),
                         ],
                       ),
@@ -859,6 +1768,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                       child: CustomTextField(
                         controller: _referenceNumberController,
                         height: _fieldHeight,
+                        textStyle: _fieldTextStyle,
                       ),
                     ),
                     _CompactFormRow(
@@ -879,6 +1789,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                           if (picked != null) _updateRmaDate(picked);
                         },
                         height: _fieldHeight,
+                        textStyle: _fieldTextStyle,
                       ),
                     ),
 
@@ -890,13 +1801,14 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                     _CompactFormRow(
                       label: 'Salesperson',
                       fieldWidth: 330,
-                      child: FormDropdown<String>(
-                        value: _selectedSalesperson,
-                        items: const ['John Doe', 'Jane Smith'],
-                        hint: 'Select or Add Salesperson',
+                      child: FormDropdown<User>(
+                        value: salespersonItems.where((u) => u.id == _selectedSalesperson).firstOrNull,
+                        items: salespersonItems,
+                        displayStringForValue: (u) => u.fullName,
+                        hint: 'Select Salesperson',
                         height: _fieldHeight,
                         onChanged: (val) =>
-                            setState(() => _selectedSalesperson = val),
+                            setState(() => _selectedSalesperson = val?.id),
                       ),
                     ),
 
@@ -908,35 +1820,41 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           SizedBox(
                             width: 150,
-                            child: Row(
-                              children: const [
-                                Text(
-                                  'Subject',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textPrimary,
-                                    fontWeight: FontWeight.w400,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Row(
+                                children: const [
+                                  Text(
+                                    'Subject',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textPrimary,
+                                      fontWeight: FontWeight.w400,
+                                    ),
                                   ),
-                                ),
-                                SizedBox(width: 4),
-                                ZTooltip(
-                                  message:
-                                      'You can enter up to 250 characters. If you do not require this field, you can mark it as inactive under credit note preferences.',
-                                ),
-                              ],
+                                  SizedBox(width: 4),
+                                  ZTooltip(
+                                    message:
+                                        'You can enter up to 250 characters. If you do not require this field, you can mark it as inactive under credit note preferences.',
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(width: 16),
                           SizedBox(
                             width: 434,
                             child: CustomTextField(
+                              controller: _subjectController,
                               hintText:
                                   'Let your customer know what this Credit Note is for',
-                              height: _fieldHeight,
+                              maxLines: null,
+                              height: 60,
+                              textStyle: _fieldTextStyle,
                             ),
                           ),
                         ],
@@ -946,15 +1864,19 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
 
                     // --- Item Table Toolbar ---
                     _ItemTableToolbar(
-                      warehouseLocation: _warehouseLocation,
-                      warehouseOptions: const [
-                        'ZABNIX PRIVATE LIMITED',
-                        'WAREHOUSE 2',
-                        'PRIMARY WAREHOUSE',
-                        'SECONDARY WAREHOUSE',
-                      ],
-                      onWarehouseChanged: (val) =>
-                          setState(() => _warehouseLocation = val),
+                      warehouseId: _selectedWarehouseId,
+                      warehouses: activeWarehouses,
+                      isLoadingWarehouses: warehousesAsync.isLoading,
+                      warehouseLoadError: warehousesAsync.hasError,
+                      onWarehouseChanged: (warehouseId) {
+                        final warehouse = activeWarehouses
+                            .where((item) => item.id == warehouseId)
+                            .firstOrNull;
+                        setState(() {
+                          _selectedWarehouseId = warehouseId;
+                          _warehouseLocation = warehouse?.name ?? '';
+                        });
+                      },
                       priceLevel: _priceLevel,
                       priceLevelOptions: const [
                         'At Transaction Level',
@@ -965,11 +1887,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                       onPriceLevelChanged: (val) =>
                           setState(() => _priceLevel = val),
                       selectedPriceList: _selectedPriceList,
-                      priceListOptions: const [
-                        'Standard Selling',
-                        'Wholesale Price',
-                        'Retail Price',
-                      ],
+                      priceListsAsync: priceListsAsync,
                       onPriceListChanged: (val) =>
                           setState(() => _selectedPriceList = val),
                     ),
@@ -977,7 +1895,10 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
 
                     // --- Items Grid ---
                     _CnItemsGrid(
+                      isCustomerSelected: _selectedCustomer != null,
                       items: _items,
+                      products: products,
+                      accountRoots: accountRoots,
                       creditOnly: _creditOnlyGoods,
                       warehouse: _warehouseLocation,
                       onInsertItem: _insertItemAfter,
@@ -998,19 +1919,61 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                       onAddBatches: _openBatchDialog,
                     ),
 
-                    const SizedBox(height: 32),
-
                     // --- Summary Section ---
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        // Customer Notes
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Customer Notes',
+                    const SizedBox(height: 16),
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Left side: Buttons and Customer Notes
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Buttons
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 12, bottom: 12),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF3F4F6),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        child: TextButton.icon(
+                                          onPressed: _addItem,
+                                          icon: const Icon(LucideIcons.plusCircle, size: 16, color: AppTheme.primaryBlue),
+                                          label: const Text('Add New Row', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryBlue)),
+                                          style: TextButton.styleFrom(padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF3F4F6),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        child: TextButton.icon(
+                                          onPressed: _showBulkItemsDialog,
+                                          icon: const Icon(LucideIcons.plusCircle, size: 16, color: AppTheme.primaryBlue),
+                                          label: const Text('Add Items in Bulk', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppTheme.primaryBlue)),
+                                          style: TextButton.styleFrom(padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Customer Notes
+                                SizedBox(
+                                  width: 434,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Customer Notes',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -1022,23 +1985,29 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                 controller: _customerNotesController,
                                 hintText:
                                     'Will be displayed on the credit note',
-                                maxLines: 4,
-                                height: 100,
+                                maxLines: null,
+                                height: 60,
+                                textStyle: _fieldTextStyle,
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 40),
-                        // Totals
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 520),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 32),
+                  // Right side: Totals card
+                  Padding(
+                    padding: const EdgeInsets.only(right: 56), // match _rowActionsWidth (28 * 2)
+                    child: SizedBox(
+                      width: 460,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               color: const Color(0xFFF9FAFB),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 // Sub Total
                                 Padding(
@@ -1056,7 +2025,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                         'Sub Total',
                                         style: TextStyle(
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.w700,
                                           color: AppTheme.textPrimary,
                                         ),
                                       ),
@@ -1064,7 +2033,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                         _formatMoney(_subTotal),
                                         style: const TextStyle(
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.w700,
                                           color: AppTheme.textPrimary,
                                         ),
                                       ),
@@ -1083,25 +2052,23 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
                                     children: [
-                                      const SizedBox(
-                                        width: 120,
-                                        child: Text(
-                                          'Shipping\nCharges',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: AppTheme.textPrimary,
-                                          ),
+                                      const Text(
+                                        'Shipping Charges',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimary,
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
-                                      Flexible(
-                                        fit: FlexFit.tight,
+                                      const SizedBox(width: 12),
+                                      SizedBox(
+                                        width: 120,
                                         child: CustomTextField(
                                           controller: _shippingController,
                                           hintText: '0.00',
                                           height: 34,
                                           textAlign: TextAlign.center,
                                           keyboardType: TextInputType.number,
+                                          textStyle: _fieldTextStyle,
                                           onChanged: (_) => setState(() {}),
                                         ),
                                       ),
@@ -1193,19 +2160,19 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        'Total (₹)',
+                                      const Text(
+                                        'Total ( ₹ )',
                                         style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
                                           color: AppTheme.textPrimary,
                                         ),
                                       ),
                                       Text(
                                         _formatMoney(_grandTotal),
                                         style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
                                           color: AppTheme.textPrimary,
                                         ),
                                       ),
@@ -1216,35 +2183,42 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  ),
+                ),
 
-                    const SizedBox(height: 32),
+                const SizedBox(height: 32),
 
                     // --- Terms & Conditions ---
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Terms & Conditions',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                      color: const Color(0xFFF9FAFB),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Terms & Conditions',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 600),
-                          child: CustomTextField(
-                            controller: _termsController,
-                            hintText:
-                                'Enter the terms and conditions of your business to be displayed in your transaction',
-                            maxLines: 5,
-                            height: 120,
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: 800,
+                            child: CustomTextField(
+                              controller: _termsController,
+                              hintText:
+                                  'Enter the terms and conditions of your business to be displayed in your transaction',
+                              maxLines: 5,
+                              height: 120,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
 
                     const SizedBox(height: 28),
@@ -1365,8 +2339,13 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                     ),
 
                     const SizedBox(height: 60),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
+                  );
+                },
               ),
             ),
           ),
@@ -1379,21 +2358,29 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
             width: 380,
             child: _CnItemDetailsSidePanel(
               item: _detailsItem!,
+              initialTab: _detailsInitialTab,
+              openRequest: _detailsOpenRequest,
               onClose: () => setState(() {
                 _showItemDetailsPanel = false;
                 _detailsItem = null;
               }),
             ),
           ),
-        if (_showCustomerDetailsPanel && _selectedCustomer != null)
+        // Shared with the sales order create page so both show the same real
+        // customer record rather than a page-local mock.
+        if (_showCustomerDetailsPanel && _customerDetails != null)
           Positioned(
             top: 0,
             right: 0,
             bottom: 0,
-            width: 440,
-            child: _CnCustomerDetailsSidePanel(
-              customerName: _selectedCustomer!,
-              onClose: () => setState(() => _showCustomerDetailsPanel = false),
+            child: Material(
+              color: Colors.transparent,
+              child: CustomerDetailsSidebar(
+                customer: _customerDetails!,
+                currencyLabel: _customerCurrencyLabel,
+                onClose: () =>
+                    setState(() => _showCustomerDetailsPanel = false),
+              ),
             ),
           ),
       ],
@@ -1454,6 +2441,103 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
     );
   }
 
+  /// Loads `tds_rates`/`tcs_rates` and the sections they group under. The
+  /// summary selector and the manage dialog read the same lists.
+  Future<void> _loadTdsTcsRates() async {
+    if (_isLoadingTdsTcsRates) return;
+    _isLoadingTdsTcsRates = true;
+    try {
+      final service = LookupsApiService();
+      final tdsRates = await service.getTdsRates();
+      final tdsSections = await service.getTdsSections();
+      final tcsRates = await service.getTcsRates();
+      final tcsNatures = await service.getTcsNatures();
+      if (!mounted) return;
+      setState(() {
+        _tdsRatesList = tdsRates;
+        _tdsSectionsList = tdsSections;
+        _tcsRatesList = tcsRates;
+        _tcsNaturesList = tcsNatures;
+      });
+    } catch (e, st) {
+      AppLogger.error(
+        'Failed to load TDS/TCS rates',
+        error: e,
+        stackTrace: st,
+        module: 'credit_note',
+      );
+    } finally {
+      _isLoadingTdsTcsRates = false;
+    }
+  }
+
+  /// Opens the shared rate manager for whichever of TDS/TCS is selected.
+  void _showManageTdsTcsRatesDialog() {
+    final isTcs = _isTcs;
+    showDialog<void>(
+      context: context,
+      builder: (_) => ManageTdsTcsRatesDialog(
+        title: isTcs ? 'Manage TCS Rates' : 'Manage TDS Rates',
+        isTcs: isTcs,
+        items: isTcs ? _tcsRatesList : _tdsRatesList,
+        sections: isTcs ? _tcsNaturesList : _tdsSectionsList,
+        selectedId: _selectedTdsTcsId,
+        onSelect: (value) =>
+            setState(() => _selectedTdsTcsId = value['id']?.toString()),
+        onSave: (items) async {
+          final service = LookupsApiService();
+          final updated = isTcs
+              ? await service.syncTcsRates(items)
+              : await service.syncTdsRates(items);
+          if (mounted) {
+            setState(() {
+              if (isTcs) {
+                _tcsRatesList = updated;
+              } else {
+                _tdsRatesList = updated;
+              }
+              // The edited row may have been deleted or had its id replaced.
+              if (_selectedTdsTcsRate == null) _selectedTdsTcsId = null;
+            });
+          }
+          return updated;
+        },
+        onDeleteCheck: (item) async {
+          final id = item['id']?.toString();
+          if (id == null || id.isEmpty || id.startsWith('new_')) return null;
+          try {
+            final usage = await LookupsApiService().checkLookupUsage(
+              isTcs ? 'tcs-rates' : 'tds-rates',
+              id,
+            );
+            if (usage['inUse'] == true) {
+              return usage['message']?.toString() ??
+                  'This rate is in use and cannot be deleted.';
+            }
+          } catch (e, st) {
+            AppLogger.error(
+              'Failed to check TDS/TCS rate usage',
+              error: e,
+              stackTrace: st,
+              module: 'credit_note',
+            );
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  /// TDS and TCS ids come from different tables, so the applied rate is
+  /// dropped when the type flips.
+  void _onTaxTypeChanged(String? value) {
+    if (value == null || value == _taxType) return;
+    setState(() {
+      _taxType = value;
+      _selectedTdsTcsId = null;
+    });
+  }
+
   Widget _buildTaxRow() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -1468,7 +2552,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                   value: 'TDS',
                   groupValue: _taxType,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  onChanged: (val) => setState(() => _taxType = val!),
+                  onChanged: _onTaxTypeChanged,
                 ),
                 const Text(
                   'TDS',
@@ -1483,7 +2567,7 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
                   value: 'TCS',
                   groupValue: _taxType,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  onChanged: (val) => setState(() => _taxType = val!),
+                  onChanged: _onTaxTypeChanged,
                 ),
                 const Text(
                   'TCS',
@@ -1497,21 +2581,41 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
             ),
           ),
           const SizedBox(width: 8),
-          Flexible(
-            fit: FlexFit.tight,
+          SizedBox(
+            width: 160,
             child: FormDropdown<String>(
-              value: _selectedTaxRate,
-              items: const ['5%', '10%', '15%', '20%', '28%'],
+              // Falls back to null when the applied rate is not in the active
+              // list — switching TDS/TCS swaps the whole option set.
+              value: _selectedTdsTcsRate == null ? null : _selectedTdsTcsId,
+              items: _activeTdsTcsRates
+                  .map((rate) => rate['id']?.toString() ?? '')
+                  .where((id) => id.isNotEmpty)
+                  .toList(),
               hint: 'Select a Tax',
               height: 34,
-              onChanged: (val) => setState(() => _selectedTaxRate = val),
+              textStyle: _fieldTextStyle,
+              allowClear: true,
+              displayStringForValue: (id) {
+                for (final rate in _activeTdsTcsRates) {
+                  if (rate['id']?.toString() == id) return _tdsTcsLabel(rate);
+                }
+                return '';
+              },
+              showSettings: true,
+              // One or the other, never both — the radio above decides which
+              // rate table this row is working against.
+              settingsLabel: _isTcs ? 'Manage TCS' : 'Manage TDS',
+              settingsIcon: LucideIcons.settings,
+              onSettingsTap: _showManageTdsTcsRatesDialog,
+              onChanged: (val) => setState(() => _selectedTdsTcsId = val),
             ),
           ),
           const SizedBox(width: 8),
           SizedBox(
             width: 60,
             child: Text(
-              _taxType == 'TDS' ? '- 0.00' : '0.00',
+              '${_taxType == 'TDS' && _taxWithholdingAmount > 0 ? '- ' : ''}'
+              '${_formatMoney(_taxWithholdingAmount)}',
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -1548,13 +2652,14 @@ class _CreditNoteCreatePageState extends ConsumerState<CreditNoteCreatePage> {
             ),
           ),
           const SizedBox(width: 8),
-          Flexible(
-            fit: FlexFit.tight,
+          SizedBox(
+            width: 120,
             child: CustomTextField(
               controller: _adjustmentController,
               hintText: '0.00',
               height: 34,
               textAlign: TextAlign.center,
+              textStyle: _fieldTextStyle,
               keyboardType: TextInputType.number,
               onChanged: (_) => setState(() {}),
             ),
@@ -1635,12 +2740,16 @@ class _CnLineItem {
   String hsnCode;
   String? discount;
   String? reportingTag;
-  String? account;
+  String? accountId;
+  String? discountAccountId;
   String? tax;
   String? exemptionReason;
   String? warehouseLocation;
   String? priceList;
-  List<_CnBatch> savedBatches = [];
+  /// Rows returned by [PicklistSelectBatchesDialog], keyed as the shared
+  /// dialog emits them (`qtyOut`, `foc`, `batchNo`, …). UI-only: a credit note
+  /// carries no batch detail in its payload.
+  List<Map<String, String>> savedBatchData = const [];
   Map<String, String?> selectedTagValues = {};
   double costPrice;
   // Full item reference for edit dialog
@@ -1656,8 +2765,8 @@ class _CnLineItem {
     this.hsnCode = '30049084',
     this.discount,
     this.reportingTag,
-    this.account,
-    this.tax = 'GST 5%',
+    this.accountId,
+    this.tax,
     String rate = '',
     String discountValue = '',
     this.discountIsPercent = true,
@@ -1683,6 +2792,43 @@ class _CnTaxSummaryLine {
 }
 
 /// Custom Compact Form Row with Overflow Fixes
+/// Rate to show in the item grid for [product], sourced from
+/// `products.cost_price`.
+///
+/// The grid previously read `selling_price`, which is populated on only a
+/// handful of rows — `cost_price` is the column actually maintained — so the
+/// rate (and therefore the amount) landed on 0.00 for nearly every item.
+/// `selling_price` is kept as a fallback for the rare row that has a selling
+/// price but no cost price, so a real rate still wins over a zero.
+double _cnProductRate(Item? product) {
+  if (product == null) return 0;
+  final costPrice = product.costPrice;
+  if (costPrice != null && costPrice > 0) return costPrice;
+  return product.sellingPrice ?? 0;
+}
+
+class _CreditNoteCreateCloseButton extends StatelessWidget {
+  const _CreditNoteCreateCloseButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(4),
+      child: const Padding(
+        padding: EdgeInsets.all(8),
+        child: Icon(
+          LucideIcons.x,
+          size: 24,
+          color: AppTheme.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
 class _CompactFormRow extends StatelessWidget {
   final String label;
   final bool required;
@@ -1752,6 +2898,7 @@ class _CompactFormRow extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 const List<String> _cnCustomerDropdownNames = [
   'SAHAKAR MEDICALS AND SURGICALS HYPER STORE LLP',
   'SAHAKAR MEDICALS AND SURGICALS THRISSUR LLP',
@@ -1764,6 +2911,7 @@ const List<String> _cnCustomerDropdownNames = [
   'CUS-3',
 ];
 
+// ignore: unused_element
 const Map<String, _CnCustomerDropdownDetails> _cnCustomerDropdownDetails = {
   'SAHAKAR MEDICALS AND SURGICALS HYPER STORE LLP': _CnCustomerDropdownDetails(
     code: 'CUS-00016',
@@ -2083,7 +3231,7 @@ class _NewCustomerFormDialogState extends State<_NewCustomerFormDialog> {
       child: DecoratedBox(
         decoration: const BoxDecoration(color: AppTheme.backgroundColor),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
               height: 62,
@@ -2126,7 +3274,7 @@ class _NewCustomerFormDialogState extends State<_NewCustomerFormDialog> {
                   child: SizedBox(
                     width: contentWidth,
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _buildTopSection(),
                         const SizedBox(height: 42),
@@ -2156,7 +3304,7 @@ class _NewCustomerFormDialogState extends State<_NewCustomerFormDialog> {
 
   Widget _buildTopSection() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _CustomerDialogRow(
           label: 'Customer Type',
@@ -2348,7 +3496,7 @@ class _NewCustomerFormDialogState extends State<_NewCustomerFormDialog> {
 
   Widget _buildOtherDetails() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _CustomerDialogRow(
           label: 'GST Treatment',
@@ -2496,15 +3644,49 @@ class _NewCustomerFormDialogState extends State<_NewCustomerFormDialog> {
           labelWidth: _labelWidth,
           child: SizedBox(
             width: _singleFieldWidth,
-            child: FormDropdown<String>(
-              value: _priceList,
-              items: const [
-                'Retail Price',
-                'Wholesale Price',
-                'Standard Selling',
-              ],
-              height: _fieldHeight,
-              onChanged: (value) => setState(() => _priceList = value),
+            child: Builder(
+              builder: (context) {
+                // Price lists resolved by the parent ConsumerWidget tree.
+                // Fall back gracefully if none are available yet.
+                final priceLists =
+                    (context
+                            .findAncestorStateOfType<
+                              _CreditNoteCreatePageState
+                            >()
+                            ?.ref
+                            .read(activeSalesPriceListsAsyncProvider)
+                            .asData
+                            ?.value ??
+                        const <PriceList>[])
+                        .where(
+                          (p) =>
+                              p.status == 'active' &&
+                              p.transactionType.toLowerCase() == 'sales',
+                        )
+                        .toList();
+                return FormDropdown<String>(
+                  value: _priceList,
+                  items: priceLists.map((p) => p.id).toList(),
+                  hint: priceLists.isEmpty
+                      ? 'No price lists'
+                      : 'Select Price List',
+                  height: _fieldHeight,
+                  enabled: priceLists.isNotEmpty,
+                  displayStringForValue: (id) =>
+                      priceLists
+                          .where((p) => p.id == id)
+                          .firstOrNull
+                          ?.name ??
+                      '',
+                  searchStringForValue: (id) =>
+                      priceLists
+                          .where((p) => p.id == id)
+                          .firstOrNull
+                          ?.name ??
+                      '',
+                  onChanged: (value) => setState(() => _priceList = value),
+                );
+              },
             ),
           ),
         ),
@@ -3192,60 +4374,66 @@ class _CnCurrencyBadge extends StatelessWidget {
   }
 }
 
+/// Trigger for the shared customer sidebar, mirroring the sales order create
+/// page so both pages expose the same affordance.
 class _CnCustomerDetailsTag extends StatelessWidget {
   final String customerName;
+  final bool isLoading;
   final VoidCallback onTap;
 
   const _CnCustomerDetailsTag({
     required this.customerName,
     required this.onTap,
+    this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.hasBoundedWidth
-            ? constraints.maxWidth
-            : 360.0;
-        final tagWidth = availableWidth < 360.0 ? availableWidth : 360.0;
-
-        return Material(
-          color: AppTheme.textSecondary,
-          borderRadius: BorderRadius.circular(6),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(6),
-            child: Container(
-              width: tagWidth.clamp(0.0, 220.0),
-              height: 34,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      customerName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.backgroundColor,
-                      ),
+    return Material(
+      color: AppTheme.textSecondary,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        // Disabled mid-fetch so a second tap cannot stack duplicate requests.
+        onTap: isLoading ? null : onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isLoading) ...[
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: ZBone(width: 14, height: 14, borderRadius: 7),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Flexible(
+                  child: Text(
+                    "$customerName's Details",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.backgroundColor,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  const Icon(
-                    LucideIcons.chevronRight,
-                    size: 14,
-                    color: AppTheme.backgroundColor,
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 12),
+                const Icon(
+                  LucideIcons.chevronRight,
+                  size: 16,
+                  color: AppTheme.backgroundColor,
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -3264,7 +4452,8 @@ class _HelpPopoverState extends State<_HelpPopover> {
 
   void _togglePopover() {
     if (_entry != null) {
-      _entry!.remove();
+      if (_entry!.mounted) _entry!.remove();
+      _entry!.dispose();
       _entry = null;
     } else {
       _entry = _createOverlayEntry();
@@ -3369,7 +4558,8 @@ class _HelpPopoverState extends State<_HelpPopover> {
 
   @override
   void dispose() {
-    _entry?.remove();
+    if (_entry?.mounted == true) _entry?.remove();
+    _entry?.dispose();
     super.dispose();
   }
 
@@ -3414,14 +4604,16 @@ class _WarehouseStockPopoverState extends State<_WarehouseStockPopover> {
   }
 
   void _removePopover() {
-    _entry?.remove();
+    if (_entry?.mounted == true) _entry?.remove();
+    _entry?.dispose();
     _entry = null;
     if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _entry?.remove();
+    if (_entry?.mounted == true) _entry?.remove();
+    _entry?.dispose();
     super.dispose();
   }
 
@@ -3621,74 +4813,82 @@ class _WarehouseStockPopoverState extends State<_WarehouseStockPopover> {
                           // Table Header
                           Container(
                             color: const Color(0xFFF9FAFB),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Row(
-                                      children: const [
-                                        Text(
-                                          'Location Name ',
-                                          style: TextStyle(
-                                            fontSize: 12,
+                            child: IntrinsicHeight(
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Row(
+                                        children: const [
+                                          Text(
+                                            'Location Name ',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.search,
+                                            size: 14,
                                             color: AppTheme.textSecondary,
                                           ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const VerticalDivider(
+                                    width: 1,
+                                    color: AppTheme.borderColor,
+                                  ),
+                                  Expanded(
+                                    flex: 5,
+                                    child: Column(
+                                      children: [
+                                        Container(
+                                          height: 32,
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            _isAccountingStock
+                                                ? 'Accounting Stock'
+                                                : 'Physical Stock',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
                                         ),
-                                        Icon(
-                                          Icons.search,
-                                          size: 14,
-                                          color: AppTheme.textSecondary,
+                                        const Divider(
+                                          height: 1,
+                                          color: AppTheme.borderColor,
+                                        ),
+                                        IntrinsicHeight(
+                                          child: Row(
+                                            children: [
+                                              _buildSubHeader('Stock on Hand'),
+                                              const VerticalDivider(
+                                                width: 1,
+                                                color: AppTheme.borderColor,
+                                              ),
+                                              _buildSubHeader(
+                                                'Committed Stock',
+                                              ),
+                                              const VerticalDivider(
+                                                width: 1,
+                                                color: AppTheme.borderColor,
+                                              ),
+                                              _buildSubHeader(
+                                                'Available for Sale',
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                ),
-                                const VerticalDivider(
-                                  width: 1,
-                                  color: AppTheme.borderColor,
-                                ),
-                                Expanded(
-                                  flex: 5,
-                                  child: Column(
-                                    children: [
-                                      Container(
-                                        height: 32,
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          _isAccountingStock
-                                              ? 'Accounting Stock'
-                                              : 'Physical Stock',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppTheme.textSecondary,
-                                          ),
-                                        ),
-                                      ),
-                                      const Divider(
-                                        height: 1,
-                                        color: AppTheme.borderColor,
-                                      ),
-                                      Row(
-                                        children: [
-                                          _buildSubHeader('Stock on Hand'),
-                                          const VerticalDivider(
-                                            width: 1,
-                                            color: AppTheme.borderColor,
-                                          ),
-                                          _buildSubHeader('Committed Stock'),
-                                          const VerticalDivider(
-                                            width: 1,
-                                            color: AppTheme.borderColor,
-                                          ),
-                                          _buildSubHeader('Available for Sale'),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                           const Divider(height: 1, color: AppTheme.borderColor),
@@ -3892,29 +5092,20 @@ class _CnGridCell extends StatefulWidget {
 }
 
 class _CnGridCellState extends State<_CnGridCell> {
-  bool _isHovered = false;
-
   @override
   Widget build(BuildContext context) {
-    final hoverColor = AppTheme.bgDisabled;
-    Widget content = MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        color: _isHovered
-            ? hoverColor
-            : (widget.backgroundColor ?? Colors.transparent),
-        padding: widget.padding,
-        alignment: widget.alignment,
-        child: widget.child,
-      ),
+    Widget content = Container(
+      color: widget.backgroundColor ?? Colors.transparent,
+      padding: widget.padding,
+      alignment: widget.alignment,
+      child: widget.child,
     );
 
     Widget result;
     if (widget.showDivider) {
       result = Row(
         mainAxisSize: widget.isExpanded ? MainAxisSize.max : MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (widget.isExpanded)
             Expanded(child: content)
@@ -3939,51 +5130,37 @@ class _CnGridCellState extends State<_CnGridCell> {
   }
 }
 
-class _DottedUnderlinePainter extends CustomPainter {
-  const _DottedUnderlinePainter();
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppTheme.borderMid
-      ..strokeWidth = 1.4
-      ..strokeCap = StrokeCap.round;
-
-    const dashWidth = 3.0;
-    const dashGap = 4.0;
-    final y = size.height - 2;
-    var startX = 0.0;
-
-    while (startX < size.width) {
-      final endX = (startX + dashWidth).clamp(0.0, size.width);
-      canvas.drawLine(Offset(startX, y), Offset(endX, y), paint);
-      startX += dashWidth + dashGap;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
 
 class _CnItemsGrid extends StatefulWidget {
+  final bool isCustomerSelected;
   final bool creditOnly;
   final String warehouse;
   final List<_CnLineItem> items;
+
+  /// Item master rows loaded from the `products` table, used to populate the
+  /// line-item picker.
+  final List<Item> products;
+  final List<AccountNode> accountRoots;
   final VoidCallback onAddItem;
   final VoidCallback onAddBulkItems;
   final Function(int) onInsertItem;
   final Function(int) onCloneItem;
   final Function(int) onRemoveItem;
   final Function(int) onItemSelected;
-  final Function(_CnLineItem) onViewItemDetails;
+  /// `(item, tab)` — the tab the item details panel should open on.
+  final void Function(_CnLineItem, int) onViewItemDetails;
   final Function(_CnLineItem) onEditItem;
   final Function(_CnLineItem) onAddBatches;
   final VoidCallback? onTotalsChanged;
 
   const _CnItemsGrid({
+    this.isCustomerSelected = false,
     required this.creditOnly,
     required this.warehouse,
     required this.items,
+    this.products = const [],
+    this.accountRoots = const [],
     required this.onAddItem,
     required this.onAddBulkItems,
     required this.onInsertItem,
@@ -4006,60 +5183,16 @@ class _CnItemsGridState extends State<_CnItemsGrid> {
   static const double _rowActionsWidth = _rowActionWidth * 2;
   static const double _rowMenuWidth = 220;
 
+  /// Fill for the "Item Table" title band. Deliberately lighter than the shared
+  /// [AppTheme.tableHeaderBg] so it reads as a soft cap on the grid. The
+  /// column-label row below it is left white.
+  static const Color _headerBg = AppTheme.bgLight;
+
   bool _isBulkUpdateActive = false;
   String _selectedUpdateField = '';
   bool _areAdditionalInfosHidden = false;
   int? _hoveredItemActionIndex;
 
-  Widget _buildInfoItem(
-    IconData icon,
-    String label,
-    List<String> items,
-    Function(String) onSelected, {
-    double iconSize = 14,
-  }) {
-    return PopupMenuButton<String>(
-      offset: const Offset(0, 24),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
-        side: const BorderSide(color: AppTheme.borderLight),
-      ),
-      color: Colors.white,
-      elevation: 4,
-      tooltip: '',
-      onSelected: onSelected,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: iconSize, color: AppTheme.textSecondary),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Icon(
-            LucideIcons.chevronDown,
-            size: 12,
-            color: AppTheme.textSecondary,
-          ),
-        ],
-      ),
-      itemBuilder: (context) => items
-          .map(
-            (item) => PopupMenuItem<String>(
-              value: item,
-              padding: EdgeInsets.zero,
-              child: _CnInfoDropdownHoverItem(label: item),
-            ),
-          )
-          .toList(),
-    );
-  }
 
   PopupMenuItem<int> _buildRowActionMenuItem({
     required int value,
@@ -4082,22 +5215,25 @@ class _CnItemsGridState extends State<_CnItemsGrid> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
           margin: const EdgeInsets.only(right: _rowActionsWidth),
-          decoration: const BoxDecoration(
-            border: Border(
+          decoration: BoxDecoration(
+            border: const Border(
               top: BorderSide(color: AppTheme.borderLight),
               left: BorderSide(color: AppTheme.borderLight),
               right: BorderSide(color: AppTheme.borderLight),
               bottom: BorderSide(color: AppTheme.borderLight),
             ),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Column(
             children: [
-              // Item Table title row - inside the box
-              Padding(
+              // Item Table title row - inside the box. This band carries the
+              // grey fill; the column-label row below it stays white.
+              Container(
+                color: _headerBg,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 10,
@@ -4297,98 +5433,100 @@ class _CnItemsGridState extends State<_CnItemsGrid> {
               ],
               const Divider(height: 1, color: AppTheme.borderLight),
               // Header row - fixed-width columns with vertical dividers
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _CnGridCell(
-                    isExpanded: true,
-                    backgroundColor: AppTheme.tableHeaderBg,
-                    alignment: Alignment.topLeft,
-                    child: const Row(
-                      children: [
-                        SizedBox(width: 48),
-                        SizedBox(width: 8),
-                        CnGridHeader(label: 'ITEM DETAILS'),
-                      ],
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _CnGridCell(
+                      isExpanded: true,
+                      backgroundColor: Colors.white,
+                      alignment: Alignment.topLeft,
+                      child: const Row(
+                        children: [
+                          SizedBox(width: 48),
+                          SizedBox(width: 8),
+                          CnGridHeader(label: 'ITEM DETAILS'),
+                        ],
+                      ),
                     ),
-                  ),
-                  _CnGridCell(
-                    width: _CreditNoteCreatePageState._accountColumnWidth,
-                    backgroundColor: AppTheme.tableHeaderBg,
-                    alignment: Alignment.topLeft,
-                    child: const CnGridHeader(label: 'ACCOUNT'),
-                  ),
-                  _CnGridCell(
-                    width: _CreditNoteCreatePageState._quantityColumnWidth,
-                    backgroundColor: AppTheme.tableHeaderBg,
-                    alignment: Alignment.topRight,
-                    child: const CnGridHeader(label: 'QUANTITY'),
-                  ),
-                  _CnGridCell(
-                    width: _CreditNoteCreatePageState._rateColumnWidth,
-                    backgroundColor: AppTheme.tableHeaderBg,
-                    alignment: Alignment.topRight,
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          'RATE',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                    _CnGridCell(
+                      width: _CreditNoteCreatePageState._accountColumnWidth,
+                      backgroundColor: Colors.white,
+                      alignment: Alignment.topLeft,
+                      child: const CnGridHeader(label: 'ACCOUNT'),
+                    ),
+                    _CnGridCell(
+                      width: _CreditNoteCreatePageState._quantityColumnWidth,
+                      backgroundColor: Colors.white,
+                      alignment: Alignment.topRight,
+                      child: const CnGridHeader(label: 'QUANTITY'),
+                    ),
+                    _CnGridCell(
+                      width: _CreditNoteCreatePageState._rateColumnWidth,
+                      backgroundColor: Colors.white,
+                      alignment: Alignment.topRight,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            'RATE',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(
+                            LucideIcons.calculator,
+                            size: 12,
                             color: AppTheme.textSecondary,
                           ),
-                        ),
-                        SizedBox(width: 4),
-                        Icon(
-                          LucideIcons.calculator,
-                          size: 12,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  _CnGridCell(
-                    width: _CreditNoteCreatePageState._discountColumnWidth,
-                    backgroundColor: AppTheme.tableHeaderBg,
-                    alignment: Alignment.topRight,
-                    child: const CnGridHeader(label: 'DISCOUNT'),
-                  ),
-                  _CnGridCell(
-                    width: _CreditNoteCreatePageState._taxColumnWidth,
-                    backgroundColor: AppTheme.tableHeaderBg,
-                    alignment: Alignment.topLeft,
-                    child: const Row(
-                      children: [
-                        Text(
-                          'TAX',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textSecondary,
+                    _CnGridCell(
+                      width: _CreditNoteCreatePageState._discountColumnWidth,
+                      backgroundColor: Colors.white,
+                      alignment: Alignment.topRight,
+                      child: const CnGridHeader(label: 'DISCOUNT'),
+                    ),
+                    _CnGridCell(
+                      width: _CreditNoteCreatePageState._taxColumnWidth,
+                      backgroundColor: Colors.white,
+                      alignment: Alignment.topLeft,
+                      child: const Row(
+                        children: [
+                          Text(
+                            'TAX',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondary,
+                            ),
                           ),
-                        ),
-                        SizedBox(width: 4),
-                        ZTooltip(
-                          message:
-                              'Tax can only be applied to an item after choosing a customer. Please select a customer from the Customer Name drop-down.',
-                        ),
-                      ],
+                          SizedBox(width: 4),
+                          ZTooltip(
+                            message:
+                                'Tax can only be applied to an item after choosing a customer. Please select a customer from the Customer Name drop-down.',
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  _CnGridCell(
-                    width: _CreditNoteCreatePageState._amountColumnWidth,
-                    backgroundColor: AppTheme.tableHeaderBg,
-                    alignment: Alignment.topRight,
-                    showDivider: false,
-                    child: const CnGridHeader(label: 'AMOUNT'),
-                  ),
-                ],
+                    _CnGridCell(
+                      width: _CreditNoteCreatePageState._amountColumnWidth,
+                      backgroundColor: Colors.white,
+                      alignment: Alignment.topRight,
+                      showDivider: false,
+                      child: const CnGridHeader(label: 'AMOUNT'),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
-        // Item rows keep fixed action controls without intrinsic layout.
+        // Item rows - each uses IntrinsicHeight so action buttons align with row height
         ...List.generate(widget.items.length, (index) {
           final showActions = _hoveredItemActionIndex == index;
 
@@ -4403,303 +5541,508 @@ class _CnItemsGridState extends State<_CnItemsGrid> {
                 setState(() => _hoveredItemActionIndex = null);
               }
             },
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        left: BorderSide(color: AppTheme.borderLight),
-                        right: BorderSide(color: AppTheme.borderLight),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        _CnItemRowWidget(
-                          item: widget.items[index],
-                          creditOnly: widget.creditOnly,
-                          warehouse: widget.warehouse,
-                          selectedStockView: _selectedStockView,
-                          onStockViewChanged: (val) =>
-                              setState(() => _selectedStockView = val),
-                          onItemSelected: () => widget.onItemSelected(index),
-                          onViewItemDetails: () =>
-                              widget.onViewItemDetails(widget.items[index]),
-                          onEditItem: () =>
-                              widget.onEditItem(widget.items[index]),
-                          onAddBatches: () =>
-                              widget.onAddBatches(widget.items[index]),
-                          onRemoveItem: () => widget.onRemoveItem(index),
-                          onTotalsChanged: widget.onTotalsChanged,
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          left: BorderSide(color: AppTheme.borderLight),
+                          right: BorderSide(color: AppTheme.borderLight),
                         ),
-                        if (!_areAdditionalInfosHidden) ...[
-                          const Divider(height: 1, color: AppTheme.borderLight),
-                          Container(
-                            color: const Color(0xFFF9FAFB),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            child: Row(
-                              children: [
-                                const SizedBox(width: 48),
-                                const SizedBox(width: 8),
-                                _buildInfoItem(
-                                  LucideIcons.badgePercent,
-                                  'Discount',
-                                  ['Discount 1', 'Discount 2'],
-                                  (val) {},
-                                  iconSize: 20,
+                      ),
+                      child: Column(
+                        children: [
+                          _CnItemRowWidget(
+                            isCustomerSelected: widget.isCustomerSelected,
+                              item: widget.items[index],
+                            allItems: widget.items,
+                            products: widget.products,
+                            accountRoots: widget.accountRoots,
+                            creditOnly: widget.creditOnly,
+                            warehouse: widget.warehouse,
+                            selectedStockView: _selectedStockView,
+                            onStockViewChanged: (val) =>
+                                setState(() => _selectedStockView = val),
+                            onItemSelected: () => widget.onItemSelected(index),
+                            onViewItemDetails: (tab) =>
+                                widget.onViewItemDetails(
+                                  widget.items[index],
+                                  tab,
                                 ),
-                                const SizedBox(width: 24),
-                                PopupMenuButton<void>(
-                                  offset: const Offset(0, 4),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                    side: const BorderSide(
-                                      color: AppTheme.borderLight,
-                                    ),
-                                  ),
-                                  color: Colors.white,
-                                  elevation: 4,
-                                  tooltip: '',
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: const [
-                                      Icon(
-                                        LucideIcons.tag,
-                                        size: 14,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Reporting Tags',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: AppTheme.textSecondary,
-                                          fontWeight: FontWeight.w500,
+                            onEditItem: () =>
+                                widget.onEditItem(widget.items[index]),
+                            onAddBatches: () =>
+                                widget.onAddBatches(widget.items[index]),
+                            onRemoveItem: () => widget.onRemoveItem(index),
+                            onTotalsChanged: widget.onTotalsChanged,
+                          ),
+                          if (!_areAdditionalInfosHidden) ...[
+                            const Divider(
+                              height: 1,
+                              color: AppTheme.borderLight,
+                            ),
+                            Container(
+                              color: const Color(0xFFF9FAFB),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                children: [
+                                  const SizedBox(width: 48),
+                                  const SizedBox(width: 8),
+                                  CnAccountDropdown(
+                                    value: widget.items[index].discountAccountId,
+                                    roots: widget.accountRoots,
+                                    hint: 'Discount',
+                                    customTriggerBuilder: (context, openDropdown, label) {
+                                      return InkWell(
+                                        onTap: openDropdown,
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(LucideIcons.badgePercent, size: 16, color: AppTheme.textSecondary),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                label.isNotEmpty && label != 'Discount' ? label : 'Discount',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: AppTheme.textSecondary,
+                                                  decoration: TextDecoration.underline,
+                                                  decorationStyle: TextDecorationStyle.dashed,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              const Icon(
+                                                Icons.arrow_drop_down,
+                                                size: 16,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ],
+                                          ),
                                         ),
+                                      );
+                                    },
+                                    onChanged: (val) {
+                                      setState(() {
+                                        widget.items[index].discountAccountId = val;
+                                      });
+                                      if (widget.onTotalsChanged != null) {
+                                        widget.onTotalsChanged!();
+                                      }
+                                    },
+                                  ),
+                                  const SizedBox(width: 24),
+                                  PopupMenuButton<void>(
+                                    offset: const Offset(0, 4),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                      side: const BorderSide(
+                                        color: AppTheme.borderLight,
                                       ),
-                                      SizedBox(width: 4),
-                                      Icon(
-                                        LucideIcons.chevronDown,
-                                        size: 12,
-                                        color: AppTheme.textSecondary,
+                                    ),
+                                    color: Colors.white,
+                                    elevation: 4,
+                                    tooltip: '',
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(
+                                          LucideIcons.tag,
+                                          size: 14,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Reporting Tags',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.textSecondary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        SizedBox(width: 4),
+                                        Icon(
+                                          LucideIcons.chevronDown,
+                                          size: 12,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ],
+                                    ),
+                                    itemBuilder: (context) => [
+                                      const PopupMenuItem<void>(
+                                        enabled: false,
+                                        padding: EdgeInsets.zero,
+                                        child: _CnReportingTagsForm(),
                                       ),
                                     ],
                                   ),
-                                  itemBuilder: (context) => [
-                                    const PopupMenuItem<void>(
-                                      enabled: false,
-                                      padding: EdgeInsets.zero,
-                                      child: _CnReportingTagsForm(),
+                                  if (widget.items[index].name.isNotEmpty) ...[
+                                    const SizedBox(width: 24),
+                                    _CnCostPriceButton(
+                                      item: widget.items[index],
                                     ),
                                   ],
-                                ),
-                                if (widget.items[index].name.isNotEmpty) ...[
-                                  const SizedBox(width: 24),
-                                  _CnCostPriceButton(item: widget.items[index]),
                                 ],
-                              ],
+                              ),
+                            ),
+                          ],
+                          if (index != widget.items.length - 1)
+                            const Divider(
+                              height: 1,
+                              color: AppTheme.borderLight,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  IgnorePointer(
+                    ignoring: !showActions,
+                    child: AnimatedOpacity(
+                      opacity: showActions ? 1 : 0,
+                      duration: const Duration(milliseconds: 120),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: _rowActionWidth,
+                            child: Container(
+                              alignment: Alignment.topCenter,
+                              padding: const EdgeInsets.only(top: 8),
+                              child: PopupMenuButton<int>(
+                                offset: Offset.zero,
+                                position: PopupMenuPosition.under,
+                                constraints: const BoxConstraints(
+                                  minWidth: _rowMenuWidth,
+                                  maxWidth: _rowMenuWidth,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: const BorderSide(
+                                    color: AppTheme.borderLight,
+                                  ),
+                                ),
+                                color: Colors.white,
+                                elevation: 6,
+                                tooltip: '',
+                                padding: EdgeInsets.zero,
+                                onSelected: (value) {
+                                  if (value == 0) {
+                                    setState(() {
+                                      _areAdditionalInfosHidden =
+                                          !_areAdditionalInfosHidden;
+                                    });
+                                  } else if (value == 1) {
+                                    widget.onCloneItem(index);
+                                  } else if (value == 2) {
+                                    widget.onInsertItem(index);
+                                  } else if (value == 3) {
+                                    widget.onAddBulkItems();
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  _buildRowActionMenuItem(
+                                    value: 4,
+                                    label: 'Edit Item',
+                                  ),
+                                  const PopupMenuDivider(height: 1),
+                                  _buildRowActionMenuItem(
+                                    value: 5,
+                                    label: 'View Item Details',
+                                  ),
+                                  const PopupMenuDivider(height: 1),
+                                  _buildRowActionMenuItem(
+                                    value: 0,
+                                    label: _areAdditionalInfosHidden
+                                        ? 'Show Additional Information'
+                                        : 'Hide Additional Information',
+                                  ),
+                                  const PopupMenuDivider(height: 1),
+                                  _buildRowActionMenuItem(
+                                    value: 1,
+                                    label: 'Clone',
+                                  ),
+                                  const PopupMenuDivider(height: 1),
+                                  _buildRowActionMenuItem(
+                                    value: 2,
+                                    label: 'Insert New Row',
+                                  ),
+                                  _buildRowActionMenuItem(
+                                    value: 3,
+                                    label: 'Insert Items in Bulk',
+                                  ),
+                                ],
+                                child: const _CnRowActionIconButton(
+                                  icon: LucideIcons.moreHorizontal,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: _rowActionWidth,
+                            child: Container(
+                              alignment: Alignment.topCenter,
+                              padding: const EdgeInsets.only(top: 8),
+                              child: GestureDetector(
+                                onTap: () => widget.onRemoveItem(index),
+                                behavior: HitTestBehavior.opaque,
+                                child: const _CnRowActionIconButton(
+                                  icon: LucideIcons.x,
+                                ),
+                              ),
                             ),
                           ),
                         ],
-                        if (index != widget.items.length - 1)
-                          const Divider(height: 1, color: AppTheme.borderLight),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-                IgnorePointer(
-                  ignoring: !showActions,
-                  child: AnimatedOpacity(
-                    opacity: showActions ? 1 : 0,
-                    duration: const Duration(milliseconds: 120),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: _rowActionWidth,
-                          child: Center(
-                            child: PopupMenuButton<int>(
-                              offset: Offset.zero,
-                              position: PopupMenuPosition.under,
-                              constraints: const BoxConstraints(
-                                minWidth: _rowMenuWidth,
-                                maxWidth: _rowMenuWidth,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                side: const BorderSide(
-                                  color: AppTheme.borderLight,
-                                ),
-                              ),
-                              color: Colors.white,
-                              elevation: 6,
-                              tooltip: '',
-                              padding: EdgeInsets.zero,
-                              onSelected: (value) {
-                                if (value == 0) {
-                                  setState(() {
-                                    _areAdditionalInfosHidden =
-                                        !_areAdditionalInfosHidden;
-                                  });
-                                } else if (value == 1) {
-                                  widget.onCloneItem(index);
-                                } else if (value == 2) {
-                                  widget.onInsertItem(index);
-                                } else if (value == 3) {
-                                  widget.onAddBulkItems();
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                _buildRowActionMenuItem(
-                                  value: 0,
-                                  label: _areAdditionalInfosHidden
-                                      ? 'Show Additional Information'
-                                      : 'Hide Additional Information',
-                                ),
-                                const PopupMenuDivider(height: 1),
-                                _buildRowActionMenuItem(
-                                  value: 1,
-                                  label: 'Clone',
-                                ),
-                                const PopupMenuDivider(height: 1),
-                                _buildRowActionMenuItem(
-                                  value: 2,
-                                  label: 'Insert New Row',
-                                ),
-                                _buildRowActionMenuItem(
-                                  value: 3,
-                                  label: 'Insert Items in Bulk',
-                                ),
-                              ],
-                              child: const Icon(
-                                LucideIcons.moreHorizontal,
-                                size: 16,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: _rowActionWidth,
-                          child: Center(
-                            child: GestureDetector(
-                              onTap: () => widget.onRemoveItem(index),
-                              behavior: HitTestBehavior.opaque,
-                              child: const _CnRowActionIconButton(
-                                icon: LucideIcons.x,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         }),
-        Container(
-          margin: const EdgeInsets.only(right: _rowActionsWidth),
-          decoration: const BoxDecoration(
-            border: Border(
-              left: BorderSide(color: AppTheme.borderLight),
-              right: BorderSide(color: AppTheme.borderLight),
-              bottom: BorderSide(color: AppTheme.borderLight),
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  child: TextButton.icon(
-                    onPressed: widget.onAddItem,
-                    icon: const Icon(
-                      LucideIcons.plusCircle,
-                      size: 16,
-                      color: AppTheme.primaryBlue,
-                    ),
-                    label: const Text(
-                      'Add New Row',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.primaryBlue,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  child: TextButton.icon(
-                    onPressed: widget.onAddBulkItems,
-                    icon: const Icon(
-                      LucideIcons.plusCircle,
-                      size: 16,
-                      color: AppTheme.primaryBlue,
-                    ),
-                    label: const Text(
-                      'Add Items in Bulk',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.primaryBlue,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }
 }
 
-class _CnItemRowWidget extends StatefulWidget {
+class _CnAutocompleteItem extends StatefulWidget {
+  final Item product;
+  final VoidCallback onTap;
+
+  const _CnAutocompleteItem({
+    required this.product,
+    required this.onTap,
+  });
+
+  @override
+  State<_CnAutocompleteItem> createState() => _CnAutocompleteItemState();
+}
+
+class _CnAutocompleteItemState extends State<_CnAutocompleteItem> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final sku = widget.product.sku?.trim() ?? '';
+    final rate = widget.product.sellingPrice;
+    final subtitle = [
+      if (sku.isNotEmpty) 'SKU: $sku',
+      if (rate != null) 'Rate: ₹${rate.toStringAsFixed(2)}',
+    ].join('  •  ');
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          color: _hovered ? AppTheme.primaryBlue : Colors.transparent,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.product.productName,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: _hovered ? Colors.white : AppTheme.textPrimary,
+                ),
+              ),
+              if (subtitle.isNotEmpty)
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: _hovered ? Colors.white70 : AppTheme.textMuted,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ItemAutocompleteField extends StatefulWidget {
+  final List<Item> products;
+  final bool isLoading;
+  final String hint;
+  final ValueChanged<Item> onSelected;
+  final VoidCallback onAddNew;
+
+  const _ItemAutocompleteField({
+    required this.products,
+    required this.isLoading,
+    required this.hint,
+    required this.onSelected,
+    required this.onAddNew,
+  });
+
+  @override
+  State<_ItemAutocompleteField> createState() => _ItemAutocompleteFieldState();
+}
+
+class _ItemAutocompleteFieldState extends State<_ItemAutocompleteField> {
+  final _fieldKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    return RawAutocomplete<Item>(
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return widget.products;
+        }
+        final q = textEditingValue.text.toLowerCase();
+        return widget.products.where((p) {
+          final s = [
+            p.productName,
+            p.sku ?? '',
+            p.itemCode,
+          ].join(' ').toLowerCase();
+          return s.contains(q);
+        });
+      },
+      onSelected: widget.onSelected,
+      displayStringForOption: (Item option) => option.productName,
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        return Container(
+          key: _fieldKey,
+          child: CustomTextField(
+            controller: controller,
+            focusNode: focusNode,
+            hintText: widget.hint,
+            height: 36, // Match table row height
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        final box = _fieldKey.currentContext?.findRenderObject() as RenderBox?;
+        final width = box?.size.width ?? 300.0;
+
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 6,
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+              side: const BorderSide(color: AppTheme.borderLight),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: 300,
+                maxWidth: width,
+              ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: ListView.separated(
+                          padding: EdgeInsets.zero,
+                          shrinkWrap: true,
+                          itemCount: options.length,
+                          separatorBuilder: (_, __) => const Divider(
+                            height: 1,
+                            color: AppTheme.borderLight,
+                          ),
+                          itemBuilder: (context, index) {
+                            final product = options.elementAt(index);
+                            return _CnAutocompleteItem(
+                              product: product,
+                              onTap: () => onSelected(product),
+                            );
+                          },
+                        ),
+                      ),
+                      const Divider(height: 1, color: AppTheme.borderLight),
+                      InkWell(
+                        onTap: () {
+                          FocusScope.of(context).unfocus();
+                          widget.onAddNew();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.vertical(
+                              bottom: Radius.circular(4),
+                            ),
+                          ),
+                          child: Row(
+                            children: const [
+                              Icon(
+                                LucideIcons.plusCircle,
+                                size: 16,
+                                color: AppTheme.primaryBlue,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Add New Item',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.primaryBlue,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+    );
+  }
+}
+
+class _CnItemRowWidget extends ConsumerStatefulWidget {
+  final bool isCustomerSelected;
   final _CnLineItem item;
+
+  /// Every line in the grid — used to reject picking a product that another
+  /// row already carries.
+  final List<_CnLineItem> allItems;
+
+  /// Item master rows loaded from the `products` table.
+  final List<Item> products;
+  final List<AccountNode> accountRoots;
   final bool creditOnly;
   final String warehouse;
   final String selectedStockView;
   final ValueChanged<String>? onStockViewChanged;
   final VoidCallback? onItemSelected;
-  final VoidCallback? onViewItemDetails;
+
+  /// Receives the tab the item details panel should open on.
+  final void Function(int)? onViewItemDetails;
   final VoidCallback? onEditItem;
   final VoidCallback? onAddBatches;
   final VoidCallback? onRemoveItem;
   final VoidCallback? onTotalsChanged;
 
   const _CnItemRowWidget({
+    this.isCustomerSelected = false,
     required this.item,
+    this.allItems = const [],
+    this.products = const [],
+    this.accountRoots = const [],
     required this.creditOnly,
     required this.warehouse,
     required this.selectedStockView,
@@ -4713,10 +6056,10 @@ class _CnItemRowWidget extends StatefulWidget {
   });
 
   @override
-  State<_CnItemRowWidget> createState() => _CnItemRowWidgetState();
+  ConsumerState<_CnItemRowWidget> createState() => _CnItemRowWidgetState();
 }
 
-class _CnItemRowWidgetState extends State<_CnItemRowWidget> {
+class _CnItemRowWidgetState extends ConsumerState<_CnItemRowWidget> {
   late final FocusNode _rateFocusNode;
   double _previousRate = 0.0;
 
@@ -4729,8 +6072,98 @@ class _CnItemRowWidgetState extends State<_CnItemRowWidget> {
   final LayerLink _exemptionLayerLink = LayerLink();
   OverlayEntry? _exemptionOverlay;
 
+  // Discount type (% / ₹) popover, anchored to the suffix inside the field.
+  final LayerLink _discountLayerLink = LayerLink();
+  OverlayEntry? _discountOverlay;
+
+  /// Products pulled in by a picker search that are outside the controller's
+  /// first cached page. Keyed by product id so the dropdown can still resolve
+  /// a label and a rate for them.
+  final Map<String, Item> _searchedProducts = {};
+
   void _notifyTotalsChanged() {
     widget.onTotalsChanged?.call();
+  }
+
+  /// Item master rows the picker can offer: the cached page plus anything a
+  /// search pulled in, de-duplicated by id and ordered by name.
+  List<Item> get _productPool {
+    final pool = <String, Item>{};
+    for (final p in widget.products) {
+      final id = p.id;
+      if (id != null && id.isNotEmpty) pool[id] = p;
+    }
+    pool.addAll(_searchedProducts);
+    final list = pool.values.toList()
+      ..sort(
+        (a, b) =>
+            a.productName.toLowerCase().compareTo(b.productName.toLowerCase()),
+      );
+    return list;
+  }
+
+
+
+  /// Maps a product's configured GST rate onto one of the grid's tax options,
+  /// so the tax column reflects the item master instead of the row default.
+  String? _taxLabelForProduct(Item product) {
+    final preference = product.taxPreference?.toLowerCase();
+    if (preference == 'non-taxable') return 'Non-Taxable';
+    if (preference == 'exempt') return 'Non-Taxable';
+
+    final taxName = product.intraStateTaxName ?? product.interStateTaxName;
+    if (taxName == null || taxName.trim().isEmpty) return null;
+
+    final percentMatch = RegExp(r'(\d+(?:\.\d+)?)').firstMatch(taxName);
+    if (percentMatch == null) return null;
+    final percent = double.tryParse(percentMatch.group(1)!);
+    if (percent == null) return null;
+
+    for (final option in _cnTaxOptions) {
+      if (option.isHeader) continue;
+      final optionMatch = RegExp(r'(\d+(?:\.\d+)?)\s*%').firstMatch(option.label);
+      if (optionMatch == null) continue;
+      if (double.tryParse(optionMatch.group(1)!) == percent) {
+        return option.label;
+      }
+    }
+    return null;
+  }
+
+  /// Applies an item-master row onto this line: name, description, HSN, rate,
+  /// cost, sales account and tax all come from `products`.
+  void _applyProduct(Item product) {
+    final item = widget.item;
+    setState(() {
+      item.sourceItem = product;
+      item.name = product.productName;
+      item.hsnCode = product.hsnCode ?? '';
+      item.costPrice = product.costPrice ?? 0.0;
+      item.rateController.text = _cnProductRate(product).toStringAsFixed(2);
+
+      // A blank row carries no quantity, so amount (qty x rate) rendered as
+      // 0.00 even though the rate had just been filled in. Default to a single
+      // unit on selection; a quantity the user already typed is left alone.
+      final currentQty =
+          double.tryParse(item.returnQtyController.text.trim()) ?? 0;
+      if (currentQty <= 0) item.returnQtyController.text = '1';
+
+      final description = product.salesDescription?.trim() ?? '';
+      if (description.isNotEmpty) {
+        item.description = description;
+        item.descriptionController.text = description;
+      }
+
+      final accountId = product.salesAccountId;
+      if (accountId != null && accountId.isNotEmpty) {
+        item.accountId = accountId;
+      }
+
+      final taxLabel = _taxLabelForProduct(product);
+      if (taxLabel != null) item.tax = taxLabel;
+    });
+    widget.onItemSelected?.call();
+    _notifyTotalsChanged();
   }
 
   @override
@@ -4751,8 +6184,19 @@ class _CnItemRowWidgetState extends State<_CnItemRowWidget> {
   @override
   void dispose() {
     _rateFocusNode.dispose();
-    _closeHsnOverlay();
-    _closeExemptionOverlay();
+    
+    if (_hsnOverlay?.mounted == true) _hsnOverlay?.remove();
+    _hsnOverlay?.dispose();
+    _hsnOverlay = null;
+
+    if (_exemptionOverlay?.mounted == true) _exemptionOverlay?.remove();
+    _exemptionOverlay?.dispose();
+    _exemptionOverlay = null;
+
+    if (_discountOverlay?.mounted == true) _discountOverlay?.remove();
+    _discountOverlay?.dispose();
+    _discountOverlay = null;
+
     _hsnEditController.dispose();
     super.dispose();
   }
@@ -4853,7 +6297,8 @@ class _CnItemRowWidgetState extends State<_CnItemRowWidget> {
   }
 
   void _closeHsnOverlay() {
-    _hsnOverlay?.remove();
+    if (_hsnOverlay?.mounted == true) _hsnOverlay?.remove();
+    _hsnOverlay?.dispose();
     _hsnOverlay = null;
     if (mounted) setState(() {});
   }
@@ -4861,6 +6306,158 @@ class _CnItemRowWidgetState extends State<_CnItemRowWidget> {
   void _saveHsn() {
     setState(() => widget.item.hsnCode = _hsnEditController.text.trim());
     _closeHsnOverlay();
+  }
+
+  /// Percent discounts above 100 are meaningless, so the field clamps rather
+  /// than letting a bad value flow into the totals.
+  void _clampPercentDiscount() {
+    if (!widget.item.discountIsPercent) return;
+    final value = double.tryParse(widget.item.discountController.text) ?? 0;
+    if (value <= 100) return;
+    widget.item.discountController.text = '100';
+    widget.item.discountController.selection = TextSelection.fromPosition(
+      TextPosition(offset: widget.item.discountController.text.length),
+    );
+  }
+
+  /// The `% / ₹` toggle rendered inside the discount field, matching the
+  /// sales order grid.
+  Widget _buildDiscountTypeSelector() {
+    return CompositedTransformTarget(
+      link: _discountLayerLink,
+      child: InkWell(
+        onTap: _toggleDiscountOverlay,
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(4),
+          bottomRight: Radius.circular(4),
+        ),
+        child: Container(
+          width: 48,
+          height: _CreditNoteCreatePageState._tableFieldHeight,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF9FAFB),
+            border: Border(
+              left: BorderSide(color: AppTheme.borderLight),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                widget.item.discountIsPercent ? '%' : '₹',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 2),
+              const Icon(
+                Icons.arrow_drop_down,
+                size: 16,
+                color: AppTheme.textPrimary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _closeDiscountOverlay() {
+    if (_discountOverlay?.mounted == true) _discountOverlay?.remove();
+    _discountOverlay?.dispose();
+    _discountOverlay = null;
+    if (mounted) setState(() {});
+  }
+
+  void _toggleDiscountOverlay() {
+    if (_discountOverlay != null) {
+      _closeDiscountOverlay();
+      return;
+    }
+
+    _discountOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _closeDiscountOverlay,
+              behavior: HitTestBehavior.opaque,
+              child: const SizedBox.expand(),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _discountLayerLink,
+            showWhenUnlinked: false,
+            offset: const Offset(-8, 44),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 58,
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(color: AppTheme.borderLight),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [true, false].map((isPercent) {
+                    final isSelected =
+                        isPercent == widget.item.discountIsPercent;
+                    return InkWell(
+                      onTap: () {
+                        setState(() {
+                          widget.item.discountIsPercent = isPercent;
+                          _clampPercentDiscount();
+                        });
+                        _notifyTotalsChanged();
+                        _closeDiscountOverlay();
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        width: double.infinity,
+                        height: 38,
+                        margin: const EdgeInsets.only(bottom: 2),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppTheme.primaryBlue
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          isPercent ? '%' : '₹',
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : AppTheme.textSecondary,
+                            fontSize: 15,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context).insert(_discountOverlay!);
+    setState(() {});
   }
 
   bool get _isNonTaxable {
@@ -5012,7 +6609,8 @@ class _CnItemRowWidgetState extends State<_CnItemRowWidget> {
   }
 
   void _closeExemptionOverlay() {
-    _exemptionOverlay?.remove();
+    if (_exemptionOverlay?.mounted == true) _exemptionOverlay?.remove();
+    _exemptionOverlay?.dispose();
     _exemptionOverlay = null;
     if (mounted) setState(() {});
   }
@@ -5091,9 +6689,10 @@ class _CnItemRowWidgetState extends State<_CnItemRowWidget> {
   }
 
   String _computeAmount(_CnLineItem item) {
-    final qty = double.tryParse(item.returnQtyController.text) ?? 0;
-    final rate = double.tryParse(item.rateController.text) ?? 0;
-    final discount = double.tryParse(item.discountController.text) ?? 0;
+    const parse = _CreditNoteCreatePageState._parseMoney;
+    final qty = parse(item.returnQtyController.text);
+    final rate = parse(item.rateController.text);
+    final discount = parse(item.discountController.text);
     final gross = qty * rate;
     final discountAmount = item.discountIsPercent
         ? gross * discount / 100
@@ -5105,738 +6704,574 @@ class _CnItemRowWidgetState extends State<_CnItemRowWidget> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
+    final itemsLoading = ref.watch(
+      itemsControllerProvider.select(
+        (s) => s.isLoadingList && s.items.isEmpty,
+      ),
+    );
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 80),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _CnGridCell(
-                isExpanded: true,
-                alignment: Alignment.topLeft,
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppTheme.borderLight),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _CnGridCell(
+                  isExpanded: true,
+                  alignment: Alignment.topLeft,
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppTheme.borderLight),
+                        ),
+                        child: const Icon(
+                          LucideIcons.image,
+                          size: 20,
+                          color: AppTheme.textMuted,
+                        ),
                       ),
-                      child: const Icon(
-                        LucideIcons.image,
-                        size: 20,
-                        color: AppTheme.textMuted,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: item.name.isEmpty
-                          ? FormDropdown<String>(
-                              value: null,
-                              items: const [
-                                'BATCH TARCK ITEM',
-                                'Item A',
-                                'Item B',
-                                'Item C',
-                                'Item D',
-                                'Item E',
-                                'ITEM-5',
-                                'ITEM-6',
-                                'ITEM-7',
-                                'ITEM-8',
-                              ],
-                              hint: 'Type or click to select an item.',
-                              height:
-                                  _CreditNoteCreatePageState._tableFieldHeight,
-                              hideBorderDefault: true,
-                              showSettings: true,
-                              settingsLabel: 'Add New Item',
-                              settingsIcon: LucideIcons.plusCircle,
-                              onSettingsTap: () {
-                                showDialog<void>(
-                                  context: context,
-                                  barrierColor: Colors.black.withValues(
-                                    alpha: 0.4,
-                                  ),
-                                  builder: (_) => const _CnNewItemDialog(
-                                    title: 'New Item',
-                                    item: null,
-                                  ),
-                                );
-                              },
-                              itemBuilder: (val, isSelected, isHovered) {
-                                final active = isHovered || isSelected;
-                                return Container(
-                                  color: active
-                                      ? AppTheme.primaryBlue
-                                      : Colors.transparent,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: item.name.isEmpty
+                            ? _ItemAutocompleteField(
+                                products: _productPool,
+                                isLoading: itemsLoading,
+                                hint: itemsLoading
+                                    ? 'Loading items...'
+                                    : (_productPool.isEmpty
+                                        ? 'No items found. Add an item first.'
+                                        : 'Type or click to select an item.'),
+                                onSelected: (product) {
+                                  final duplicateIndex = widget.allItems
+                                      .indexWhere(
+                                        (line) =>
+                                            !identical(line, item) &&
+                                            line.sourceItem?.id == product.id,
+                                      );
+                                  if (duplicateIndex != -1) {
+                                    ZerpaiToast.error(
+                                      context,
+                                      "'${product.productName}' is already selected in row ${duplicateIndex + 1}.",
+                                    );
+                                    return;
+                                  }
+
+                                  _applyProduct(product);
+                                },
+                                onAddNew: () {
+                                  showDialog<void>(
+                                    context: context,
+                                    barrierColor: Colors.black.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                    builder: (_) => const _CnNewItemDialog(
+                                      title: 'New Item',
+                                      item: null,
+                                    ),
+                                  );
+                                },
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
                                     children: [
-                                      Text(
-                                        val,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                          color: active
-                                              ? Colors.white
-                                              : AppTheme.textPrimary,
+                                      Expanded(
+                                        child: Text(
+                                          item.name,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppTheme.textPrimary,
+                                          ),
                                         ),
                                       ),
-                                      Text(
-                                        'Rate: ₹200.00',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: active
-                                              ? Colors.white70
-                                              : AppTheme.textMuted,
+
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  CustomTextField(
+                                    controller: item.descriptionController,
+                                    hintText: 'Add a description',
+                                    maxLines: 3,
+                                    textStyle: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 5,
+                                          vertical: 1,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryBlue,
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'GOODS',
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          'HSN Code: ${item.hsnCode}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.primaryBlue,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      CompositedTransformTarget(
+                                        link: _hsnLayerLink,
+                                        child: GestureDetector(
+                                          onTap: _hsnOverlay == null
+                                              ? _openHsnOverlay
+                                              : _closeHsnOverlay,
+                                          child: const Icon(
+                                            LucideIcons.pencil,
+                                            size: 12,
+                                            color: AppTheme.primaryBlue,
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
-                                );
-                              },
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() {
-                                    item.name = val;
-                                    if (val == 'BATCH TARCK ITEM') {
-                                      item.descriptionController.text =
-                                          'sales description demo txt';
-                                      item.costPrice = 95.0;
-                                    } else {
-                                      item.costPrice = 0.0;
-                                    }
-                                  });
-                                  widget.onItemSelected?.call();
-                                  _notifyTotalsChanged();
-                                }
-                              },
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        item.name,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: AppTheme.textPrimary,
-                                        ),
-                                      ),
-                                    ),
-                                    PopupMenuButton<String>(
-                                      offset: const Offset(0, 20),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        side: const BorderSide(
-                                          color: AppTheme.borderLight,
-                                        ),
-                                      ),
-                                      color: Colors.white,
-                                      elevation: 4,
-                                      tooltip: '',
-                                      padding: EdgeInsets.zero,
-                                      icon: const Icon(
-                                        LucideIcons.moreHorizontal,
-                                        size: 16,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                      iconSize: 16,
-                                      onSelected: (val) {
-                                        if (val == 'view') {
-                                          widget.onViewItemDetails?.call();
-                                        }
-                                        if (val == 'edit') {
-                                          widget.onEditItem?.call();
-                                        }
-                                      },
-                                      itemBuilder: (context) => [
-                                        PopupMenuItem<String>(
-                                          value: 'edit',
-                                          padding: EdgeInsets.zero,
-                                          height: 44,
-                                          child: _CnBulkMenuHoverItem(
-                                            label: 'Edit Item',
-                                            icon: LucideIcons.pencil,
-                                          ),
-                                        ),
-                                        PopupMenuItem<String>(
-                                          value: 'view',
-                                          padding: EdgeInsets.zero,
-                                          height: 44,
-                                          child: _CnBulkMenuHoverItem(
-                                            label: 'View Item Details',
-                                            icon: LucideIcons.shoppingBag,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 2),
-                                    GestureDetector(
-                                      onTap: () => widget.onRemoveItem?.call(),
-                                      child: const Icon(
-                                        LucideIcons.xCircle,
-                                        size: 16,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                CustomTextField(
-                                  controller: item.descriptionController,
-                                  hintText: 'Add a description',
-                                  maxLines: 3,
-                                  textStyle: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 5,
-                                        vertical: 1,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primaryBlue,
-                                        borderRadius: BorderRadius.circular(2),
-                                      ),
-                                      child: const Text(
-                                        'GOODS',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Flexible(
-                                      child: Text(
-                                        'HSN Code: ${item.hsnCode}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppTheme.primaryBlue,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    CompositedTransformTarget(
-                                      link: _hsnLayerLink,
-                                      child: GestureDetector(
-                                        onTap: _hsnOverlay == null
-                                            ? _openHsnOverlay
-                                            : _closeHsnOverlay,
-                                        child: const Icon(
-                                          LucideIcons.pencil,
-                                          size: 12,
-                                          color: AppTheme.primaryBlue,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              // ACCOUNT
-              _CnGridCell(
-                width: _CreditNoteCreatePageState._accountColumnWidth,
-                alignment: Alignment.topLeft,
-                child: FormDropdown<String>(
-                  value: item.account,
-                  items: const ['Sales', 'Cost of Goods Sold', 'Other Income'],
-                  hint: 'Select Account',
-                  height: _CreditNoteCreatePageState._tableFieldHeight,
-                  hideBorderDefault: true,
-                  onChanged: (val) => setState(() => item.account = val),
-                ),
-              ),
-              // QUANTITY
-              _CnGridCell(
-                width: _CreditNoteCreatePageState._quantityColumnWidth,
-                alignment: Alignment.topRight,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    CustomTextField(
-                      controller: item.returnQtyController,
-                      hintText: '0',
-                      height: _CreditNoteCreatePageState._tableFieldHeight,
-                      hideBorderDefault: true,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.right,
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textPrimary,
-                      ),
-                      onChanged: (_) {
-                        setState(() {});
-                        _notifyTotalsChanged();
-                      },
-                    ),
-                    const SizedBox(height: 4),
-                    if (item.name.isNotEmpty) ...[
-                      Text(
-                        '${widget.selectedStockView}:',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: AppTheme.textSecondary,
-                        ),
-                        textAlign: TextAlign.right,
-                      ),
-                      Text(
-                        widget.selectedStockView == 'Available for Sale'
-                            ? '72 pcs'
-                            : '103 pcs',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: AppTheme.textSecondary,
-                        ),
-                        textAlign: TextAlign.right,
-                      ),
-                      const SizedBox(height: 4),
-                      WarehouseHoverPopover(
-                        productId: item.sourceItem?.id,
-                        warehouseName:
-                            item.warehouseLocation ?? 'ZABNIX PRIVATE LIMITED',
-                        selectedView: widget.selectedStockView,
-                        onViewChanged: (val) =>
-                            widget.onStockViewChanged?.call(val),
-                        onWarehouseChanged: (val) {
-                          setState(() => item.warehouseLocation = val);
-                        },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            const Icon(
-                              LucideIcons.home,
-                              size: 12,
-                              color: AppTheme.primaryBlue,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                item.warehouseLocation ??
-                                    'ZABNIX PRIVATE LIMITED',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.primaryBlue,
-                                  decoration: TextDecoration.underline,
-                                ),
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      InkWell(
-                        onTap: widget.onAddBatches,
-                        child: item.savedBatches.isEmpty
-                            ? Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  const Icon(
-                                    LucideIcons.alertTriangle,
-                                    size: 12,
-                                    color: AppTheme.errorRed,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Flexible(
-                                    child: Text(
-                                      'Add Batches',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: AppTheme.errorRed,
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
                                 ],
-                              )
-                            : Text(
-                                '${item.savedBatches.fold(0, (sum, b) => sum + (int.tryParse(b.quantityController.text) ?? 0))} pcs added to ${item.savedBatches.length} ${item.savedBatches.length == 1 ? 'batch' : 'batches'}.',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.primaryBlue,
-                                  decoration: TextDecoration.underline,
-                                ),
-                                textAlign: TextAlign.right,
                               ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              // RATE
-              _CnGridCell(
-                width: _CreditNoteCreatePageState._rateColumnWidth,
-                alignment: Alignment.topRight,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    CustomTextField(
-                      controller: item.rateController,
-                      hintText: '0.00',
-                      focusNode: _rateFocusNode,
-                      height: _CreditNoteCreatePageState._tableFieldHeight,
-                      hideBorderDefault: true,
-                      keyboardType: TextInputType.text,
-                      textAlign: TextAlign.right,
-                      textStyle: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textPrimary,
-                      ),
-                      onChanged: (_) {
-                        setState(() {});
-                        _notifyTotalsChanged();
-                      },
-                      onSubmitted: (val) {
-                        _evaluateRateField();
-                        _notifyTotalsChanged();
-                      },
-                    ),
-                    const SizedBox(height: 4),
-                    if (item.name.isNotEmpty) ...[
-                      FormDropdown<String>(
-                        value: item.priceList,
-                        items: const [
-                          'Standard Selling',
-                          'Wholesale Price',
-                          'Retail Price',
-                        ],
-                        hint: 'Pricelist',
-                        height: 28,
-                        allowClear: true,
-                        onChanged: (val) =>
-                            setState(() => item.priceList = val),
-                      ),
-                      const SizedBox(height: 4),
-                      InkWell(
-                        onTap: () => widget.onViewItemDetails?.call(),
-                        child: const Text(
-                          'Recent Transactions',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.primaryBlue,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+                // ACCOUNT
+                _CnGridCell(
+                  width: _CreditNoteCreatePageState._accountColumnWidth,
+                  alignment: Alignment.topLeft,
+                  child: CnAccountDropdown(
+                    roots: widget.accountRoots,
+                    value: item.accountId,
+                    hint: 'Select account',
+                    height: _CreditNoteCreatePageState._tableFieldHeight,
+                    onChanged: (val) => setState(() => item.accountId = val),
+                  ),
                 ),
-              ),
-              // DISCOUNT
-              _CnGridCell(
-                width: _CreditNoteCreatePageState._discountColumnWidth,
-                alignment: Alignment.topRight,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: CustomTextField(
-                        controller: item.discountController,
+                // QUANTITY
+                _CnGridCell(
+                  width: _CreditNoteCreatePageState._quantityColumnWidth,
+                  alignment: Alignment.topRight,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      CustomTextField(
+                        controller: item.returnQtyController,
                         hintText: '0',
                         height: _CreditNoteCreatePageState._tableFieldHeight,
                         hideBorderDefault: true,
                         keyboardType: TextInputType.number,
                         textAlign: TextAlign.right,
-                        onChanged: (val) {
-                          if (item.discountIsPercent) {
-                            final doubleValue = double.tryParse(val) ?? 0;
-                            if (doubleValue > 100) {
-                              item.discountController.text = '100';
-                              item
-                                  .discountController
-                                  .selection = TextSelection.fromPosition(
-                                TextPosition(
-                                  offset: item.discountController.text.length,
-                                ),
-                              );
-                            }
-                          }
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                        ),
+                        onChanged: (_) {
                           setState(() {});
                           _notifyTotalsChanged();
                         },
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    PopupMenuButton<bool>(
-                      offset: const Offset(0, 4),
-                      constraints: const BoxConstraints(
-                        minWidth: 44,
-                        maxWidth: 44,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: const BorderSide(color: AppTheme.borderLight),
-                      ),
-                      color: Colors.white,
-                      elevation: 4,
-                      tooltip: '',
-                      onSelected: (val) {
-                        setState(() {
-                          item.discountIsPercent = val;
-                          if (item.discountIsPercent) {
-                            final doubleValue =
-                                double.tryParse(item.discountController.text) ??
-                                0;
-                            if (doubleValue > 100) {
-                              item.discountController.text = '100';
-                            }
-                          }
-                        });
-                        _notifyTotalsChanged();
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem<bool>(
-                          value: true,
-                          padding: EdgeInsets.zero,
-                          height: 40,
-                          child: _CnDiscountTypeOption(
-                            label: '%',
-                            selected: item.discountIsPercent,
+                      const SizedBox(height: 4),
+                      if (item.name.isNotEmpty) ...[
+                        Text(
+                          '${widget.selectedStockView}:',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            color: AppTheme.textSecondary,
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                        Text(
+                          widget.selectedStockView == 'Available for Sale'
+                              ? '72 pcs'
+                              : '103 pcs',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            color: AppTheme.textSecondary,
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                        const SizedBox(height: 4),
+                        WarehouseHoverPopover(
+                          productId: item.sourceItem?.id,
+                          warehouseName:
+                              item.warehouseLocation ??
+                              'ZABNIX PRIVATE LIMITED',
+                          selectedView: widget.selectedStockView,
+                          onViewChanged: (val) =>
+                              widget.onStockViewChanged?.call(val),
+                          onWarehouseChanged: (val) {
+                            setState(() => item.warehouseLocation = val);
+                          },
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              const Icon(
+                                LucideIcons.home,
+                                size: 12,
+                                color: AppTheme.primaryBlue,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  item.warehouseLocation ??
+                                      'ZABNIX PRIVATE LIMITED',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.primaryBlue,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        PopupMenuItem<bool>(
-                          value: false,
-                          padding: EdgeInsets.zero,
-                          height: 40,
-                          child: _CnDiscountTypeOption(
-                            label: '₹',
-                            selected: !item.discountIsPercent,
+                        const SizedBox(height: 4),
+                        InkWell(
+                          onTap: widget.onAddBatches,
+                          child: item.savedBatchData.isEmpty
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    const Icon(
+                                      LucideIcons.alertTriangle,
+                                      size: 12,
+                                      color: AppTheme.errorRed,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Flexible(
+                                      child: Text(
+                                        'Add Batches',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: AppTheme.errorRed,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  // `qtyOut` is the binned quantity; FOC units
+                                  // are tracked separately and not counted here.
+                                  '${item.savedBatchData.fold<int>(0, (sum, b) => sum + (int.tryParse(b['qtyOut'] ?? '') ?? 0))} pcs added to ${item.savedBatchData.length} ${item.savedBatchData.length == 1 ? 'batch' : 'batches'}.',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.primaryBlue,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                // RATE
+                _CnGridCell(
+                  width: _CreditNoteCreatePageState._rateColumnWidth,
+                  alignment: Alignment.topRight,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      CustomTextField(
+                        controller: item.rateController,
+                        hintText: '0.00',
+                        focusNode: _rateFocusNode,
+                        height: _CreditNoteCreatePageState._tableFieldHeight,
+                        hideBorderDefault: true,
+                        keyboardType: TextInputType.text,
+                        textAlign: TextAlign.right,
+                        textStyle: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textPrimary,
+                        ),
+                        onChanged: (_) {
+                          setState(() {});
+                          _notifyTotalsChanged();
+                        },
+                        onSubmitted: (val) {
+                          _evaluateRateField();
+                          _notifyTotalsChanged();
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      if (item.name.isNotEmpty) ...[
+                        FormDropdown<String>(
+                          value: item.priceList,
+                          items: const [
+                            'Standard Selling',
+                            'Wholesale Price',
+                            'Retail Price',
+                          ],
+                          hint: 'Pricelist',
+                          height: 28,
+                          allowClear: true,
+                          onChanged: (val) =>
+                              setState(() => item.priceList = val),
+                        ),
+                        const SizedBox(height: 4),
+                        InkWell(
+                          // Opens the side panel straight on its TRANSACTIONS
+                          // tab — that is the whole point of this link.
+                          onTap: () => widget.onViewItemDetails?.call(
+                            _CnItemTab.transactions,
+                          ),
+                          child: const Text(
+                            'Recent Transactions',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.primaryBlue,
+                              decoration: TextDecoration.underline,
+                            ),
                           ),
                         ),
                       ],
-                      child: Container(
-                        height: _CreditNoteCreatePageState._tableFieldHeight,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppTheme.borderLight),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              item.discountIsPercent ? '%' : '₹',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            const Icon(
-                              Icons.keyboard_arrow_down,
-                              size: 14,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              // TAX
-              _CnGridCell(
-                width: _CreditNoteCreatePageState._taxColumnWidth,
-                alignment: Alignment.topLeft,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    FormDropdown<_CnTaxOption>(
-                      value: _cnTaxOptions.firstWhere(
-                        (o) => o.label == item.tax,
-                        orElse: () => _cnTaxOptions[5],
-                      ),
-                      items: _cnTaxOptions,
-                      hint: 'Select a Tax',
-                      height: _CreditNoteCreatePageState._tableFieldHeight,
-                      menuWidth: 360,
-                      hideBorderDefault: true,
-                      displayStringForValue: (o) => o.label,
-                      isItemEnabled: (o) => !o.isHeader,
-                      itemBuilder: (option, isSelected, isHovered) {
-                        if (option.isHeader) {
+                // DISCOUNT
+                _CnGridCell(
+                  width: _CreditNoteCreatePageState._discountColumnWidth,
+                  alignment: Alignment.topRight,
+                  child: CustomTextField(
+                    controller: item.discountController,
+                    hintText: '0',
+                    height: _CreditNoteCreatePageState._tableFieldHeight,
+                    hideBorderDefault: true,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    contentCase: ContentCase.none,
+                    textAlign: TextAlign.right,
+                    padding: const EdgeInsets.only(left: 12, right: 0),
+                    suffixWidget: _buildDiscountTypeSelector(),
+                    onTap: () => item.discountController.selection =
+                        TextSelection(
+                          baseOffset: 0,
+                          extentOffset: item.discountController.text.length,
+                        ),
+                    onChanged: (_) {
+                      _clampPercentDiscount();
+                      setState(() {});
+                      _notifyTotalsChanged();
+                    },
+                  ),
+                ),
+                // TAX
+                _CnGridCell(
+                  width: _CreditNoteCreatePageState._taxColumnWidth,
+                  alignment: Alignment.topLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      MouseRegion(
+                        cursor: !widget.isCustomerSelected ? SystemMouseCursors.forbidden : SystemMouseCursors.click,
+                        child: IgnorePointer(
+                          ignoring: !widget.isCustomerSelected,
+                          child: FormDropdown<_CnTaxOption>(
+                            enabled: widget.isCustomerSelected,
+                            value: () {
+                                for (final o in _cnTaxOptions) {
+                                  if (o.label == item.tax) return o;
+                                }
+                                return null;
+                              }(),
+                            items: _cnTaxOptions,
+                            hint: 'Select a Tax',
+                            height: _CreditNoteCreatePageState._tableFieldHeight,
+                            menuWidth: 360,
+                            hideBorderDefault: true,
+                            displayStringForValue: (o) => o.label,
+                        isItemEnabled: (o) => !o.isHeader,
+                        itemBuilder: (option, isSelected, isHovered) {
+                          if (option.isHeader) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              color: const Color(0xFFF9FAFB),
+                              width: double.infinity,
+                              child: Text(
+                                option.label,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            );
+                          }
+                          final active = isHovered || isSelected;
                           return Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
-                              vertical: 8,
+                              vertical: 10,
                             ),
-                            color: const Color(0xFFF9FAFB),
-                            width: double.infinity,
-                            child: Text(
-                              option.label,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                          );
-                        }
-                        final active = isHovered || isSelected;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          color: isHovered
-                              ? AppTheme.primaryBlue
-                              : Colors.white,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      option.label,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: isHovered
-                                            ? Colors.white
-                                            : (isSelected
-                                                  ? AppTheme.primaryBlue
-                                                  : AppTheme.textPrimary),
-                                        fontWeight: active
-                                            ? FontWeight.w600
-                                            : FontWeight.normal,
+                            color: isHovered
+                                ? AppTheme.primaryBlue
+                                : Colors.white,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        option.label,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: isHovered
+                                              ? Colors.white
+                                              : (isSelected
+                                                    ? AppTheme.primaryBlue
+                                                    : AppTheme.textPrimary),
+                                          fontWeight: active
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  if (isSelected)
-                                    Icon(
-                                      Icons.check,
-                                      size: 16,
+                                    if (isSelected)
+                                      Icon(
+                                        Icons.check,
+                                        size: 16,
+                                        color: isHovered
+                                            ? Colors.white
+                                            : AppTheme.primaryBlue,
+                                      ),
+                                  ],
+                                ),
+                                if (option.description != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    option.description!,
+                                    style: TextStyle(
+                                      fontSize: 11,
                                       color: isHovered
-                                          ? Colors.white
-                                          : AppTheme.primaryBlue,
+                                          ? Colors.white70
+                                          : AppTheme.textSecondary,
                                     ),
+                                  ),
                                 ],
-                              ),
-                              if (option.description != null) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  option.description!,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isHovered
-                                        ? Colors.white70
-                                        : AppTheme.textSecondary,
+                              ],
+                            ),
+                          );
+                        },
+                        onChanged: (val) {
+                          if (val != null && !val.isHeader) {
+                            setState(() {
+                              item.tax = val.label;
+                              if (!_isNonTaxable) item.exemptionReason = null;
+                            });
+                            _notifyTotalsChanged();
+                            if (_isNonTaxable && _exemptionOverlay == null) {
+                              WidgetsBinding.instance.addPostFrameCallback(
+                                (_) => _openExemptionOverlay(),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                        ),
+                      ),
+                      if (_isNonTaxable) ...[
+                        const SizedBox(height: 4),
+                        CompositedTransformTarget(
+                          link: _exemptionLayerLink,
+                          child: GestureDetector(
+                            onTap: _exemptionOverlay == null
+                                ? _openExemptionOverlay
+                                : _closeExemptionOverlay,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    item.exemptionReason ??
+                                        'Exemption reason not chosen*',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: item.exemptionReason != null
+                                          ? AppTheme.textSecondary
+                                          : AppTheme.errorRed,
+                                    ),
+                                    softWrap: true,
                                   ),
                                 ),
-                              ],
-                            ],
-                          ),
-                        );
-                      },
-                      onChanged: (val) {
-                        if (val != null && !val.isHeader) {
-                          setState(() {
-                            item.tax = val.label;
-                            if (!_isNonTaxable) item.exemptionReason = null;
-                          });
-                          _notifyTotalsChanged();
-                          if (_isNonTaxable && _exemptionOverlay == null) {
-                            WidgetsBinding.instance.addPostFrameCallback(
-                              (_) => _openExemptionOverlay(),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                    if (_isNonTaxable) ...[
-                      const SizedBox(height: 4),
-                      CompositedTransformTarget(
-                        link: _exemptionLayerLink,
-                        child: GestureDetector(
-                          onTap: _exemptionOverlay == null
-                              ? _openExemptionOverlay
-                              : _closeExemptionOverlay,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  item.exemptionReason ??
-                                      'Exemption reason not chosen*',
-                                  style: TextStyle(
-                                    fontSize: 11,
+                                const SizedBox(width: 4),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 1),
+                                  child: Icon(
+                                    LucideIcons.pencil,
+                                    size: 11,
                                     color: item.exemptionReason != null
                                         ? AppTheme.textSecondary
                                         : AppTheme.errorRed,
                                   ),
-                                  softWrap: true,
                                 ),
-                              ),
-                              const SizedBox(width: 4),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 1),
-                                child: Icon(
-                                  LucideIcons.pencil,
-                                  size: 11,
-                                  color: item.exemptionReason != null
-                                      ? AppTheme.textSecondary
-                                      : AppTheme.errorRed,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
-                ),
-              ),
-              // AMOUNT
-              _CnGridCell(
-                width: _CreditNoteCreatePageState._amountColumnWidth,
-                alignment: Alignment.topRight,
-                showDivider: false,
-                child: Text(
-                  _computeAmount(item),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
                   ),
                 ),
-              ),
-            ],
+                // AMOUNT
+                _CnGridCell(
+                  width: _CreditNoteCreatePageState._amountColumnWidth,
+                  alignment: Alignment.topRight,
+                  showDivider: false,
+                  child: Text(
+                    _computeAmount(item),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -5844,11 +7279,33 @@ class _CnItemRowWidgetState extends State<_CnItemRowWidget> {
   }
 }
 
+/// Tab indices for [_CnItemDetailsSidePanel], so callers don't pass bare
+/// integers around.
+abstract final class _CnItemTab {
+  static const int details = 0;
+  static const int stockLocations = 1;
+  static const int transactions = 2;
+}
+
 class _CnItemDetailsSidePanel extends StatefulWidget {
   final _CnLineItem item;
   final VoidCallback onClose;
 
-  const _CnItemDetailsSidePanel({required this.item, required this.onClose});
+  /// Tab to select when the panel opens. "Recent Transactions" opens straight
+  /// on [_CnItemTab.transactions]; everything else lands on the details tab.
+  final int initialTab;
+
+  /// Bumped by the parent on every open request. Without it, re-opening on the
+  /// same tab the user has since navigated away from would not re-select it —
+  /// the State survives, so `initialTab` alone would look unchanged.
+  final int openRequest;
+
+  const _CnItemDetailsSidePanel({
+    required this.item,
+    required this.onClose,
+    this.initialTab = _CnItemTab.details,
+    this.openRequest = 0,
+  });
 
   @override
   State<_CnItemDetailsSidePanel> createState() =>
@@ -5856,7 +7313,16 @@ class _CnItemDetailsSidePanel extends StatefulWidget {
 }
 
 class _CnItemDetailsSidePanelState extends State<_CnItemDetailsSidePanel> {
-  int _tab = 0;
+  late int _tab = widget.initialTab;
+
+  @override
+  void didUpdateWidget(covariant _CnItemDetailsSidePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.openRequest != oldWidget.openRequest) {
+      setState(() => _tab = widget.initialTab);
+    }
+  }
+
   bool _otherDetailsExpanded = false;
   String _stockView = 'Physical Stock';
   bool _stockDropdownOpen = false;
@@ -5880,7 +7346,7 @@ class _CnItemDetailsSidePanelState extends State<_CnItemDetailsSidePanel> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header
           Padding(
@@ -5994,18 +7460,21 @@ class _CnItemDetailsSidePanelState extends State<_CnItemDetailsSidePanel> {
               children: [
                 _PanelTabButton(
                   label: 'ITEM DETAILS',
-                  selected: _tab == 0,
-                  onTap: () => setState(() => _tab = 0),
+                  selected: _tab == _CnItemTab.details,
+                  onTap: () =>
+                      setState(() => _tab = _CnItemTab.details),
                 ),
                 _PanelTabButton(
                   label: 'STOCK LOCATIONS',
-                  selected: _tab == 1,
-                  onTap: () => setState(() => _tab = 1),
+                  selected: _tab == _CnItemTab.stockLocations,
+                  onTap: () =>
+                      setState(() => _tab = _CnItemTab.stockLocations),
                 ),
                 _PanelTabButton(
                   label: 'TRANSACTIONS',
-                  selected: _tab == 2,
-                  onTap: () => setState(() => _tab = 2),
+                  selected: _tab == _CnItemTab.transactions,
+                  onTap: () =>
+                      setState(() => _tab = _CnItemTab.transactions),
                 ),
               ],
             ),
@@ -6014,9 +7483,9 @@ class _CnItemDetailsSidePanelState extends State<_CnItemDetailsSidePanel> {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: _tab == 0
+              child: _tab == _CnItemTab.details
                   ? _buildItemDetailsTab()
-                  : _tab == 1
+                  : _tab == _CnItemTab.stockLocations
                   ? _buildStockLocationsTab()
                   : _buildTransactionsTab(),
             ),
@@ -6279,34 +7748,36 @@ class _CnItemDetailsSidePanelState extends State<_CnItemDetailsSidePanel> {
                 ),
               ),
               if (_stockDropdownOpen)
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.borderLight),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: options
-                        .map(
-                          (opt) => _StockDropdownOption(
-                            label: opt,
-                            selected: opt == _stockView,
-                            onTap: () => setState(() {
-                              _stockView = opt;
-                              _stockDropdownOpen = false;
-                            }),
-                          ),
-                        )
-                        .toList(),
+                IntrinsicWidth(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.borderLight),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: options
+                          .map(
+                            (opt) => _StockDropdownOption(
+                              label: opt,
+                              selected: opt == _stockView,
+                              onTap: () => setState(() {
+                                _stockView = opt;
+                                _stockDropdownOpen = false;
+                              }),
+                            ),
+                          )
+                          .toList(),
+                    ),
                   ),
                 ),
             ],
@@ -6451,34 +7922,36 @@ class _CnItemDetailsSidePanelState extends State<_CnItemDetailsSidePanel> {
           Positioned(
             top: 28,
             left: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppTheme.borderLight),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: txnTypes
-                    .map(
-                      (opt) => _StockDropdownOption(
-                        label: opt,
-                        selected: opt == _txnType,
-                        onTap: () => setState(() {
-                          _txnType = opt;
-                          _txnTypeDropdownOpen = false;
-                          _txnStatus = 'All';
-                        }),
-                      ),
-                    )
-                    .toList(),
+            child: IntrinsicWidth(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.borderLight),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: txnTypes
+                      .map(
+                        (opt) => _StockDropdownOption(
+                          label: opt,
+                          selected: opt == _txnType,
+                          onTap: () => setState(() {
+                            _txnType = opt;
+                            _txnTypeDropdownOpen = false;
+                            _txnStatus = 'All';
+                          }),
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
             ),
           ),
@@ -6487,555 +7960,39 @@ class _CnItemDetailsSidePanelState extends State<_CnItemDetailsSidePanel> {
           Positioned(
             top: 28,
             right: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppTheme.borderLight),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: statusOptions
-                    .map(
-                      (opt) => _StockDropdownOption(
-                        label: opt,
-                        selected: opt == _txnStatus,
-                        onTap: () => setState(() {
-                          _txnStatus = opt;
-                          _txnStatusDropdownOpen = false;
-                        }),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _CnCustomerDetailsSidePanel extends StatefulWidget {
-  final String customerName;
-  final VoidCallback onClose;
-
-  const _CnCustomerDetailsSidePanel({
-    required this.customerName,
-    required this.onClose,
-  });
-
-  @override
-  State<_CnCustomerDetailsSidePanel> createState() =>
-      _CnCustomerDetailsSidePanelState();
-}
-
-class _CnCustomerDetailsSidePanelState
-    extends State<_CnCustomerDetailsSidePanel> {
-  int _tab = 0;
-  bool _showContactPersons = false;
-  bool _showAddress = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        border: const Border(left: BorderSide(color: AppTheme.borderLight)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.textPrimary.withValues(alpha: 0.12),
-            blurRadius: 14,
-            offset: const Offset(-4, 0),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppTheme.bgDisabled,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    widget.customerName.isEmpty
-                        ? '?'
-                        : widget.customerName[0].toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textMuted,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Customer',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              widget.customerName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: AppTheme.primaryBlue),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Icon(
-                              LucideIcons.externalLink,
-                              size: 14,
-                              color: AppTheme.primaryBlue,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                InkWell(
-                  onTap: widget.onClose,
-                  borderRadius: BorderRadius.circular(4),
-                  child: const Padding(
-                    padding: EdgeInsets.all(6),
-                    child: Icon(
-                      LucideIcons.x,
-                      size: 20,
-                      color: AppTheme.errorRed,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: AppTheme.borderLight),
-                bottom: BorderSide(color: AppTheme.borderLight),
-              ),
-            ),
-            child: Row(
-              children: [
-                _PanelTabButton(
-                  label: 'Details',
-                  selected: _tab == 0,
-                  onTap: () => setState(() => _tab = 0),
-                ),
-                _PanelTabButton(
-                  label: 'Activity Log',
-                  selected: _tab == 1,
-                  onTap: () => setState(() => _tab = 1),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _tab == 0
-                ? SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _CnCustomerSummaryCards(),
-                        const SizedBox(height: 18),
-                        _CnCustomerContactCard(
-                          customerName: widget.customerName,
-                        ),
-                        const SizedBox(height: 16),
-                        _CnCustomerPanelActionTile(
-                          label: 'Contact Persons',
-                          count: 1,
-                          expanded: _showContactPersons,
-                          onTap: () => setState(
-                            () => _showContactPersons = !_showContactPersons,
-                          ),
-                        ),
-                        if (_showContactPersons) ...[
-                          const SizedBox(height: 8),
-                          _CnContactPersonsDropdown(
-                            customerName: widget.customerName,
-                          ),
-                        ],
-                        const SizedBox(height: 10),
-                        _CnCustomerPanelActionTile(
-                          label: 'Address',
-                          expanded: _showAddress,
-                          onTap: () =>
-                              setState(() => _showAddress = !_showAddress),
-                        ),
-                        if (_showAddress) ...[
-                          const SizedBox(height: 8),
-                          _CnCustomerAddressDropdown(
-                            customerName: widget.customerName,
-                          ),
-                        ],
-                      ],
-                    ),
-                  )
-                : const Center(
-                    child: Text(
-                      'No activity log available.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CnCustomerSummaryCards extends StatelessWidget {
-  const _CnCustomerSummaryCards();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: AppTheme.borderLight),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: const [
-          Expanded(
-            child: _CnCustomerMetricCard(
-              icon: LucideIcons.alertTriangle,
-              iconColor: AppTheme.warningOrange,
-              label: 'Outstanding Receivables',
-              value: '₹0.00',
-            ),
-          ),
-          VerticalDivider(width: 1, color: AppTheme.borderLight),
-          Expanded(
-            child: _CnCustomerMetricCard(
-              icon: LucideIcons.badgeDollarSign,
-              iconColor: AppTheme.successGreen,
-              label: 'Unused Credits',
-              value: '₹0.00',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CnCustomerMetricCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String label;
-  final String value;
-
-  const _CnCustomerMetricCard({
-    required this.icon,
-    required this.iconColor,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 20, color: iconColor),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CnCustomerContactCard extends StatelessWidget {
-  final String customerName;
-
-  const _CnCustomerContactCard({required this.customerName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        border: Border.all(color: AppTheme.borderLight),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Contact Details',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-          const Divider(height: 1, color: AppTheme.borderLight),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                const _PanelDetailRow(
-                  label: 'Customer Type',
-                  value: 'Individual',
-                ),
-                const SizedBox(height: 14),
-                const _PanelDetailRow(label: 'Currency', value: 'INR'),
-                const SizedBox(height: 14),
-                const _PanelDetailRow(label: 'Credit Limit', value: '₹0.00'),
-                const SizedBox(height: 14),
-                const _PanelDetailRow(label: 'Payment Terms', value: 'Net 360'),
-                const SizedBox(height: 14),
-                const _PanelDetailRow(
-                  label: 'Portal Status',
-                  value: 'Disabled',
-                ),
-                const SizedBox(height: 14),
-                const _PanelDetailRow(
-                  label: 'Customer Language',
-                  value: 'English',
-                ),
-                const SizedBox(height: 14),
-                const _PanelDetailRow(label: 'Price List', value: 'Pricelist'),
-                const SizedBox(height: 14),
-                const _PanelDetailRow(
-                  label: 'GST Treatment',
-                  value: 'Unregistered Business',
-                ),
-                const SizedBox(height: 14),
-                const _PanelDetailRow(
-                  label: 'Place of Supply',
-                  value: 'Kerala',
-                ),
-                const SizedBox(height: 14),
-                const _PanelDetailRow(
-                  label: 'Tax Preference',
-                  value: 'Taxable',
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CnCustomerPanelActionTile extends StatelessWidget {
-  final String label;
-  final int? count;
-  final bool expanded;
-  final VoidCallback onTap;
-
-  const _CnCustomerPanelActionTile({
-    required this.label,
-    this.count,
-    this.expanded = false,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundColor,
-          border: Border.all(color: AppTheme.borderLight),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            if (count != null) ...[
-              const SizedBox(width: 8),
-              Container(
-                width: 20,
-                height: 20,
-                alignment: Alignment.center,
+            child: IntrinsicWidth(
+              child: Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.textMuted,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.borderLight),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  '$count',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.backgroundColor,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: statusOptions
+                      .map(
+                        (opt) => _StockDropdownOption(
+                          label: opt,
+                          selected: opt == _txnStatus,
+                          onTap: () => setState(() {
+                            _txnStatus = opt;
+                            _txnStatusDropdownOpen = false;
+                          }),
+                        ),
+                      )
+                      .toList(),
                 ),
-              ),
-            ],
-            const Spacer(),
-            Icon(
-              expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-              size: 18,
-              color: AppTheme.textSecondary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CnContactPersonsDropdown extends StatelessWidget {
-  final String customerName;
-
-  const _CnContactPersonsDropdown({required this.customerName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        border: Border.all(color: AppTheme.borderLight),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          _PanelDetailRow(label: 'Name', value: customerName),
-          const SizedBox(height: 10),
-          const _PanelDetailRow(label: 'Phone', value: '+91-9895357101'),
-          const SizedBox(height: 10),
-          const _PanelDetailRow(label: 'Email', value: '-'),
-        ],
-      ),
-    );
-  }
-}
-
-class _CnCustomerAddressDropdown extends StatelessWidget {
-  final String customerName;
-
-  const _CnCustomerAddressDropdown({required this.customerName});
-
-  Widget _buildAddressBlock(String title, List<String> lines) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textSecondary,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          customerName,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 4),
-        ...lines.map(
-          (line) => Padding(
-            padding: const EdgeInsets.only(bottom: 3),
-            child: Text(
-              line,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
               ),
             ),
           ),
-        ),
       ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        border: Border.all(color: AppTheme.borderLight),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildAddressBlock('BILLING ADDRESS', _cnBillingAddressLines),
-          const Divider(height: 24, color: AppTheme.borderLight),
-          _buildAddressBlock('SHIPPING ADDRESS', _cnShippingAddressLines),
-        ],
-      ),
     );
   }
 }
@@ -7258,25 +8215,29 @@ class _PanelDetailRow extends StatelessWidget {
 
 class _ItemTableToolbar extends StatelessWidget {
   const _ItemTableToolbar({
-    required this.warehouseLocation,
-    required this.warehouseOptions,
+    required this.warehouseId,
+    required this.warehouses,
+    required this.isLoadingWarehouses,
+    required this.warehouseLoadError,
     required this.onWarehouseChanged,
     required this.priceLevel,
     required this.priceLevelOptions,
     required this.onPriceLevelChanged,
     required this.selectedPriceList,
-    required this.priceListOptions,
+    required this.priceListsAsync,
     required this.onPriceListChanged,
   });
 
-  final String warehouseLocation;
-  final List<String> warehouseOptions;
+  final String? warehouseId;
+  final List<Warehouse> warehouses;
+  final bool isLoadingWarehouses;
+  final bool warehouseLoadError;
   final ValueChanged<String> onWarehouseChanged;
   final String priceLevel;
   final List<String> priceLevelOptions;
   final ValueChanged<String> onPriceLevelChanged;
   final String? selectedPriceList;
-  final List<String> priceListOptions;
+  final AsyncValue<List<PriceList>> priceListsAsync;
   final ValueChanged<String?> onPriceListChanged;
 
   @override
@@ -7286,32 +8247,46 @@ class _ItemTableToolbar extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Warehouse location - left side
+          // Warehouse location & Price List
           const Text(
             'Warehouse Location',
             style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           SizedBox(
-            width: 280,
-            child: CustomPaint(
-              foregroundPainter: const _DottedUnderlinePainter(),
-              child: FormDropdown<String>(
-                value: warehouseLocation,
-                items: warehouseOptions,
-                hint: 'Select Warehouse',
-                height: 36,
-                hideBorderDefault: true,
-                onChanged: (v) {
-                  if (v != null) onWarehouseChanged(v);
-                },
-              ),
+            width: 140,
+            child: FormDropdown<String>(
+              value: warehouseId,
+              items: warehouses.map((warehouse) => warehouse.id).toList(),
+              hint: isLoadingWarehouses
+                  ? 'Loading warehouses...'
+                  : warehouses.isEmpty
+                      ? 'No active warehouses'
+                      : 'Location',
+              height: 36,
+              hideBorderDefault: true,
+              enabled: !isLoadingWarehouses && warehouses.isNotEmpty,
+              errorText:
+                  warehouseLoadError ? 'Could not load warehouses' : null,
+              displayStringForValue: (id) => warehouses
+                  .where((warehouse) => warehouse.id == id)
+                  .firstOrNull
+                  ?.name ??
+                  '',
+              searchStringForValue: (id) => warehouses
+                  .where((warehouse) => warehouse.id == id)
+                  .firstOrNull
+                  ?.name ??
+                  '',
+              onChanged: (value) {
+                if (value != null) onWarehouseChanged(value);
+              },
             ),
           ),
           Container(
             width: 1,
-            height: 24,
-            margin: const EdgeInsets.symmetric(horizontal: 12),
+            height: 20,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
             color: AppTheme.borderLight,
           ),
           // Price List - near warehouse
@@ -7326,14 +8301,50 @@ class _ItemTableToolbar extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: FormDropdown<String>(
-                    value: selectedPriceList,
-                    items: priceListOptions,
-                    hint: 'Select Price List',
-                    height: 36,
-                    hideBorderDefault: true,
-                    allowClear: true,
-                    onChanged: onPriceListChanged,
+                  child: priceListsAsync.when(
+                    data: (priceLists) {
+                      final salesPriceLists = priceLists
+                          .where(
+                            (p) =>
+                                p.status == 'active' &&
+                                p.transactionType.toLowerCase() == 'sales',
+                          )
+                          .toList();
+                      return FormDropdown<String>(
+                        value: selectedPriceList,
+                        items: salesPriceLists.map((p) => p.id).toList(),
+                        hint: salesPriceLists.isEmpty
+                            ? 'No price lists'
+                            : 'Select Price List',
+                        height: 36,
+                        hideBorderDefault: true,
+                        allowClear: true,
+                        enabled: salesPriceLists.isNotEmpty,
+                        displayStringForValue: (id) =>
+                            salesPriceLists
+                                .where((p) => p.id == id)
+                                .firstOrNull
+                                ?.name ??
+                            '',
+                        searchStringForValue: (id) =>
+                            salesPriceLists
+                                .where((p) => p.id == id)
+                                .firstOrNull
+                                ?.name ??
+                            '',
+                        onChanged: onPriceListChanged,
+                      );
+                    },
+                    loading: () => const Skeleton(height: 36, width: double.infinity),
+                    error: (_, __) => FormDropdown<String>(
+                      value: null,
+                      items: const [],
+                      hint: 'Error loading',
+                      height: 36,
+                      hideBorderDefault: true,
+                      enabled: false,
+                      onChanged: (val) {},
+                    ),
                   ),
                 ),
               ],
@@ -7345,25 +8356,27 @@ class _ItemTableToolbar extends StatelessWidget {
   }
 }
 
-class _RmaPreferencesDialog extends StatefulWidget {
+class _CnPreferencesDialog extends StatefulWidget {
   final String prefix;
   final String nextNumber;
   final bool autoGenerate;
+  final String branchLabel;
   final void Function(String prefix, String nextNumber, bool autoGenerate)
   onSave;
 
-  const _RmaPreferencesDialog({
+  const _CnPreferencesDialog({
     required this.prefix,
     required this.nextNumber,
     required this.autoGenerate,
+    required this.branchLabel,
     required this.onSave,
   });
 
   @override
-  State<_RmaPreferencesDialog> createState() => _RmaPreferencesDialogState();
+  State<_CnPreferencesDialog> createState() => _CnPreferencesDialogState();
 }
 
-class _RmaPreferencesDialogState extends State<_RmaPreferencesDialog> {
+class _CnPreferencesDialogState extends State<_CnPreferencesDialog> {
   late bool _autoGenerate;
   late final TextEditingController _prefixController;
   late final TextEditingController _nextNumberController;
@@ -7389,7 +8402,7 @@ class _RmaPreferencesDialogState extends State<_RmaPreferencesDialog> {
       width: 560,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Title bar
           Padding(
@@ -7646,6 +8659,152 @@ class _RmaPreferencesDialogState extends State<_RmaPreferencesDialog> {
   }
 }
 
+/// Placeholder shown while an existing credit note is being fetched for edit.
+/// Mirrors the real form: grey header band of label/field rows, the numbering
+/// block, then the line-items grid and totals.
+class _CreditNoteFormSkeleton extends StatelessWidget {
+  const _CreditNoteFormSkeleton();
+
+  Widget _fieldRow({double labelWidth = 110, double fieldWidth = 330}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Skeleton(width: labelWidth, height: 13),
+          const SizedBox(width: 24),
+          Skeleton(width: fieldWidth, height: 36, borderRadius: 4),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaxWidthContainer(
+      maxWidth: _CreditNoteCreatePageState._rowMaxWidth,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 24),
+          // Header band — grey, matching _HeaderBackgroundBand.
+          Container(
+            color: AppTheme.bgDisabled,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _fieldRow(fieldWidth: 490),
+                // Billing / shipping address blocks.
+                Padding(
+                  padding: const EdgeInsets.only(left: 134, top: 8, bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var block = 0; block < 2; block++) ...[
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Skeleton(width: 110, height: 11),
+                            SizedBox(height: 10),
+                            Skeleton(width: 200, height: 12),
+                            SizedBox(height: 6),
+                            Skeleton(width: 160, height: 11),
+                            SizedBox(height: 6),
+                            Skeleton(width: 140, height: 11),
+                            SizedBox(height: 6),
+                            Skeleton(width: 170, height: 11),
+                          ],
+                        ),
+                        const SizedBox(width: 60),
+                      ],
+                    ],
+                  ),
+                ),
+                _fieldRow(),
+                _fieldRow(),
+                _fieldRow(),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Numbering block.
+          _fieldRow(fieldWidth: 490),
+          _fieldRow(),
+          _fieldRow(),
+          const SizedBox(height: 32),
+          // Line items grid.
+          Container(
+            height: 40,
+            color: AppTheme.bgLight,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: const [
+                Expanded(flex: 4, child: Skeleton(height: 12)),
+                SizedBox(width: 16),
+                Expanded(flex: 2, child: Skeleton(height: 12)),
+                SizedBox(width: 16),
+                Expanded(child: Skeleton(height: 12)),
+                SizedBox(width: 16),
+                Expanded(child: Skeleton(height: 12)),
+                SizedBox(width: 16),
+                Expanded(flex: 2, child: Skeleton(height: 12)),
+              ],
+            ),
+          ),
+          ...List.generate(
+            3,
+            (_) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppTheme.borderLight),
+                ),
+              ),
+              child: Row(
+                children: const [
+                  Expanded(flex: 4, child: Skeleton(height: 13)),
+                  SizedBox(width: 16),
+                  Expanded(flex: 2, child: Skeleton(height: 13)),
+                  SizedBox(width: 16),
+                  Expanded(child: Skeleton(height: 13)),
+                  SizedBox(width: 16),
+                  Expanded(child: Skeleton(height: 13)),
+                  SizedBox(width: 16),
+                  Expanded(flex: 2, child: Skeleton(height: 13)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Totals block, right aligned.
+          Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              width: 320,
+              child: Column(
+                children: [
+                  for (var row = 0; row < 4; row++)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 9),
+                      child: Row(
+                        children: [
+                          Skeleton(width: 90, height: 13),
+                          Spacer(),
+                          Skeleton(width: 70, height: 13),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 60),
+        ],
+      ),
+    );
+  }
+}
+
 class MaxWidthContainer extends StatelessWidget {
   final double maxWidth;
   final Widget child;
@@ -7680,9 +8839,11 @@ class _HeaderBackgroundBand extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final bodyWidth = screenWidth - (horizontalPadding * 2);
+        // Window-derived width: overshoots by the sidebar, which is fine for a
+        // background fill that only needs to be *at least* wide enough.
+        final windowBodyWidth = screenWidth - (horizontalPadding * 2);
         final rightBleed =
-            (bodyWidth - constraints.maxWidth + horizontalPadding)
+            (windowBodyWidth - constraints.maxWidth + horizontalPadding)
                 .clamp(0.0, double.infinity)
                 .toDouble();
 
@@ -7753,8 +8914,12 @@ class _CnRowActionMenuHoverItemState extends State<_CnRowActionMenuHoverItem> {
 
 class _CnRowActionIconButton extends StatefulWidget {
   final IconData icon;
+  final Color? color;
 
-  const _CnRowActionIconButton({required this.icon});
+  const _CnRowActionIconButton({
+    required this.icon,
+    this.color,
+  });
 
   @override
   State<_CnRowActionIconButton> createState() => _CnRowActionIconButtonState();
@@ -7774,13 +8939,14 @@ class _CnRowActionIconButtonState extends State<_CnRowActionIconButton> {
         height: 24,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: _hovered ? AppTheme.primaryBlue : AppTheme.backgroundColor,
-          borderRadius: BorderRadius.circular(4),
+          color: _hovered ? AppTheme.bgDisabled : Colors.transparent,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppTheme.borderLight),
         ),
         child: Icon(
           widget.icon,
           size: 16,
-          color: _hovered ? AppTheme.backgroundColor : AppTheme.errorRed,
+          color: widget.color ?? AppTheme.errorRed,
         ),
       ),
     );
@@ -7789,8 +8955,7 @@ class _CnRowActionIconButtonState extends State<_CnRowActionIconButton> {
 
 class _CnBulkMenuHoverItem extends StatefulWidget {
   final String label;
-  final IconData? icon;
-  const _CnBulkMenuHoverItem({required this.label, this.icon});
+  const _CnBulkMenuHoverItem({required this.label});
 
   @override
   State<_CnBulkMenuHoverItem> createState() => _CnBulkMenuHoverItemState();
@@ -7815,10 +8980,6 @@ class _CnBulkMenuHoverItemState extends State<_CnBulkMenuHoverItem> {
         ),
         child: Row(
           children: [
-            if (widget.icon != null) ...[
-              Icon(widget.icon, size: 14, color: color),
-              const SizedBox(width: 8),
-            ],
             Text(
               widget.label,
               style: TextStyle(
@@ -8497,16 +9658,6 @@ const List<String> _cnBillingAddressLines = [
   'Phone: +91-9895357101',
 ];
 
-const List<String> _cnShippingAddressLines = [
-  'malayanakath(h)',
-  'vengoor',
-  'PERINTHALMANNA',
-  'perinthalmanna',
-  'kerala 679322',
-  'India',
-  'Phone: +91-08606259910',
-];
-
 class _CnCustomerAddressPanel extends StatefulWidget {
   final String customerName;
   final double? width;
@@ -8626,10 +9777,12 @@ class _CnCustomerAddressPanelState extends State<_CnCustomerAddressPanel> {
     );
 
     if (isBilling) {
-      _billingOverlay?.remove();
+      if (_billingOverlay?.mounted == true) _billingOverlay?.remove();
+      _billingOverlay?.dispose();
       _billingOverlay = overlay;
     } else {
-      _shippingOverlay?.remove();
+      if (_shippingOverlay?.mounted == true) _shippingOverlay?.remove();
+      _shippingOverlay?.dispose();
       _shippingOverlay = overlay;
     }
 
@@ -8639,10 +9792,12 @@ class _CnCustomerAddressPanelState extends State<_CnCustomerAddressPanel> {
 
   void _closePicker({required bool isBilling}) {
     if (isBilling) {
-      _billingOverlay?.remove();
+      if (_billingOverlay?.mounted == true) _billingOverlay?.remove();
+      _billingOverlay?.dispose();
       _billingOverlay = null;
     } else {
-      _shippingOverlay?.remove();
+      if (_shippingOverlay?.mounted == true) _shippingOverlay?.remove();
+      _shippingOverlay?.dispose();
       _shippingOverlay = null;
     }
     if (mounted) setState(() {});
@@ -8678,8 +9833,10 @@ class _CnCustomerAddressPanelState extends State<_CnCustomerAddressPanel> {
 
   @override
   void dispose() {
-    _billingOverlay?.remove();
-    _shippingOverlay?.remove();
+    if (_billingOverlay?.mounted == true) _billingOverlay?.remove();
+    _billingOverlay?.dispose();
+    if (_shippingOverlay?.mounted == true) _shippingOverlay?.remove();
+    _shippingOverlay?.dispose();
     super.dispose();
   }
 
@@ -9601,12 +10758,16 @@ class _CnNewItemDialogState extends State<_CnNewItemDialog> {
                   children: [
                     ZButton.primary(
                       label: 'Save',
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        if (context.canPop()) context.pop();
+                      },
                     ),
                     const SizedBox(width: 10),
                     ZButton.secondary(
                       label: 'Cancel',
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        if (context.canPop()) context.pop();
+                      },
                     ),
                   ],
                 ),
@@ -10113,10 +11274,8 @@ class _CnAddressEditDialogState extends State<_CnAddressEditDialog> {
               .map((c) => c['name']?.toString() ?? '')
               .where((name) => name.isNotEmpty)
               .toList();
-
-          if (_country != null &&
-              _country!.isNotEmpty &&
-              !_countries.contains(_country)) {
+          
+          if (_country != null && _country!.isNotEmpty && !_countries.contains(_country)) {
             _countries.insert(0, _country!);
           }
         });
@@ -10129,9 +11288,7 @@ class _CnAddressEditDialogState extends State<_CnAddressEditDialog> {
 
   Future<void> _loadStatesForCountry(String countryName) async {
     final match = _dbCountries.firstWhere(
-      (c) =>
-          (c['name']?.toString() ?? '').toLowerCase() ==
-          countryName.toLowerCase(),
+      (c) => (c['name']?.toString() ?? '').toLowerCase() == countryName.toLowerCase(),
       orElse: () => <String, dynamic>{},
     );
     final shortCode = match['short_code']?.toString() ?? '';
@@ -10151,10 +11308,8 @@ class _CnAddressEditDialogState extends State<_CnAddressEditDialog> {
               .map((s) => s['name']?.toString() ?? '')
               .where((name) => name.isNotEmpty)
               .toList();
-
-          if (_state != null &&
-              _state!.isNotEmpty &&
-              !_states.contains(_state)) {
+          
+          if (_state != null && _state!.isNotEmpty && !_states.contains(_state)) {
             _states.insert(0, _state!);
           }
         });
@@ -10438,12 +11593,16 @@ class _CnAddressEditDialogState extends State<_CnAddressEditDialog> {
                 children: [
                   ZButton.primary(
                     label: 'Save',
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      if (context.canPop()) context.pop();
+                    },
                   ),
                   const SizedBox(width: 10),
                   ZButton.secondary(
                     label: 'Cancel',
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      if (context.canPop()) context.pop();
+                    },
                   ),
                 ],
               ),
@@ -10481,41 +11640,6 @@ class _CnAddressEditDialogState extends State<_CnAddressEditDialog> {
 
 // ──────────────────────────────────────────────────────────────────────────────
 
-class _CnDiscountTypeOption extends StatelessWidget {
-  final String label;
-  final bool selected;
-
-  const _CnDiscountTypeOption({required this.label, required this.selected});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-      child: Container(
-        width: 36,
-        height: 34,
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.primaryBlue : Colors.white,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: selected ? AppTheme.primaryBlueDark : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: selected ? Colors.white : AppTheme.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _CnCostPriceButton extends StatefulWidget {
   final _CnLineItem item;
   const _CnCostPriceButton({required this.item});
@@ -10543,7 +11667,9 @@ class _CnCostPriceButtonState extends State<_CnCostPriceButton> {
   @override
   void dispose() {
     _costController.dispose();
-    _closeOverlay();
+    if (_overlay?.mounted == true) _overlay?.remove();
+    _overlay?.dispose();
+    _overlay = null;
     super.dispose();
   }
 
@@ -10813,7 +11939,8 @@ class _CnCostPriceButtonState extends State<_CnCostPriceButton> {
   }
 
   void _closeOverlay() {
-    _overlay?.remove();
+    if (_overlay?.mounted == true) _overlay?.remove();
+    _overlay?.dispose();
     _overlay = null;
     if (mounted) setState(() {});
   }
@@ -11090,7 +12217,7 @@ class _AddContactPersonDialogState extends State<_AddContactPersonDialog> {
       width: dialogWidth,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             height: 64,
@@ -11531,7 +12658,7 @@ class _QuickAddCustomerDialogState extends State<_QuickAddCustomerDialog> {
       width: 500,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Title bar
           Padding(
@@ -11695,584 +12822,7 @@ class _QuickAddCustomerDialogState extends State<_QuickAddCustomerDialog> {
   }
 }
 
-class _CnAddBatchesPopover extends StatefulWidget {
-  final _CnLineItem item;
-  final VoidCallback onClose;
-  final Function(List<_CnBatch>) onSave;
 
-  const _CnAddBatchesPopover({
-    required this.item,
-    required this.onClose,
-    required this.onSave,
-  });
 
-  @override
-  State<_CnAddBatchesPopover> createState() => _CnAddBatchesPopoverState();
-}
 
-class _CnAddBatchesPopoverState extends State<_CnAddBatchesPopover> {
-  late final List<_CnBatch> _batches;
-  bool _overwriteLineItem = false;
 
-  @override
-  void initState() {
-    super.initState();
-    if (widget.item.savedBatches.isNotEmpty) {
-      _batches = List.from(widget.item.savedBatches);
-    } else {
-      _batches = [_CnBatch()..quantityController.text = '1'];
-    }
-  }
-
-  @override
-  void dispose() {
-    // Only dispose batches not held in savedBatches (to avoid double-dispose)
-    for (var b in _batches) {
-      if (!widget.item.savedBatches.contains(b)) {
-        b.referenceController.dispose();
-        b.mfrBatchController.dispose();
-        b.mfrDateController.dispose();
-        b.expiryDateController.dispose();
-        b.quantityController.dispose();
-      }
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Header
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Add Batches',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: widget.onClose,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppTheme.primaryBlue),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Icon(
-                    LucideIcons.x,
-                    size: 16,
-                    color: AppTheme.errorRed,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        // Info Area
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    LucideIcons.mapPin,
-                    size: 14,
-                    color: AppTheme.textSecondary,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Location : ',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    widget.item.warehouseLocation ?? 'ZABNIX PRIVATE LIMITED',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 15),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.item.name.isEmpty
-                          ? 'BATCH TRACK ITEM'
-                          : widget.item.name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    'Total Quantity : ${widget.item.returnQtyController.text}.00 pcs',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  const Text(
-                    'Quantity to be added : 0 pcs',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Checkbox(
-                    value: _overwriteLineItem,
-                    onChanged: (val) =>
-                        setState(() => _overwriteLineItem = val!),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  const Text(
-                    'Overwrite the line item with 1 quantities',
-                    style: TextStyle(fontSize: 12, color: AppTheme.textPrimary),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(
-                    LucideIcons.helpCircle,
-                    size: 14,
-                    color: AppTheme.textSecondary,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        // Table Header
-        Container(
-          color: const Color(0xFFF9FAFB),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-          child: Row(
-            children: const [
-              Expanded(
-                flex: 3,
-                child: Text(
-                  'BATCH REFERENCE#*',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.errorRed,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: Text(
-                  'MANUFACTURER BATCH#',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: Text(
-                  'MANUFACTURED DATE',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 3,
-                child: Text(
-                  'EXPIRY DATE',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 1,
-                child: Text(
-                  'QUANTITY IN*',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.errorRed,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              SizedBox(width: 24),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        // Table Body
-        Expanded(
-          child: SingleChildScrollView(
-            child: ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _batches.length,
-              itemBuilder: (context, index) {
-                final b = _batches[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: b.isExisting
-                            ? _CnBatchSearchDropdown(
-                                selectedBatch: b.referenceController.text,
-                                onChanged: (batch) {
-                                  setState(() {
-                                    b.referenceController.text = batch['name']!;
-                                    b.mfrBatchController.text =
-                                        batch['mfrBatch'] ?? '';
-                                    b.mfrDateController.text =
-                                        batch['mfrDate'] ?? '';
-                                    b.expiryDateController.text =
-                                        batch['expiryDate'] ?? '';
-                                    b.balance = batch['balance'];
-                                  });
-                                },
-                              )
-                            : _CnAddBatchField(
-                                controller: b.referenceController,
-                                hint: 'Enter Batch#',
-                              ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 3,
-                        child: _CnAddBatchField(
-                          controller: b.mfrBatchController,
-                          hint: 'Enter MFR Batch#',
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 3,
-                        child: _CnAddBatchField(
-                          controller: b.mfrDateController,
-                          hint: 'dd-MM-yyyy',
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 3,
-                        child: _CnAddBatchField(
-                          controller: b.expiryDateController,
-                          hint: 'dd-MM-yyyy',
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 1,
-                        child: _CnAddBatchField(
-                          controller: b.quantityController,
-                          hint: '1',
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      InkWell(
-                        onTap: () {
-                          setState(() {
-                            _batches.removeAt(index);
-                            if (_batches.isEmpty) {
-                              _batches.add(
-                                _CnBatch()..quantityController.text = '1',
-                              );
-                            }
-                            // Sync removal back to savedBatches so summary updates live
-                            widget.item.savedBatches
-                              ..clear()
-                              ..addAll(_batches);
-                          });
-                        },
-                        child: const Icon(
-                          LucideIcons.xCircle,
-                          size: 18,
-                          color: AppTheme.errorRed,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        // Add Actions
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          child: Row(
-            children: [
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    final onlyRow =
-                        _batches.length == 1 &&
-                        _batches[0].referenceController.text.isEmpty;
-                    if (onlyRow) {
-                      _batches[0].isExisting = false;
-                    } else {
-                      _batches.add(_CnBatch());
-                    }
-                  });
-                },
-                child: Row(
-                  children: const [
-                    Icon(
-                      LucideIcons.plus,
-                      size: 14,
-                      color: AppTheme.primaryBlue,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'New Batch',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.primaryBlue,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 20),
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    final onlyRow =
-                        _batches.length == 1 &&
-                        _batches[0].referenceController.text.isEmpty;
-                    if (onlyRow) {
-                      _batches[0].isExisting = true;
-                    } else {
-                      final newBatch = _CnBatch()..isExisting = true;
-                      _batches.add(newBatch);
-                    }
-                  });
-                },
-                child: Row(
-                  children: const [
-                    Icon(
-                      LucideIcons.plus,
-                      size: 14,
-                      color: AppTheme.primaryBlue,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'Existing Batch',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.primaryBlue,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        // Footer
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Row(
-            children: [
-              ZButton.primary(
-                label: 'Save',
-                onPressed: () => widget.onSave(_batches),
-              ),
-              const SizedBox(width: 12),
-              ZButton.secondary(label: 'Cancel', onPressed: widget.onClose),
-              const Spacer(),
-              const Text(
-                'Batches added: 1/100',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CnAddBatchField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hint;
-  final TextAlign textAlign;
-
-  const _CnAddBatchField({
-    required this.controller,
-    required this.hint,
-    this.textAlign = TextAlign.start,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 32,
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFD1D5DB)),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: TextField(
-        controller: controller,
-        textAlign: textAlign,
-        style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 8,
-          ),
-          border: InputBorder.none,
-          isDense: true,
-        ),
-      ),
-    );
-  }
-}
-
-class _CnBatch {
-  final referenceController = TextEditingController();
-  final mfrBatchController = TextEditingController();
-  final mfrDateController = TextEditingController();
-  final expiryDateController = TextEditingController();
-  final quantityController = TextEditingController();
-  bool isExisting = false;
-  String? selectedBatchId;
-  String? balance;
-}
-
-class _CnBatchSearchDropdown extends StatelessWidget {
-  final String selectedBatch;
-  final Function(Map<String, String>) onChanged;
-
-  const _CnBatchSearchDropdown({
-    required this.selectedBatch,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final mockBatches = [
-      {
-        'name': 'awsxdgbj',
-        'balance': '85 pcs',
-        'mfrBatch': 'MFR-001',
-        'mfrDate': '2026-01-01',
-        'expiryDate': '2027-01-01',
-      },
-      {
-        'name': '456',
-        'balance': '1 pcs',
-        'mfrBatch': 'MFR-002',
-        'mfrDate': '2026-02-15',
-        'expiryDate': '2027-02-15',
-      },
-      {
-        'name': 'sdadw',
-        'balance': '20 pcs',
-        'mfrBatch': 'MFR-003',
-        'mfrDate': '2026-03-20',
-        'expiryDate': '2027-03-20',
-      },
-    ];
-
-    return FormDropdown<Map<String, String>>(
-      value: selectedBatch.isEmpty
-          ? null
-          : mockBatches.firstWhere(
-              (b) => b['name'] == selectedBatch,
-              orElse: () => mockBatches[0],
-            ),
-      items: mockBatches,
-      hint: 'Select Batch',
-      height: 32,
-      menuWidth: 320,
-      itemHeight: 72,
-      maxVisibleItems: 2,
-      forceDownward: true,
-      displayStringForValue: (b) => b['name'] ?? '',
-      itemBuilder: (batch, isSelected, isHovered) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: (isSelected || isHovered)
-              ? AppTheme.primaryBlue
-              : Colors.white,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                batch['name']!,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: (isSelected || isHovered)
-                      ? Colors.white
-                      : AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Balance in batch: ${batch['balance']}',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: (isSelected || isHovered)
-                      ? Colors.white.withValues(alpha: 0.8)
-                      : AppTheme.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-      onChanged: (val) {
-        if (val != null) onChanged(val);
-      },
-    );
-  }
-}

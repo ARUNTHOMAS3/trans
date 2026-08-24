@@ -2501,7 +2501,7 @@ class _ATBSummaryRow extends StatelessWidget {
 class _JournalSection extends ConsumerWidget {
   final VendorCreditDetail creditNote;
 
-  const _JournalSection({super.key, required this.creditNote});
+  const _JournalSection({required this.creditNote});
 
   Future<List<Map<String, dynamic>>> _fetchVendorCreditJournals(String vcId) async {
     final supabase = Supabase.instance.client;

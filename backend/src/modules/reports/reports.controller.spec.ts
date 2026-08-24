@@ -3,15 +3,20 @@ import { ReportsController } from "./reports.controller";
 describe("ReportsController", () => {
   it("normalizes audit log query params before forwarding to the service", async () => {
     const getAuditLogs = jest.fn().mockResolvedValue({ items: [] });
-    const controller = new ReportsController({
-      getAuditLogs,
-    } as any);
+    const controller = new ReportsController(
+      { getAuditLogs } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any
+    );
 
     const mockTenant = {} as any;
     await controller.getAuditLogs(
       mockTenant,
       "2",
       "50",
+      undefined,
       "manual journals",
       "accounts_manual_journals, batch_transactions ,",
       "update, delete",
@@ -38,15 +43,20 @@ describe("ReportsController", () => {
 
   it("drops invalid numeric values when parsing audit log query params", async () => {
     const getAuditLogs = jest.fn().mockResolvedValue({ items: [] });
-    const controller = new ReportsController({
-      getAuditLogs,
-    } as any);
+    const controller = new ReportsController(
+      { getAuditLogs } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any
+    );
 
     const mockTenant2 = {} as any;
     await controller.getAuditLogs(
       mockTenant2,
       "x",
       "nan",
+      undefined,
       undefined,
       undefined,
       undefined,

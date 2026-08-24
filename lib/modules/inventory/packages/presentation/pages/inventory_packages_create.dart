@@ -2524,8 +2524,9 @@ class _InventoryPackagesCreateScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: _borderCol),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(6),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           _buildTableHeader(),
@@ -2661,17 +2662,22 @@ class _InventoryPackagesCreateScreenState
       onExit: (_) => setState(() => _hoveredRowIndex = null),
       child: Container(
         padding: const EdgeInsets.only(left: 24, right: 0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
+            if (index > 0)
+              const Positioned(
+                left: -24,
+                right: 0,
+                top: 0,
+                child: Divider(height: 1, color: _borderCol),
+              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             Expanded(
-              flex: 1,
+              flex: 18,
               child: Container(
-                decoration: BoxDecoration(
-                  border: isLastInGroup
-                      ? const Border(bottom: BorderSide(color: _borderCol))
-                      : null,
-                ),
                 child: isFirstInGroup
                     ? Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -2688,18 +2694,19 @@ class _InventoryPackagesCreateScreenState
                     : const SizedBox(),
               ),
             ),
-            const VerticalDivider(width: 1, color: _borderCol),
+            const SizedBox(
+              height: 47,
+              child: VerticalDivider(width: 1, color: _borderCol),
+            ),
             Expanded(
-              flex: 2,
+              flex: 32,
               child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _borderCol)),
-                ),
+                constraints: const BoxConstraints(minHeight: 47),
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 2, right: 12, left: 12),
+                  padding: const EdgeInsets.only(top: 8, right: 12, left: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Text(
                         soItem.item?.productName ??
@@ -2711,6 +2718,8 @@ class _InventoryPackagesCreateScreenState
                           color: _textPrimary,
                           fontFamily: 'Inter',
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         'Unit: ${soItem.item?.unitName ?? "pcs"}',
@@ -2734,16 +2743,18 @@ class _InventoryPackagesCreateScreenState
                 ),
               ),
             ),
-            const VerticalDivider(width: 1, color: _borderCol),
+            const SizedBox(
+              height: 47,
+              child: VerticalDivider(width: 1, color: _borderCol),
+            ),
             Expanded(
-              flex: 1,
+              flex: 16,
               child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _borderCol)),
-                ),
+                constraints: const BoxConstraints(minHeight: 47),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Center(
+                  padding: const EdgeInsets.only(top: 10, left: 8, right: 8),
+                  child: Align(
+                    alignment: Alignment.topCenter,
                     child: Text(
                       soItem.quantity.toString(),
                       textAlign: TextAlign.center,
@@ -2757,16 +2768,18 @@ class _InventoryPackagesCreateScreenState
                 ),
               ),
             ),
-            const VerticalDivider(width: 1, color: _borderCol),
+            const SizedBox(
+              height: 47,
+              child: VerticalDivider(width: 1, color: _borderCol),
+            ),
             Expanded(
-              flex: 1,
+              flex: 16,
               child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _borderCol)),
-                ),
+                constraints: const BoxConstraints(minHeight: 47),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Center(
+                  padding: const EdgeInsets.only(top: 10, left: 8, right: 8),
+                  child: Align(
+                    alignment: Alignment.topCenter,
                     child: Text(
                       '0',
                       textAlign: TextAlign.center,
@@ -2780,61 +2793,68 @@ class _InventoryPackagesCreateScreenState
                 ),
               ),
             ),
-            const VerticalDivider(width: 1, color: _borderCol),
+            const SizedBox(
+              height: 47,
+              child: VerticalDivider(width: 1, color: _borderCol),
+            ),
             Expanded(
-              flex: 1,
+              flex: 18,
               child: Container(
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: _borderCol)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    _buildQuantityCell(
-                      index,
-                      _buildNormalQtyInput(index, soItem),
-                      _rowSelectedWarehouses[index] ??
-                          (ref
-                                  .watch(warehousesProvider)
-                                  .valueOrNull
-                                  ?.firstOrNull
-                                  ?.name ??
-                              "Main Office"),
-                    ),
-                  ],
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: _buildQuantityCell(
+                    index,
+                    _buildNormalQtyInput(index, soItem),
+                    _rowSelectedWarehouses[index] ??
+                        (ref
+                                .watch(warehousesProvider)
+                                .valueOrNull
+                                ?.firstOrNull
+                                ?.name ??
+                            "Main Office"),
+                  ),
                 ),
               ),
             ),
             Container(
               width: 40,
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: _borderCol)),
-              ),
-              child: Center(
-                child: AnimatedOpacity(
-                  opacity: _hoveredRowIndex == index ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 100),
-                  child: IconButton(
-                    onPressed: () {
-                      // Find the index in the original _items list
-                      final originalIndex = _items.indexWhere(
-                        (it) =>
-                            it.itemId == soItem.itemId &&
-                            it.salesOrderId == soItem.salesOrderId,
-                      );
-                      if (originalIndex != -1) {
-                        _removeItem(originalIndex);
-                      }
-                    },
-                    icon: const Icon(
-                      LucideIcons.x,
-                      size: 16,
-                      color: _dangerRed,
+              child: Stack(
+                children: [
+                  Center(
+                    child: AnimatedOpacity(
+                      opacity: _hoveredRowIndex == index ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 100),
+                      child: IconButton(
+                        onPressed: () {
+                          // Find the index in the original _items list
+                          final originalIndex = _items.indexWhere(
+                            (it) =>
+                                it.itemId == soItem.itemId &&
+                                it.salesOrderId == soItem.salesOrderId,
+                          );
+                          if (originalIndex != -1) {
+                            _removeItem(originalIndex);
+                          }
+                        },
+                        icon: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: _dangerRed,
+                        ),
+                        splashRadius: 20,
+                      ),
                     ),
-                    splashRadius: 20,
                   ),
-                ),
+                ],
               ),
+            ),
+              ],
+            ),
+            const Positioned(
+              left: -24,
+              right: 0,
+              top: 47,
+              child: Divider(height: 1, color: _borderCol),
             ),
           ],
         ),
@@ -2893,8 +2913,9 @@ class _InventoryPackagesCreateScreenState
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: _borderCol),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(6),
           ),
+          clipBehavior: Clip.antiAlias,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2959,7 +2980,7 @@ class _InventoryPackagesCreateScreenState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              flex: 1,
+              flex: 18,
               child: Padding(
                 padding: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
                 child: _buildHeaderSearchField(
@@ -2979,7 +3000,7 @@ class _InventoryPackagesCreateScreenState
             ),
             Container(width: 1, color: _borderCol),
             Expanded(
-              flex: 2,
+              flex: 32,
               child: Padding(
                 padding: const EdgeInsets.only(
                   right: 12,
@@ -3004,7 +3025,7 @@ class _InventoryPackagesCreateScreenState
             ),
             Container(width: 1, color: _borderCol),
             Expanded(
-              flex: 1,
+              flex: 16,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                 child: Center(
@@ -3023,7 +3044,7 @@ class _InventoryPackagesCreateScreenState
             ),
             Container(width: 1, color: _borderCol),
             Expanded(
-              flex: 1,
+              flex: 16,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                 child: Center(
@@ -3042,7 +3063,7 @@ class _InventoryPackagesCreateScreenState
             ),
             Container(width: 1, color: _borderCol),
             Expanded(
-              flex: 1,
+              flex: 18,
               child: Center(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -3089,7 +3110,7 @@ class _InventoryPackagesCreateScreenState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                flex: 1,
+                flex: 18,
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: isFirstInGroup && item.salesOrderNumber != null
@@ -3107,7 +3128,7 @@ class _InventoryPackagesCreateScreenState
               ),
               Container(width: 1, color: _borderCol),
               Expanded(
-                flex: 2,
+                flex: 32,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     vertical: 12,
@@ -3204,7 +3225,7 @@ class _InventoryPackagesCreateScreenState
               ),
               Container(width: 1, color: _borderCol),
               Expanded(
-                flex: 1,
+                flex: 16,
                 child: Center(
                   child: Text(
                     item.ordered.toString(),
@@ -3218,7 +3239,7 @@ class _InventoryPackagesCreateScreenState
               ),
               Container(width: 1, color: _borderCol),
               Expanded(
-                flex: 1,
+                flex: 16,
                 child: Center(
                   child: Text(
                     item.packed.toString(),
@@ -3232,33 +3253,31 @@ class _InventoryPackagesCreateScreenState
               ),
               Container(width: 1, color: _borderCol),
               Expanded(
-                flex: 1,
+                flex: 18,
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IgnorePointer(
-                        ignoring: item.itemId == null || item.itemId!.isEmpty,
-                        child: Opacity(
-                          opacity:
-                              (item.itemId != null && item.itemId!.isNotEmpty)
-                              ? 1.0
-                              : 0.4,
-                          child: _buildQuantityCell(
-                            index,
-                            _buildQtyInput(index),
-                            _rowSelectedWarehouses[index] ??
-                                (ref
-                                        .watch(warehousesProvider)
-                                        .valueOrNull
-                                        ?.firstOrNull
-                                        ?.name ??
-                                    "Main Office"),
-                          ),
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: IgnorePointer(
+                      ignoring: item.itemId == null || item.itemId!.isEmpty,
+                      child: Opacity(
+                        opacity:
+                            (item.itemId != null && item.itemId!.isNotEmpty)
+                            ? 1.0
+                            : 0.4,
+                        child: _buildQuantityCell(
+                          index,
+                          _buildQtyInput(index),
+                          _rowSelectedWarehouses[index] ??
+                              (ref
+                                      .watch(warehousesProvider)
+                                      .valueOrNull
+                                      ?.firstOrNull
+                                      ?.name ??
+                                  "Main Office"),
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -3296,15 +3315,19 @@ class _InventoryPackagesCreateScreenState
     final item = _items[index];
 
     return SizedBox(
-      width: 160,
+      width: double.infinity,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: SizedBox(width: 80, child: qtyInput),
-          ),
-          const SizedBox(height: 12),
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SizedBox(width: 90, height: 32, child: qtyInput),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const SizedBox(height: 8),
           Text(
             '$currentView:',
             style: const TextStyle(
@@ -3414,7 +3437,7 @@ class _InventoryPackagesCreateScreenState
               ),
             ],
           ],
-        ],
+          ],
       ),
     );
   }
@@ -3816,6 +3839,10 @@ class _PackagePreferencesDialogState extends State<_PackagePreferencesDialog> {
                                       const SizedBox(height: 6),
                                       TextField(
                                         controller: _numberCtrl,
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly,
+                                        ],
                                         style: const TextStyle(fontSize: 13),
                                         decoration: InputDecoration(
                                           contentPadding:

@@ -2,7 +2,7 @@ import 'package:zerpai_erp/modules/reports/presentation/widgets/report_table_typ
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_action_buttons.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
@@ -11,18 +11,23 @@ import 'package:zerpai_erp/modules/reports/presentation/widgets/report_searchabl
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_sticky_header_scroll_table.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_scaffold.dart';
 import 'package:zerpai_erp/modules/reports/utils/report_formatter_cache.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/modules/reports/business_overview/data/providers/profit_and_loss_schedule_iii_provider.dart';
+import 'package:intl/intl.dart';
 
-class ProfitAndLossScheduleIIIScreen extends StatefulWidget {
+
+
+class ProfitAndLossScheduleIIIScreen extends ConsumerStatefulWidget {
   const ProfitAndLossScheduleIIIScreen({super.key});
 
   @override
-  State<ProfitAndLossScheduleIIIScreen> createState() =>
+  ConsumerState<ProfitAndLossScheduleIIIScreen> createState() =>
       _ProfitAndLossScheduleIIIScreenState();
 }
 
 class _ProfitAndLossScheduleIIIScreenState
-    extends State<ProfitAndLossScheduleIIIScreen> {
-  static final DateTime _defaultDate = DateTime(2026, 7, 14);
+    extends ConsumerState<ProfitAndLossScheduleIIIScreen> {
+  static final DateTime _defaultDate = DateTime.now();
   static const List<String> _reportBasisOptions = <String>['Accrual', 'Cash'];
   static final _displayDateFormat = ReportFormatterCache.date('dd-MM-yyyy');
 
@@ -91,6 +96,11 @@ class _ProfitAndLossScheduleIIIScreenState
 
   @override
   Widget build(BuildContext context) {
+    final providerValue = ref.watch(profitAndLossScheduleIIIProvider((
+      startDate: ReportFormatterCache.date('yyyy-MM-dd').format(_appliedStartDate),
+      endDate: ReportFormatterCache.date('yyyy-MM-dd').format(_appliedEndDate),
+    )));
+    
     return ReportViewScaffold(
       categoryLabel: 'Business Overview',
       reportTitle: 'Profit and Loss (Schedule III)',
@@ -146,15 +156,22 @@ class _ProfitAndLossScheduleIIIScreenState
         icon: Icons.request_page_outlined,
         onPressed: _cycleReportView,
       ),
-      isLoading: false,
+      isLoading: providerValue.isLoading,
       currentNavigationCategory: 'Business Overview',
       currentNavigationReport: 'Profit and Loss (Schedule III)',
       onReportSelected: (reportName, category) {
         if (reportName == 'Profit and Loss (Schedule III)') return;
         openReportFromReportsModule(context, reportName);
       },
-      reportContent: _ProfitAndLossScheduleIIIStatement(
-        reportBasis: _appliedReportBasis,
+      reportContent: providerValue.when(
+        data: (data) => _ProfitAndLossScheduleIIIStatement(
+          reportBasis: _appliedReportBasis,
+          data: data,
+          startDate: _appliedStartDate,
+          endDate: _appliedEndDate,
+        ),
+        loading: () => const SizedBox.shrink(),
+        error: (e, st) => Center(child: Text('Error: $e')),
       ),
     );
   }
@@ -178,159 +195,197 @@ class _ScheduleIIIRow {
 
 class _ProfitAndLossScheduleIIIStatement extends StatelessWidget {
   final String reportBasis;
+  final Map<String, dynamic> data;
+  final DateTime startDate;
+  final DateTime endDate;
 
-  const _ProfitAndLossScheduleIIIStatement({required this.reportBasis});
+  const _ProfitAndLossScheduleIIIStatement({
+    required this.reportBasis,
+    required this.data,
+    required this.startDate,
+    required this.endDate,
+  });
 
-  static const List<_ScheduleIIIRow> _rows = [
-    _ScheduleIIIRow(
-      particulars: 'I. Revenue from operations',
-      currentAmount: '200.00',
-      previousAmount: '-10.40',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: 'II. Other Income',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: 'III. Total Revenue (I + II)',
-      currentAmount: '200.00',
-      previousAmount: '-10.40',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: 'IV. Expenses',
-      currentAmount: '100.00',
-      previousAmount: '-1,400.00',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: '1. Cost of materials consumed',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isIndented: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: '2. Purchases of stock in trade',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isIndented: true,
-    ),
-    _ScheduleIIIRow(
-      particulars:
-          '3. Changes in Inventories of finished goods work-in-progress and Stock-in-trade',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isIndented: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: '4. Employee benefits expense',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isIndented: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: '5. Finance Costs',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isIndented: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: '6. Depreciation And Amortization Expense',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isIndented: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: '7. Other Expenses',
-      currentAmount: '100.00',
-      previousAmount: '-1,400.00',
-      isIndented: true,
-    ),
-    _ScheduleIIIRow(
-      particulars:
-          'V. Profit before exceptional and extraordinary items and tax (III - IV)',
-      currentAmount: '100.00',
-      previousAmount: '1,389.60',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: 'VI. Exceptional Items',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: 'VII. Profit before extraordinary items and tax (V-VI)',
-      currentAmount: '100.00',
-      previousAmount: '1,389.60',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: 'VIII. Extraordinary Items',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: 'IX. Profit before tax (VII - VIII)',
-      currentAmount: '100.00',
-      previousAmount: '1,389.60',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: 'X. Tax Expense',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: '1. Current tax',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isIndented: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: '2. Deferred tax',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isIndented: true,
-    ),
-    _ScheduleIIIRow(
-      particulars:
-          'XI. Profit (Loss) for the period from continuing operations (IX - X)',
-      currentAmount: '100.00',
-      previousAmount: '1,389.60',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: 'XII. Profit (Loss) from discontinuing operations',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: 'XIII. Tax expense of discontinuing operations',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars:
-          'XIV. Profit (Loss) from Discontinuing operations (after tax) (XII - XIII)',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIRow(
-      particulars: 'XV. Profit (Loss) for the period (XI + XIV)',
-      currentAmount: '100.00',
-      previousAmount: '1,389.60',
-      isEmphasized: true,
-    ),
-  ];
+  List<String> get _periodLabels {
+    if (startDate.isAtSameMomentAs(endDate)) {
+      final format = ReportFormatterCache.date('dd-MM-yyyy');
+      return [
+        format.format(startDate),
+        format.format(startDate.subtract(const Duration(days: 1))),
+      ];
+    } else {
+      final format = ReportFormatterCache.date('MMM dd');
+      final duration = endDate.difference(startDate).inDays + 1;
+      final prevStart = startDate.subtract(Duration(days: duration));
+      final prevEnd = endDate.subtract(Duration(days: duration));
+      
+      return [
+        '${format.format(startDate).toUpperCase()} - ${format.format(endDate).toUpperCase()}',
+        '${format.format(prevStart).toUpperCase()} - ${format.format(prevEnd).toUpperCase()}',
+      ];
+    }
+  }
+
+  String _formatAmount(dynamic amount) {
+    if (amount == null) return '0.00';
+    final numValue = (amount is num) ? amount : double.tryParse(amount.toString()) ?? 0.0;
+    return NumberFormat('#,##0.00').format(numValue);
+  }
+
+  List<_ScheduleIIIRow> get _rows {
+    final summary = data['summary'] ?? {};
+    
+    return [
+      _ScheduleIIIRow(
+        particulars: 'I. Revenue from operations',
+        currentAmount: _formatAmount(summary['totalRevenueFromOperations']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: 'II. Other Income',
+        currentAmount: _formatAmount(summary['totalOtherIncome']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: 'III. Total Revenue (I + II)',
+        currentAmount: _formatAmount(summary['totalRevenue']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: 'IV. Expenses',
+        currentAmount: _formatAmount(summary['totalExpenses']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: '1. Cost of materials consumed',
+        currentAmount: _formatAmount(summary['totalCostOfMaterialsConsumed']),
+        previousAmount: '0.00',
+        isIndented: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: '2. Purchases of stock in trade',
+        currentAmount: _formatAmount(summary['totalPurchasesOfStockInTrade']),
+        previousAmount: '0.00',
+        isIndented: true,
+      ),
+      _ScheduleIIIRow(
+        particulars:
+            '3. Changes in Inventories of finished goods work-in-progress and Stock-in-trade',
+        currentAmount: _formatAmount(summary['totalChangesInInventories']),
+        previousAmount: '0.00',
+        isIndented: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: '4. Employee benefits expense',
+        currentAmount: _formatAmount(summary['totalEmployeeBenefitsExpense']),
+        previousAmount: '0.00',
+        isIndented: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: '5. Finance Costs',
+        currentAmount: _formatAmount(summary['totalFinanceCosts']),
+        previousAmount: '0.00',
+        isIndented: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: '6. Depreciation And Amortization Expense',
+        currentAmount: _formatAmount(summary['totalDepreciation']),
+        previousAmount: '0.00',
+        isIndented: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: '7. Other Expenses',
+        currentAmount: _formatAmount(summary['totalOtherExpenses']),
+        previousAmount: '0.00',
+        isIndented: true,
+      ),
+      _ScheduleIIIRow(
+        particulars:
+            'V. Profit before exceptional and extraordinary items and tax (III - IV)',
+        currentAmount: _formatAmount(summary['profitBeforeExceptionalItemsAndTax']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: 'VI. Exceptional Items',
+        currentAmount: _formatAmount(summary['totalExceptionalItems']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: 'VII. Profit before extraordinary items and tax (V-VI)',
+        currentAmount: _formatAmount(summary['profitBeforeExtraordinaryItemsAndTax']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: 'VIII. Extraordinary Items',
+        currentAmount: _formatAmount(summary['totalExtraordinaryItems']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: 'IX. Profit before tax (VII - VIII)',
+        currentAmount: _formatAmount(summary['profitBeforeTax']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: 'X. Tax Expense',
+        currentAmount: _formatAmount(summary['totalTaxExpense']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: '1. Current tax',
+        currentAmount: _formatAmount(summary['totalCurrentTax']),
+        previousAmount: '0.00',
+        isIndented: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: '2. Deferred tax',
+        currentAmount: _formatAmount(summary['totalDeferredTax']),
+        previousAmount: '0.00',
+        isIndented: true,
+      ),
+      _ScheduleIIIRow(
+        particulars:
+            'XI. Profit (Loss) for the period from continuing operations (IX - X)',
+        currentAmount: _formatAmount(summary['profitForThePeriod']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: 'XII. Profit (Loss) from discontinuing operations',
+        currentAmount: '0.00',
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: 'XIII. Tax expense of discontinuing operations',
+        currentAmount: '0.00',
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars:
+            'XIV. Profit (Loss) from Discontinuing operations (after tax) (XII - XIII)',
+        currentAmount: '0.00',
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+      _ScheduleIIIRow(
+        particulars: 'XV. Profit (Loss) for the period (XI + XIV)',
+        currentAmount: _formatAmount(summary['profitForThePeriod']),
+        previousAmount: '0.00',
+        isEmphasized: true,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -356,7 +411,10 @@ class _ProfitAndLossScheduleIIIStatement extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppTheme.space20),
-                const _ScheduleIIIHeader(),
+                _ScheduleIIIHeader(
+                  currentPeriodLabel: _periodLabels[0],
+                  previousPeriodLabel: _periodLabels[1],
+                ),
               ],
             ),
             emptyBody: const SizedBox.shrink(),
@@ -388,7 +446,13 @@ class _ProfitAndLossScheduleIIIStatement extends StatelessWidget {
 }
 
 class _ScheduleIIIHeader extends StatelessWidget {
-  const _ScheduleIIIHeader();
+  final String currentPeriodLabel;
+  final String previousPeriodLabel;
+
+  const _ScheduleIIIHeader({
+    required this.currentPeriodLabel,
+    required this.previousPeriodLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -402,23 +466,23 @@ class _ScheduleIIIHeader extends StatelessWidget {
         ),
       ),
       child: Row(
-        children: const [
-          _ScheduleIIICell(width: 540, text: 'PARTICULARS', isHeader: true),
-          _ScheduleIIICell(
+        children: [
+          const _ScheduleIIICell(width: 498, text: 'PARTICULARS', isHeader: true),
+          const _ScheduleIIICell(
             width: 90,
             text: 'NOTE NO.',
             isHeader: true,
             textAlign: TextAlign.right,
           ),
           _ScheduleIIICell(
-            width: 99,
-            text: '14-07-2026',
+            width: 120,
+            text: currentPeriodLabel,
             isHeader: true,
             textAlign: TextAlign.right,
           ),
           _ScheduleIIICell(
-            width: 99,
-            text: '13-07-2026',
+            width: 120,
+            text: previousPeriodLabel,
             isHeader: true,
             textAlign: TextAlign.right,
           ),
@@ -450,7 +514,7 @@ class _ScheduleIIITableRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _ScheduleIIICell(
-            width: 540,
+            width: 498,
             text: row.particulars,
             style: textStyle,
             leftPadding: row.isIndented ? 36 : 20,
@@ -462,13 +526,13 @@ class _ScheduleIIITableRow extends StatelessWidget {
             textAlign: TextAlign.right,
           ),
           _ScheduleIIICell(
-            width: 99,
+            width: 120,
             text: row.currentAmount,
             style: textStyle,
             textAlign: TextAlign.right,
           ),
           _ScheduleIIICell(
-            width: 99,
+            width: 120,
             text: row.previousAmount,
             style: textStyle,
             textAlign: TextAlign.right,

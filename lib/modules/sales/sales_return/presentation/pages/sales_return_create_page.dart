@@ -93,8 +93,7 @@ class SalesReturnsCreatePage extends ConsumerStatefulWidget {
       _SalesReturnsCreatePageState();
 }
 
-class _SalesReturnsCreatePageState
-    extends ConsumerState<SalesReturnsCreatePage> {
+class _SalesReturnsCreatePageState extends ConsumerState<SalesReturnsCreatePage> {
   static const double _tableFieldHeight = 44;
   static const String _rmaSequenceModule = 'rma';
   // --- Form State ---
@@ -145,15 +144,14 @@ class _SalesReturnsCreatePageState
     final edit = widget.editData;
 
     _referenceNumberController = TextEditingController(
-      text: edit != null && edit.referenceNumber != '-'
-          ? edit.referenceNumber
-          : '',
+      text: edit != null && edit.referenceNumber != '-' ? edit.referenceNumber : '',
     );
-    _rmaNumberController = TextEditingController(text: edit?.rmaNumber ?? '');
+    _rmaNumberController = TextEditingController(
+      text: edit?.rmaNumber ?? '',
+    );
 
     if (edit != null && edit.date.isNotEmpty && edit.date != '-') {
-      final parsed =
-          DateFormat('dd-MM-yyyy').tryParse(edit.date) ??
+      final parsed = DateFormat('dd-MM-yyyy').tryParse(edit.date) ??
           DateFormat('yyyy-MM-dd').tryParse(edit.date);
       if (parsed != null) {
         _rmaDate = parsed;
@@ -162,7 +160,9 @@ class _SalesReturnsCreatePageState
     _rmaDateController = TextEditingController(
       text: DateFormat('dd-MM-yyyy').format(_rmaDate),
     );
-    _rmaReasonController = TextEditingController(text: edit?.reason ?? '');
+    _rmaReasonController = TextEditingController(
+      text: edit?.reason ?? '',
+    );
     _rmaPrefixController = TextEditingController();
     _rmaNextNumberController = TextEditingController();
 
@@ -385,6 +385,7 @@ class _SalesReturnsCreatePageState
         ? signedInOrgName
         : 'Select Branch';
     showGeneralDialog(
+      // ignore: use_build_context_synchronously
       context: context,
       barrierDismissible: true,
       barrierLabel: 'RMA Preferences',
@@ -561,8 +562,8 @@ class _SalesReturnsCreatePageState
         _isEditMode
             ? 'Sales return updated successfully'
             : status == 'approved'
-            ? 'Sales return saved and approved'
-            : 'Sales return saved as draft',
+                ? 'Sales return saved and approved'
+                : 'Sales return saved as draft',
       );
       _goToSalesReturnsList();
     } catch (e) {
@@ -693,7 +694,7 @@ class _SalesReturnsCreatePageState
               child: MaxWidthContainer(
                 maxWidth: _rowMaxWidth,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 24),
 
@@ -1263,74 +1264,82 @@ class _WarehouseStockPopoverState extends State<_WarehouseStockPopover> {
                           // Table Header
                           Container(
                             color: const Color(0xFFF9FAFB),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Row(
-                                      children: const [
-                                        Text(
-                                          'Location Name ',
-                                          style: TextStyle(
-                                            fontSize: 12,
+                            child: IntrinsicHeight(
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Row(
+                                        children: const [
+                                          Text(
+                                            'Location Name ',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
+                                          Icon(
+                                            Icons.search,
+                                            size: 14,
                                             color: AppTheme.textSecondary,
                                           ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const VerticalDivider(
+                                    width: 1,
+                                    color: AppTheme.borderColor,
+                                  ),
+                                  Expanded(
+                                    flex: 5,
+                                    child: Column(
+                                      children: [
+                                        Container(
+                                          height: 32,
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            _isAccountingStock
+                                                ? 'Accounting Stock'
+                                                : 'Physical Stock',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppTheme.textSecondary,
+                                            ),
+                                          ),
                                         ),
-                                        Icon(
-                                          Icons.search,
-                                          size: 14,
-                                          color: AppTheme.textSecondary,
+                                        const Divider(
+                                          height: 1,
+                                          color: AppTheme.borderColor,
+                                        ),
+                                        IntrinsicHeight(
+                                          child: Row(
+                                            children: [
+                                              _buildSubHeader('Stock on Hand'),
+                                              const VerticalDivider(
+                                                width: 1,
+                                                color: AppTheme.borderColor,
+                                              ),
+                                              _buildSubHeader(
+                                                'Committed Stock',
+                                              ),
+                                              const VerticalDivider(
+                                                width: 1,
+                                                color: AppTheme.borderColor,
+                                              ),
+                                              _buildSubHeader(
+                                                'Available for Sale',
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                ),
-                                const VerticalDivider(
-                                  width: 1,
-                                  color: AppTheme.borderColor,
-                                ),
-                                Expanded(
-                                  flex: 5,
-                                  child: Column(
-                                    children: [
-                                      Container(
-                                        height: 32,
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          _isAccountingStock
-                                              ? 'Accounting Stock'
-                                              : 'Physical Stock',
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppTheme.textSecondary,
-                                          ),
-                                        ),
-                                      ),
-                                      const Divider(
-                                        height: 1,
-                                        color: AppTheme.borderColor,
-                                      ),
-                                      Row(
-                                        children: [
-                                          _buildSubHeader('Stock on Hand'),
-                                          const VerticalDivider(
-                                            width: 1,
-                                            color: AppTheme.borderColor,
-                                          ),
-                                          _buildSubHeader('Committed Stock'),
-                                          const VerticalDivider(
-                                            width: 1,
-                                            color: AppTheme.borderColor,
-                                          ),
-                                          _buildSubHeader('Available for Sale'),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                           const Divider(height: 1, color: AppTheme.borderColor),
@@ -1553,7 +1562,7 @@ class _SalesReturnItemsGridState extends State<_SalesReturnItemsGrid> {
     const bs = BorderSide(color: AppTheme.borderLight);
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // ── HEADER ──────────────────────────────────────────────
         _HoverableRowSlot(
@@ -1567,123 +1576,127 @@ class _SalesReturnItemsGridState extends State<_SalesReturnItemsGrid> {
                 topRight: Radius.circular(4),
               ),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Container(
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Container(
+                      color: AppTheme.tableHeaderBg,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: const _SrGridHeader(label: 'ITEMS & DESCRIPTION'),
+                    ),
+                  ),
+                  const VerticalDivider(width: 1, color: AppTheme.borderLight),
+                  Container(
+                    width: 160,
                     color: AppTheme.tableHeaderBg,
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: const _SrGridHeader(label: 'ITEMS & DESCRIPTION'),
-                  ),
-                ),
-                const VerticalDivider(width: 1, color: AppTheme.borderLight),
-                Container(
-                  width: 160,
-                  color: AppTheme.tableHeaderBg,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 12,
-                  ),
-                  alignment: Alignment.center,
-                  child: const _SrGridHeader(label: 'INVOICED', center: true),
-                ),
-                const VerticalDivider(width: 1, color: AppTheme.borderLight),
-                Container(
-                  width: 140,
-                  color: AppTheme.tableHeaderBg,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 12,
-                  ),
-                  alignment: Alignment.center,
-                  child: const _SrGridHeader(label: 'RETURNED', center: true),
-                ),
-                const VerticalDivider(width: 1, color: AppTheme.borderLight),
-                if (widget.creditOnly)
-                  Container(
-                    width: 260,
-                    color: AppTheme.tableHeaderBg,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          alignment: Alignment.center,
-                          child: const _SrGridHeader(
-                            label: 'RETURN DETAILS',
-                            center: true,
-                          ),
-                        ),
-                        const Divider(height: 1, color: AppTheme.borderLight),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                child: const _SrGridHeader(
-                                  label: 'RECEIVABLE\nQUANTITY',
-                                  center: true,
-                                ),
-                              ),
-                            ),
-                            const VerticalDivider(
-                              width: 1,
-                              color: AppTheme.borderLight,
-                            ),
-                            Expanded(
-                              child: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    const _SrGridHeader(
-                                      label: 'CREDIT-ONLY ',
-                                      center: true,
-                                    ),
-                                    const ZTooltip(
-                                      message:
-                                          'The quantity specified under this category will not be received. You can only provide credits.',
-                                      child: Icon(
-                                        LucideIcons.helpCircle,
-                                        size: 14,
-                                        color: AppTheme.textMuted,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    width: 200,
-                    color: AppTheme.tableHeaderBg,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
+                      horizontal: 8,
                       vertical: 12,
                     ),
-                    alignment: Alignment.centerRight,
-                    child: const _SrGridHeader(label: 'RETURN QUANTITY'),
+                    alignment: Alignment.center,
+                    child: const _SrGridHeader(label: 'INVOICED', center: true),
                   ),
-              ],
+                  const VerticalDivider(width: 1, color: AppTheme.borderLight),
+                  Container(
+                    width: 140,
+                    color: AppTheme.tableHeaderBg,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 12,
+                    ),
+                    alignment: Alignment.center,
+                    child: const _SrGridHeader(label: 'RETURNED', center: true),
+                  ),
+                  const VerticalDivider(width: 1, color: AppTheme.borderLight),
+                  if (widget.creditOnly)
+                    Container(
+                      width: 260,
+                      color: AppTheme.tableHeaderBg,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            alignment: Alignment.center,
+                            child: const _SrGridHeader(
+                              label: 'RETURN DETAILS',
+                              center: true,
+                            ),
+                          ),
+                          const Divider(height: 1, color: AppTheme.borderLight),
+                          IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    alignment: Alignment.centerRight,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
+                                    child: const _SrGridHeader(
+                                      label: 'RECEIVABLE\nQUANTITY',
+                                      center: true,
+                                    ),
+                                  ),
+                                ),
+                                const VerticalDivider(
+                                  width: 1,
+                                  color: AppTheme.borderLight,
+                                ),
+                                Expanded(
+                                  child: Container(
+                                    alignment: Alignment.centerRight,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        const _SrGridHeader(
+                                          label: 'CREDIT-ONLY ',
+                                          center: true,
+                                        ),
+                                        const ZTooltip(
+                                          message:
+                                              'The quantity specified under this category will not be received. You can only provide credits.',
+                                          child: Icon(
+                                            LucideIcons.helpCircle,
+                                            size: 14,
+                                            color: AppTheme.textMuted,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      width: 200,
+                      color: AppTheme.tableHeaderBg,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      alignment: Alignment.centerRight,
+                      child: const _SrGridHeader(label: 'RETURN QUANTITY'),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1821,27 +1834,29 @@ class _HoverableRowSlotState extends State<_HoverableRowSlot> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: widget.content),
-          SizedBox(
-            width: 36,
-            child: (widget.showX && _isHovered)
-                ? Center(
-                    child: GestureDetector(
-                      onTap: widget.onDelete,
-                      behavior: HitTestBehavior.opaque,
-                      child: const Icon(
-                        LucideIcons.x,
-                        size: 16,
-                        color: AppTheme.errorRed,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: widget.content),
+            SizedBox(
+              width: 36,
+              child: (widget.showX && _isHovered)
+                  ? Center(
+                      child: GestureDetector(
+                        onTap: widget.onDelete,
+                        behavior: HitTestBehavior.opaque,
+                        child: const Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: AppTheme.errorRed,
+                        ),
                       ),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1890,497 +1905,344 @@ class _ItemRowWidgetState extends State<_ItemRowWidget> {
     final canEditRow = item.name.trim().isNotEmpty;
     final selectedItem = _resolveSelectedItem();
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ITEMS & DESCRIPTION
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: item.name.isEmpty
-                ? FormDropdown<Item>(
-                    value: selectedItem,
-                    items: widget.availableItems,
-                    hint: 'Type or click to select an item.',
-                    height: _SalesReturnsCreatePageState._tableFieldHeight,
-                    hideBorderDefault: true,
-                    displayStringForValue: (value) => value.productName,
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          item.selectedItem = val;
-                          item.name = val.productName;
-                          item.description = val.salesDescription ?? '';
-                          item.descriptionController.text =
-                              (val.salesDescription ?? '').trim().isNotEmpty
-                              ? val.salesDescription!.trim()
-                              : val.itemCode;
-                        });
-                        widget.onItemSelected?.call();
-                      }
-                    },
-                  )
-                : Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              item.name.toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                            if (item.descriptionController.text.isNotEmpty) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                item.descriptionController.text,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() {
-                          item.name = '';
-                          item.selectedItem = null;
-                          item.descriptionController.clear();
-                        }),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Icon(
-                            LucideIcons.x,
-                            size: 14,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ),
-        const VerticalDivider(width: 1, color: AppTheme.borderLight),
-        // INVOICED — read-only, centered
-        SizedBox(
-          width: 160,
-          child: Center(
-            child: Text(
-              item.shipped,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppTheme.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-        const VerticalDivider(width: 1, color: AppTheme.borderLight),
-        // RETURNED — read-only, centered
-        SizedBox(
-          width: 140,
-          child: Center(
-            child: Text(
-              item.returned,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppTheme.textSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-        const VerticalDivider(width: 1, color: AppTheme.borderLight),
-        // RETURN QUANTITY / RETURN DETAILS
-        if (widget.creditOnly)
-          SizedBox(
-            width: 260,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ITEMS & DESCRIPTION
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: item.name.isEmpty
+                  ? FormDropdown<Item>(
+                      value: selectedItem,
+                      items: widget.availableItems,
+                      hint: 'Type or click to select an item.',
+                      height: _SalesReturnsCreatePageState._tableFieldHeight,
+                      hideBorderDefault: true,
+                      displayStringForValue: (value) => value.productName,
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            item.selectedItem = val;
+                            item.name = val.productName;
+                            item.description = val.salesDescription ?? '';
+                            item.descriptionController.text =
+                                (val.salesDescription ?? '').trim().isNotEmpty
+                                ? val.salesDescription!.trim()
+                                : val.itemCode;
+                          });
+                          widget.onItemSelected?.call();
+                        }
+                      },
+                    )
+                  : Row(
                       children: [
-                        SizedBox(
-                          width: 72,
-                          height: 18,
-                          child: TextField(
-                            controller: item.returnQtyController,
-                            enabled: canEditRow,
-                            textAlign: TextAlign.right,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9.]'),
-                              ),
-                            ],
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              hintText: '0',
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              focusedErrorBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 1),
-                        Builder(
-                          builder: (btnCtx) => GestureDetector(
-                            onTap: canEditRow
-                                ? () {
-                                    const dialogWidth = 420.0;
-                                    const rowHeight = 48.0;
-                                    const chromeHeight =
-                                        106.0; // title + divider + search + divider
-                                    const verticalMargin = 8.0;
-                                    const gap = 6.0;
-
-                                    final box =
-                                        btnCtx.findRenderObject() as RenderBox;
-                                    final triggerPos = box.localToGlobal(
-                                      Offset.zero,
-                                    );
-                                    final triggerSize = box.size;
-                                    final screen = MediaQuery.of(btnCtx).size;
-                                    final locationsCount =
-                                        widget.warehouseOptions.isEmpty
-                                        ? 1
-                                        : widget.warehouseOptions.length;
-
-                                    final desiredHeight =
-                                        chromeHeight +
-                                        (locationsCount * rowHeight);
-                                    final maxHeight =
-                                        (screen.height - (verticalMargin * 2))
-                                            .clamp(220.0, 520.0);
-                                    final dialogHeight = desiredHeight.clamp(
-                                      220.0,
-                                      maxHeight,
-                                    );
-                                    final maxListHeight =
-                                        (dialogHeight - chromeHeight).clamp(
-                                          80.0,
-                                          380.0,
-                                        );
-
-                                    double left =
-                                        triggerPos.dx + triggerSize.width + gap;
-                                    if (left + dialogWidth >
-                                        screen.width - verticalMargin) {
-                                      left = triggerPos.dx - dialogWidth - gap;
-                                    }
-                                    if (left + dialogWidth >
-                                        screen.width - verticalMargin) {
-                                      left =
-                                          screen.width -
-                                          dialogWidth -
-                                          verticalMargin;
-                                    }
-                                    if (left < verticalMargin) {
-                                      left = verticalMargin;
-                                    }
-
-                                    double top = triggerPos.dy - 16;
-                                    final maxTop =
-                                        screen.height -
-                                        dialogHeight -
-                                        verticalMargin;
-                                    if (top > maxTop) top = maxTop;
-                                    if (top < verticalMargin)
-                                      top = verticalMargin;
-
-                                    showGeneralDialog<void>(
-                                      context: btnCtx,
-                                      barrierDismissible: true,
-                                      barrierLabel: '',
-                                      barrierColor: Colors.transparent,
-                                      transitionDuration: Duration.zero,
-                                      pageBuilder: (ctx, _, __) => Stack(
-                                        children: [
-                                          Positioned(
-                                            left: left,
-                                            top: top,
-                                            width: dialogWidth,
-                                            child: Material(
-                                              color: Colors.transparent,
-                                              child: _WarehouseLocationsForm(
-                                                locations:
-                                                    widget.warehouseOptions,
-                                                currentLocation:
-                                                    widget.warehouse,
-                                                onSelected:
-                                                    widget.onWarehouseSelected,
-                                                maxListHeight: maxListHeight,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }
-                                : null,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                const Icon(
-                                  LucideIcons.warehouse,
-                                  size: 12,
-                                  color: AppTheme.primaryBlue,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item.name.toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
                                 ),
-                                const SizedBox(width: 3),
-                                Flexible(
-                                  child: Text(
-                                    widget.warehouse.trim().isEmpty
-                                        ? 'Select Warehouse'
-                                        : widget.warehouse,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: canEditRow
-                                          ? AppTheme.primaryBlue
-                                          : AppTheme.textMuted,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                              ),
+                              if (item.descriptionController.text.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  item.descriptionController.text,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.textSecondary,
                                   ),
                                 ),
                               ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const VerticalDivider(width: 1, color: AppTheme.borderLight),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 72,
-                          child: TextField(
-                            controller: item.creditOnlyQtyController,
-                            enabled: canEditRow,
-                            textAlign: TextAlign.right,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9.]'),
-                              ),
                             ],
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              hintText: '0',
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              focusedErrorBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            item.name = '';
+                            item.selectedItem = null;
+                            item.descriptionController.clear();
+                          }),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Icon(
+                              LucideIcons.x,
+                              size: 14,
+                              color: AppTheme.textMuted,
                             ),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ),
-              ],
             ),
-          )
-        else
+          ),
+          const VerticalDivider(width: 1, color: AppTheme.borderLight),
+          // INVOICED — read-only, centered
           SizedBox(
-            width: 200,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
+            width: 160,
+            child: Center(
+              child: Text(
+                item.shipped,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          const VerticalDivider(width: 1, color: AppTheme.borderLight),
+          // RETURNED — read-only, centered
+          SizedBox(
+            width: 140,
+            child: Center(
+              child: Text(
+                item.returned,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          const VerticalDivider(width: 1, color: AppTheme.borderLight),
+          // RETURN QUANTITY / RETURN DETAILS
+          if (widget.creditOnly)
+            SizedBox(
+              width: 260,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
-                    width: 72,
-                    height: 18,
-                    child: TextField(
-                      controller: item.returnQtyController,
-                      enabled: canEditRow,
-                      textAlign: TextAlign.right,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                      ],
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        hintText: '0',
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        focusedErrorBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 72,
+                            height: 18,
+                            child: TextField(
+                              controller: item.returnQtyController,
+                              enabled: canEditRow,
+                              textAlign: TextAlign.right,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9.]'),
+                                ),
+                              ],
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                hintText: '0',
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Builder(
+                            builder: (btnCtx) => GestureDetector(
+                              onTap: canEditRow
+                                  ? () {
+                                      const dialogWidth = 420.0;
+                                      const rowHeight = 48.0;
+                                      const chromeHeight =
+                                          106.0; // title + divider + search + divider
+                                      const verticalMargin = 8.0;
+                                      const gap = 6.0;
+
+                                      final box =
+                                          btnCtx.findRenderObject()
+                                              as RenderBox;
+                                      final triggerPos = box.localToGlobal(
+                                        Offset.zero,
+                                      );
+                                      final triggerSize = box.size;
+                                      final screen = MediaQuery.of(btnCtx).size;
+                                      final locationsCount =
+                                          widget.warehouseOptions.isEmpty
+                                          ? 1
+                                          : widget.warehouseOptions.length;
+
+                                      final desiredHeight =
+                                          chromeHeight +
+                                          (locationsCount * rowHeight);
+                                      final maxHeight =
+                                          (screen.height - (verticalMargin * 2))
+                                              .clamp(220.0, 520.0);
+                                      final dialogHeight = desiredHeight.clamp(
+                                        220.0,
+                                        maxHeight,
+                                      );
+                                      final maxListHeight =
+                                          (dialogHeight - chromeHeight).clamp(
+                                            80.0,
+                                            380.0,
+                                          );
+
+                                      double left =
+                                          triggerPos.dx +
+                                          triggerSize.width +
+                                          gap;
+                                      if (left + dialogWidth >
+                                          screen.width - verticalMargin) {
+                                        left =
+                                            triggerPos.dx - dialogWidth - gap;
+                                      }
+                                      if (left + dialogWidth >
+                                          screen.width - verticalMargin) {
+                                        left =
+                                            screen.width -
+                                            dialogWidth -
+                                            verticalMargin;
+                                      }
+                                      if (left < verticalMargin) {
+                                        left = verticalMargin;
+                                      }
+
+                                      double top = triggerPos.dy - 16;
+                                      final maxTop =
+                                          screen.height -
+                                          dialogHeight -
+                                          verticalMargin;
+                                      if (top > maxTop) top = maxTop;
+                                      if (top < verticalMargin) {
+                                        top = verticalMargin;
+                                      }
+
+                                      showGeneralDialog<void>(
+                                        context: btnCtx,
+                                        barrierDismissible: true,
+                                        barrierLabel: '',
+                                        barrierColor: Colors.transparent,
+                                        transitionDuration: Duration.zero,
+                                        pageBuilder: (ctx, _, __) => Stack(
+                                          children: [
+                                            Positioned(
+                                              left: left,
+                                              top: top,
+                                              width: dialogWidth,
+                                              child: Material(
+                                                color: Colors.transparent,
+                                                child: _WarehouseLocationsForm(
+                                                  locations:
+                                                      widget.warehouseOptions,
+                                                  currentLocation:
+                                                      widget.warehouse,
+                                                  onSelected: widget
+                                                      .onWarehouseSelected,
+                                                  maxListHeight: maxListHeight,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }
+                                  : null,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  const Icon(
+                                    LucideIcons.warehouse,
+                                    size: 12,
+                                    color: AppTheme.primaryBlue,
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Flexible(
+                                    child: Text(
+                                      widget.warehouse.trim().isEmpty
+                                          ? 'Select Warehouse'
+                                          : widget.warehouse,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: canEditRow
+                                            ? AppTheme.primaryBlue
+                                            : AppTheme.textMuted,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 1),
-                  Builder(
-                    builder: (btnCtx) => GestureDetector(
-                      onTap: canEditRow
-                          ? () {
-                              const dialogWidth = 420.0;
-                              const rowHeight = 48.0;
-                              const chromeHeight =
-                                  106.0; // title + divider + search + divider
-                              const verticalMargin = 8.0;
-                              const gap = 6.0;
-
-                              final box =
-                                  btnCtx.findRenderObject() as RenderBox;
-                              final triggerPos = box.localToGlobal(Offset.zero);
-                              final triggerSize = box.size;
-                              final screen = MediaQuery.of(btnCtx).size;
-                              final locationsCount =
-                                  widget.warehouseOptions.isEmpty
-                                  ? 1
-                                  : widget.warehouseOptions.length;
-
-                              final desiredHeight =
-                                  chromeHeight + (locationsCount * rowHeight);
-                              final maxHeight =
-                                  (screen.height - (verticalMargin * 2)).clamp(
-                                    220.0,
-                                    520.0,
-                                  );
-                              final dialogHeight = desiredHeight.clamp(
-                                220.0,
-                                maxHeight,
-                              );
-                              final maxListHeight =
-                                  (dialogHeight - chromeHeight).clamp(
-                                    80.0,
-                                    380.0,
-                                  );
-
-                              double left =
-                                  triggerPos.dx + triggerSize.width + gap;
-                              if (left + dialogWidth >
-                                  screen.width - verticalMargin) {
-                                left = triggerPos.dx - dialogWidth - gap;
-                              }
-                              if (left + dialogWidth >
-                                  screen.width - verticalMargin) {
-                                left =
-                                    screen.width - dialogWidth - verticalMargin;
-                              }
-                              if (left < verticalMargin) {
-                                left = verticalMargin;
-                              }
-
-                              double top = triggerPos.dy - 16;
-                              final maxTop =
-                                  screen.height - dialogHeight - verticalMargin;
-                              if (top > maxTop) top = maxTop;
-                              if (top < verticalMargin) top = verticalMargin;
-
-                              showGeneralDialog<void>(
-                                context: btnCtx,
-                                barrierDismissible: true,
-                                barrierLabel: '',
-                                barrierColor: Colors.transparent,
-                                transitionDuration: Duration.zero,
-                                pageBuilder: (ctx, _, __) => Stack(
-                                  children: [
-                                    Positioned(
-                                      left: left,
-                                      top: top,
-                                      width: dialogWidth,
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: _WarehouseLocationsForm(
-                                          locations: widget.warehouseOptions,
-                                          currentLocation: widget.warehouse,
-                                          onSelected:
-                                              widget.onWarehouseSelected,
-                                          maxListHeight: maxListHeight,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
-                          : null,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.end,
+                  const VerticalDivider(width: 1, color: AppTheme.borderLight),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(
-                            LucideIcons.warehouse,
-                            size: 12,
-                            color: AppTheme.primaryBlue,
-                          ),
-                          const SizedBox(width: 3),
-                          Flexible(
-                            child: Text(
-                              widget.warehouse.trim().isEmpty
-                                  ? 'Select Warehouse'
-                                  : widget.warehouse,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: canEditRow
-                                    ? AppTheme.primaryBlue
-                                    : AppTheme.textMuted,
-                                fontWeight: FontWeight.w500,
+                          SizedBox(
+                            width: 72,
+                            child: TextField(
+                              controller: item.creditOnlyQtyController,
+                              enabled: canEditRow,
+                              textAlign: TextAlign.right,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9.]'),
+                                ),
+                              ],
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                hintText: '0',
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
                               ),
-                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.textPrimary,
+                              ),
                             ),
                           ),
                         ],
@@ -2389,9 +2251,178 @@ class _ItemRowWidgetState extends State<_ItemRowWidget> {
                   ),
                 ],
               ),
+            )
+          else
+            SizedBox(
+              width: 200,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 72,
+                      height: 18,
+                      child: TextField(
+                        controller: item.returnQtyController,
+                        enabled: canEditRow,
+                        textAlign: TextAlign.right,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                        ],
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          hintText: '0',
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Builder(
+                      builder: (btnCtx) => GestureDetector(
+                        onTap: canEditRow
+                            ? () {
+                                const dialogWidth = 420.0;
+                                const rowHeight = 48.0;
+                                const chromeHeight =
+                                    106.0; // title + divider + search + divider
+                                const verticalMargin = 8.0;
+                                const gap = 6.0;
+
+                                final box =
+                                    btnCtx.findRenderObject() as RenderBox;
+                                final triggerPos = box.localToGlobal(
+                                  Offset.zero,
+                                );
+                                final triggerSize = box.size;
+                                final screen = MediaQuery.of(btnCtx).size;
+                                final locationsCount =
+                                    widget.warehouseOptions.isEmpty
+                                    ? 1
+                                    : widget.warehouseOptions.length;
+
+                                final desiredHeight =
+                                    chromeHeight + (locationsCount * rowHeight);
+                                final maxHeight =
+                                    (screen.height - (verticalMargin * 2))
+                                        .clamp(220.0, 520.0);
+                                final dialogHeight = desiredHeight.clamp(
+                                  220.0,
+                                  maxHeight,
+                                );
+                                final maxListHeight =
+                                    (dialogHeight - chromeHeight).clamp(
+                                      80.0,
+                                      380.0,
+                                    );
+
+                                double left =
+                                    triggerPos.dx + triggerSize.width + gap;
+                                if (left + dialogWidth >
+                                    screen.width - verticalMargin) {
+                                  left = triggerPos.dx - dialogWidth - gap;
+                                }
+                                if (left + dialogWidth >
+                                    screen.width - verticalMargin) {
+                                  left =
+                                      screen.width -
+                                      dialogWidth -
+                                      verticalMargin;
+                                }
+                                if (left < verticalMargin) {
+                                  left = verticalMargin;
+                                }
+
+                                double top = triggerPos.dy - 16;
+                                final maxTop =
+                                    screen.height -
+                                    dialogHeight -
+                                    verticalMargin;
+                                if (top > maxTop) top = maxTop;
+                                if (top < verticalMargin) top = verticalMargin;
+
+                                showGeneralDialog<void>(
+                                  context: btnCtx,
+                                  barrierDismissible: true,
+                                  barrierLabel: '',
+                                  barrierColor: Colors.transparent,
+                                  transitionDuration: Duration.zero,
+                                  pageBuilder: (ctx, _, __) => Stack(
+                                    children: [
+                                      Positioned(
+                                        left: left,
+                                        top: top,
+                                        width: dialogWidth,
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: _WarehouseLocationsForm(
+                                            locations: widget.warehouseOptions,
+                                            currentLocation: widget.warehouse,
+                                            onSelected:
+                                                widget.onWarehouseSelected,
+                                            maxListHeight: maxListHeight,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                            : null,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            const Icon(
+                              LucideIcons.warehouse,
+                              size: 12,
+                              color: AppTheme.primaryBlue,
+                            ),
+                            const SizedBox(width: 3),
+                            Flexible(
+                              child: Text(
+                                widget.warehouse.trim().isEmpty
+                                    ? 'Select Warehouse'
+                                    : widget.warehouse,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: canEditRow
+                                      ? AppTheme.primaryBlue
+                                      : AppTheme.textMuted,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -2424,7 +2455,7 @@ class _ItemDetailsSidePanelState extends State<_ItemDetailsSidePanel> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header
           Padding(
@@ -2576,13 +2607,13 @@ class _ItemDetailsSidePanelState extends State<_ItemDetailsSidePanel> {
       children: [
         const _PanelSectionHeading('Sales Information'),
         const SizedBox(height: 12),
-        const _PanelDetailRow(label: 'Price', value: '  ‚¹115.00'),
+        const _PanelDetailRow(label: 'Price', value: 'â‚¹115.00'),
         const SizedBox(height: 8),
         const _PanelDetailRow(label: 'Account', value: 'Sales'),
         const SizedBox(height: 24),
         const _PanelSectionHeading('Purchase Information'),
         const SizedBox(height: 12),
-        const _PanelDetailRow(label: 'Price', value: '  ‚¹100.00'),
+        const _PanelDetailRow(label: 'Price', value: 'â‚¹100.00'),
         const SizedBox(height: 8),
         const _PanelDetailRow(label: 'Account', value: 'Cost of Goods Sold'),
         const SizedBox(height: 24),
@@ -2795,7 +2826,7 @@ class _RmaPreferencesDialogState extends State<_RmaPreferencesDialog> {
       width: 560,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Title bar
           Padding(
@@ -3036,6 +3067,7 @@ class _RmaPreferencesDialogState extends State<_RmaPreferencesDialog> {
                       _autoGenerate,
                     );
                     if (mounted) {
+                      // ignore: use_build_context_synchronously
                       Navigator.of(context).pop();
                     }
                   },

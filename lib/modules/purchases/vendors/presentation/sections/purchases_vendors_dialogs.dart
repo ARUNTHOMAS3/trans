@@ -5,6 +5,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
     bool isLoading = false;
     String? errorMessage;
     GstinLookupResult? lookupResult;
+    final gstinCtrl = TextEditingController(text: _gstinPrefillCtrl.text);
 
     showDialog<void>(
       context: context,
@@ -12,7 +13,7 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             Future<void> handleFetch() async {
-              final gstin = _gstinPrefillCtrl.text.trim();
+              final gstin = gstinCtrl.text.trim();
               if (gstin.isEmpty) {
                 setDialogState(() {
                   errorMessage = 'Enter a GSTIN/UIN to fetch details.';
@@ -99,11 +100,8 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
                               Expanded(
                                 child: CustomTextField(
                                   height: 36,
-                                  controller: TextEditingController(
-                                    text: _panCtrl.text,
-                                  ),
+                                  controller: gstinCtrl,
                                   hintText: 'Enter GSTIN',
-                                  onChanged: (v) => _panCtrl.text = v,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -191,15 +189,13 @@ extension _PurchasesVendorsDialogs on _PurchasesVendorsVendorCreateScreenState {
           },
         );
       },
-    );
+    ).whenComplete(gstinCtrl.dispose);
   }
 
   Future<void> _openVendorNumberPreferences() async {
-    await _syncVendorNumberPreferences();
+    _seedVendorNumberPreferencesFromCurrentValue();
 
-    if (!mounted) return;
-
-    showDialog<void>(
+    await showDialog<void>(
       context: context,
       builder: (dialogContext) {
         bool isSaving = false;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:math' as math;
 import 'package:zerpai_erp/shared/widgets/inputs/zerpai_builders.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:uuid/uuid.dart';
@@ -264,23 +265,32 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final isCompact = viewport.width < 640;
+    final horizontalInset = isCompact ? 12.0 : 24.0;
+    final dialogWidth = math.min(
+      650.0,
+      math.max(0.0, viewport.width - (horizontalInset * 2)),
+    );
+    final dialogHeight = math.min(560.0, math.max(0.0, viewport.height - 48.0));
+
     return Dialog(
       alignment: Alignment.topCenter,
       backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.only(
-        top: 0,
-        left: 24,
-        right: 24,
-        bottom: 24,
+      insetPadding: EdgeInsets.fromLTRB(
+        horizontalInset,
+        0,
+        horizontalInset,
+        24,
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 650),
+      child: SizedBox(
+        width: dialogWidth,
+        height: dialogHeight,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             _buildHeader(),
             if (_errorMessage != null) _buildPremiumErrorAlert(),
-            _buildTable(),
+            Expanded(child: _buildTable(isCompact: isCompact)),
             _buildAddNewLink(),
             const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
             _buildFooter(),
@@ -373,18 +383,17 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
     );
   }
 
-  Widget _buildTable() {
+  Widget _buildTable({required bool isCompact}) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildTableHeader(),
-          Flexible(
+          _buildTableHeader(isCompact: isCompact),
+          Expanded(
             child: ListView.builder(
-              shrinkWrap: true,
               itemCount: _rows.length,
-              itemBuilder: (context, index) => _buildTableRow(index),
+              itemBuilder: (context, index) =>
+                  _buildTableRow(index, isCompact: isCompact),
             ),
           ),
         ],
@@ -392,7 +401,7 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
     );
   }
 
-  Widget _buildTableHeader() {
+  Widget _buildTableHeader({required bool isCompact}) {
     return Row(
       children: [
         Expanded(
@@ -445,22 +454,34 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
             ),
           ),
         ),
-        // Actions space outside table border
-        const SizedBox(width: 200),
+        // Actions live below each row on compact screens.
+        if (!isCompact) const SizedBox(width: 200),
       ],
     );
   }
 
-  Widget _buildTableRow(int index) {
+  Widget _buildTableRow(int index, {required bool isCompact}) {
     final row = _rows[index];
-    final isHovered = _hoveredIndex == index;
     final rowId = row['id']?.toString();
     final isDefault = rowId != null && rowId == _currentDefaultId;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredIndex = index),
       onExit: (_) => setState(() => _hoveredIndex = null),
-      child: Row(
+      child: isCompact
+          ? _buildCompactTableRow(index, row, isDefault, rowId)
+          : _buildWideTableRow(index, row, isDefault, rowId),
+    );
+  }
+
+  Widget _buildWideTableRow(
+    int index,
+    Map<String, dynamic> row,
+    bool isDefault,
+    String? rowId,
+  ) {
+    final isHovered = _hoveredIndex == index;
+    return Row(
         key: ValueKey(rowId),
         children: [
           Expanded(
@@ -569,9 +590,100 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
             ),
           ),
         ],
+      );
+  }
+
+  Widget _buildCompactTableRow(
+    int index,
+    Map<String, dynamic> row,
+    bool isDefault,
+    String? rowId,
+  ) {
+    final isHovered = _hoveredIndex == index;
+    return Container(
+      key: ValueKey(rowId),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          left: BorderSide(color: AppTheme.borderColor),
+          right: BorderSide(color: AppTheme.borderColor),
+          bottom: BorderSide(color: AppTheme.borderColor),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(flex: 3, child: _buildEditableCell(index, 'term_name')),
+              Container(width: 1, height: 40, color: AppTheme.borderColor),
+              Expanded(
+                flex: 2,
+                child: _buildEditableCell(index, 'number_of_days', isNumeric: true),
+              ),
+            ],
+          ),
+          if (isHovered) ...[
+            const Divider(height: 1, color: AppTheme.borderColor),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                children: [
+                  if (isDefault)
+                    _buildDefaultBadge()
+                  else if (rowId != null)
+                    _buildMarkDefaultButton(rowId, row),
+                  _buildDeleteButton(index),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
+
+  Widget _buildDefaultBadge() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: AppTheme.accentGreen,
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: const Text(
+      'Default',
+      style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+    ),
+  );
+
+  Widget _buildMarkDefaultButton(String rowId, Map<String, dynamic> row) =>
+      TextButton(
+        onPressed: () async {
+          setState(() => _currentDefaultId = rowId);
+          await LookupsApiService().setDefaultPaymentTermId(rowId);
+          widget.onSelect(row);
+        },
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: const Text(
+          'Mark as Default',
+          style: TextStyle(fontSize: 12, color: AppTheme.primaryBlueDark),
+        ),
+      );
+
+  Widget _buildDeleteButton(int index) => TextButton.icon(
+    onPressed: () => _deleteRow(index),
+    icon: const Icon(Icons.delete_outline, size: 14, color: AppTheme.errorRed),
+    label: const Text('Delete', style: TextStyle(fontSize: 12, color: AppTheme.errorRed)),
+    style: TextButton.styleFrom(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
+  );
 
   Widget _buildEditableCell(int index, String field, {bool isNumeric = false}) {
     final controller = _getController(index, field);
@@ -674,9 +786,13 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          const SizedBox(width: 8), // Match image padding
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          alignment: WrapAlignment.start,
+          spacing: 12,
+          runSpacing: 8,
+          children: [
           ElevatedButton(
             onPressed: _isSaving ? null : _saveChanges,
             style: ElevatedButton.styleFrom(
@@ -701,7 +817,6 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
           ),
-          const SizedBox(width: 12),
           OutlinedButton(
             onPressed: () => Navigator.pop(context),
             style: OutlinedButton.styleFrom(
@@ -714,7 +829,8 @@ class _ManagePaymentTermsDialogState extends State<ManagePaymentTermsDialog> {
             ),
             child: const Text('Cancel'),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

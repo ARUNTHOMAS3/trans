@@ -1,4 +1,3 @@
-import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -242,7 +241,7 @@ class _BatchDetailsTableState extends State<BatchDetailsTable> {
     }
 
     final field = groupFields[depth];
-    final groupedRows = LinkedHashMap<String, List<BatchDetailsRow>>();
+    final groupedRows = <String, List<BatchDetailsRow>>{};
     for (final row in rows) {
       final key = _groupValue(row, field);
       groupedRows.putIfAbsent(key, () => <BatchDetailsRow>[]).add(row);

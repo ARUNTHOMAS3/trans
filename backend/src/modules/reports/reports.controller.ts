@@ -29,6 +29,16 @@ export class ReportsController {
     private readonly purchasesExpensesReportsService: PurchasesExpensesReportsService,
   ) {}
 
+  
+  @Get("business-overview/horizontal-balance-sheet")
+  getHorizontalBalanceSheet(
+    @Query("asOfDate") asOfDate: string,
+    @Query("basis") basis: string,
+    @Tenant() tenant: TenantContext,
+  ) {
+    return this.reportsService.getHorizontalBalanceSheet(asOfDate, tenant, basis);
+  }
+
   @Get("dashboard-summary")
   getDashboardSummary(@Tenant() tenant: TenantContext) {
     return this.reportsService.getDashboardSummary(tenant);
@@ -59,6 +69,45 @@ export class ReportsController {
   ) {
     return this.reportsFavoritesService.removeFavorite(tenant, report);
   }
+
+  @Get("balance-sheet")
+  getBalanceSheet(
+    @Query("startDate") startDate: string,
+    @Query("endDate") endDate: string,
+    @Tenant() tenant: TenantContext,
+  ) {
+    return this.reportsService.getBalanceSheetReport(
+      startDate,
+      endDate,
+      tenant,
+    );
+  }
+
+  @Get("balance-sheet-schedule-iii")
+  getBalanceSheetScheduleIII(
+    @Query("startDate") startDate: string,
+    @Query("endDate") endDate: string,
+    @Tenant() tenant: TenantContext,
+  ) {
+    return this.reportsService.getBalanceSheetScheduleIIIReport(
+      startDate,
+      endDate,
+      tenant,
+    );
+  }
+
+  @Get("cash-flow-statement")
+  getCashFlowStatement(
+    @Query("startDate") startDate: string,
+    @Query("endDate") endDate: string,
+    @Tenant() tenant: TenantContext,
+  ) {
+    return this.reportsService.getCashFlowStatementReport(
+      startDate,
+      endDate,
+      tenant,
+    );
+  }
   @Get("profit-and-loss")
   getProfitAndLoss(
     @Query("startDate") startDate: string,
@@ -66,6 +115,32 @@ export class ReportsController {
     @Tenant() tenant: TenantContext,
   ) {
     return this.reportsService.getProfitAndLossReport(
+      startDate,
+      endDate,
+      tenant,
+    );
+  }
+
+  @Get("profit-and-loss-schedule-iii")
+  getProfitAndLossScheduleIII(
+    @Query("startDate") startDate: string,
+    @Query("endDate") endDate: string,
+    @Tenant() tenant: TenantContext,
+  ) {
+    return this.reportsService.getProfitAndLossScheduleIIIReport(
+      startDate,
+      endDate,
+      tenant,
+    );
+  }
+
+  @Get("horizontal-profit-and-loss")
+  getHorizontalProfitAndLoss(
+    @Query("startDate") startDate: string,
+    @Query("endDate") endDate: string,
+    @Tenant() tenant: TenantContext,
+  ) {
+    return this.reportsService.getHorizontalProfitAndLossReport(
       startDate,
       endDate,
       tenant,

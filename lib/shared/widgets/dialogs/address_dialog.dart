@@ -407,8 +407,14 @@ class _AddressDialogState extends ConsumerState<AddressDialog> {
                                   _label('State'),
                                   Builder(
                                     builder: (context) {
+                                      // `states` is the Supabase-backed global
+                                      // lookup. Existing vendor addresses do not
+                                      // always persist a country value, so use the
+                                      // India lookup until the user selects a
+                                      // different country instead of rendering an
+                                      // empty State dropdown.
                                       final countryId =
-                                          _selectedCountry?['id'] ?? '';
+                                          _selectedCountry?['id'] ?? 'IN';
                                       final statesAsync = ref.watch(
                                         statesProvider(countryId),
                                       );

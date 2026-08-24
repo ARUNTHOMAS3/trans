@@ -6,6 +6,7 @@ import 'package:zerpai_erp/shared/widgets/inputs/zerpai_date_picker_style.dart';
 
 class ZerpaiDatePicker {
   static OverlayEntry? _activeOverlay;
+  static Timer? _positionTracker;
 
   static Future<DateTime?> show(
     BuildContext context, {
@@ -25,8 +26,6 @@ class ZerpaiDatePicker {
 
     _removeActiveOverlay();
 
-    final offset = renderBox.localToGlobal(Offset.zero);
-    final size = renderBox.size;
     final overlay = Overlay.of(context, rootOverlay: true);
 
     final completer = Completer<DateTime?>();
@@ -34,6 +33,13 @@ class ZerpaiDatePicker {
     late final OverlayEntry entry;
     entry = OverlayEntry(
       builder: (overlayContext) {
+        final currentRenderBox =
+            targetKey.currentContext?.findRenderObject() as RenderBox?;
+        if (currentRenderBox == null) {
+          return const SizedBox.shrink();
+        }
+        final offset = currentRenderBox.localToGlobal(Offset.zero);
+        final size = currentRenderBox.size;
         return Stack(
           children: [
             if (dismissOnBackgroundTap)
@@ -110,11 +116,26 @@ class ZerpaiDatePicker {
 
     _activeOverlay = entry;
     overlay.insert(entry);
+    if (effectiveLink == null) {
+      _positionTracker = Timer.periodic(
+        const Duration(milliseconds: 16),
+        (_) {
+          if (_activeOverlay == entry) {
+            entry.markNeedsBuild();
+          } else {
+            _positionTracker?.cancel();
+            _positionTracker = null;
+          }
+        },
+      );
+    }
 
     return completer.future;
   }
 
   static void _removeActiveOverlay() {
+    _positionTracker?.cancel();
+    _positionTracker = null;
     _activeOverlay?.remove();
     _activeOverlay = null;
   }

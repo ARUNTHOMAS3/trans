@@ -74,6 +74,7 @@ export class SequencesController {
     @Body()
     body: {
       prefix?: string;
+      isActive?: boolean;
       nextNumber?: number;
       padding?: number;
       suffix?: string;

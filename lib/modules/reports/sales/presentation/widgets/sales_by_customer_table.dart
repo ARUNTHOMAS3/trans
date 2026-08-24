@@ -701,6 +701,7 @@ class _SalesByCustomerComparisonDataRow extends StatefulWidget {
     required this.previousMetrics,
     required this.currencyFormat,
     required this.rowBuilder,
+    // ignore: unused_element_parameter
     this.onOpenTransactions,
   });
 

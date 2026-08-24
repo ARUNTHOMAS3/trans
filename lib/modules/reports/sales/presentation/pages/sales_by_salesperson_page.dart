@@ -11,7 +11,7 @@ import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_scaf
 import 'package:zerpai_erp/modules/reports/providers/sales_report_provider.dart';
 import 'package:zerpai_erp/modules/reports/repositories/reports_repository.dart';
 
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import '../widgets/sales_by_salesperson_table.dart';
 import '../widgets/sales_by_salesperson_transactions_table.dart';
 import 'sales_by_customer_customization_page.dart';
@@ -191,10 +191,7 @@ class _SalesBySalespersonPageState
           reportTitleOverride: 'Sales by Salesperson - $salespersonName',
           currentNavigationReport: 'Sales by Sales Person',
           dateLabel:
-              'From ' +
-              ReportFormatterCache.date('dd-MM-yyyy').format(_appliedStartDate) +
-              ' To ' +
-              ReportFormatterCache.date('dd-MM-yyyy').format(_appliedEndDate),
+              'From ${ReportFormatterCache.date('dd-MM-yyyy').format(_appliedStartDate)} To ${ReportFormatterCache.date('dd-MM-yyyy').format(_appliedEndDate)}',
           reportContent: SalesBySalespersonTransactionsTable(
             items: transactions,
           ),
@@ -226,10 +223,7 @@ class _SalesBySalespersonPageState
     final reportRows =
         reportRowsAsync.valueOrNull ?? const <Map<String, dynamic>>[];
     final displayDate =
-        'From ' +
-        ReportFormatterCache.date('dd-MM-yyyy').format(_appliedStartDate) +
-        ' To ' +
-        ReportFormatterCache.date('dd-MM-yyyy').format(_appliedEndDate);
+        'From ${ReportFormatterCache.date('dd-MM-yyyy').format(_appliedStartDate)} To ${ReportFormatterCache.date('dd-MM-yyyy').format(_appliedEndDate)}';
     final comparisonPeriods = _buildComparisonPeriods();
 
     return ReportViewScaffold(

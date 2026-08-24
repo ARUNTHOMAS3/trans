@@ -1899,10 +1899,15 @@ class __ShipmentPreferencesDialogState
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(
-                          LucideIcons.info,
-                          size: 14,
-                          color: textSecondary,
+                        const ZTooltip(
+                          message:
+                              'The edited prefix and next number will be updated in the transaction number series associated with your shipment.',
+                          direction: ZTooltipDirection.top,
+                          child: Icon(
+                            LucideIcons.info,
+                            size: 14,
+                            color: textSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -1966,6 +1971,10 @@ class __ShipmentPreferencesDialogState
                                 const SizedBox(height: 6),
                                 TextField(
                                   controller: _numberCtrl,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
                                   style: const TextStyle(fontSize: 13),
                                   decoration: InputDecoration(
                                     contentPadding: const EdgeInsets.symmetric(

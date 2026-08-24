@@ -230,6 +230,8 @@ class AppRoutes {
 
   // Sales — Credit Notes
   static const String salesCreditNotes = '/sales/credit-notes';
+  static const String salesCreditNotesReport = 'report';
+  static const String creditNotesReport = salesCreditNotesReport;
   static const String salesCreditNotesCreate = '/sales/credit-notes/create';
   static const String salesCreditNotesEdit = '/sales/credit-notes/edit/:id';
   static const String salesCreditNotesDetail = '/sales/credit-notes/:id';
@@ -456,4 +458,9 @@ class AppRoutes {
   static const String procurementApprovals = '/procurement/approvals';
   static const String procurementApprovalsOverview =
       '/procurement/approvals/overview';
+
+  static const String settingsMsme = 'settings_msme';
+  static const String settingsCustomerPortal = 'settings_customer_portal';
+  static const String salesReturnsReport = 'sales_returns_report';
+  static const String salesCreditNotesOverview = 'sales_credit_notes_overview';
 }

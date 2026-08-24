@@ -1,3 +1,4 @@
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:zerpai_erp/core/observability/performance_telemetry.dart';
@@ -34,7 +35,7 @@ import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/report_pa
 import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/sales_payment_create.dart';
 
 import 'package:zerpai_erp/modules/sales/payment_recieved/presentation/payment_recieves_overview.dart';
-import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_add_page.dart';
+
 import 'package:zerpai_erp/modules/sales/eway_bills/presentation/pages/sales_eway_bill_create.dart';
 import 'package:zerpai_erp/modules/sales/quotations/presentation/pages/sales_quotes_create_page.dart';
 import 'package:zerpai_erp/modules/sales/quotations/presentation/pages/sales_quotes_report_page.dart';
@@ -46,9 +47,12 @@ import 'package:zerpai_erp/modules/sales/recurring_invoices/presentation/pages/r
 import 'package:zerpai_erp/modules/sales/recurring_invoices/presentation/pages/recurring_invoices_create_page.dart';
 import 'package:zerpai_erp/modules/sales/recurring_invoices/presentation/pages/recurring_invoices_overview_page.dart';
 
+import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_report_page.dart';
 import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_overview_page.dart';
-import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_create_page.dart';
+import 'package:zerpai_erp/modules/sales/sales_return/presentation/pages/sales_return_create_page_new.dart';
 import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_overview_page.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_report_page.dart';
+import 'package:zerpai_erp/modules/sales/credit_note/presentation/pages/credit_note_create_page.dart';
 import 'package:zerpai_erp/modules/inventory/assemblies/presentation/pages/inventory_assemblies_assembly_creation.dart';
 import 'package:zerpai_erp/modules/items/item_mapping/presentation/pages/item_mapping_create_page.dart';
 import 'package:zerpai_erp/modules/items/item_mapping/presentation/pages/item_mapping_overview_page.dart';
@@ -74,7 +78,7 @@ import 'package:zerpai_erp/modules/pricelists/branch_pricelist/presentation/bran
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_screen.dart';
 import 'package:zerpai_erp/modules/accountant/opening_balances/presentation/pages/accountant_opening_balances_update_screen.dart';
 import 'package:zerpai_erp/modules/accountant/config/routes.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+
 import 'package:zerpai_erp/modules/reports/activity/presentation/pages/reports_audit_logs_screen.dart';
 import 'package:zerpai_erp/modules/reports/sales/presentation/pages/reports_sales_sales_daily.dart';
 import 'package:zerpai_erp/modules/home/presentation/home_dashboard_overview.dart';
@@ -997,8 +1001,24 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'sales/returns',
               name: AppRoutes.salesReturns,
-              builder: (context, state) => const SalesReturnsOverviewPage(),
+              builder: (context, state) {
+                final viewParam = state.uri.queryParameters['view'];
+                final rma = state.uri.queryParameters['rma'] ??
+                    state.uri.queryParameters['rmaNumber'];
+                // Deep-link to a specific RMA (or ?view=overview) opens the
+                // overview; the sidebar lands on the report (list) page.
+                if ((rma != null && rma.isNotEmpty) ||
+                    viewParam == 'overview') {
+                  return SalesReturnsOverviewPage(initialRmaNumber: rma);
+                }
+                return const SalesReturnsReportPage();
+              },
               routes: [
+                GoRoute(
+                  path: 'report',
+                  name: AppRoutes.salesReturnsReport,
+                  builder: (context, state) => const SalesReturnsReportPage(),
+                ),
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesReturnsCreate,
@@ -1019,12 +1039,33 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: 'sales/credit-notes',
               name: AppRoutes.salesCreditNotes,
-              builder: (context, state) => const CreditNotesOverviewPage(),
+              builder: (context, state) {
+                // Mirrors sales returns: the sidebar lands on the report (list)
+                // page, while ?view=overview  or a deep-link to a specific
+                // note  opens the split overview.
+                final viewParam = state.uri.queryParameters['view'];
+                final creditNote = state.uri.queryParameters['cn'] ??
+                    state.uri.queryParameters['creditNoteNumber'];
+                if ((creditNote != null && creditNote.isNotEmpty) ||
+                    viewParam == 'overview') {
+                  return CreditNotesOverviewPage(
+                    key: state.pageKey,
+                    initialCreditNoteNumber: creditNote,
+                  );
+                }
+                return CreditNotesReportPage(key: state.pageKey);
+              },
               routes: [
+                GoRoute(
+                  path: 'report',
+                  name: AppRoutes.salesCreditNotesReport,
+                  builder: (context, state) =>
+                      CreditNotesReportPage(key: state.pageKey),
+                ),
                 GoRoute(
                   path: 'create',
                   name: AppRoutes.salesCreditNotesCreate,
-                  builder: (context, state) => CreditNoteAddPage(
+                  builder: (context, state) => CreditNoteCreatePage(
                     initialCustomer: state.uri.queryParameters['customerId'],
                     creditNoteId:
                         state.uri.queryParameters['cloneId'] ??

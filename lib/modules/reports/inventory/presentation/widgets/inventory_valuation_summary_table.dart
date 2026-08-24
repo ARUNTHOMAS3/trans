@@ -114,8 +114,9 @@ class _InventoryValuationSummaryTableState
   List<InventoryValuationSummaryRow> get _pageRows {
     if (widget.serverPaginated) return widget.rows;
     final start = (widget.page - 1) * widget.pageSize;
-    if (start >= widget.rows.length)
+    if (start >= widget.rows.length) {
       return const <InventoryValuationSummaryRow>[];
+    }
     final end = (start + widget.pageSize).clamp(0, widget.rows.length);
     return widget.rows.sublist(start, end);
   }

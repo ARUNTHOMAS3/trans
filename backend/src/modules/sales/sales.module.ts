@@ -7,19 +7,24 @@ import { AccountantModule } from "../accountant/accountant.module";
 import { SupabaseModule } from "../supabase/supabase.module";
 import { SalesService } from "./services/sales.service";
 import { SequencesModule } from "../../sequences/sequences.module";
-import { SalesReturnsController } from "./controllers/sales-returns.controller";
-import { SalesReturnsService } from "./services/sales-returns.service";
 import { PaymentsReceivedController } from "./controllers/payments-received.controller";
 import { PaymentsReceivedService } from "./services/payments-received.service";
 import { RetainerInvoicesController } from "./controllers/retainer-invoices.controller";
 import { RetainerInvoicesService } from "./services/retainer-invoices.service";
+import { SalesReturnsModule } from "./sales-returns/sales-returns.module";
+import { CreditNotesModule } from "./credit-notes/credit-notes.module";
 
 @Module({
-  imports: [AccountantModule, SupabaseModule, SequencesModule],
+  imports: [
+    AccountantModule, 
+    SupabaseModule, 
+    SequencesModule,
+    SalesReturnsModule,
+    CreditNotesModule,
+  ],
   controllers: [
     CustomersController,
     SalesController,
-    SalesReturnsController,
     PaymentsReceivedController,
     RetainerInvoicesController,
   ],
@@ -27,7 +32,6 @@ import { RetainerInvoicesService } from "./services/retainer-invoices.service";
     CustomersService,
     HsnSacService,
     SalesService,
-    SalesReturnsService,
     PaymentsReceivedService,
     RetainerInvoicesService,
   ],
@@ -35,7 +39,6 @@ import { RetainerInvoicesService } from "./services/retainer-invoices.service";
     CustomersService,
     HsnSacService,
     SalesService,
-    SalesReturnsService,
     PaymentsReceivedService,
     RetainerInvoicesService,
   ],

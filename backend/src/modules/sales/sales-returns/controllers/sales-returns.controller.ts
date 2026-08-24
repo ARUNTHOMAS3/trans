@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Param,
   Body,
@@ -13,11 +14,17 @@ import { TenantContext } from '../../../../common/middleware/tenant.middleware';
 import { SalesReturnsService } from '../services/sales-returns.service';
 import { CreateSalesReturnDto } from '../dto/create-sales-return.dto';
 import { UpdateSalesReturnDto } from '../dto/update-sales-return.dto';
+import { UpdateSalesReturnStatusDto } from '../dto/update-sales-return-status.dto';
 import { CreateSalesReturnReceiveDto } from '../dto/create-sales-return-receive.dto';
 
 @Controller('sales-returns')
 export class SalesReturnsController {
   constructor(private readonly salesReturnsService: SalesReturnsService) {}
+
+    @Get('lookups/warehouses')
+  async getWarehouses(@Tenant() tenant: TenantContext) {
+    return this.salesReturnsService.getWarehouses(tenant);
+  }
 
   @Get('next-number')
   async getNextNumber(
@@ -25,6 +32,21 @@ export class SalesReturnsController {
     @Query('prefix') prefix?: string,
   ) {
     return this.salesReturnsService.getNextNumber(tenant, prefix);
+  }
+
+  // Declared before `:id` so the literal segment wins the route match.
+  @Get('customer-history')
+  async getCustomerItemHistory(
+    @Tenant() tenant: TenantContext,
+    @Query('customerId') customerId: string,
+    @Query('excludeReturnId') excludeReturnId?: string,
+  ) {
+    if (!customerId) return [];
+    return this.salesReturnsService.getCustomerItemHistory(
+      customerId,
+      tenant,
+      excludeReturnId,
+    );
   }
 
   @Get()
@@ -38,6 +60,11 @@ export class SalesReturnsController {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 100;
     return this.salesReturnsService.findAll(tenant, pageNum, limitNum, search, status);
+  }
+
+  @Get(':id/history')
+  async getHistory(@Param('id') id: string, @Tenant() tenant: TenantContext) {
+    return this.salesReturnsService.getHistory(id, tenant);
   }
 
   @Get(':id')
@@ -60,6 +87,15 @@ export class SalesReturnsController {
     @Tenant() tenant: TenantContext,
   ) {
     return this.salesReturnsService.update(id, dto, tenant);
+  }
+
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateSalesReturnStatusDto,
+    @Tenant() tenant: TenantContext,
+  ) {
+    return this.salesReturnsService.updateStatus(id, dto.status, tenant);
   }
 
   @Get(':id/receives')
@@ -90,3 +126,4 @@ export class SalesReturnsController {
     return this.salesReturnsService.remove(id, tenant);
   }
 }
+

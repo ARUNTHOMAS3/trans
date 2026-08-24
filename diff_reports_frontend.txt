@@ -1,0 +1,57 @@
+--- ONLY IN OLD: business_overview\data\providers\horizontal_balance_sheet_provider.dart
+--- DIFFERENCES IN business_overview\presentation\pages\reports_horizontal_balance_sheet_screen.dart ---
+--- NEW/business_overview\presentation\pages\reports_horizontal_balance_sheet_screen.dart
++++ OLD/business_overview\presentation\pages\reports_horizontal_balance_sheet_screen.dart
+@@ -1,0 +2,3 @@
++import 'package:flutter_riverpod/flutter_riverpod.dart';
++import 'package:intl/intl.dart';
++import 'package:zerpai_erp/modules/reports/business_overview/data/providers/horizontal_balance_sheet_provider.dart';
+@@ -9,0 +13 @@
++import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
+@@ -103,5 +107,10 @@
+-      tableHeaderActions: ReportIconActionButton(
+-        icon: Icons.settings_outlined,
+-        onPressed: () {},
+-        tooltip: 'Customize report settings',
+-        chromeless: true,
++      tableHeaderActions: Row(
++        mainAxisSize: MainAxisSize.min,
++        children: [
++          ReportIconActionButton(
++            icon: Icons.settings_outlined,
++            onPressed: () {},
++            tooltip: 'Customize report settings',
++            chromeless: true,
++          ),
++        ],
+@@ -122,0 +132 @@
++// ignore_for_file: unused_element_parameter
+@@ -152,341 +162,3 @@
+-  static const List<_HorizontalBalanceSheetItem> _liabilitiesRows = [
+-    _HorizontalBalanceSheetItem(
+-      label: 'LIABILITIES',
+... truncated ...
+Error reading presentation\widgets\report_header.dart: 'utf-8' codec can't decode byte 0x95 in position 2438: invalid start byte
+Error reading presentation\widgets\report_page_header.dart: 'utf-8' codec can't decode byte 0x95 in position 2446: invalid start byte
+--- DIFFERENCES IN repositories\reports_repository.dart ---
+--- NEW/repositories\reports_repository.dart
++++ OLD/repositories\reports_repository.dart
+@@ -16,0 +17,18 @@
++        error: e,
++        module: 'reports',
++      );
++      rethrow;
++    }
++  }
++
++  
++  Future<Map<String, dynamic>> getHorizontalBalanceSheet(String asOfDate, {String basis = 'Accrual'}) async {
++    try {
++      final response = await _apiClient.get('reports/business-overview/horizontal-balance-sheet', queryParameters: {
++        'asOfDate': asOfDate,
++        'basis': basis,
++      });
++      return response.data as Map<String, dynamic>;
++    } catch (e) {
++      AppLogger.error(
++        'Failed to fetch Horizontal Balance Sheet',

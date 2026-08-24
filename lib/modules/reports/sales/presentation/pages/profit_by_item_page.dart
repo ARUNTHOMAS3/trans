@@ -143,10 +143,7 @@ class _ProfitByItemPageState extends ConsumerState<ProfitByItemPage> {
     final reportRows =
         reportRowsAsync.valueOrNull ?? const <Map<String, dynamic>>[];
     final displayDate =
-        'From ' +
-        ReportFormatterCache.date('dd-MM-yyyy').format(_appliedStartDate) +
-        ' To ' +
-        ReportFormatterCache.date('dd-MM-yyyy').format(_appliedEndDate);
+        'From ${ReportFormatterCache.date('dd-MM-yyyy').format(_appliedStartDate)} To ${ReportFormatterCache.date('dd-MM-yyyy').format(_appliedEndDate)}';
 
     return ReportViewScaffold(
       categoryLabel: 'Sales',

@@ -8,8 +8,7 @@ import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/routing/app_routes.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/accountant/providers/currency_provider.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
-import 'package:zerpai_erp/modules/reports/presentation/widgets/report_action_buttons.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_customize_columns_button.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
@@ -78,10 +77,9 @@ class _GeneralLedgerScreenState extends ConsumerState<GeneralLedgerScreen> {
   bool _hasPendingFilterChanges = false;
   bool _collapseSubAccounts = true;
   String _compareWith = 'None';
-  ReportCompareSelection _compareSelection =
-      const ReportCompareSelection.none();
+  ReportCompareSelection _compareSelection = const ReportCompareSelection.none();
   int _page = 1;
-  int _pageSize = 25;
+  final int _pageSize = 25;
   DateTime? _startDate;
   DateTime? _endDate;
   DateTime? _appliedStartDate;
@@ -204,9 +202,8 @@ class _GeneralLedgerScreenState extends ConsumerState<GeneralLedgerScreen> {
         final previousEnd = _appliedStartDate!.subtract(
           Duration(days: periodDays * (offset - 1) + 1),
         );
-        final previousStart = previousEnd.subtract(
-          Duration(days: periodDays - 1),
-        );
+        final previousStart =
+            previousEnd.subtract(Duration(days: periodDays - 1));
         periods.add(
           GeneralLedgerComparisonPeriod(
             label: _formatComparisonPeriod(previousStart, previousEnd),
@@ -322,8 +319,10 @@ class _GeneralLedgerScreenState extends ConsumerState<GeneralLedgerScreen> {
       showReload: true,
       showRefresh: false,
       showSchedule: true,
-      onSchedule: () =>
-          ReportScheduleDialog.show(context, reportName: _generalLedgerTitle),
+      onSchedule: () => ReportScheduleDialog.show(
+        context,
+        reportName: _generalLedgerTitle,
+      ),
       onReload: _runReport,
       onRefresh: _runReport,
       onExport: () {},
@@ -474,9 +473,7 @@ class _CollapseSubAccountsAction extends StatelessWidget {
 }
 
 class _GeneralLedgerTable extends StatelessWidget {
-  static final NumberFormat _numberFormat = ReportFormatterCache.number(
-    '#,##0.00',
-  );
+  static final NumberFormat _numberFormat = ReportFormatterCache.number('#,##0.00');
 
   final List<_GeneralLedgerRow> rows;
   final DateTime startDate;
@@ -560,7 +557,6 @@ class _GeneralLedgerTable extends StatelessWidget {
       },
     );
   }
-
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -591,12 +587,10 @@ class _GeneralLedgerTable extends StatelessWidget {
                     ],
                   ),
                 ),
-                ...comparisonPeriods.map(
-                  (period) => Expanded(
-                    flex: 6,
-                    child: _comparisonPeriodHeader(period.label),
-                  ),
-                ),
+                ...comparisonPeriods.map((period) => Expanded(
+                      flex: 6,
+                      child: _comparisonPeriodHeader(period.label),
+                    )),
               ],
             )
           : Row(
@@ -651,7 +645,9 @@ class _GeneralLedgerTable extends StatelessWidget {
           height: 48,
           alignment: Alignment.center,
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+            border: Border(
+              bottom: BorderSide(color: AppTheme.borderColor),
+            ),
           ),
           child: Text(periodLabel, style: ReportTableTypography.header),
         ),
@@ -713,7 +709,6 @@ class _GeneralLedgerEmptyBody extends StatelessWidget {
     );
   }
 }
-
 class _GeneralLedgerDataRow extends StatefulWidget {
   final _GeneralLedgerRow row;
   final DateTime startDate;
@@ -948,17 +943,14 @@ class _GeneralLedgerRow {
       balance: _numberValue(json['balance'] ?? json['netBalance']) == 0
           ? debit - credit
           : _numberValue(json['balance'] ?? json['netBalance']),
-      hasChildren:
-          json['hasChildren'] == true ||
+      hasChildren: json['hasChildren'] == true ||
           json['hasChildren']?.toString().toLowerCase() == 'true',
     );
   }
 
   static List<_GeneralLedgerRow> fromResponse(Map<String, dynamic>? data) {
     final rawRows = List<Map<String, dynamic>>.from(
-      data?['accounts'] ??
-          data?['Accountant'] ??
-          const <Map<String, dynamic>>[],
+      data?['accounts'] ?? data?['Accountant'] ?? const <Map<String, dynamic>>[],
     );
     return rawRows.map(_GeneralLedgerRow.fromJson).toList(growable: false);
   }

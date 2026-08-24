@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/reports/inventory_valuation/presentation/widgets/fifo_cost_lot_tracking_table.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_company_header.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
@@ -114,6 +114,7 @@ class _FifoCostLotTrackingPageState
   }
 
   List<String> _itemNameOptions(List<FifoCostLotTrackingRow> rows) {
+    // ignore: prefer_collection_literals
     final itemNames = LinkedHashSet<String>()..add(_allItemsOption);
     if (_selectedItemName != _allItemsOption) itemNames.add(_selectedItemName);
     for (final row in rows) {

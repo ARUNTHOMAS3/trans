@@ -1,30 +1,62 @@
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_table_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_more_filters_panel.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_sticky_header_scroll_table.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_scaffold.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_selection_section.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/modules/reports/business_overview/data/providers/balance_sheet_schedule_iii_provider.dart';
+import 'package:zerpai_erp/modules/reports/presentation/widgets/report_searchable_filter_dropdown.dart';
+import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
+import 'package:zerpai_erp/modules/reports/utils/report_formatter_cache.dart';
 
-class BalanceSheetScheduleIIIScreen extends StatefulWidget {
+class BalanceSheetScheduleIIIScreen extends ConsumerStatefulWidget {
   const BalanceSheetScheduleIIIScreen({super.key});
 
   @override
-  State<BalanceSheetScheduleIIIScreen> createState() =>
+  ConsumerState<BalanceSheetScheduleIIIScreen> createState() =>
       _BalanceSheetScheduleIIIScreenState();
 }
 
 class _BalanceSheetScheduleIIIScreenState
-    extends State<BalanceSheetScheduleIIIScreen> {
-  static const String _dateLabel = 'As of 31-07-2026';
+    extends ConsumerState<BalanceSheetScheduleIIIScreen> {
+  static final DateTime _defaultDate = DateTime.now();
+  static const List<String> _reportBasisOptions = <String>['Accrual', 'Cash'];
+  static final _displayDateFormat = ReportFormatterCache.date('dd-MM-yyyy');
 
   bool _isMoreFiltersOpen = false;
   bool _hasPendingFilterChanges = false;
+  DateTime _startDate = _defaultDate;
+  DateTime _endDate = _defaultDate;
+  DateTime _appliedStartDate = _defaultDate;
+  DateTime _appliedEndDate = _defaultDate;
   String _reportBasis = 'Accrual';
+  String _appliedReportBasis = 'Accrual';
   String _reportView = 'Simplified View';
+
+  String get _dateLabel =>
+      'From ${_displayDateFormat.format(_appliedStartDate)} To ${_displayDateFormat.format(_appliedEndDate)}';
+
+  void _handleDateRangeChanged(ReportDateRangeSelection selection) {
+    setState(() {
+      _startDate = selection.startDate;
+      _endDate = selection.endDate;
+      _hasPendingFilterChanges = true;
+    });
+  }
+
+  void _handleReportBasisChanged(String value) {
+    if (_reportBasis == value) return;
+    setState(() {
+      _reportBasis = value;
+      _hasPendingFilterChanges = true;
+    });
+  }
 
   void _markFiltersDirty() {
     setState(() => _hasPendingFilterChanges = true);
@@ -40,13 +72,6 @@ class _BalanceSheetScheduleIIIScreenState
     }
   }
 
-  void _cycleReportBasis() {
-    setState(() {
-      _reportBasis = _reportBasis == 'Accrual' ? 'Cash' : 'Accrual';
-      _hasPendingFilterChanges = true;
-    });
-  }
-
   void _handleReportViewChanged(String view) {
     setState(() {
       _reportView = view;
@@ -55,7 +80,13 @@ class _BalanceSheetScheduleIIIScreenState
 
   void _runReport() {
     _closeMoreFilters();
-    setState(() => _hasPendingFilterChanges = false);
+    setState(() {
+      _appliedStartDate = _startDate;
+      _appliedEndDate = _endDate;
+      _appliedReportBasis = _reportBasis;
+      _hasPendingFilterChanges = false;
+    });
+    ref.invalidate(balanceSheetScheduleIIIProvider);
   }
 
   @override
@@ -66,15 +97,17 @@ class _BalanceSheetScheduleIIIScreenState
       dateLabel: _dateLabel,
       companyName: '',
       filters: [
-        ReportFilterChip(
-          label: 'As of',
-          value: 'This Month',
-          onPressed: _markFiltersDirty,
+        ReportDateRangeFilter(
+          label: 'Date Range',
+          initialStartDate: _startDate,
+          initialEndDate: _endDate,
+          onChanged: _handleDateRangeChanged,
         ),
-        ReportFilterChip(
+        ReportSearchableFilterDropdown(
           label: 'Report Basis',
           value: _reportBasis,
-          onPressed: _cycleReportBasis,
+          options: _reportBasisOptions,
+          onChanged: _handleReportBasisChanged,
         ),
         ReportFilterChip(
           label: 'More Filters',
@@ -120,8 +153,10 @@ class _BalanceSheetScheduleIIIScreenState
         openReportFromReportsModule(context, reportName);
       },
       reportContent: _BalanceSheetScheduleIIIStatement(
-        reportBasis: _reportBasis,
+        reportBasis: _appliedReportBasis,
         reportView: _reportView,
+        startDate: _appliedStartDate,
+        endDate: _appliedEndDate,
       ),
     );
   }
@@ -133,9 +168,7 @@ class _ScheduleIIIBalanceRow {
   final String previousAmount;
   final int indentLevel;
   final bool isSection;
-  final bool isEmphasized;
   final bool isGrandTotal;
-  final bool isLink;
 
   const _ScheduleIIIBalanceRow({
     required this.particulars,
@@ -143,348 +176,153 @@ class _ScheduleIIIBalanceRow {
     required this.previousAmount,
     this.indentLevel = 0,
     this.isSection = false,
-    this.isEmphasized = false,
     this.isGrandTotal = false,
-    this.isLink = false,
   });
 }
 
-class _BalanceSheetScheduleIIIStatement extends StatelessWidget {
+class _BalanceSheetScheduleIIIStatement extends ConsumerWidget {
   final String reportBasis;
   final String reportView;
+  final DateTime startDate;
+  final DateTime endDate;
 
   const _BalanceSheetScheduleIIIStatement({
     required this.reportBasis,
     required this.reportView,
+    required this.startDate,
+    required this.endDate,
   });
 
-  static const List<_ScheduleIIIBalanceRow> _rows = [
-    _ScheduleIIIBalanceRow(
-      particulars: 'EQUITY AND LIABILITIES',
-      currentAmount: '',
-      previousAmount: '',
-      isSection: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: "1. Shareholders' funds",
-      currentAmount: '',
-      previousAmount: '',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'a. Share Capital',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'b. Reserves and Surplus',
-      currentAmount: '2,35,164.72',
-      previousAmount: '2,33,877.32',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'c. Money received against share warrants',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: '2. Share application money pending allotment',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: '3. Non-current liabilities',
-      currentAmount: '',
-      previousAmount: '',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'a. Long Term Borrowings',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'b. Deferred Tax Liabilities (Net)',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'c. Other long term liabilities',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'd. Long Term Provisions',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: '4. Current Liabilities',
-      currentAmount: '',
-      previousAmount: '',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'a. Short-term borrowings',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'b. Trade Payables',
-      currentAmount: '74,831.05',
-      previousAmount: '74,831.05',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'c. Other Current Liabilities',
-      currentAmount: '29,32,179.14',
-      previousAmount: '29,31,937.74',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'd. Short Term Provisions',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'TOTAL EQUITY AND LIABILITIES',
-      currentAmount: '32,42,174.91',
-      previousAmount: '32,40,646.11',
-      isGrandTotal: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'ASSETS',
-      currentAmount: '',
-      previousAmount: '',
-      isSection: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: '1. Non-current assets',
-      currentAmount: '',
-      previousAmount: '',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'a. Fixed Assets',
-      currentAmount: '',
-      previousAmount: '',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'i. Tangible Assets',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 2,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'ii. InTangible Assets',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 2,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'iii. Capital Work-in-progress',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 2,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'iv. InTangible assets under development',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 2,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'b. Non-current investments',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'c. Deferred Tax Assets (Net)',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'd. Long term loans and advances',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'e. Other non-current assets',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: '2. Current Assets',
-      currentAmount: '',
-      previousAmount: '',
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'a. Current Investments',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'b. Inventories',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'c. Trade Receivables',
-      currentAmount: '7,10,737.00',
-      previousAmount: '7,10,528.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'd. Cash and cash equivalents',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'e. Short term loans and advances',
-      currentAmount: '0.00',
-      previousAmount: '0.00',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'f. Other current assets',
-      currentAmount: '25,31,437.91',
-      previousAmount: '25,30,118.11',
-      indentLevel: 1,
-      isEmphasized: true,
-    ),
-    _ScheduleIIIBalanceRow(
-      particulars: 'TOTAL ASSETS',
-      currentAmount: '32,42,174.91',
-      previousAmount: '32,40,646.11',
-      isGrandTotal: true,
-    ),
-  ];
+  List<String> get _periodLabels {
+    if (startDate.isAtSameMomentAs(endDate)) {
+      final format = ReportFormatterCache.date('dd-MM-yyyy');
+      return [
+        format.format(startDate),
+        format.format(startDate.subtract(const Duration(days: 1))),
+      ];
+    } else {
+      final format = ReportFormatterCache.date('MMM dd');
+      final duration = endDate.difference(startDate).inDays + 1;
+      final prevStart = startDate.subtract(Duration(days: duration));
+      final prevEnd = endDate.subtract(Duration(days: duration));
 
-  List<_ScheduleIIIBalanceRow> _buildRows() {
-    if (reportView == 'Simplified View') return _rows;
-
-    final List<_ScheduleIIIBalanceRow> rows = [];
-    for (final row in _rows) {
-      rows.add(row);
-      if (row.particulars == 'b. Reserves and Surplus') {
-        rows.add(
-          const _ScheduleIIIBalanceRow(
-            particulars: 'Current Year Earnings',
-            currentAmount: '3,34,992.38',
-            previousAmount: '3,34,712.38',
-            indentLevel: 2,
-            isLink: true,
-          ),
-        );
-        rows.add(
-          const _ScheduleIIIBalanceRow(
-            particulars: 'Retained Earnings',
-            currentAmount: '12,042.38',
-            previousAmount: '12,042.38',
-            indentLevel: 2,
-            isLink: true,
-          ),
-        );
-      }
+      return [
+        '${format.format(startDate).toUpperCase()} - ${format.format(endDate).toUpperCase()}',
+        '${format.format(prevStart).toUpperCase()} - ${format.format(prevEnd).toUpperCase()}',
+      ];
     }
-    return rows;
   }
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const tableWidth = 825.0;
-        final tableHeight = constraints.hasBoundedHeight
-            ? constraints.maxHeight
-            : 480.0;
-        final table = SizedBox(
-          width: tableWidth,
-          height: tableHeight,
-          child: ReportStickyHeaderScrollTable(
-            header: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Basis : $reportBasis',
-                  textAlign: TextAlign.center,
-                  style: AppTheme.bodyText.copyWith(
-                    color: AppTheme.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: AppTheme.space24),
-                const _ScheduleIIITableHeader(),
-              ],
-            ),
-            emptyBody: const SizedBox.shrink(),
-            children: [
-              for (final row in _buildRows()) _ScheduleIIITableRow(row),
-              const SizedBox(height: AppTheme.space24),
-              const _BaseCurrencyNote(),
-              const SizedBox(height: AppTheme.space10),
-            ],
-          ),
-        );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final request = BalanceSheetScheduleIIIRequest(
+      startDate: startDate,
+      endDate: endDate,
+      basis: reportBasis,
+    );
 
-        if (constraints.maxWidth < tableWidth) {
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: table,
-          );
+    final asyncData = ref.watch(balanceSheetScheduleIIIProvider(request));
+
+    return asyncData.when(
+      loading: () => const Padding(padding: EdgeInsets.all(AppTheme.space16), child: SingleChildScrollView(physics: NeverScrollableScrollPhysics(), child: ZTableSkeleton(rows: 5, columns: 3))),
+      error: (error, stack) => Center(child: Text('Error: $error')),
+      data: (data) {
+        final assets = (data['assets'] as List<dynamic>?) ?? [];
+        final liabilitiesAndEquity = (data['equitiesAndLiabilities'] as List<dynamic>?) ?? [];
+
+        final List<_ScheduleIIIBalanceRow> dynamicRows = [];
+
+        // EQUITIES AND LIABILITIES
+        dynamicRows.add(const _ScheduleIIIBalanceRow(particulars: 'I. EQUITIES AND LIABILITIES', currentAmount: '', previousAmount: '', isSection: true));
+        double totalEquitiesAndLiabilities = 0;
+        for (final item in liabilitiesAndEquity) {
+          final balance = double.tryParse(item['balance'].toString()) ?? 0.0;
+          totalEquitiesAndLiabilities += balance;
+          dynamicRows.add(_ScheduleIIIBalanceRow(
+            particulars: item['accountName'] as String,
+            currentAmount: balance.toStringAsFixed(2),
+            previousAmount: '0.00',
+            indentLevel: 1,
+          ));
         }
+        dynamicRows.add(_ScheduleIIIBalanceRow(particulars: 'Total', currentAmount: totalEquitiesAndLiabilities.toStringAsFixed(2), previousAmount: '0.00', isGrandTotal: true));
 
-        return Center(child: table);
+        // ASSETS
+        dynamicRows.add(const _ScheduleIIIBalanceRow(particulars: 'II. ASSETS', currentAmount: '', previousAmount: '', isSection: true));
+        double totalAssets = 0;
+        for (final item in assets) {
+          final balance = double.tryParse(item['balance'].toString()) ?? 0.0;
+          totalAssets += balance;
+          dynamicRows.add(_ScheduleIIIBalanceRow(
+            particulars: item['accountName'] as String,
+            currentAmount: balance.toStringAsFixed(2),
+            previousAmount: '0.00',
+            indentLevel: 1,
+          ));
+        }
+        dynamicRows.add(_ScheduleIIIBalanceRow(particulars: 'Total', currentAmount: totalAssets.toStringAsFixed(2), previousAmount: '0.00', isGrandTotal: true));
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            const tableWidth = 825.0;
+            final tableHeight = constraints.hasBoundedHeight
+                ? constraints.maxHeight
+                : 480.0;
+            final table = SizedBox(
+              width: tableWidth,
+              height: tableHeight,
+              child: ReportStickyHeaderScrollTable(
+                header: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Basis : $reportBasis',
+                      textAlign: TextAlign.center,
+                      style: AppTheme.bodyText.copyWith(
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.space24),
+                    _ScheduleIIITableHeader(
+                      currentPeriodLabel: _periodLabels[0],
+                      previousPeriodLabel: _periodLabels[1],
+                    ),
+                  ],
+                ),
+                emptyBody: const SizedBox.shrink(),
+                children: [
+                  for (final row in dynamicRows) _ScheduleIIITableRow(row),
+                  const SizedBox(height: AppTheme.space24),
+                  const _BaseCurrencyNote(),
+                  const SizedBox(height: AppTheme.space10),
+                ],
+              ),
+            );
+
+            if (constraints.maxWidth < tableWidth) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: table,
+              );
+            }
+
+            return Center(child: table);
+          },
+        );
       },
     );
   }
 }
 
 class _ScheduleIIITableHeader extends StatelessWidget {
-  const _ScheduleIIITableHeader();
+  final String currentPeriodLabel;
+  final String previousPeriodLabel;
+
+  const _ScheduleIIITableHeader({
+    required this.currentPeriodLabel,
+    required this.previousPeriodLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -516,7 +354,7 @@ class _ScheduleIIITableHeader extends StatelessWidget {
           SizedBox(
             width: 120,
             child: Text(
-              '31-07-2026',
+              currentPeriodLabel,
               textAlign: TextAlign.right,
               style: ReportTableTypography.header,
             ),
@@ -526,7 +364,7 @@ class _ScheduleIIITableHeader extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.only(right: AppTheme.space20),
               child: Text(
-                '30-06-2026',
+                previousPeriodLabel,
                 textAlign: TextAlign.right,
                 style: ReportTableTypography.header,
               ),
@@ -545,12 +383,10 @@ class _ScheduleIIITableRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isLink = row.isLink;
-
     final textStyle = AppTheme.tableCell.copyWith(
       fontSize: 14,
-      color: isLink ? AppTheme.primaryBlue : AppTheme.textPrimary,
-      fontWeight: row.isSection || row.isEmphasized || row.isGrandTotal
+      color: AppTheme.textPrimary,
+      fontWeight: row.isSection || row.isGrandTotal
           ? FontWeight.w700
           : FontWeight.w400,
     );

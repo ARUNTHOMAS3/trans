@@ -1557,7 +1557,7 @@ class _ExpensesReportPageState extends ConsumerState<ExpensesReportPage> {
                               minWidth: tableW,
                               child: tableContent,
                             ),
-                      if (_isLoading)
+                      if (_isLoading || state.isLoading)
                         Positioned.fill(
                           child: Container(
                             color: AppTheme.backgroundColor,

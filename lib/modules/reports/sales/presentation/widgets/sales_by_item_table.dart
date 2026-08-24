@@ -990,6 +990,7 @@ class _SalesByItemComparisonDataRow extends StatefulWidget {
     required this.isIndented,
     required this.quantityFormat,
     required this.currencyFormat,
+    // ignore: unused_element_parameter
     this.onOpenDetails,
   });
 
@@ -1072,6 +1073,7 @@ class _SalesByItemComparisonDataRowState
     required String averagePriceText,
     VoidCallback? onTap,
   }) {
+    // ignore: sized_box_for_whitespace
     return Container(
       width: _SalesByItemTableState._periodMetricWidth * 3,
       child: Row(

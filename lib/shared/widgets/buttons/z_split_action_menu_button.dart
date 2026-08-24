@@ -7,11 +7,13 @@ class ZSplitActionMenuItem {
     required this.label,
     required this.onPressed,
     this.isLoading = false,
+    this.icon,
   });
 
   final String label;
   final VoidCallback onPressed;
   final bool isLoading;
+  final IconData? icon;
 }
 
 class ZSplitActionMenuButton extends StatelessWidget {
@@ -25,6 +27,8 @@ class ZSplitActionMenuButton extends StatelessWidget {
     this.isDisabled = false,
     this.isPrimaryStyle = true,
     this.useFilledBlueHover = true,
+    this.openUp = false,
+    this.primaryColor,
   });
 
   final double height;
@@ -35,6 +39,8 @@ class ZSplitActionMenuButton extends StatelessWidget {
   final bool isDisabled;
   final bool isPrimaryStyle;
   final bool useFilledBlueHover;
+  final bool openUp;
+  final Color? primaryColor;
 
   @override
   Widget build(BuildContext context) {
@@ -42,14 +48,15 @@ class ZSplitActionMenuButton extends StatelessWidget {
     final triggerForeground = isPrimaryStyle
         ? AppTheme.backgroundColor
         : (isDisabled ? AppTheme.textSecondary : AppTheme.textBody);
+    final resolvedPrimaryColor = primaryColor ?? AppTheme.primaryBlue;
     final triggerBaseBackground = isPrimaryStyle
-        ? AppTheme.primaryBlue
+        ? resolvedPrimaryColor
         : AppTheme.backgroundColor;
     final triggerHoverBackground = useFilledBlueHover
-        ? AppTheme.primaryBlueDark
+        ? (primaryColor ?? AppTheme.primaryBlueDark)
         : AppTheme.primaryBlue.withValues(alpha: 0.12);
     final triggerSide = isPrimaryStyle
-        ? const BorderSide(color: AppTheme.primaryBlue)
+        ? BorderSide(color: resolvedPrimaryColor)
         : const BorderSide(color: AppTheme.borderColor);
 
     final triggerBaseStyle = ButtonStyle(
@@ -74,6 +81,18 @@ class ZSplitActionMenuButton extends StatelessWidget {
     );
 
     return MenuAnchor(
+      alignmentOffset: openUp
+          ? Offset(0, -((menuItems.length * 40) + 16 + height))
+          : const Offset(0, 4),
+      style: const MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(Colors.white),
+        surfaceTintColor: WidgetStatePropertyAll(Colors.white),
+        padding: WidgetStatePropertyAll(EdgeInsets.all(4)),
+        elevation: WidgetStatePropertyAll(8),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+        ),
+      ),
       menuChildren: menuItems
           .map((item) {
             return MenuItemButton(
@@ -95,7 +114,17 @@ class ZSplitActionMenuButton extends StatelessWidget {
                   }
                   return AppTheme.textPrimary;
                 }),
+                iconColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                  return states.contains(WidgetState.hovered)
+                      ? Colors.white
+                      : AppTheme.primaryBlue;
+                }),
+                shape: const WidgetStatePropertyAll(
+                  RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(6))),
+                ),
+                minimumSize: const WidgetStatePropertyAll(Size(0, 40)),
               ),
+              leadingIcon: item.icon == null ? null : Icon(item.icon, size: 16),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minWidth: menuWidth - 32),
                 child: Row(

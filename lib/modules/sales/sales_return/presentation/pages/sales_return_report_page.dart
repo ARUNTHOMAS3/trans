@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/modules/auth/controller/auth_controller.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:zerpai_erp/app/routing/app_router.dart';
+import 'package:zerpai_erp/core/routing/app_router.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/modules/items/items/controllers/items_controller.dart';
-import 'package:zerpai_erp/modules/sales/sales_orders/controllers/sales_order_controller.dart';
+import 'package:zerpai_erp/modules/sales/customers/providers/customers_provider.dart';
 import 'package:zerpai_erp/modules/sales/sales_return/models/sales_return_model.dart';
 import 'package:zerpai_erp/modules/sales/sales_return/providers/sales_return_provider.dart';
+import 'package:zerpai_erp/modules/purchases/purchase_returns/providers/purchases_purchase_returns_provider.dart';
+import 'package:zerpai_erp/core/providers/entity_provider.dart';
 import 'package:zerpai_erp/shared/models/column_config.dart';
 import 'package:zerpai_erp/shared/widgets/tables/column_customizer.dart';
+import 'package:zerpai_erp/shared/widgets/tables/z_module_table.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
+import 'package:zerpai_erp/shared/widgets/inputs/favorite_filter_dropdown.dart';
 import 'package:zerpai_erp/shared/widgets/skeleton.dart';
 import 'package:zerpai_erp/shared/widgets/z_button.dart';
 import 'package:zerpai_erp/shared/widgets/zerpai_layout.dart';
@@ -24,19 +29,21 @@ class SalesReturnsReportPage extends ConsumerStatefulWidget {
       _SalesReturnsReportPageState();
 }
 
-class _SalesReturnsReportPageState
-    extends ConsumerState<SalesReturnsReportPage> {
-  static const _viewOptions = [
-    'All',
-    'Draft',
-    'Pending Approval',
-    'Approved',
-    'Declined',
-    'Received',
-    'Closed',
+class _SalesReturnsReportPageState extends ConsumerState<SalesReturnsReportPage> {
+
+  /// Shared with the sales returns overview page so a view starred in one place
+  /// shows up as a favorite in the other (same `sales_returns` module bucket).
+  static const _srFilterOptions = <FavoriteFilterOption>[
+    FavoriteFilterOption(label: 'All', value: 'All'),
+    FavoriteFilterOption(label: 'Draft', value: 'Draft'),
+    FavoriteFilterOption(label: 'Pending Approval', value: 'Pending Approval'),
+    FavoriteFilterOption(label: 'Approved', value: 'Approved'),
+    FavoriteFilterOption(label: 'Declined', value: 'Declined'),
+    FavoriteFilterOption(label: 'Received', value: 'Received'),
+    FavoriteFilterOption(label: 'Closed', value: 'Closed'),
   ];
 
-  Map<String, double> _colWidths = {
+  final Map<String, double> _colWidths = {
     'date': 140,
     'rmaNumber': 140,
     'salesOrderNumber': 160,
@@ -48,26 +55,16 @@ class _SalesReturnsReportPageState
     'amountRefunded': 120,
   };
 
-  void _onColumnResize(String id, double delta) {
-    final current = _colWidths[id] ?? 120;
-    final next = (current + delta).clamp(60.0, 600.0);
-    if ((next - current).abs() < 0.5) return;
-    setState(() => _colWidths = {..._colWidths, id: next});
-  }
-
-  String _selectedView = 'All';
-  bool _dropdownOpen = false;
+  FavoriteFilterOption _activeOption = _srFilterOptions.first;
+  String get _selectedView => _activeOption.label;
   bool _columnMenuOpen = false;
-  bool _favoritesExpanded = true;
-  bool _defaultFiltersExpanded = true;
   String _textMode = 'clip';
-  String _sortColumn = 'salesOrderNumber';
-  bool _sortAscending = true;
-  final Set<String> _starredViews = {'Draft', 'Approved'};
+  String _sortColumn = _createdSortColumn;
+  bool _sortAscending = false;
   List<ColumnConfig> _columns = _defaultColumns();
   final Set<int> _selectedIndices = {};
   final _moreMenuKey = GlobalKey();
-  final _columnSettingsKey = GlobalKey();
+
   final _hScrollController = ScrollController();
 
   @override
@@ -77,56 +74,72 @@ class _SalesReturnsReportPageState
   }
 
   static List<ColumnConfig> _defaultColumns() => [
-    ColumnConfig(id: 'date', label: 'Date', orderIndex: 0, isLocked: true),
-    ColumnConfig(id: 'rmaNumber', label: 'RMA#', orderIndex: 1, isLocked: true),
-    ColumnConfig(id: 'salesOrderNumber', label: 'Sales Order#', orderIndex: 2),
-    ColumnConfig(id: 'customerName', label: 'Customer Name', orderIndex: 3),
-    ColumnConfig(id: 'status', label: 'Status', orderIndex: 4),
-    ColumnConfig(id: 'receiveStatus', label: 'Receive Status', orderIndex: 5),
-    ColumnConfig(id: 'refundStatus', label: 'Refund Status', orderIndex: 6),
-    ColumnConfig(id: 'returned', label: 'Returned', orderIndex: 7),
-    ColumnConfig(id: 'amountRefunded', label: 'Amount Refunded', orderIndex: 8),
-  ];
+        ColumnConfig(id: 'date', label: 'Date', orderIndex: 0, isLocked: true),
+        ColumnConfig(id: 'rmaNumber', label: 'RMA#', orderIndex: 1, isLocked: true),
+        ColumnConfig(id: 'salesOrderNumber', label: 'Sales Order#', orderIndex: 2),
+        ColumnConfig(id: 'customerName', label: 'Customer Name', orderIndex: 3),
+        ColumnConfig(id: 'status', label: 'Status', orderIndex: 4, isLocked: true),
+        ColumnConfig(id: 'receiveStatus', label: 'Receive Status', orderIndex: 5),
+        ColumnConfig(id: 'refundStatus', label: 'Refund Status', orderIndex: 6),
+        ColumnConfig(id: 'returned', label: 'Returned', orderIndex: 7),
+        ColumnConfig(id: 'amountRefunded', label: 'Amount Refunded', orderIndex: 8),
+      ];
 
-  List<ColumnConfig> get _visibleColumns =>
-      _columns
-          .where((c) => c.isVisible)
-          .map(
-            (c) => ColumnConfig(
-              id: c.id,
-              label: c.label,
-              isVisible: c.isVisible,
-              orderIndex: c.orderIndex,
-              isLocked: c.isLocked,
-            ),
-          )
-          .toList()
-        ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+  List<ColumnConfig> get _visibleColumns => _columns
+      .where((c) => c.isVisible)
+      .map((c) => ColumnConfig(id: c.id, label: c.label, isVisible: c.isVisible, orderIndex: c.orderIndex, isLocked: c.isLocked))
+      .toList()
+    ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
 
-  double get _tableWidth {
-    final colSum = _visibleColumns.fold(
-      0.0,
-      (sum, c) => sum + (_colWidths[c.id] ?? 120),
-    );
-    return colSum + 92; // 16(pad) + 28(icon) + 32(checkbox) + 16(pad)
+  /// Row chrome outside the columns: 16(pad) + 28(icon) + 32(checkbox) + 16(pad).
+  static const double _kRowChrome = 92;
+
+  /// Column widths grown to fill [available], so the table spans the viewport
+  /// instead of leaving dead space down the right-hand side.
+  ///
+  /// Surplus is shared out in proportion to each column's own width, so a
+  /// column the user widened stays proportionally wider. When the viewport is
+  /// narrower than the declared widths they are returned untouched and the
+  /// table scrolls horizontally as before.
+  Map<String, double> _stretchedColWidths(
+    List<ColumnConfig> cols,
+    double available,
+  ) {
+    final base = <String, double>{
+      for (final c in cols) c.id: _colWidths[c.id] ?? 120,
+    };
+    final baseSum = base.values.fold(0.0, (a, b) => a + b);
+    if (baseSum <= 0) return base;
+
+    final surplus = available - (baseSum + _kRowChrome);
+    if (surplus <= 0) return base;
+
+    return {
+      for (final entry in base.entries)
+        entry.key: entry.value + surplus * (entry.value / baseSum),
+    };
   }
+
+  /// Default sort: newest saved record first. Not a table column — no header
+  /// carries it — so the arrow only appears once the user sorts explicitly.
+  static const String _createdSortColumn = 'createdAt';
 
   int _compare(_SalesReturnRow a, _SalesReturnRow b, String column) {
     switch (column) {
+      case _createdSortColumn:
+        // Rows with no timestamp sort last rather than jumping to the top.
+        final createdA = a.createdAt;
+        final createdB = b.createdAt;
+        if (createdA == null && createdB == null) return 0;
+        if (createdA == null) return -1;
+        if (createdB == null) return 1;
+        return createdA.compareTo(createdB);
       case 'date':
         try {
           final partsA = a.date.split('-');
           final partsB = b.date.split('-');
-          final dtA = DateTime(
-            int.parse(partsA[2]),
-            int.parse(partsA[1]),
-            int.parse(partsA[0]),
-          );
-          final dtB = DateTime(
-            int.parse(partsB[2]),
-            int.parse(partsB[1]),
-            int.parse(partsB[0]),
-          );
+          final dtA = DateTime(int.parse(partsA[2]), int.parse(partsA[1]), int.parse(partsA[0]));
+          final dtB = DateTime(int.parse(partsB[2]), int.parse(partsB[1]), int.parse(partsB[0]));
           return dtA.compareTo(dtB);
         } catch (_) {
           return a.date.compareTo(b.date);
@@ -148,26 +161,40 @@ class _SalesReturnsReportPageState
         final double qtyB = double.tryParse(b.returned) ?? 0.0;
         return qtyA.compareTo(qtyB);
       case 'amountRefunded':
-        final double amtA =
-            double.tryParse(
-              a.amountRefunded.replaceAll(RegExp(r'[^0-9.]'), ''),
-            ) ??
-            0.0;
-        final double amtB =
-            double.tryParse(
-              b.amountRefunded.replaceAll(RegExp(r'[^0-9.]'), ''),
-            ) ??
-            0.0;
+        final double amtA = double.tryParse(a.amountRefunded.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+        final double amtB = double.tryParse(b.amountRefunded.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
         return amtA.compareTo(amtB);
       default:
         return 0;
     }
   }
 
+  /// Value of a return, as `Σ(return_qty × product selling price)`.
+  ///
+  /// Returns null when it cannot be known in full — no lines, or any line whose
+  /// product has no selling price on record. A partial sum is deliberately not
+  /// shown: this figure drives approvals, and a number that silently omits
+  /// unpriced lines reads as a complete, smaller total.
+  ///
+  /// Note this is the product's *current* selling price, not the price the
+  /// customer was invoiced at — sales_return_items carries no rate, and there is
+  /// no FK back to invoice_items to recover one.
+  double? _returnValue(SalesReturn r, Map<String, double> priceMap) {
+    if (r.items.isEmpty) return null;
+    var total = 0.0;
+    for (final item in r.items) {
+      final price = priceMap[item.productId];
+      if (price == null || price <= 0) return null;
+      total += item.returnQty * price;
+    }
+    return total;
+  }
+
   List<_SalesReturnRow> _buildRows(
     List<SalesReturn> returns,
     Map<String, String> customerMap,
     Map<String, String> productMap,
+    Map<String, double> priceMap,
   ) {
     return returns.map((r) {
       String formattedDate = r.returnDate;
@@ -189,6 +216,9 @@ class _SalesReturnsReportPageState
             ? '${totalQty % 1 == 0 ? totalQty.toInt() : totalQty}'
             : '-',
         amountRefunded: '-',
+        reason: r.reason,
+        createdAt: DateTime.tryParse(r.createdAt),
+        totalAmount: _returnValue(r, priceMap),
         itemLines: r.items.map<_ItemLine>((item) {
           final name = productMap[item.productId] ?? item.productId;
           return _ItemLine(
@@ -204,11 +234,7 @@ class _SalesReturnsReportPageState
   List<_SalesReturnRow> _filteredRows(List<_SalesReturnRow> rows) {
     final list = _selectedView == 'All'
         ? List<_SalesReturnRow>.from(rows)
-        : rows
-              .where(
-                (r) => r.status.toLowerCase() == _selectedView.toLowerCase(),
-              )
-              .toList();
+        : rows.where((r) => r.status.toLowerCase() == _selectedView.toLowerCase()).toList();
     list.sort((a, b) {
       final cmp = _compare(a, b, _sortColumn);
       return _sortAscending ? cmp : -cmp;
@@ -216,14 +242,131 @@ class _SalesReturnsReportPageState
     return list;
   }
 
-  void _toggleRow(int index, bool? value) {
-    setState(() {
-      if (value == true) {
-        _selectedIndices.add(index);
-      } else {
-        _selectedIndices.remove(index);
-      }
-    });
+  /// One entry per return currently in view — who sent goods back, when, and
+  /// why. What the customer calls their purchase return is our sales return.
+  ///
+  /// Deliberately not per line item: a single return can carry many products,
+  /// which would bury the customer under repeated rows.
+  ///
+  /// Honours the active view filter and sort, so the popover always mirrors the
+  /// table beneath it.
+  List<_ReturnedItemEntry> _returnedItemEntries() {
+    final state = ref.read(purchaseReturnsProvider).valueOrNull;
+    final allReturns = state?.returns ?? const [];
+    if (allReturns.isEmpty) return const [];
+
+    final entityId = ref.read(entityProvider).entityId;
+    final returns = allReturns.where((r) => r.entityId == entityId).toList();
+
+    return [
+      for (final row in returns)
+        _ReturnedItemEntry(
+          rmaNumber: row.returnNumber,
+          date: row.returnDate != null
+              ? DateFormat('dd MMM yyyy').format(row.returnDate!)
+              : '',
+          customerName: row.vendorName ?? '',
+          reason: row.status,
+          totalAmount: row.total,
+        ),
+    ];
+  }
+
+  /// Opens the create form pre-filled from the ticked returns.
+  ///
+  /// The RMA numbers travel as a query parameter and the create page loads the
+  /// returns itself. Passing a `SalesReturnEditData` via `state.extra` does not
+  /// work here: the app's top-level redirect rewrites every path to add the org
+  /// system id, and GoRouter drops `extra` across a redirect — the page would
+  /// receive null. A query param also survives a browser refresh.
+  void _convertToSalesReturn(List<String> rmaNumbers) {
+    if (rmaNumbers.isEmpty) return;
+
+    final returns = ref.read(salesReturnsListProvider(null)).valueOrNull ?? [];
+    final selected =
+        returns.where((r) => rmaNumbers.contains(r.rmaNumber)).toList();
+
+    if (selected.isEmpty) {
+      ZerpaiToast.show(context, 'Could not load the selected returns.',
+          isError: true);
+      return;
+    }
+
+    if (selected.map((r) => r.customerId).toSet().length > 1) {
+      ZerpaiToast.show(
+        context,
+        'Selected returns belong to different customers — convert one customer at a time.',
+        isError: true,
+      );
+      return;
+    }
+
+    if (selected.every((r) => r.items.isEmpty)) {
+      ZerpaiToast.show(
+        context,
+        'The selected return has no line items to convert.',
+        isError: true,
+      );
+      return;
+    }
+
+    final query = Uri.encodeQueryComponent(
+      selected.map((r) => r.rmaNumber).join(','),
+    );
+    context.go('${AppRoutes.salesReturnsCreate}?from_rma=$query');
+  }
+
+  /// Placeholder for the approval decision — see the note in the popover.
+  void _rejectReturns(List<String> rmaNumbers) {
+    if (rmaNumbers.isEmpty) return;
+    ZerpaiToast.show(
+      context,
+      'Rejecting ${rmaNumbers.length} return${rmaNumbers.length == 1 ? '' : 's'} '
+      'is not wired yet — no status update endpoint exists.',
+      isError: true,
+    );
+  }
+
+  void _showReturnedItemsPopover(BuildContext context) {
+    final entries = _returnedItemEntries();
+
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: true,
+      useRootNavigator: true,
+      builder: (dialogContext) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(dialogContext).pop(),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          // Flush to the top of the viewport, horizontally centred — no top
+          // inset, so the card starts at y = 0.
+          Align(
+            alignment: Alignment.topCenter,
+            child: Material(
+              color: Colors.transparent,
+              child: _ReturnedItemsPopover(
+                entries: entries,
+                onClose: () => Navigator.of(dialogContext).pop(),
+                onConvert: (rmaNumbers) {
+                  Navigator.of(dialogContext).pop();
+                  _convertToSalesReturn(rmaNumbers);
+                },
+                onReject: (rmaNumbers) {
+                  Navigator.of(dialogContext).pop();
+                  _rejectReturns(rmaNumbers);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showMoreMenu(BuildContext context) {
@@ -279,95 +422,6 @@ class _SalesReturnsReportPageState
     );
   }
 
-  void _showColumnMenu(BuildContext context) {
-    final box =
-        _columnSettingsKey.currentContext?.findRenderObject() as RenderBox?;
-    final screenWidth = MediaQuery.of(context).size.width;
-    double menuTop = 148;
-    double menuLeft = 14;
-    if (box != null) {
-      final pos = box.localToGlobal(Offset.zero);
-      menuTop = pos.dy + box.size.height + 4;
-      menuLeft = pos.dx.clamp(8.0, screenWidth - 208);
-    }
-    setState(() => _columnMenuOpen = true);
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.transparent,
-      barrierDismissible: true,
-      useRootNavigator: true,
-      builder: (dialogContext) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                Navigator.of(dialogContext).pop();
-                setState(() => _columnMenuOpen = false);
-              },
-              child: const SizedBox.expand(),
-            ),
-          ),
-          Positioned(
-            top: menuTop,
-            left: menuLeft,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: 200,
-                decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.borderLight),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.textPrimary.withValues(alpha: 0.12),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _ColumnMenuOption(
-                      label: 'Customize Columns',
-                      icon: LucideIcons.columns,
-                      selected: false,
-                      onTap: () {
-                        Navigator.of(dialogContext).pop();
-                        setState(() => _columnMenuOpen = false);
-                        _openColumnCustomizer();
-                      },
-                    ),
-                    _ColumnMenuOption(
-                      label: _textMode == 'clip' ? 'Clip Text' : 'Wrap Text',
-                      icon: _textMode == 'clip'
-                          ? LucideIcons.minus
-                          : LucideIcons.alignLeft,
-                      selected: false,
-                      onTap: () {
-                        Navigator.of(dialogContext).pop();
-                        setState(() {
-                          _textMode = _textMode == 'clip' ? 'wrap' : 'clip';
-                          _columnMenuOpen = false;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ).then((_) {
-      if (mounted && _columnMenuOpen) {
-        setState(() => _columnMenuOpen = false);
-      }
-    });
-  }
-
   void _openColumnCustomizer() {
     setState(() => _columnMenuOpen = false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -379,17 +433,7 @@ class _SalesReturnsReportPageState
           columns: _columns,
           onSave: (columns) {
             setState(() {
-              _columns = columns
-                  .map(
-                    (c) => ColumnConfig(
-                      id: c.id,
-                      label: c.label,
-                      isVisible: c.isVisible,
-                      orderIndex: c.orderIndex,
-                      isLocked: c.isLocked,
-                    ),
-                  )
-                  .toList();
+              _columns = columns.map((c) => ColumnConfig(id: c.id, label: c.label, isVisible: c.isVisible, orderIndex: c.orderIndex, isLocked: c.isLocked)).toList();
             });
             Navigator.of(dialogContext, rootNavigator: true).pop();
           },
@@ -401,20 +445,25 @@ class _SalesReturnsReportPageState
   @override
   Widget build(BuildContext context) {
     final returnsAsync = ref.watch(salesReturnsListProvider(null));
-    final customers = ref.watch(salesCustomersProvider).valueOrNull ?? [];
+    ref.watch(purchaseReturnsProvider);
+    final customers = ref.watch(customersProvider).valueOrNull ?? [];
     final customerMap = {for (final c in customers) c.id: c.displayName};
     final products = ref.watch(itemsControllerProvider).items;
     final productMap = <String, String>{
       for (final p in products)
         if (p.id != null) p.id!: p.productName,
     };
+    final priceMap = <String, double>{
+      for (final p in products)
+        if (p.id != null && p.sellingPrice != null) p.id!: p.sellingPrice!,
+    };
     final allRows = returnsAsync.valueOrNull == null
         ? <_SalesReturnRow>[]
-        : _buildRows(returnsAsync.valueOrNull!, customerMap, productMap);
+        : _buildRows(
+            returnsAsync.valueOrNull!, customerMap, productMap, priceMap);
     final rows = _filteredRows(allRows);
 
     final visibleColumns = _visibleColumns;
-    final tableWidth = _tableWidth;
 
     return ZerpaiLayout(
       pageTitle: '',
@@ -424,11 +473,8 @@ class _SalesReturnsReportPageState
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () {
-          if (_dropdownOpen || _columnMenuOpen) {
-            setState(() {
-              _dropdownOpen = false;
-              _columnMenuOpen = false;
-            });
+          if (_columnMenuOpen) {
+            setState(() => _columnMenuOpen = false);
           }
         },
         child: Container(
@@ -436,120 +482,65 @@ class _SalesReturnsReportPageState
           child: Stack(
             children: [
               Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildToolbar(context),
                   const Divider(height: 1, color: AppTheme.borderLight),
                   Expanded(
-                    child: returnsAsync.isLoading
-                        ? const _SalesReturnsReportSkeleton()
-                        : returnsAsync.hasError
-                        ? Center(
-                            child: Text(
-                              'Failed to load sales returns',
-                              style: TextStyle(color: AppTheme.errorRed),
-                            ),
-                          )
-                        : _buildFullTable(visibleColumns, tableWidth, rows),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      child: returnsAsync.isLoading
+                          ? const KeyedSubtree(
+                              key: ValueKey("sales-returns-report-loading"),
+                              child: _SalesReturnsReportSkeleton(),
+                            )
+                          : returnsAsync.hasError
+                            ? KeyedSubtree(
+                                key: const ValueKey("sales-returns-report-error"),
+                                child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Failed to load sales returns',
+                                        style: TextStyle(
+                                          color: AppTheme.errorRed,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${returnsAsync.error}',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      ZButton.secondary(
+                                        label: 'Retry',
+                                        onPressed: () => ref.invalidate(
+                                          salesReturnsListProvider,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                ),
+                              )
+                            : KeyedSubtree(
+                                key: const ValueKey("sales-returns-report-content"),
+                                child: _buildFullTable(visibleColumns, rows),
+                              ),
+                    ),
                   ),
                 ],
               ),
-              // View dropdown overlay
-              if (_dropdownOpen)
-                Positioned(
-                  top: 60,
-                  left: 24,
-                  child: Material(
-                    elevation: 0,
-                    color: Colors.transparent,
-                    child: Container(
-                      width: 240,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.borderLight),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 480),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              GestureDetector(
-                                onTap: () => setState(
-                                  () =>
-                                      _favoritesExpanded = !_favoritesExpanded,
-                                ),
-                                child: _DropdownSectionHeader(
-                                  label: 'FAVORITES',
-                                  count: _starredViews.length,
-                                  countColor: AppTheme.primaryBlue,
-                                  expanded: _favoritesExpanded,
-                                ),
-                              ),
-                              if (_favoritesExpanded &&
-                                  _starredViews.isNotEmpty)
-                                ..._viewOptions
-                                    .where((opt) => _starredViews.contains(opt))
-                                    .map(
-                                      (opt) => _ViewFilterOption(
-                                        label: opt,
-                                        selected: opt == _selectedView,
-                                        starred: true,
-                                        onStarTap: () => setState(
-                                          () => _starredViews.remove(opt),
-                                        ),
-                                        onTap: () => setState(() {
-                                          _selectedView = opt;
-                                          _dropdownOpen = false;
-                                        }),
-                                      ),
-                                    ),
-                              GestureDetector(
-                                onTap: () => setState(
-                                  () => _defaultFiltersExpanded =
-                                      !_defaultFiltersExpanded,
-                                ),
-                                child: _DropdownSectionHeader(
-                                  label: 'DEFAULT FILTERS',
-                                  count: _viewOptions.length,
-                                  countColor: AppTheme.accentGreen,
-                                  expanded: _defaultFiltersExpanded,
-                                ),
-                              ),
-                              if (_defaultFiltersExpanded)
-                                ..._viewOptions.map(
-                                  (opt) => _ViewFilterOption(
-                                    label: opt,
-                                    selected: opt == _selectedView,
-                                    starred: _starredViews.contains(opt),
-                                    onStarTap: () => setState(() {
-                                      if (_starredViews.contains(opt)) {
-                                        _starredViews.remove(opt);
-                                      } else {
-                                        _starredViews.add(opt);
-                                      }
-                                    }),
-                                    onTap: () => setState(() {
-                                      _selectedView = opt;
-                                      _dropdownOpen = false;
-                                    }),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
@@ -558,64 +549,66 @@ class _SalesReturnsReportPageState
   }
 
   Widget _buildToolbar(BuildContext context) {
+    final user = ref.watch(authUserProvider);
+    final isOrg = (user?.activeTenantType ?? '').trim().toUpperCase() == 'ORG';
+
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => setState(() => _dropdownOpen = !_dropdownOpen),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _selectedView == 'All'
-                      ? 'Sales Returns Report'
-                      : '$_selectedView Sales Returns',
-                  style: AppTheme.pageTitle.copyWith(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
+          FavoriteFilterDropdown(
+            moduleName: 'sales_returns',
+            options: _srFilterOptions,
+            selectedOption: _activeOption,
+            showChevron: true,
+            onChanged: (opt) {
+              setState(() {
+                _activeOption = opt;
+                _columnMenuOpen = false;
+                _selectedIndices.clear();
+              });
+            },
+          ),
+          const Spacer(),
+          if (isOrg) ...[
+            SizedBox(
+              height: 36,
+              child: TextButton.icon(
+                onPressed: () => _showReturnedItemsPopover(context),
+                icon: const Icon(LucideIcons.clipboardCheck,
+                    size: 16, color: AppTheme.textPrimary),
+                label: const Text(
+                  'Purchase Return Approval',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                     color: AppTheme.textPrimary,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Icon(
-                  _dropdownOpen
-                      ? LucideIcons.chevronUp
-                      : LucideIcons.chevronDown,
-                  size: 18,
-                  color: AppTheme.primaryBlueDark,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    side: BorderSide(color: AppTheme.borderLight),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-              ],
+              ),
             ),
-          ),
-          const Spacer(),
-          ZButton.primary(
-            label: 'New',
+            const SizedBox(width: 8),
+          ],
+          _FilledActionSquare(
             icon: LucideIcons.plus,
-            onPressed: () => context.go(AppRoutes.salesReturnsCreate),
+            onTap: () => context.go(AppRoutes.salesReturnsCreate),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           SizedBox(
             key: _moreMenuKey,
-            width: 36,
-            height: 36,
-            child: TextButton(
-              onPressed: () => _showMoreMenu(context),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                shape: RoundedRectangleBorder(
-                  side: BorderSide(color: AppTheme.borderLight),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              child: const Icon(
-                LucideIcons.moreHorizontal,
-                size: 18,
-                color: AppTheme.textPrimary,
-              ),
+            child: _OutlineActionSquare(
+              icon: LucideIcons.moreHorizontal,
+              onTap: () => _showMoreMenu(context),
             ),
           ),
         ],
@@ -623,99 +616,218 @@ class _SalesReturnsReportPageState
     );
   }
 
+  String _formatStatus(String status) {
+    if (status.isEmpty) return status;
+    return status.split('_').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return const Color(0xFFF59E0B);
+      case 'approved':
+      case 'received':
+      case 'refunded':
+      case 'credited':
+        return AppTheme.successGreen;
+      case 'partial':
+        return AppTheme.primaryBlue;
+      default:
+        return AppTheme.textSecondary;
+    }
+  }
+
+  Widget _cellForColumn(_SalesReturnRow row, String id) {
+    switch (id) {
+      case 'date':
+        return Text(
+          row.date,
+          maxLines: _textMode == 'wrap' ? null : 1,
+          overflow: _textMode == 'wrap' ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+        );
+      case 'rmaNumber':
+        return Text(
+          row.rmaNumber,
+          maxLines: _textMode == 'wrap' ? null : 1,
+          overflow: _textMode == 'wrap' ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 13,
+            color: AppTheme.primaryBlueDark,
+            fontWeight: FontWeight.w600,
+          ),
+        );
+      case 'salesOrderNumber':
+        return const SizedBox.shrink();
+      case 'customerName':
+        return Text(
+          row.customerName,
+          maxLines: _textMode == 'wrap' ? null : 1,
+          overflow: _textMode == 'wrap' ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+        );
+      case 'status':
+        final String displayStatus;
+        if (row.status.toUpperCase() == 'RECEIVED') {
+          displayStatus = 'Approved';
+        } else {
+          displayStatus = _formatStatus(row.status);
+        }
+        return Text(
+          displayStatus,
+          maxLines: _textMode == 'wrap' ? null : 1,
+          overflow: _textMode == 'wrap' ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 13,
+            color: AppTheme.primaryBlue,
+            fontWeight: FontWeight.w500,
+          ),
+        );
+      case 'receiveStatus':
+        return Text(
+          _formatStatus(row.receiveStatus),
+          maxLines: _textMode == 'wrap' ? null : 1,
+          overflow: _textMode == 'wrap' ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            color: _statusColor(row.receiveStatus),
+            fontWeight: FontWeight.w500,
+          ),
+        );
+      case 'refundStatus':
+        return Text(
+          _formatStatus(row.refundStatus),
+          maxLines: _textMode == 'wrap' ? null : 1,
+          overflow: _textMode == 'wrap' ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            color: _statusColor(row.refundStatus),
+            fontWeight: FontWeight.w500,
+          ),
+        );
+      case 'returned':
+        return Text(
+          row.returned,
+          maxLines: _textMode == 'wrap' ? null : 1,
+          overflow: _textMode == 'wrap' ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+        );
+      case 'amountRefunded':
+        return Text(
+          row.amountRefunded,
+          maxLines: _textMode == 'wrap' ? null : 1,
+          overflow: _textMode == 'wrap' ? TextOverflow.visible : TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
   Widget _buildFullTable(
-    List<ColumnConfig> visibleColumns,
-    double tableWidth,
-    List<_SalesReturnRow> rows,
-  ) {
+      List<ColumnConfig> visibleColumns, List<_SalesReturnRow> rows) {
     final rowCount = rows.length;
-    final allSelected =
-        _selectedIndices.isNotEmpty && _selectedIndices.length == rowCount;
-    final someSelected =
-        _selectedIndices.isNotEmpty && _selectedIndices.length < rowCount;
-    final hasSelection = _selectedIndices.isNotEmpty;
-    return Scrollbar(
+    final allSelected = _selectedIndices.isNotEmpty && _selectedIndices.length == rowCount;
+    return LayoutBuilder(builder: (context, constraints) {
+      final colWidths = _stretchedColWidths(visibleColumns, constraints.maxWidth);
+      final tWidth =
+          colWidths.values.fold(0.0, (a, b) => a + b) + _kRowChrome;
+
+      return Scrollbar(
       controller: _hScrollController,
       thumbVisibility: true,
       trackVisibility: true,
       child: SingleChildScrollView(
-        controller: _hScrollController,
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: MediaQuery.of(context).size.width,
-          ),
-          child: SizedBox(
-            width: tableWidth,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _TableHeader(
-                  columns: visibleColumns,
-                  colWidths: _colWidths,
-                  columnMenuOpen: _columnMenuOpen,
-                  onColumnMenuTap: () => _showColumnMenu(context),
-                  textMode: _textMode,
-                  sortColumn: _sortColumn,
-                  sortAscending: _sortAscending,
-                  onColumnResize: _onColumnResize,
-                  onSort: (colId) => setState(() {
-                    if (_sortColumn == colId) {
-                      _sortAscending = !_sortAscending;
-                    } else {
-                      _sortColumn = colId;
-                      _sortAscending = true;
-                    }
-                  }),
-                  columnSettingsKey: _columnSettingsKey,
-                  allSelected: allSelected,
-                  someSelected: someSelected,
-                  hasSelection: hasSelection,
-                  onSelectAll: (v) => setState(() {
-                    if (v == true) {
-                      _selectedIndices.addAll(
-                        List.generate(rowCount, (i) => i),
-                      );
-                    } else {
-                      _selectedIndices.clear();
-                    }
-                  }),
-                ),
-                const Divider(height: 1, color: AppTheme.borderLight),
-                Expanded(
-                  child: ListView.separated(
-                    padding: EdgeInsets.zero,
-                    itemCount: rows.length,
-                    separatorBuilder: (_, __) =>
-                        const Divider(height: 1, color: AppTheme.borderLight),
-                    itemBuilder: (context, index) {
-                      final row = rows[index];
-                      return _TableRow(
-                        row: row,
-                        columns: visibleColumns,
-                        colWidths: _colWidths,
-                        textMode: _textMode,
-                        selected: _selectedIndices.contains(index),
-                        hasSelection: hasSelection,
-                        onChanged: (v) => _toggleRow(index, v),
-                        onTap: () {
-                          context.go(
-                            Uri(
-                              path: AppRoutes.salesReturnsOverview,
-                              queryParameters: {'rma': row.rmaNumber},
-                            ).toString(),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
+      controller: _hScrollController,
+      scrollDirection: Axis.horizontal,
+      child: SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: SizedBox(
+          width: tWidth,
+          child: ZModuleTable<_SalesReturnRow>(
+            rows: rows,
+            visibleColumns: visibleColumns,
+            rowId: (row) => row.rmaNumber,
+            horizontalInset: 0,
+            allSelected: allSelected,
+            isSelected: (id) {
+              final index = rows.indexWhere((r) => r.rmaNumber == id);
+              return _selectedIndices.contains(index);
+            },
+            wrapText: _textMode == 'wrap',
+            sortKey: _sortColumn,
+            sortAscending: _sortAscending,
+            headerBuilder: (context, column) => Text(
+              column.label.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+                letterSpacing: 0,
+              ),
             ),
+            onHeaderTap: (key) => setState(() {
+              if (_sortColumn == key) {
+                _sortAscending = !_sortAscending;
+              } else {
+                _sortColumn = key;
+                _sortAscending = true;
+              }
+            }),
+            onHoveredRowChanged: (id) {},
+            onAllSelectedChanged: (selected) {
+              setState(() {
+                if (selected) {
+                  _selectedIndices.addAll(List.generate(rowCount, (i) => i));
+                } else {
+                  _selectedIndices.clear();
+                }
+              });
+            },
+            onRowSelectChanged: (id, selected) {
+              final index = rows.indexWhere((r) => r.rmaNumber == id);
+              if (index != -1) {
+                setState(() {
+                  if (selected) {
+                    _selectedIndices.add(index);
+                  } else {
+                    _selectedIndices.remove(index);
+                  }
+                });
+              }
+            },
+            onWrapTextChanged: (val) {
+              setState(() {
+                _textMode = val ? 'wrap' : 'clip';
+              });
+            },
+            onCustomizeColumns: _openColumnCustomizer,
+            columnWidthBuilder: (id) => colWidths[id] ?? 120,
+            cellBuilder: (context, row, column) {
+              return InkWell(
+                onTap: () {
+                  context.go(
+                    Uri(
+                      path: AppRoutes.salesReturnsOverview,
+                      queryParameters: {
+                        'rma': row.rmaNumber,
+                        'view': 'overview',
+                      },
+                    ).toString(),
+                  );
+                },
+                child: _cellForColumn(row, column.id),
+              );
+            },
           ),
         ),
       ),
-    );
+      ),
+      );
+    });
   }
 }
 
@@ -727,7 +839,7 @@ class _SalesReturnsReportSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Toolbar skeleton
         Container(
@@ -759,18 +871,12 @@ class _SalesReturnsReportSkeleton extends StatelessWidget {
           child: Row(
             children: [
               const SizedBox(width: 60),
-              ...List.generate(
-                8,
-                (i) => Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Skeleton(
-                      width: [80, 100, 120, 140, 80, 100, 80, 80][i].toDouble(),
-                      height: 13,
-                    ),
-                  ),
+              ...List.generate(8, (i) => Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Skeleton(width: [80, 100, 120, 140, 80, 100, 80, 80][i].toDouble(), height: 13),
                 ),
-              ),
+              )),
             ],
           ),
         ),
@@ -786,27 +892,15 @@ class _SalesReturnsReportSkeleton extends StatelessWidget {
               child: Row(
                 children: [
                   const SizedBox(width: 60),
-                  ...List.generate(
-                    8,
-                    (i) => Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Skeleton(
-                          width: [
-                            60.0,
-                            90.0,
-                            80.0,
-                            140.0,
-                            70.0,
-                            80.0,
-                            70.0,
-                            70.0,
-                          ][i],
-                          height: 13,
-                        ),
+                  ...List.generate(8, (i) => Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Skeleton(
+                        width: [60.0, 90.0, 80.0, 140.0, 70.0, 80.0, 70.0, 70.0][i],
+                        height: 13,
                       ),
                     ),
-                  ),
+                  )),
                 ],
               ),
             ),
@@ -839,8 +933,15 @@ class _SalesReturnRow {
     required this.refundStatus,
     required this.returned,
     required this.amountRefunded,
+    this.reason,
+    this.totalAmount,
     this.itemLines = const [],
+    this.createdAt,
   });
+
+  /// `sales_returns.created_at` — when the record was saved, as opposed to
+  /// [date], which is the user-entered return date and can be backdated.
+  final DateTime? createdAt;
 
   final String date;
   final String rmaNumber;
@@ -851,547 +952,341 @@ class _SalesReturnRow {
   final String refundStatus;
   final String returned;
   final String amountRefunded;
+
+  /// Why the customer sent the goods back — `sales_returns.reason`.
+  final String? reason;
+
+  /// Value of the returned goods, or null when it cannot be fully determined.
+  /// See [_SalesReturnsReportPageState._returnValue].
+  final double? totalAmount;
   final List<_ItemLine> itemLines;
 }
 
-class _TableHeader extends StatelessWidget {
-  const _TableHeader({
-    required this.columns,
-    required this.colWidths,
-    required this.columnMenuOpen,
-    required this.onColumnMenuTap,
-    required this.textMode,
-    required this.sortColumn,
-    required this.sortAscending,
-    required this.onColumnResize,
-    required this.onSort,
-    required this.columnSettingsKey,
-    required this.allSelected,
-    required this.someSelected,
-    required this.onSelectAll,
-    required this.hasSelection,
+/// One return, reduced to the three things the popover showcases: when the
+/// customer sent the goods back, who they are, and why.
+class _ReturnedItemEntry {
+  const _ReturnedItemEntry({
+    required this.rmaNumber,
+    required this.date,
+    required this.customerName,
+    this.reason,
+    this.totalAmount,
   });
 
-  final List<ColumnConfig> columns;
-  final Map<String, double> colWidths;
-  final bool columnMenuOpen;
-  final VoidCallback onColumnMenuTap;
-  final String textMode;
-  final String sortColumn;
-  final bool sortAscending;
-  final void Function(String id, double delta) onColumnResize;
-  final ValueChanged<String> onSort;
-  final GlobalKey columnSettingsKey;
-  final bool allSelected;
-  final bool someSelected;
-  final ValueChanged<bool?> onSelectAll;
-  final bool hasSelection;
+  /// Stable selection key — survives re-sorting, unlike a row index.
+  final String rmaNumber;
+  final String date;
+  final String customerName;
+  final String? reason;
+
+  /// Null when the value cannot be fully determined — rendered as an em dash
+  /// rather than a misleading partial figure.
+  final double? totalAmount;
+}
+
+/// Anchored popover listing what customers have sent back, with the date,
+/// who returned it and why.
+class _ReturnedItemsPopover extends StatefulWidget {
+  const _ReturnedItemsPopover({
+    required this.entries,
+    required this.onClose,
+    required this.onConvert,
+    required this.onReject,
+  });
+
+  final List<_ReturnedItemEntry> entries;
+  final VoidCallback onClose;
+
+  /// Invoked with the RMA numbers ticked in the list.
+  final void Function(List<String> rmaNumbers) onConvert;
+  final void Function(List<String> rmaNumbers) onReject;
+
+  @override
+  State<_ReturnedItemsPopover> createState() => _ReturnedItemsPopoverState();
+}
+
+class _ReturnedItemsPopoverState extends State<_ReturnedItemsPopover> {
+  /// Selected returns, keyed by RMA# so the set survives re-sorting.
+  final Set<String> _selected = {};
+
+  static const double _checkW = 44;
+  static const double _dateW = 140;
+  static const double _customerW = 300;
+  static const double _reasonW = 340;
+  static const double _amountW = 160;
+
+  static final _money =
+      NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+
+  List<_ReturnedItemEntry> get _entries => widget.entries;
+
+  bool get _allSelected =>
+      _entries.isNotEmpty && _selected.length == _entries.length;
+
+  void _toggleAll() {
+    setState(() {
+      if (_allSelected) {
+        _selected.clear();
+      } else {
+        _selected
+          ..clear()
+          ..addAll(_entries.map((e) => e.rmaNumber));
+      }
+    });
+  }
+
+  void _toggle(String rmaNumber, bool? value) {
+    setState(() {
+      if (value == true) {
+        _selected.add(rmaNumber);
+      } else {
+        _selected.remove(rmaNumber);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isWrap = textMode == 'wrap';
+    final entries = _entries;
     return Container(
-      height: isWrap ? null : 40,
-      constraints: isWrap ? const BoxConstraints(minHeight: 40) : null,
-      color: AppTheme.bgLight,
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: isWrap ? 10 : 0),
-      child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!hasSelection)
-              SizedBox(
-                key: columnSettingsKey,
-                width: 28,
-                child: GestureDetector(
-                  onTap: onColumnMenuTap,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Icon(
-                      LucideIcons.slidersHorizontal,
-                      size: 16,
-                      color: columnMenuOpen
-                          ? AppTheme.primaryBlueDark
-                          : AppTheme.primaryBlue,
-                    ),
-                  ),
-                ),
-              ),
-            SizedBox(
-              width: 32,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Checkbox(
-                  value: allSelected || someSelected,
-                  tristate: false,
-                  onChanged: (v) => onSelectAll(allSelected ? false : true),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  activeColor: AppTheme.primaryBlue,
-                  side: const BorderSide(
-                    color: AppTheme.borderLight,
-                    width: 1.5,
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-            ),
-            for (final col in columns)
-              _HeaderCell(
-                width: colWidths[col.id] ?? 120,
-                label: col.label.toUpperCase(),
-                sorted: col.id == sortColumn,
-                sortAscending: sortAscending,
-                textMode: textMode,
-                onResize: (delta) => onColumnResize(col.id, delta),
-                onTap: () => onSort(col.id),
-              ),
-          ],
-        ),
-    );
-  }
-}
-
-class _HeaderCell extends StatefulWidget {
-  const _HeaderCell({
-    required this.width,
-    required this.label,
-    this.sorted = false,
-    this.sortAscending = true,
-    this.textMode = 'clip',
-    this.onResize,
-    this.onTap,
-  });
-
-  final double width;
-  final String label;
-  final bool sorted;
-  final bool sortAscending;
-  final String textMode;
-  final ValueChanged<double>? onResize;
-  final VoidCallback? onTap;
-
-  @override
-  State<_HeaderCell> createState() => _HeaderCellState();
-}
-
-class _HeaderCellState extends State<_HeaderCell> {
-  bool _resizeHovered = false;
-  bool _dragging = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final showHandle = _resizeHovered || _dragging;
-
-    return MouseRegion(
-      cursor: widget.onResize == null
-          ? MouseCursor.defer
-          : SystemMouseCursors.resizeColumn,
-      onEnter: (_) {
-        if (widget.onResize != null) setState(() => _resizeHovered = true);
-      },
-      onExit: (_) {
-        if (widget.onResize != null) setState(() => _resizeHovered = false);
-      },
-      child: Listener(
-        behavior: HitTestBehavior.opaque,
-        onPointerDown: (_) {
-          if (widget.onResize != null) setState(() => _dragging = true);
-        },
-        onPointerMove: (event) {
-          if (_dragging && widget.onResize != null) {
-            widget.onResize!(event.delta.dx);
-          }
-        },
-        onPointerUp: (_) => setState(() => _dragging = false),
-        onPointerCancel: (_) => setState(() => _dragging = false),
-        child: SizedBox(
-          width: widget.width,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onTap,
-                child: MouseRegion(
-                  cursor: widget.onTap != null
-                      ? SystemMouseCursors.click
-                      : SystemMouseCursors.basic,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 14),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              widget.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              softWrap: false,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textSecondary,
-                                letterSpacing: 0,
-                              ),
-                            ),
-                          ),
-                          if (widget.sorted) ...[
-                            const SizedBox(width: 4),
-                            Icon(
-                              widget.sortAscending
-                                  ? LucideIcons.arrowUp
-                                  : LucideIcons.arrowDown,
-                              size: 14,
-                              color: AppTheme.primaryBlue,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (widget.onResize != null)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.resizeColumn,
-                    onEnter: (_) => setState(() => _resizeHovered = true),
-                    onExit: (_) => setState(() => _resizeHovered = false),
-                    child: IgnorePointer(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 120),
-                        width: 12,
-                        decoration: BoxDecoration(
-                          border: Border(
-                            right: BorderSide(
-                              color: showHandle
-                                  ? AppTheme.primaryBlue
-                                  : AppTheme.borderLight,
-                              width: showHandle ? 2 : 1,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+      width: _checkW + _dateW + _customerW + _reasonW + _amountW + 40,
+      constraints: const BoxConstraints(maxHeight: 620),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppTheme.borderLight),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 16,
+            offset: Offset(0, 4),
           ),
-        ),
+        ],
       ),
-    );
-  }
-}
-
-class _TableRow extends StatefulWidget {
-  const _TableRow({
-    required this.row,
-    required this.columns,
-    required this.colWidths,
-    required this.textMode,
-    required this.onTap,
-    required this.selected,
-    required this.hasSelection,
-    required this.onChanged,
-  });
-
-  final _SalesReturnRow row;
-  final List<ColumnConfig> columns;
-  final Map<String, double> colWidths;
-  final String textMode;
-  final VoidCallback onTap;
-  final bool selected;
-  final bool hasSelection;
-  final ValueChanged<bool?> onChanged;
-
-  @override
-  State<_TableRow> createState() => _TableRowState();
-}
-
-class _TableRowState extends State<_TableRow> {
-  bool _hovered = false;
-
-  Color _statusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return const Color(0xFFF59E0B);
-      case 'approved':
-      case 'received':
-      case 'refunded':
-      case 'credited':
-        return AppTheme.successGreen;
-      case 'partial':
-        return AppTheme.primaryBlue;
-      default:
-        return AppTheme.textSecondary;
-    }
-  }
-
-  Widget _cellForColumn(String id) {
-    switch (id) {
-      case 'date':
-        return _BodyText(widget.row.date, textMode: widget.textMode);
-      case 'rmaNumber':
-        return _BodyText(
-          widget.row.rmaNumber,
-          color: AppTheme.primaryBlueDark,
-          fontWeight: FontWeight.w600,
-          textMode: widget.textMode,
-        );
-      case 'salesOrderNumber':
-        return const SizedBox.shrink();
-      case 'customerName':
-        return _BodyText(widget.row.customerName, textMode: widget.textMode);
-      case 'status':
-        return _BodyText(
-          widget.row.status,
-          color: AppTheme.primaryBlue,
-          fontWeight: FontWeight.w500,
-          textMode: widget.textMode,
-        );
-      case 'receiveStatus':
-        return _BodyText(
-          widget.row.receiveStatus,
-          color: _statusColor(widget.row.receiveStatus),
-          fontWeight: FontWeight.w500,
-          textMode: widget.textMode,
-        );
-      case 'refundStatus':
-        return _BodyText(
-          widget.row.refundStatus,
-          color: _statusColor(widget.row.refundStatus),
-          fontWeight: FontWeight.w500,
-          textMode: widget.textMode,
-        );
-      case 'returned':
-        return _BodyText(widget.row.returned, textMode: widget.textMode);
-      case 'amountRefunded':
-        return _BodyText(widget.row.amountRefunded, textMode: widget.textMode);
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isWrap = widget.textMode == 'wrap';
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          constraints: isWrap ? null : const BoxConstraints(minHeight: 48),
-          height: isWrap ? null : 48,
-          color: widget.selected
-              ? AppTheme.primaryBlue.withValues(alpha: 0.07)
-              : _hovered
-              ? AppTheme.primaryBlue.withValues(alpha: 0.03)
-              : Colors.transparent,
-          padding: EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: isWrap ? 10 : 0,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.packageOpen,
+                    size: 16, color: AppTheme.textPrimary),
+                const SizedBox(width: 8),
+                const Text(
+                  'Returned Items',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '(${entries.length})',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Sits with the title rather than the footer: rejecting is the
+                // counterpart to the header selection, not a document action.
+                ZButton.secondary(
+                  label: 'Reject',
+                  icon: LucideIcons.ban,
+                  onPressed: _selected.isEmpty
+                      ? null
+                      : () => widget.onReject(_selected.toList()),
+                ),
+                const Spacer(),
+                if (_selected.isNotEmpty) ...[
+                  Text(
+                    '${_selected.length} selected',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.primaryBlue,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                IconButton(
+                  onPressed: widget.onClose,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                      width: 28, height: 28),
+                  icon: const Icon(LucideIcons.x,
+                      size: 16, color: AppTheme.textSecondary),
+                ),
+              ],
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: isWrap
-                ? CrossAxisAlignment.start
-                : CrossAxisAlignment.center,
-            children: [
-              if (!widget.hasSelection) const SizedBox(width: 28),
-              SizedBox(
-                height: isWrap ? null : 48,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox(
-                    width: 32,
+          const Divider(height: 1, color: AppTheme.borderLight),
+          if (entries.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+              child: Text(
+                'No returned items in the current view.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              ),
+            )
+          else ...[
+            Container(
+              color: AppTheme.bgLight,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: _checkW,
                     child: Checkbox(
-                      value: widget.selected,
-                      onChanged: widget.onChanged,
+                      value: _allSelected,
+                      onChanged: (_) => _toggleAll(),
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       activeColor: AppTheme.primaryBlue,
                       side: const BorderSide(
-                        color: AppTheme.borderLight,
-                        width: 1.5,
-                      ),
+                          color: AppTheme.borderLight, width: 1.5),
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
-                ),
-              ),
-              for (final col in widget.columns)
-                SizedBox(
-                  width: widget.colWidths[col.id] ?? 120,
-                  child: _cellForColumn(col.id),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BodyText extends StatelessWidget {
-  const _BodyText(
-    this.text, {
-    this.color = AppTheme.textPrimary,
-    this.fontWeight = FontWeight.w400,
-    this.textMode = 'clip',
-  });
-
-  final String text;
-  final Color color;
-  final FontWeight fontWeight;
-  final String textMode;
-
-  @override
-  Widget build(BuildContext context) {
-    final isWrap = textMode == 'wrap';
-    return Text(
-      text,
-      maxLines: isWrap ? null : 1,
-      overflow: isWrap ? TextOverflow.visible : TextOverflow.ellipsis,
-      softWrap: isWrap,
-      style: TextStyle(fontSize: 13, fontWeight: fontWeight, color: color),
-    );
-  }
-}
-
-class _DropdownSectionHeader extends StatelessWidget {
-  const _DropdownSectionHeader({
-    required this.label,
-    required this.count,
-    required this.countColor,
-    required this.expanded,
-  });
-
-  final String label;
-  final int count;
-  final Color countColor;
-  final bool expanded;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      color: const Color(0xFFF5F6FA),
-      child: Row(
-        children: [
-          Icon(
-            expanded ? LucideIcons.chevronDown : LucideIcons.chevronRight,
-            size: 13,
-            color: AppTheme.textSecondary,
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textSecondary,
-                letterSpacing: 0.4,
+                  const SizedBox(width: _dateW, child: _PopoverHeaderCell('Date')),
+                  const SizedBox(
+                      width: _customerW, child: _PopoverHeaderCell('Vendor')),
+                  const SizedBox(
+                      width: _reasonW, child: _PopoverHeaderCell('Status')),
+                  const SizedBox(
+                      width: _amountW, child: _PopoverHeaderCell('Total Amount', alignRight: true)),
+                ],
               ),
             ),
-          ),
-          if (count > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: countColor,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '$count',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
+            const Divider(height: 1, color: AppTheme.borderLight),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: entries.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: AppTheme.borderLight),
+                itemBuilder: (context, i) {
+                  final e = entries[i];
+                  final hasReason =
+                      e.reason != null && e.reason!.trim().isNotEmpty;
+                  final isSelected = _selected.contains(e.rmaNumber);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: _checkW,
+                          child: Checkbox(
+                            value: isSelected,
+                            onChanged: (v) => _toggle(e.rmaNumber, v),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            activeColor: AppTheme.primaryBlue,
+                            side: const BorderSide(
+                                color: AppTheme.borderLight, width: 1.5),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                        SizedBox(width: _dateW, child: _PopoverCell(e.date)),
+                        SizedBox(
+                            width: _customerW,
+                            child: _PopoverCell(e.customerName)),
+                        SizedBox(
+                          width: _reasonW,
+                          child: _PopoverCell(
+                            hasReason ? e.reason!.trim() : '—',
+                            muted: !hasReason,
+                          ),
+                        ),
+                        SizedBox(
+                          width: _amountW,
+                          child: _PopoverCell(
+                            e.totalAmount == null
+                                ? '—'
+                                : _money.format(e.totalAmount),
+                            muted: e.totalAmount == null,
+                            alignRight: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
+          ],
+          const Divider(height: 1, color: AppTheme.borderLight),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                ZButton.primary(
+                  label: 'Convert to Sales Return',
+                  icon: LucideIcons.arrowRightLeft,
+                  // Disabled until something is ticked — the action is defined
+                  // by the selection.
+                  onPressed: _selected.isEmpty
+                      ? null
+                      : () => widget.onConvert(_selected.toList()),
+                ),
+                const Spacer(),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _ViewFilterOption extends StatefulWidget {
-  const _ViewFilterOption({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.onStarTap,
-    this.starred = false,
-  });
-
+class _PopoverHeaderCell extends StatelessWidget {
+  const _PopoverHeaderCell(this.label, {this.alignRight = false});
   final String label;
-  final bool selected;
-  final bool starred;
-  final VoidCallback onTap;
-  final VoidCallback onStarTap;
+  final bool alignRight;
 
   @override
-  State<_ViewFilterOption> createState() => _ViewFilterOptionState();
+  Widget build(BuildContext context) => Text(
+        label,
+        textAlign: alignRight ? TextAlign.right : TextAlign.left,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textSecondary,
+        ),
+      );
 }
 
-class _ViewFilterOptionState extends State<_ViewFilterOption> {
-  bool _hovered = false;
+class _PopoverCell extends StatelessWidget {
+  const _PopoverCell(this.value, {this.muted = false, this.alignRight = false});
+  final String value;
+  final bool muted;
+  final bool alignRight;
 
   @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          height: 36,
-          color: widget.selected
-              ? AppTheme.primaryBlue.withValues(alpha: 0.08)
-              : _hovered
-              ? const Color(0xFFF3F4F6)
-              : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: widget.selected
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                    color: widget.selected
-                        ? AppTheme.primaryBlueDark
-                        : AppTheme.textPrimary,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: widget.onStarTap,
-                child: Icon(
-                  widget.starred ? LucideIcons.star : LucideIcons.star,
-                  size: 14,
-                  color: widget.starred
-                      ? Colors.amber
-                      : const Color(0xFFD1D5DB),
-                ),
-              ),
-            ],
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(right: alignRight ? 0 : 8),
+        child: Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: alignRight ? TextAlign.right : TextAlign.left,
+          style: TextStyle(
+            fontSize: 13,
+            color: muted ? AppTheme.textSecondary : AppTheme.textPrimary,
+            fontFeatures:
+                alignRight ? const [FontFeature.tabularFigures()] : null,
           ),
         ),
-      ),
-    );
-  }
+      );
 }
+
+
 
 class _ColumnMenuOption extends StatefulWidget {
   const _ColumnMenuOption({
@@ -1494,17 +1389,17 @@ class _SrMoreMenuState extends State<_SrMoreMenu> {
   ];
 
   BoxDecoration get _cardDecoration => BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(6),
-    border: Border.all(color: AppTheme.borderLight),
-    boxShadow: [
-      BoxShadow(
-        color: AppTheme.textPrimary.withValues(alpha: 0.12),
-        blurRadius: 14,
-        offset: const Offset(0, 6),
-      ),
-    ],
-  );
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppTheme.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.textPrimary.withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      );
 
   Widget _menuItem({
     required String label,
@@ -1527,11 +1422,9 @@ class _SrMoreMenuState extends State<_SrMoreMenu> {
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 15,
-              color: showActive ? Colors.white : AppTheme.textSecondary,
-            ),
+            Icon(icon,
+                size: 15,
+                color: showActive ? Colors.white : AppTheme.textSecondary),
             const SizedBox(width: 9),
             Expanded(
               child: Text(
@@ -1544,11 +1437,9 @@ class _SrMoreMenuState extends State<_SrMoreMenu> {
               ),
             ),
             if (hasChevron)
-              Icon(
-                LucideIcons.chevronRight,
-                size: 14,
-                color: showActive ? Colors.white : AppTheme.textSecondary,
-              ),
+              Icon(LucideIcons.chevronRight,
+                  size: 14,
+                  color: showActive ? Colors.white : AppTheme.textSecondary),
           ],
         ),
       ),
@@ -1610,9 +1501,7 @@ class _SrMoreMenuState extends State<_SrMoreMenu> {
                         onTap: () {
                           Navigator.of(context).pop();
                           ZerpaiToast.success(
-                            context,
-                            'Exporting Sales Return...',
-                          );
+                              context, 'Exporting Sales Return...');
                         },
                       ),
                       _SubmenuItem(
@@ -1713,7 +1602,15 @@ class _SrSortOptionState extends State<_SrSortOption> {
 
   @override
   Widget build(BuildContext context) {
-    final showActive = widget.isSelected || _hovered;
+    // Selected sits on grey, hover paints blue, and hover wins when both apply.
+    // Mirrors the same menu on the overview page.
+    final Color background = _hovered
+        ? AppTheme.primaryBlue
+        : widget.isSelected
+        ? AppTheme.bgHover
+        : Colors.transparent;
+    final Color foreground = _hovered ? Colors.white : AppTheme.textPrimary;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -1724,7 +1621,7 @@ class _SrSortOptionState extends State<_SrSortOption> {
           margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: showActive ? AppTheme.primaryBlue : Colors.transparent,
+            color: background,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
@@ -1734,8 +1631,10 @@ class _SrSortOptionState extends State<_SrSortOption> {
                   widget.label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: showActive ? Colors.white : AppTheme.textPrimary,
+                    fontWeight: widget.isSelected
+                        ? FontWeight.w500
+                        : FontWeight.w400,
+                    color: foreground,
                   ),
                 ),
               ),
@@ -1745,7 +1644,7 @@ class _SrSortOptionState extends State<_SrSortOption> {
                       ? LucideIcons.arrowUp
                       : LucideIcons.arrowDown,
                   size: 14,
-                  color: Colors.white,
+                  color: foreground,
                 ),
             ],
           ),
@@ -1756,7 +1655,10 @@ class _SrSortOptionState extends State<_SrSortOption> {
 }
 
 class _SubmenuItem extends StatefulWidget {
-  const _SubmenuItem({required this.label, required this.onTap});
+  const _SubmenuItem({
+    required this.label,
+    required this.onTap,
+  });
 
   final String label;
   final VoidCallback onTap;
@@ -1798,6 +1700,58 @@ class _SubmenuItemState extends State<_SubmenuItem> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _OutlineActionSquare extends StatelessWidget {
+  const _OutlineActionSquare({
+    required this.icon,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppTheme.borderLight),
+          color: AppTheme.backgroundColor,
+        ),
+        child: Icon(icon, size: 16, color: AppTheme.textPrimary),
+      ),
+    );
+  }
+}
+
+class _FilledActionSquare extends StatelessWidget {
+  const _FilledActionSquare({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: AppTheme.successGreen,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, size: 18, color: AppTheme.backgroundColor),
       ),
     );
   }

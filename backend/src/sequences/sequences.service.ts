@@ -1,45 +1,23 @@
 import { Injectable } from "@nestjs/common";
 import { SupabaseService } from "../modules/supabase/supabase.service";
 import { TenantContext } from "../common/middleware/tenant.middleware";
-import { db, client } from "../db/db";
-import { transactionalSequence } from "../db/schema";
-import { eq, and, sql } from "drizzle-orm";
 
 @Injectable()
 export class SequencesService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
   async getSequence(module: string, tenant: TenantContext, _branchId?: string) {
-    if (!tenant.entityId) {
-      throw new Error("Tenant entityId is missing");
-    }
+    const client = this.supabaseService.getClient();
 
-    const rows = await db
-      .select()
-      .from(transactionalSequence)
-      .where(
-        and(
-          eq(transactionalSequence.module, module),
-          eq(transactionalSequence.entityId, tenant.entityId),
-          eq(transactionalSequence.isActive, true),
-        ),
-      )
-      .limit(1);
+    const { data, error } = await client
+      .from("transactional_sequences")
+      .select("*")
+      .eq("module", module)
+      .eq("entity_id", tenant.entityId)
+      .eq("is_active", true)
+      .maybeSingle();
 
-    let data = rows[0]
-      ? {
-          id: rows[0].id,
-          module: rows[0].module,
-          prefix: rows[0].prefix,
-          next_number: rows[0].nextNumber,
-          suffix: rows[0].suffix,
-          padding: rows[0].padding,
-          entity_id: rows[0].entityId,
-          is_active: rows[0].isActive,
-        }
-      : null;
-
-    if (data) {
+    if (!error && data) {
       const tableMapping: Record<
         string,
         { table: string; column: string; prefix: string }
@@ -66,56 +44,49 @@ export class SequencesService {
       if (tableMapping[module]) {
         const { table, column } = tableMapping[module];
         const prefix = data.prefix;
-        const sanitizedTable = table.replace(/[^a-zA-Z0-9_]/g, "");
-        const sanitizedColumn = column.replace(/[^a-zA-Z0-9_]/g, "");
+        const { data: latestItems, error: fetchError } = await client
+          .from(table)
+          .select(column)
+          .ilike(column, `${prefix}%`)
+          .eq("entity_id", tenant.entityId)
+          .order(column, { ascending: false })
+          .limit(10);
 
-        try {
-          const latestItems = await client.unsafe(
-            `SELECT "${sanitizedColumn}" FROM "${sanitizedTable}" WHERE "${sanitizedColumn}" ILIKE $1 AND entity_id = $2 ORDER BY "${sanitizedColumn}" DESC LIMIT 10`,
-            [`${prefix}%`, tenant.entityId],
-          );
-
-          if (latestItems && latestItems.length > 0) {
-            let maxNum = 0;
-            for (const item of latestItems) {
-              const val = item[sanitizedColumn] as string;
-              if (val && val.toLowerCase().startsWith(prefix.toLowerCase())) {
-                let numPart = val.substring(prefix.length);
-                if (data.suffix) {
-                  numPart = numPart.replace(new RegExp(data.suffix, "i"), "");
-                }
-                const parsed = parseInt(numPart, 10);
-                if (!isNaN(parsed) && parsed > maxNum) {
-                  maxNum = parsed;
-                }
+        if (!fetchError && latestItems && latestItems.length > 0) {
+          let maxNum = 0;
+          for (const item of latestItems) {
+            const val = item[column] as string;
+            if (val && val.toLowerCase().startsWith(prefix.toLowerCase())) {
+              let numPart = val.substring(prefix.length);
+              if (data.suffix) {
+                numPart = numPart.replace(new RegExp(data.suffix, "i"), "");
+              }
+              const parsed = parseInt(numPart, 10);
+              if (!isNaN(parsed) && parsed > maxNum) {
+                maxNum = parsed;
               }
             }
-            if (maxNum >= data.next_number) {
-              data.next_number = maxNum + 1;
-              await db
-                .update(transactionalSequence)
-                .set({
-                  nextNumber: data.next_number,
-                  updatedAt: new Date(),
-                })
-                .where(eq(transactionalSequence.id, data.id));
-            }
-          } else {
-            const countRes = await client.unsafe(
-              `SELECT count(*)::int as count FROM "${sanitizedTable}" WHERE entity_id = $1`,
-              [tenant.entityId],
-            );
-            const count = countRes[0]?.count ?? 0;
-            if (count === 0 && data.next_number !== 1) {
-              data.next_number = 1;
-              await db
-                .update(transactionalSequence)
-                .set({ nextNumber: 1, updatedAt: new Date() })
-                .where(eq(transactionalSequence.id, data.id));
-            }
           }
-        } catch (err) {
-          console.error(`[SequencesService] Error checking max sequence for ${module}:`, err);
+          if (maxNum >= data.next_number) {
+            data.next_number = maxNum + 1;
+            await client
+              .from("transactional_sequences")
+              .update({ next_number: data.next_number, updated_at: new Date() })
+              .eq("id", data.id);
+          }
+        } else {
+          const { count, error: countError } = await client
+            .from(table)
+            .select("*", { count: "exact", head: true })
+            .eq("entity_id", tenant.entityId);
+
+          if (!countError && count === 0 && data.next_number !== 1) {
+            data.next_number = 1;
+            await client
+              .from("transactional_sequences")
+              .update({ next_number: 1, updated_at: new Date() })
+              .eq("id", data.id);
+          }
         }
       }
       return data;
@@ -165,61 +136,53 @@ export class SequencesService {
 
     if (tableMapping[module]) {
       const { table, column, prefix } = tableMapping[module];
-      const sanitizedTable = table.replace(/[^a-zA-Z0-9_]/g, "");
-      const sanitizedColumn = column.replace(/[^a-zA-Z0-9_]/g, "");
+      const { data: latestItems, error: fetchError } = await client
+        .from(table)
+        .select(column)
+        .ilike(column, `${prefix}%`)
+        .eq("entity_id", tenant.entityId)
+        .order(column, { ascending: false })
+        .limit(10); // Check a few to find the actual max numeric part
 
-      try {
-        const latestItems = await client.unsafe(
-          `SELECT "${sanitizedColumn}" FROM "${sanitizedTable}" WHERE "${sanitizedColumn}" ILIKE $1 AND entity_id = $2 ORDER BY "${sanitizedColumn}" DESC LIMIT 10`,
-          [`${prefix}%`, tenant.entityId],
-        );
-
-        if (latestItems && latestItems.length > 0) {
-          let maxNum = 0;
-          for (const item of latestItems) {
-            const val = item[sanitizedColumn] as string;
-            const numPart = val.substring(prefix.length);
-            const parsed = parseInt(numPart, 10);
-            if (!isNaN(parsed) && parsed > maxNum) {
-              maxNum = parsed;
-            }
+      if (!fetchError && latestItems && latestItems.length > 0) {
+        let maxNum = 0;
+        for (const item of latestItems) {
+          const val = item[column] as string;
+          const numPart = val.substring(prefix.length);
+          const parsed = parseInt(numPart, 10);
+          if (!isNaN(parsed) && parsed > maxNum) {
+            maxNum = parsed;
           }
-          if (maxNum > 0) nextNum = maxNum + 1;
-        } else {
-          const countRes = await client.unsafe(
-            `SELECT count(*)::int as count FROM "${sanitizedTable}" WHERE entity_id = $1`,
-            [tenant.entityId],
-          );
-          const count = countRes[0]?.count ?? 0;
-          if (count > 0) nextNum = count + 1;
         }
-      } catch (err) {
-        console.error(`[SequencesService] Error initializing sequence for ${module}:`, err);
+        if (maxNum > 0) nextNum = maxNum + 1;
+      } else if (!fetchError) {
+        // Fallback to simple count if ilike fails or no items with prefix found
+        const { count, error: countError } = await client
+          .from(table)
+          .select("*", { count: "exact", head: true })
+          .eq("entity_id", tenant.entityId);
+        if (!countError && count !== null && count > 0) nextNum = count + 1;
       }
     }
 
-    const [created] = await db
-      .insert(transactionalSequence)
-      .values({
-        module,
-        prefix: config.prefix,
-        nextNumber: nextNum,
-        padding: config.padding,
-        entityId: tenant.entityId,
-        isActive: true,
-      })
-      .returning();
+    const { data: created, error: initError } = await client
+      .from("transactional_sequences")
+      .insert([
+        {
+          module,
+          prefix: config.prefix,
+          next_number: nextNum,
+          padding: config.padding,
+          entity_id: tenant.entityId,
+          is_active: true,
+        },
+      ])
+      .select()
+      .single();
 
-    return {
-      id: created.id,
-      module: created.module,
-      prefix: created.prefix,
-      next_number: created.nextNumber,
-      suffix: created.suffix,
-      padding: created.padding,
-      entity_id: created.entityId,
-      is_active: created.isActive,
-    };
+    if (initError)
+      throw new Error(`Failed to initialize sequence: ${initError.message}`);
+    return created;
   }
 
   async getNextNumberFormatted(
@@ -264,8 +227,10 @@ export class SequencesService {
     let nextNumber = settings.next_number;
 
     if (!usedNumber || usedNumber === currentFormatted) {
+      // Used the suggested number or no number provided: increment by 1
       nextNumber = settings.next_number + 1;
     } else if (usedNumber.startsWith(settings.prefix)) {
+      // Used a manual number with SAME prefix: check if we should jump ahead
       try {
         const numPart = usedNumber
           .substring(settings.prefix.length)
@@ -274,35 +239,31 @@ export class SequencesService {
         if (!isNaN(parsed) && parsed >= settings.next_number) {
           nextNumber = parsed + 1;
         } else {
+          // Manually entered an OLD number with same prefix: don't increment next_number
           return settings;
         }
       } catch (e) {
         nextNumber = settings.next_number + 1;
       }
     } else {
+      // Used a manual number with DIFFERENT prefix: do not advance the sequence
       return settings;
     }
 
-    const [updated] = await db
-      .update(transactionalSequence)
-      .set({ nextNumber, updatedAt: new Date() })
-      .where(eq(transactionalSequence.id, settings.id))
-      .returning();
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from("transactional_sequences")
+      .update({ next_number: nextNumber, updated_at: new Date() })
+      .eq("id", settings.id)
+      .select()
+      .single();
 
-    return {
-      id: updated.id,
-      module: updated.module,
-      prefix: updated.prefix,
-      next_number: updated.nextNumber,
-      suffix: updated.suffix,
-      padding: updated.padding,
-      entity_id: updated.entityId,
-      is_active: updated.isActive,
-    };
+    if (error) throw new Error(`Failed to increment sequence for ${module}`);
+    return data;
   }
 
   async checkDuplicate(module: string, number: string, tenant: TenantContext) {
-    const tableConfigs: Record<string, { table: string; column: string }> = {
+    const tableConfigs: any = {
       vendor: { table: "vendors", column: "vendor_number" },
       customer: { table: "customers", column: "customer_number" },
     };
@@ -310,15 +271,16 @@ export class SequencesService {
     const config = tableConfigs[module];
     if (!config) return { exists: false };
 
-    const sanitizedTable = config.table.replace(/[^a-zA-Z0-9_]/g, "");
-    const sanitizedColumn = config.column.replace(/[^a-zA-Z0-9_]/g, "");
+    const { data, error } = await (
+      this.supabaseService.getClient().from(config.table) as any
+    )
+      .select(config.column)
+      .eq(config.column, number)
+      .eq("entity_id", tenant.entityId)
+      .maybeSingle();
 
-    const rows = await client.unsafe(
-      `SELECT "${sanitizedColumn}" FROM "${sanitizedTable}" WHERE "${sanitizedColumn}" = $1 AND entity_id = $2 LIMIT 1`,
-      [number, tenant.entityId],
-    );
-
-    return { exists: rows.length > 0 };
+    if (error) throw error;
+    return { exists: !!data };
   }
 
   async updateSettings(
@@ -326,78 +288,52 @@ export class SequencesService {
     tenant: TenantContext,
     updateDto: {
       prefix?: string;
+      isActive?: boolean;
       nextNumber?: number;
       padding?: number;
       suffix?: string;
       branchId?: string;
     },
   ) {
-    if (!tenant.entityId) {
-      throw new Error("Tenant entityId is missing");
-    }
+    const client = this.supabaseService.getClient();
 
-    const updateData: Record<string, any> = { updatedAt: new Date() };
+    const updateData: any = { updated_at: new Date() };
+    if (updateDto.isActive !== undefined) updateData.is_active = updateDto.isActive;
     if (updateDto.prefix !== undefined) updateData.prefix = updateDto.prefix;
     if (updateDto.nextNumber !== undefined)
-      updateData.nextNumber = updateDto.nextNumber;
+      updateData.next_number = updateDto.nextNumber;
     if (updateDto.padding !== undefined) updateData.padding = updateDto.padding;
     if (updateDto.suffix !== undefined) updateData.suffix = updateDto.suffix;
 
-    const existingRows = await db
-      .select({ id: transactionalSequence.id })
-      .from(transactionalSequence)
-      .where(
-        and(
-          eq(transactionalSequence.module, module),
-          eq(transactionalSequence.entityId, tenant.entityId),
-        ),
-      )
-      .limit(1);
-
-    const existing = existingRows[0];
+    const { data: existing } = await client
+      .from("transactional_sequences")
+      .select("id")
+      .eq("module", module)
+      .eq("entity_id", tenant.entityId)
+      .maybeSingle();
 
     if (existing) {
-      const [updated] = await db
-        .update(transactionalSequence)
-        .set(updateData)
-        .where(eq(transactionalSequence.id, existing.id))
-        .returning();
-
-      return {
-        id: updated.id,
-        module: updated.module,
-        prefix: updated.prefix,
-        next_number: updated.nextNumber,
-        suffix: updated.suffix,
-        padding: updated.padding,
-        entity_id: updated.entityId,
-        is_active: updated.isActive,
-      };
+      const { data, error } = await client
+        .from("transactional_sequences")
+        .update(updateData)
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
     } else {
-      const [created] = await db
-        .insert(transactionalSequence)
-        .values({
+      const { data, error } = await client
+        .from("transactional_sequences")
+        .insert({
           module,
-          entityId: tenant.entityId,
-          isActive: true,
-          prefix: updateDto.prefix ?? "",
-          nextNumber: updateDto.nextNumber ?? 1,
-          padding: updateDto.padding ?? 5,
-          suffix: updateDto.suffix ?? "",
+          entity_id: tenant.entityId,
+          is_active: true,
           ...updateData,
         })
-        .returning();
-
-      return {
-        id: created.id,
-        module: created.module,
-        prefix: created.prefix,
-        next_number: created.nextNumber,
-        suffix: created.suffix,
-        padding: created.padding,
-        entity_id: created.entityId,
-        is_active: created.isActive,
-      };
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
     }
   }
 }

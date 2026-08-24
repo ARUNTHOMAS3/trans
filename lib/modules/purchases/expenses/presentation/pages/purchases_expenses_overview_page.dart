@@ -751,6 +751,10 @@ class _ExpensesOverviewState extends ConsumerState<ExpensesOverview> {
     final orgSystemId =
         GoRouterState.of(context).pathParameters['orgSystemId'] ?? '6000000000';
 
+    if (state.isLoading && state.records.isEmpty) {
+      return _buildInitialLoadingPage();
+    }
+
     return ZerpaiLayout(
       pageTitle: '',
       enableBodyScroll: false,
@@ -822,6 +826,25 @@ class _ExpensesOverviewState extends ConsumerState<ExpensesOverview> {
       color: AppTheme.backgroundColor,
       padding: const EdgeInsets.all(AppTheme.space16),
       child: const ZListSkeleton(itemCount: 6),
+    );
+  }
+
+  Widget _buildInitialLoadingPage() {
+    return ZerpaiLayout(
+      pageTitle: '',
+      enableBodyScroll: false,
+      useHorizontalPadding: false,
+      useTopPadding: false,
+      child: Container(
+        color: AppTheme.backgroundColor,
+        child: const SplitListDetailLayout(
+          leftWidth: 380,
+          leftHeader: SizedBox(height: 56), // Placeholder
+          leftBody: ZListSkeleton(itemCount: 8),
+          rightHeader: null,
+          rightBody: SingleChildScrollView(child: ZDetailContentSkeleton()),
+        ),
+      ),
     );
   }
 

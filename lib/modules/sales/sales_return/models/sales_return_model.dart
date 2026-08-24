@@ -99,6 +99,7 @@ class SalesReturnReceive {
   final String receiveDate;
   final String? notes;
   final String createdAt;
+  final List<SalesReturnReceiveItem> items;
 
   SalesReturnReceive({
     required this.id,
@@ -107,6 +108,7 @@ class SalesReturnReceive {
     required this.receiveDate,
     this.notes,
     required this.createdAt,
+    this.items = const [],
   });
 
   factory SalesReturnReceive.fromJson(Map<String, dynamic> json) =>
@@ -117,7 +119,64 @@ class SalesReturnReceive {
         receiveDate: json['receive_date'] as String,
         notes: json['notes'] as String?,
         createdAt: json['created_at'] as String,
+        items: (json['items'] as List<dynamic>?)
+                ?.map((e) => SalesReturnReceiveItem.fromJson(e))
+                .toList() ??
+            const [],
       );
+}
+
+class SalesReturnReceiveItem {
+  final String id;
+  final String productId;
+  final double receivingQty;
+  final List<SalesReturnReceiveBatch> batches;
+
+  SalesReturnReceiveItem({
+    required this.id,
+    required this.productId,
+    required this.receivingQty,
+    this.batches = const [],
+  });
+
+  factory SalesReturnReceiveItem.fromJson(Map<String, dynamic> json) =>
+      SalesReturnReceiveItem(
+        id: json['id'] as String,
+        productId: json['product_id'] as String,
+        receivingQty: _toDouble(json['receiving_qty']),
+        batches: (json['batches'] as List<dynamic>?)
+                ?.map((e) => SalesReturnReceiveBatch.fromJson(e))
+                .toList() ??
+            const [],
+      );
+
+  static double _toDouble(dynamic value) =>
+      value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
+}
+
+class SalesReturnReceiveBatch {
+  final String id;
+  final String batchId;
+  final String batchNumber;
+  final double quantity;
+
+  SalesReturnReceiveBatch({
+    required this.id,
+    required this.batchId,
+    required this.batchNumber,
+    required this.quantity,
+  });
+
+  factory SalesReturnReceiveBatch.fromJson(Map<String, dynamic> json) =>
+      SalesReturnReceiveBatch(
+        id: json['id'] as String? ?? '',
+        batchId: json['batch_id'] as String? ?? '',
+        batchNumber: json['batch']?['batch_no'] as String? ?? json['batch_id'] as String? ?? '',
+        quantity: _toDouble(json['quantity']),
+      );
+
+  static double _toDouble(dynamic value) =>
+      value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
 }
 
 class SalesReturnItemData {
@@ -128,6 +187,7 @@ class SalesReturnItemData {
   final double creditOnlyQty;
   final double invoicedQty;
   final double alreadyReturnedQty;
+  final double receivedQty;
   final String? remarks;
 
   SalesReturnItemData({
@@ -138,6 +198,7 @@ class SalesReturnItemData {
     required this.creditOnlyQty,
     required this.invoicedQty,
     required this.alreadyReturnedQty,
+    required this.receivedQty,
     this.remarks,
   });
 
@@ -151,6 +212,7 @@ class SalesReturnItemData {
         invoicedQty: (json['invoiced_qty'] as num?)?.toDouble() ?? 0,
         alreadyReturnedQty:
             (json['already_returned_qty'] as num?)?.toDouble() ?? 0,
+        receivedQty: (json['received_qty'] as num?)?.toDouble() ?? 0,
         remarks: json['remarks'] as String?,
       );
 }
@@ -234,6 +296,7 @@ class SalesReturn {
   final String id;
   final String entityId;
   final String customerId;
+  final String? customerName;
   final String rmaNumber;
   final String returnDate;
   final String status;
@@ -249,6 +312,7 @@ class SalesReturn {
     required this.id,
     required this.entityId,
     required this.customerId,
+    this.customerName,
     required this.rmaNumber,
     required this.returnDate,
     required this.status,
@@ -267,6 +331,9 @@ class SalesReturn {
       id: json['id'] as String,
       entityId: json['entity_id'] as String,
       customerId: json['customer_id'] as String,
+      customerName: json['customer'] != null
+          ? json['customer']['display_name'] as String?
+          : null,
       rmaNumber: json['rma_number'] as String,
       returnDate: json['return_date'] as String,
       status: json['status'] as String? ?? 'draft',
@@ -283,4 +350,59 @@ class SalesReturn {
           .toList(),
     );
   }
+}
+
+class SalesReturnHistoryEntry {
+  const SalesReturnHistoryEntry({
+    required this.id,
+    required this.kind,
+    required this.timestamp,
+    required this.message,
+  });
+
+  final String id;
+  final String kind;
+  final String timestamp;
+  final String message;
+
+  factory SalesReturnHistoryEntry.fromJson(Map<String, dynamic> json) {
+    return SalesReturnHistoryEntry(
+      id: json['id']?.toString() ?? '',
+      kind: json['kind']?.toString() ?? 'sales_return',
+      timestamp: json['timestamp']?.toString() ?? '',
+      message: json['message']?.toString() ?? '',
+    );
+  }
+}
+
+/// How much of one product has been invoiced to a customer, and how much of it
+/// they have already sent back. Backs the INVOICED / RETURNED columns on the
+/// sales return form.
+class CustomerItemHistory {
+  final String productId;
+  final double invoicedQty;
+  final double returnedQty;
+
+  const CustomerItemHistory({
+    required this.productId,
+    required this.invoicedQty,
+    required this.returnedQty,
+  });
+
+  /// Quantity still open to return. Never negative — an over-return would
+  /// otherwise read as a negative allowance.
+  double get returnableQty {
+    final remaining = invoicedQty - returnedQty;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  static double _toDouble(dynamic value) =>
+      value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
+
+  factory CustomerItemHistory.fromJson(Map<String, dynamic> json) =>
+      CustomerItemHistory(
+        productId: json['product_id']?.toString() ?? '',
+        invoicedQty: _toDouble(json['invoiced_qty']),
+        returnedQty: _toDouble(json['returned_qty']),
+      );
 }

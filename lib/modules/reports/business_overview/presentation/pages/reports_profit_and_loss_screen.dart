@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:zerpai_erp/core/routing/app_router.dart';
+import 'package:zerpai_erp/shared/widgets/texts/zerpai_link_text.dart';
+import 'package:zerpai_erp/shared/widgets/z_skeletons.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_action_buttons.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_company_header.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_customize_columns_button.dart';
@@ -14,17 +18,20 @@ import 'package:zerpai_erp/modules/reports/presentation/widgets/report_view_scaf
 import 'package:zerpai_erp/modules/reports/utils/report_formatter_cache.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_compare_section.dart';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:zerpai_erp/modules/reports/business_overview/data/providers/profit_and_loss_provider.dart';
+
 const String _profitAndLossTitle = 'Profit and Loss';
 
-class ProfitAndLossScreen extends StatefulWidget {
+class ProfitAndLossScreen extends ConsumerStatefulWidget {
   const ProfitAndLossScreen({super.key});
 
   @override
-  State<ProfitAndLossScreen> createState() => _ProfitAndLossScreenState();
+  ConsumerState<ProfitAndLossScreen> createState() => _ProfitAndLossScreenState();
 }
 
-class _ProfitAndLossScreenState extends State<ProfitAndLossScreen> {
-  static final DateTime _defaultDate = DateTime(2026, 7, 28);
+class _ProfitAndLossScreenState extends ConsumerState<ProfitAndLossScreen> {
+  static final DateTime _defaultDate = DateTime.now();
   static const List<String> _reportBasisOptions = <String>['Accrual', 'Cash'];
   static final _displayDateFormat = ReportFormatterCache.date('dd-MM-yyyy');
 
@@ -119,6 +126,14 @@ class _ProfitAndLossScreenState extends State<ProfitAndLossScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final reportAsync = ref.watch(profitAndLossProvider(
+      ProfitAndLossRequest(
+        startDate: _appliedStartDate,
+        endDate: _appliedEndDate,
+        basis: _appliedReportBasis,
+      ),
+    ));
+
     return ReportViewScaffold(
       categoryLabel: 'Business Overview',
       reportTitle: _profitAndLossTitle,
@@ -191,8 +206,8 @@ class _ProfitAndLossScreenState extends State<ProfitAndLossScreen> {
           ),
         ],
       ),
-      isLoading: false,
-      isEmpty: false,
+      isLoading: reportAsync.isLoading,
+      isEmpty: reportAsync.hasValue && reportAsync.value?['report'] == null,
       emptyTitle: 'No data to display',
       emptyMessage: 'No data to display',
       currentNavigationCategory: 'Business Overview',
@@ -201,8 +216,15 @@ class _ProfitAndLossScreenState extends State<ProfitAndLossScreen> {
         if (reportName == _profitAndLossTitle) return;
         openReportFromReportsModule(context, reportName);
       },
-      reportContent: _ProfitAndLossStatement(
-        comparisonPeriods: _buildComparisonPeriods(),
+      reportContent: reportAsync.when(
+        data: (data) => _ProfitAndLossStatement(
+          comparisonPeriods: _buildComparisonPeriods(),
+          data: data,
+          startDate: _appliedStartDate,
+          endDate: _appliedEndDate,
+        ),
+        loading: () => const Padding(padding: EdgeInsets.all(AppTheme.space16), child: SingleChildScrollView(physics: NeverScrollableScrollPhysics(), child: ZTableSkeleton(rows: 5, columns: 3))),
+        error: (e, st) => Center(child: Text('Error: $e')),
       ),
     );
   }
@@ -262,24 +284,73 @@ class _ProfitAndLossHeading extends StatelessWidget {
 
 class _ProfitAndLossStatement extends StatelessWidget {
   final List<String> comparisonPeriods;
+  final Map<String, dynamic> data;
+  final DateTime startDate;
+  final DateTime endDate;
 
-  const _ProfitAndLossStatement({required this.comparisonPeriods});
+  const _ProfitAndLossStatement({
+    required this.comparisonPeriods,
+    required this.data,
+    required this.startDate,
+    required this.endDate,
+  });
 
-  static const List<_ProfitAndLossLine> _lines = <_ProfitAndLossLine>[
-    _ProfitAndLossLine('Operating Income', isSection: true),
-    _ProfitAndLossLine('Total for Operating Income', amount: '0.00'),
-    _ProfitAndLossLine('Cost of Goods Sold', isSection: true),
-    _ProfitAndLossLine('Total for Cost of Goods Sold', amount: '0.00'),
-    _ProfitAndLossLine('Gross Profit', amount: '0.00'),
-    _ProfitAndLossLine('Operating Expense', isSection: true),
-    _ProfitAndLossLine('Total for Operating Expense', amount: '0.00'),
-    _ProfitAndLossLine('Operating Profit', amount: '0.00'),
-    _ProfitAndLossLine('Non Operating Income', isSection: true),
-    _ProfitAndLossLine('Total for Non Operating Income', amount: '0.00'),
-    _ProfitAndLossLine('Non Operating Expense', isSection: true),
-    _ProfitAndLossLine('Total for Non Operating Expense', amount: '0.00'),
-    _ProfitAndLossLine('Net Profit/Loss', amount: '0.00'),
-  ];
+  List<_ProfitAndLossLine> _buildLines() {
+    final report = data['report'] as Map<String, dynamic>? ?? {};
+    final summary = data['summary'] as Map<String, dynamic>? ?? {};
+
+    final opIncome = (report['operatingIncome'] as List?) ?? [];
+    final cogs = (report['costOfGoodsSold'] as List?) ?? [];
+    final opExpenses = (report['operatingExpenses'] as List?) ?? [];
+    final nonOpIncome = (report['nonOperatingIncome'] as List?) ?? [];
+    final nonOpExpenses = (report['nonOperatingExpenses'] as List?) ?? [];
+
+    String f(num? val) => (val ?? 0).toStringAsFixed(2);
+
+    final lines = <_ProfitAndLossLine>[];
+    
+    // Operating Income
+    lines.add(const _ProfitAndLossLine('Operating Income', isSection: true));
+    for (final item in opIncome) {
+      lines.add(_ProfitAndLossLine(item['accountName'] ?? '', amount: f(item['netAmount']), accountId: item['accountId'], isLink: true));
+    }
+    lines.add(_ProfitAndLossLine('Total for Operating Income', amount: f(summary['operatingIncome']), isTotal: true));
+
+    // COGS
+    lines.add(const _ProfitAndLossLine('Cost of Goods Sold', isSection: true));
+    for (final item in cogs) {
+      lines.add(_ProfitAndLossLine(item['accountName'] ?? '', amount: f(item['netAmount']), accountId: item['accountId'], isLink: true));
+    }
+    lines.add(_ProfitAndLossLine('Total for Cost of Goods Sold', amount: f(summary['costOfGoodsSold']), isTotal: true));
+
+    lines.add(_ProfitAndLossLine('Gross Profit', amount: f(summary['grossProfit']), isTotal: true));
+
+    // Operating Expenses
+    lines.add(const _ProfitAndLossLine('Operating Expense', isSection: true));
+    for (final item in opExpenses) {
+      lines.add(_ProfitAndLossLine(item['accountName'] ?? '', amount: f(item['netAmount']), accountId: item['accountId'], isLink: true));
+    }
+    lines.add(_ProfitAndLossLine('Total for Operating Expense', amount: f(summary['operatingExpenses']), isTotal: true));
+
+    lines.add(_ProfitAndLossLine('Operating Profit', amount: f(summary['operatingProfit']), isTotal: true));
+
+    // Non Operating Income
+    lines.add(const _ProfitAndLossLine('Non Operating Income', isSection: true));
+    for (final item in nonOpIncome) {
+      lines.add(_ProfitAndLossLine(item['accountName'] ?? '', amount: f(item['netAmount']), accountId: item['accountId'], isLink: true));
+    }
+    lines.add(_ProfitAndLossLine('Total for Non Operating Income', amount: f(summary['nonOperatingIncome']), isTotal: true));
+
+    // Non Operating Expenses
+    lines.add(const _ProfitAndLossLine('Non Operating Expense', isSection: true));
+    for (final item in nonOpExpenses) {
+      lines.add(_ProfitAndLossLine(item['accountName'] ?? '', amount: f(item['netAmount']), accountId: item['accountId'], isLink: true));
+    }
+    lines.add(_ProfitAndLossLine('Total for Non Operating Expense', amount: f(summary['nonOperatingExpenses']), isTotal: true));
+
+    lines.add(_ProfitAndLossLine('Net Profit/Loss', amount: f(summary['netProfit']), isTotal: true));
+    return lines;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -301,10 +372,12 @@ class _ProfitAndLossStatement extends StatelessWidget {
                   child: ListView(
                     padding: EdgeInsets.zero,
                     children: [
-                      for (final line in _lines)
+                      for (final line in _buildLines())
                         _ProfitAndLossTableRow(
                           line: line,
                           comparisonPeriods: comparisonPeriods,
+                          startDate: startDate,
+                          endDate: endDate,
                         ),
                       const SizedBox(height: AppTheme.space24),
                       const _ProfitAndLossCurrencyNote(),
@@ -397,34 +470,56 @@ class _ProfitAndLossTableHeader extends StatelessWidget {
 class _ProfitAndLossTableRow extends StatelessWidget {
   final _ProfitAndLossLine line;
   final List<String> comparisonPeriods;
+  final DateTime startDate;
+  final DateTime endDate;
 
   const _ProfitAndLossTableRow({
     required this.line,
     required this.comparisonPeriods,
+    required this.startDate,
+    required this.endDate,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool isBold = line.isSection || line.isTotal;
     final textStyle = AppTheme.bodyText.copyWith(
       color: AppTheme.textPrimary,
-      fontWeight: FontWeight.w700,
+      fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
       height: 1.35,
     );
     return Container(
       height: 39,
       padding: const EdgeInsets.symmetric(horizontal: AppTheme.space20),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.backgroundColor,
-        border: Border(bottom: BorderSide(color: AppTheme.borderLight)),
+        border: line.isTotal ? const Border(bottom: BorderSide(color: AppTheme.borderLight)) : null,
       ),
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              line.label,
-              overflow: TextOverflow.ellipsis,
-              style: textStyle,
-            ),
+            child: (line.isLink && line.accountId != null)
+                ? ZerpaiLinkText(
+                    text: line.label,
+                    style: textStyle,
+                    onTap: () {
+                      final apiDateFormat = ReportFormatterCache.date('yyyy-MM-dd');
+                      context.push(Uri(
+                        path: AppRoutes.accountantTransactionsReport,
+                        queryParameters: {
+                          'accountId': line.accountId,
+                          'accountName': line.label,
+                          'startDate': apiDateFormat.format(startDate),
+                          'endDate': apiDateFormat.format(endDate),
+                        },
+                      ).toString());
+                    },
+                  )
+                : Text(
+                    line.label,
+                    overflow: TextOverflow.ellipsis,
+                    style: textStyle,
+                  ),
           ),
           if (comparisonPeriods.isEmpty)
             SizedBox(
@@ -433,7 +528,7 @@ class _ProfitAndLossTableRow extends StatelessWidget {
                 line.amount,
                 textAlign: TextAlign.right,
                 style: textStyle.copyWith(
-                  fontWeight: line.isSection ? FontWeight.w700 : FontWeight.w500,
+                  fontWeight: line.isTotal ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             )
@@ -445,7 +540,7 @@ class _ProfitAndLossTableRow extends StatelessWidget {
                   line.amount,
                   textAlign: TextAlign.right,
                   style: textStyle.copyWith(
-                    fontWeight: line.isSection ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: line.isTotal ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
               ),
@@ -494,10 +589,16 @@ class _ProfitAndLossLine {
   final String label;
   final String amount;
   final bool isSection;
+  final bool isTotal;
+  final String? accountId;
+  final bool isLink;
 
   const _ProfitAndLossLine(
     this.label, {
     this.amount = '',
     this.isSection = false,
+    this.isTotal = false,
+    this.accountId,
+    this.isLink = false,
   });
 }

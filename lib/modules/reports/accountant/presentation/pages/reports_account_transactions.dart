@@ -6,7 +6,7 @@ import 'package:zerpai_erp/modules/reports/utils/report_formatter_cache.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:zerpai_erp/app/providers/org_settings_provider.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
-import 'package:zerpai_erp/modules/reports/presentation/pages/reports_center_screen.dart';
+import 'package:zerpai_erp/modules/reports/presentation/reports_center_screen.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_customize_columns_button.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_date_range_filter.dart';
 import 'package:zerpai_erp/modules/reports/presentation/widgets/report_filter_bar.dart';
@@ -229,6 +229,59 @@ class _AccountTransactionsReportPageState
       pagination['pageSize'] ?? reportData?['pageSize'],
       _pageSize,
     );
+    final totalPages = _intValue(
+      pagination['totalPages'] ?? reportData?['totalPages'],
+      1,
+    );
+
+    final openingBalance = double.tryParse(reportData?['openingBalance']?.toString() ?? '') ?? 0.0;
+    final periodDebits = double.tryParse(reportData?['periodDebits']?.toString() ?? '') ?? 0.0;
+    final periodCredits = double.tryParse(reportData?['periodCredits']?.toString() ?? '') ?? 0.0;
+    final closingBalance = double.tryParse(reportData?['closingBalance']?.toString() ?? '') ?? 0.0;
+
+    if (widget.accountId != null && widget.accountId!.isNotEmpty) {
+      if (currentPage == 1 && (transactions.isNotEmpty || openingBalance != 0)) {
+        transactions.insert(0, {
+          'date': 'As On ${dateFormat.format(appliedStartDate)}',
+          'accountName': 'Opening Balance',
+          'debit': openingBalance > 0 ? openingBalance : 0.0,
+          'credit': openingBalance < 0 ? openingBalance.abs() : 0.0,
+          'runningBalance': openingBalance,
+          'details': '',
+          'type': '',
+          'transactionNumber': '',
+          'reference': '',
+          'isOpeningBalance': true,
+        });
+      }
+
+      if (currentPage == totalPages && (transactions.isNotEmpty || closingBalance != 0)) {
+        transactions.add({
+          'date': '',
+          'accountName': 'Total Debits and Credits (${dateFormat.format(appliedStartDate)} - ${dateFormat.format(appliedEndDate)})',
+          'debit': periodDebits,
+          'credit': periodCredits,
+          'runningBalance': 0.0,
+          'details': '',
+          'type': '',
+          'transactionNumber': '',
+          'reference': '',
+          'isSummaryRow': true,
+        });
+        transactions.add({
+          'date': 'As On ${dateFormat.format(appliedEndDate)}',
+          'accountName': 'Closing Balance',
+          'debit': closingBalance > 0 ? closingBalance : 0.0,
+          'credit': closingBalance < 0 ? closingBalance.abs() : 0.0,
+          'runningBalance': 0.0,
+          'details': '',
+          'type': '',
+          'transactionNumber': '',
+          'reference': '',
+          'isSummaryRow': true,
+        });
+      }
+    }
     final errorMessage = reportAsync.hasError
         ? 'Unable to load report: ${reportAsync.error}'
         : null;
@@ -241,6 +294,7 @@ class _AccountTransactionsReportPageState
         title: effectiveReportTitle,
         basis: _appliedReportBasis,
         dateLabel: dateLabel,
+        accountName: widget.accountName,
       ),
       filters: [
         ReportDateRangeFilter(
@@ -353,11 +407,13 @@ class _AccountTransactionsHeading extends StatelessWidget {
   final String title;
   final String basis;
   final String dateLabel;
+  final String? accountName;
 
   const _AccountTransactionsHeading({
     required this.title,
     required this.basis,
     required this.dateLabel,
+    this.accountName,
   });
 
   @override
@@ -388,6 +444,14 @@ class _AccountTransactionsHeading extends StatelessWidget {
             ],
           ),
         ),
+        if (accountName != null && accountName!.isNotEmpty) ...[
+          const SizedBox(height: AppTheme.space10),
+          Text(
+            accountName!,
+            textAlign: TextAlign.center,
+            style: AppTheme.pageTitle.copyWith(fontSize: 18, fontWeight: FontWeight.w500),
+          ),
+        ],
         const SizedBox(height: AppTheme.space10),
         Text(
           dateLabel,
@@ -402,7 +466,7 @@ class _AccountTransactionsHeading extends StatelessWidget {
   }
 }
 
-class AccountTransactionsTable extends StatelessWidget {
+class AccountTransactionsTable extends StatefulWidget {
   final List<Map<String, dynamic>> transactions;
   final String? accountName;
   final DateFormat dateFormat;
@@ -424,6 +488,19 @@ class AccountTransactionsTable extends StatelessWidget {
   });
 
   @override
+  State<AccountTransactionsTable> createState() => _AccountTransactionsTableState();
+}
+
+class _AccountTransactionsTableState extends State<AccountTransactionsTable> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -431,43 +508,49 @@ class AccountTransactionsTable extends StatelessWidget {
             ? 1380.0
             : constraints.maxWidth;
 
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: tableWidth,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: transactions.isEmpty
-                      ? const _AccountTransactionsEmptyBody()
-                      : SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: transactions
-                                .map(
-                                  (item) => _AccountTransactionsDataRow(
-                                    item: item,
-                                    accountName: accountName,
-                                    dateFormat: dateFormat,
-                                    transactionTypeFormatter:
-                                        transactionTypeFormatter,
-                                  ),
-                                )
-                                .toList(),
+        return Scrollbar(
+          controller: _scrollController,
+          thumbVisibility: true,
+          trackVisibility: true,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: tableWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: widget.transactions.isEmpty
+                        ? const _AccountTransactionsEmptyBody()
+                        : SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: widget.transactions
+                                  .map(
+                                    (item) => _AccountTransactionsDataRow(
+                                      item: item,
+                                      accountName: widget.accountName,
+                                      dateFormat: widget.dateFormat,
+                                      transactionTypeFormatter:
+                                          widget.transactionTypeFormatter,
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
                           ),
-                        ),
-                ),
-                ReportPaginationFooter(
-                  totalCount: totalCount,
-                  page: page,
-                  pageSize: pageSize,
-                  onPageChanged: onPageChanged,
-                ),
+                  ),
+                  ReportPaginationFooter(
+                    totalCount: widget.totalCount,
+                    page: widget.page,
+                    pageSize: widget.pageSize,
+                    onPageChanged: widget.onPageChanged,
+                  ),
               ],
             ),
           ),
+        ),
         );
       },
     );
@@ -560,18 +643,10 @@ class _AccountTransactionsDataRowState
     final debit = _numberValue(item, 'debit');
     final credit = _numberValue(item, 'credit');
     final runningBalance = _numberValue(item, 'runningBalance');
-    final amountValue = debit > 0
-        ? debit
-        : credit > 0
-        ? credit
-        : runningBalance.abs();
-    final amountSuffix = debit > 0
-        ? 'Dr'
-        : credit > 0
-        ? 'Cr'
-        : runningBalance >= 0
-        ? 'Dr'
-        : 'Cr';
+    final amountValue = runningBalance.abs();
+    final amountSuffix = runningBalance >= 0 ? 'Dr' : 'Cr';
+    final isSummaryRow = item['isSummaryRow'] == true;
+    final isOpeningBalance = item['isOpeningBalance'] == true;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -623,11 +698,9 @@ class _AccountTransactionsDataRowState
                 ]) ??
                 '',
           ),
-          debit: _linkText(debit > 0 ? _numberFormat.format(debit) : ''),
-          credit: _linkText(credit > 0 ? _numberFormat.format(credit) : ''),
-          amount: _linkText(
-            '${_numberFormat.format(amountValue)} $amountSuffix',
-          ),
+          debit: (isSummaryRow || isOpeningBalance) ? _bodyText(debit > 0 ? _numberFormat.format(debit) : '', align: TextAlign.right) : _linkText(debit > 0 ? _numberFormat.format(debit) : ''),
+          credit: (isSummaryRow || isOpeningBalance) ? _bodyText(credit > 0 ? _numberFormat.format(credit) : '', align: TextAlign.right) : _linkText(credit > 0 ? _numberFormat.format(credit) : ''),
+          amount: (isSummaryRow || isOpeningBalance) ? _bodyText(amountValue > 0 ? '${_numberFormat.format(amountValue)} $amountSuffix' : '', align: TextAlign.right) : _linkText('${_numberFormat.format(amountValue)} $amountSuffix'),
         ),
       ),
     );

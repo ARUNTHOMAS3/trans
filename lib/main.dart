@@ -3,11 +3,14 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:zerpai_erp/core/services/env_service.dart';
+import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'package:zerpai_erp/app.dart';
 import 'package:zerpai_erp/core/utils/console_error_reporter.dart';
 import 'package:zerpai_erp/shared/services/hive_adapters.dart';

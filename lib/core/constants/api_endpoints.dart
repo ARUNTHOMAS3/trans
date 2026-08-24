@@ -70,4 +70,12 @@ class ApiEndpoints {
   static const String categories = 'categories';
   static const String taxRates = 'tax-rates';
   static const String accounts = 'accountant';
+
+  static String salesReturnStatus(dynamic status) => '/sales-returns/status';
+  static String get salesReturnsCustomerHistory => '/sales-returns/customer-history';
+  static String salesReturnById(String id) => '/sales-returns/';
+  static String creditNoteById(String id) => '/credit-notes/';
+
+  static String creditNoteJournal(String id) => '/credit-notes//journal';
+  static String creditNoteUpdate(String id) => '/credit-notes/';
 }

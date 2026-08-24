@@ -1,5 +1,6 @@
 // ignore_for_file: unused_element_parameter
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:zerpai_erp/shared/widgets/z_adaptive_menu.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,7 +58,6 @@ import 'package:zerpai_erp/modules/inventory/providers/stock_provider.dart';
 import 'package:zerpai_erp/shared/utils/zerpai_toast.dart';
 import 'package:zerpai_erp/core/theme/app_theme.dart';
 import 'dart:convert';
-import 'package:flutter/services.dart';
 
 import 'package:zerpai_erp/shared/services/api_client.dart';
 import 'package:zerpai_erp/core/providers/entity_provider.dart';
@@ -3593,14 +3593,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                       const SizedBox(height: 4),
                                       SizedBox(
                                         width: 160,
-                                        child: _zField(
-                                          prefixCtrl,
-                                          suffixIcon: const Icon(
-                                            Icons.add_circle_outline,
-                                            size: 16,
-                                            color: _linkBlue,
-                                          ),
-                                        ),
+                                        child: _zField(prefixCtrl),
                                       ),
                                     ],
                                   ),
@@ -3619,7 +3612,13 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                                       const SizedBox(height: 4),
                                       SizedBox(
                                         width: 280,
-                                        child: _zField(nextNumCtrl),
+                                        child: _zField(
+                                          nextNumCtrl,
+                                          keyboardType: TextInputType.number,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.digitsOnly,
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -3674,18 +3673,35 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
                       child: Row(
                         children: [
                           ElevatedButton(
-                            onPressed: () {
+                            onPressed: () async {
                               final rawNextNum = nextNumCtrl.text;
-                              final parsedNum = int.tryParse(rawNextNum) ?? 1;
+                              final parsedNum = int.tryParse(rawNextNum);
+                              if (parsedNum == null || parsedNum < 1) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Next Number must be at least 1.'),
+                                  ),
+                                );
+                                return;
+                              }
                               final padding = rawNextNum.length;
 
-                              notifier.saveSettings(
-                                isAuto: isAuto,
-                                prefix: prefixCtrl.text,
-                                nextNumber: parsedNum,
-                                padding: padding,
-                              );
-                              Navigator.pop(ctx);
+                              try {
+                                await notifier.saveSettings(
+                                  isAuto: isAuto,
+                                  prefix: prefixCtrl.text.trim(),
+                                  nextNumber: parsedNum,
+                                  padding: padding,
+                                );
+                                if (ctx.mounted) Navigator.pop(ctx);
+                              } catch (_) {
+                                if (!ctx.mounted) return;
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Could not save numbering preferences.'),
+                                  ),
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _greenBtn,
@@ -11101,6 +11117,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
     VoidCallback? onTap,
     bool readOnly = false,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
     Widget? suffixIcon,
     TextAlign textAlign = TextAlign.start,
   }) {
@@ -11112,6 +11129,7 @@ class _POCreateState extends ConsumerState<PurchaseOrderCreateScreen> {
           onChanged: onChanged,
           onTap: onTap,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           textAlign: textAlign,
           textAlignVertical: TextAlignVertical.center,
           readOnly: readOnly || (onTap != null && onChanged == null),

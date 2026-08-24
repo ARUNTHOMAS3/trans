@@ -865,29 +865,28 @@ class _InventoryPicklistsCreateScreenState
     super.dispose();
   }
 
-  void _showPicklistPreferencesDialog() {
-    showDialog(
+  Future<void> _showPicklistPreferencesDialog() async {
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       barrierDismissible: true,
       builder: (context) => _PicklistPreferencesDialog(
         initialAutoGenerate: _isAutoGenerate,
         initialPrefix: _picklistPrefix,
         initialNextNumber: _nextNumber,
-        onSave: (isAuto, prefix, nextNum) {
-          setState(() {
-            _isAutoGenerate = isAuto;
-            _picklistPrefix = prefix;
-            _nextNumber = nextNum;
-            if (_isAutoGenerate) {
-              _picklistNumberCtrl.text = _generatePicklistNumber();
-              _loadNextPicklistNumber();
-            } else {
-              _picklistNumberCtrl.clear();
-            }
-          });
-        },
       ),
     );
+
+    if (result == null || !mounted) return;
+    setState(() {
+      _isAutoGenerate = result['isAutoGenerate'] as bool? ?? true;
+      _picklistPrefix = result['prefix'] as String? ?? '';
+      _nextNumber = result['nextNumber'] as int? ?? _nextNumber;
+      if (_isAutoGenerate) {
+        _picklistNumberCtrl.text = _generatePicklistNumber();
+      } else {
+        _picklistNumberCtrl.clear();
+      }
+    });
   }
 
   @override
@@ -6210,13 +6209,11 @@ class _PicklistPreferencesDialog extends StatefulWidget {
   final bool initialAutoGenerate;
   final String initialPrefix;
   final int initialNextNumber;
-  final void Function(bool isAuto, String prefix, int nextNum) onSave;
 
   const _PicklistPreferencesDialog({
     required this.initialAutoGenerate,
     required this.initialPrefix,
     required this.initialNextNumber,
-    required this.onSave,
   });
 
   @override
@@ -6399,6 +6396,10 @@ class __PicklistPreferencesDialogState
                                 const SizedBox(height: 6),
                                 TextField(
                                   controller: _numberCtrl,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
                                   style: const TextStyle(fontSize: 13),
                                   decoration: InputDecoration(
                                     contentPadding: const EdgeInsets.symmetric(
@@ -6468,8 +6469,11 @@ class __PicklistPreferencesDialogState
                       final nextNum =
                           int.tryParse(_numberCtrl.text) ??
                           widget.initialNextNumber;
-                      widget.onSave(_isAuto, _prefixCtrl.text, nextNum);
-                      Navigator.pop(context);
+                      Navigator.pop(context, {
+                        'isAutoGenerate': _isAuto,
+                        'prefix': _prefixCtrl.text,
+                        'nextNumber': nextNum,
+                      });
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: greenBtn,

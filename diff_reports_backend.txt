@@ -1,0 +1,46 @@
+--- DIFFERENCES IN reports.controller.ts ---
+--- NEW/reports.controller.ts
++++ OLD/reports.controller.ts
+@@ -31,0 +32,10 @@
++  
++  @Get("business-overview/horizontal-balance-sheet")
++  getHorizontalBalanceSheet(
++    @Query("asOfDate") asOfDate: string,
++    @Query("basis") basis: string,
++    @Tenant() tenant: TenantContext,
++  ) {
++    return this.reportsService.getHorizontalBalanceSheet(asOfDate, tenant, basis);
++  }
++
+--- DIFFERENCES IN reports.service.ts ---
+--- NEW/reports.service.ts
++++ OLD/reports.service.ts
+@@ -4467,0 +4468,181 @@
++  
++  async getHorizontalBalanceSheet(
++    asOfDate: string,
++    tenant: TenantContext,
++    basis?: string,
++  ) {
++    // A balance sheet calculates balances from the beginning of time until the asOfDate.
++    // For Income and Expense accounts, their net balance becomes "Net Profit" or "Retained Earnings" under Equity.
++    const endExclusive = asOfDate ? new Date(asOfDate) : new Date();
++    endExclusive.setDate(endExclusive.getDate() + 1);
++
++    const accountNameExpression = sql`COALESCE(
++      NULLIF(a.user_account_name, ''),
++      NULLIF(a.system_account_name, ''),
++      NULLIF(a.account_code, ''),
++      a.id::text
++    )`;
++    const groupExpression = sql`COALESCE(NULLIF(a.account_group::text, ''), 'Uncategorized')`;
++    const accountWhereClause = sql`(a.entity_id = ${tenant.entityId} OR a.entity_id IS NULL)`;
++    
++    // We only need the net closing balance from the beginning of time up to endExclusive
++    const balanceSelect = sql`
++      a.id AS "accountId",
++      a.parent_id AS "parentId",
++      ${accountNameExpression} AS "accountName",
++      COALESCE(NULLIF(a.account_code, ''), '') AS "accountCode",
++      ${groupExpression} AS "accountGroup",
+... truncated ...

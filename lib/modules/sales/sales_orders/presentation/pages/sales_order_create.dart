@@ -53,6 +53,7 @@ import '../widgets/advanced_customer_search_dialog.dart';
 import 'package:zerpai_erp/shared/services/lookup_service.dart';
 import 'package:zerpai_erp/modules/items/items/services/lookups_api_service.dart';
 import 'package:zerpai_erp/shared/widgets/inputs/manage_payment_terms_dialog.dart';
+import 'package:zerpai_erp/shared/widgets/buttons/z_split_action_menu_button.dart';
 import 'package:zerpai_erp/shared/constants/currency_constants.dart';
 import '../widgets/sales_order_preferences_dialog.dart';
 import 'package:zerpai_erp/modules/sales/customers/presentation/sales_customer_create.dart';
@@ -227,6 +228,8 @@ class _SalesOrderCreateScreenState
   final LayerLink _attachmentBadgeLink = LayerLink();
   final _salesOrderDateKey = GlobalKey();
   final _expectedShipmentDateKey = GlobalKey();
+  final _salesOrderDateLink = LayerLink();
+  final _expectedShipmentDateLink = LayerLink();
   bool _isAdjustmentLabelHovered = false;
 
   bool _isAutoGenerateSO = true;
@@ -1174,9 +1177,9 @@ class _SalesOrderCreateScreenState
     if (text.isEmpty) return;
 
     // Only try to parse if it contains operators
-    if (text.contains(RegExp(r'[+\-*/()]'))) {
+    if (text.contains(RegExp(r'[+\-*/xX()]'))) {
       final double? result = _evaluateExpression(text);
-      if (result != null) {
+      if (result != null && result.isFinite) {
         row.rateCtrl.text = result % 1 == 0
             ? result.toInt().toString()
             : result.toStringAsFixed(2);
@@ -1187,7 +1190,10 @@ class _SalesOrderCreateScreenState
 
   double? _evaluateExpression(String input) {
     try {
-      return _MathParser(input.replaceAll(' ', '')).parse();
+      final normalized = input
+          .replaceAll(RegExp(r'[xX]'), '*')
+          .replaceAll(' ', '');
+      return _MathParser(normalized).parse();
     } catch (_) {
       return null;
     }
@@ -1337,14 +1343,14 @@ class _SalesOrderCreateScreenState
 
   void _showTaxPopover(BuildContext context, int index, SalesOrderItemRow row) {
     _closeTaxOverlay();
+    final pos = (placeOfSupply ?? _selectedCustomer?.placeOfSupply ?? '')
+        .trim()
+        .toLowerCase();
+    final isKerala = pos.contains('[kl]') || pos.contains('kerala');
 
     _taxOverlay = OverlayEntry(
       builder: (ctx) => Stack(
         children: [
-          GestureDetector(
-            onTap: _closeTaxOverlay,
-            child: Container(color: Colors.transparent),
-          ),
           CompositedTransformFollower(
             link: row.taxLink,
             showWhenUnlinked: false,
@@ -1355,6 +1361,7 @@ class _SalesOrderCreateScreenState
                 onTapOutside: (_) => _closeTaxOverlay(),
                 child: _TaxSelectionPopover(
                   selectedTaxId: row.taxId,
+                  showInterStateTaxesOnly: !isKerala,
                   onTaxSelected: (tax) {
                     setState(() {
                       row.taxId = tax.id;
@@ -1948,27 +1955,31 @@ class _SalesOrderCreateScreenState
                 required: true,
                 labelWidth: 180,
                 maxWidth: 600,
-                child: CustomTextField(
-                  key: _salesOrderDateKey,
-                  controller: TextEditingController(
-                    text: intl.DateFormat('dd-MM-yyyy').format(salesOrderDate),
-                  ),
-                  height: 32,
-                  readOnly: true,
-                  onTap: () async {
-                    final picked = await ZerpaiDatePicker.show(
-                      context,
-                      initialDate: salesOrderDate,
-                      targetKey: _salesOrderDateKey,
-                    );
-                    if (picked != null) {
-                      setState(() => salesOrderDate = picked);
-                    }
-                  },
-                  suffixWidget: const Icon(
-                    LucideIcons.calendar,
-                    size: 16,
-                    color: _kLabelGrey,
+                child: CompositedTransformTarget(
+                  link: _salesOrderDateLink,
+                  child: CustomTextField(
+                    key: _salesOrderDateKey,
+                    controller: TextEditingController(
+                      text: intl.DateFormat('dd-MM-yyyy').format(salesOrderDate),
+                    ),
+                    height: 32,
+                    readOnly: true,
+                    onTap: () async {
+                      final picked = await ZerpaiDatePicker.show(
+                        context,
+                        initialDate: salesOrderDate,
+                        targetKey: _salesOrderDateKey,
+                        targetLink: _salesOrderDateLink,
+                      );
+                      if (picked != null) {
+                        setState(() => salesOrderDate = picked);
+                      }
+                    },
+                    suffixWidget: const Icon(
+                      LucideIcons.calendar,
+                      size: 16,
+                      color: _kLabelGrey,
+                    ),
                   ),
                 ),
               ),
@@ -1979,10 +1990,12 @@ class _SalesOrderCreateScreenState
                 label: 'Expected Shipment Date',
                 labelWidth: 180,
                 maxWidth: 600,
-                child: MouseRegion(
-                  onEnter: (_) => setState(() => _isExpectedShipmentHovered = true),
-                  onExit: (_) => setState(() => _isExpectedShipmentHovered = false),
-                  child: CustomTextField(
+                child: CompositedTransformTarget(
+                  link: _expectedShipmentDateLink,
+                  child: MouseRegion(
+                    onEnter: (_) => setState(() => _isExpectedShipmentHovered = true),
+                    onExit: (_) => setState(() => _isExpectedShipmentHovered = false),
+                    child: CustomTextField(
                     key: _expectedShipmentDateKey,
                     controller: TextEditingController(
                       text: expectedShipmentDate == null
@@ -2002,6 +2015,7 @@ class _SalesOrderCreateScreenState
                         initialDate: initial.isBefore(startOfToday) ? startOfToday : initial,
                         firstDate: startOfToday,
                         targetKey: _expectedShipmentDateKey,
+                        targetLink: _expectedShipmentDateLink,
                       );
                       if (picked != null) {
                         setState(() => expectedShipmentDate = picked);
@@ -2029,6 +2043,7 @@ class _SalesOrderCreateScreenState
                                 size: 16,
                                 color: _kLabelGrey,
                               )),
+                    ),
                   ),
                 ),
               ),
@@ -2689,7 +2704,7 @@ class _SalesOrderCreateScreenState
 
     final itemsState = ref.watch(itemsControllerProvider);
     // Only GST groups (GST0, GST5, GST12… — intra-state combined rates)
-    final taxRates = itemsState.taxGroups;
+    final taxRates = [...itemsState.taxGroups, ...itemsState.taxRates];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3651,10 +3666,12 @@ class _SalesOrderCreateScreenState
                                     height: 32,
                                     hintText: '0',
                                     hideBorderDefault: true,
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                          decimal: true,
-                                        ),
+                                    keyboardType: TextInputType.text,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r'[0-9+\-*/xX().\s]'),
+                                      ),
+                                    ],
                                     contentCase: ContentCase.none,
                                     textAlign: TextAlign.right,
                                     onTap: () =>
@@ -3990,8 +4007,23 @@ class _SalesOrderCreateScreenState
             // ACTIONS (Outside border)
             Container(
               width: 60,
-              padding: const EdgeInsets.only(left: 12, top: 14),
-              child: (!row.isHeader && _hoveredRowIndex == idx)
+              padding: EdgeInsets.only(left: 12, top: row.isHeader ? 10 : 14),
+              child: row.isHeader && _hoveredRowIndex == idx
+                  ? InkWell(
+                      onTap: () {
+                        setState(() {
+                          rows.removeAt(idx);
+                          _calculateTotals();
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 18,
+                        color: Colors.red,
+                      ),
+                    )
+                  : _hoveredRowIndex == idx
                   ? Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -4794,74 +4826,87 @@ class _SalesOrderCreateScreenState
       return;
     }
 
+    var isAddHeaderHovered = false;
     _addRowOverlay = OverlayEntry(
       builder: (context) => Stack(
         children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                _addRowOverlay?.remove();
-                _addRowOverlay = null;
-                setState(() {});
-              },
-              behavior: HitTestBehavior.opaque,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
           CompositedTransformFollower(
             link: _addRowLink,
             showWhenUnlinked: false,
             offset: const Offset(0, 44), // Drops below the button
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: 140, // Enough width for the text
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: InkWell(
-                  onTap: () {
-                    // Implement Add New Header logic
-                    setState(() {
-                      rows.add(
-                        _createItemRow(
-                          quantity: '0',
-                          rate: '0',
-                          discount: '0',
-                          isHeader: true,
+            child: TapRegion(
+              onTapOutside: (_) {
+                _addRowOverlay?.remove();
+                _addRowOverlay = null;
+                setState(() {});
+              },
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: 140, // Enough width for the text
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: StatefulBuilder(
+                    builder: (context, setMenuState) {
+                      return MouseRegion(
+                        onEnter: (_) =>
+                            setMenuState(() => isAddHeaderHovered = true),
+                        onExit: (_) =>
+                            setMenuState(() => isAddHeaderHovered = false),
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              rows.add(
+                                _createItemRow(
+                                  quantity: '0',
+                                  rate: '0',
+                                  discount: '0',
+                                  isHeader: true,
+                                ),
+                              );
+                            });
+                            _addRowOverlay?.remove();
+                            _addRowOverlay = null;
+                          },
+                          hoverColor: Colors.transparent,
+                          splashColor: Colors.transparent,
+                          highlightColor: Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            width: double.infinity,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: isAddHeaderHovered
+                                  ? const Color(0xFF3B82F6)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Add New Header',
+                              style: TextStyle(
+                                color: isAddHeaderHovered
+                                    ? Colors.white
+                                    : const Color(0xFF374151),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                         ),
                       );
-                    });
-                    _addRowOverlay?.remove();
-                    _addRowOverlay = null;
-                  },
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                    width: double.infinity,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF3B82F6), // Blue background
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      'Add New Header',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    },
                   ),
                 ),
               ),
@@ -5255,47 +5300,43 @@ class _SalesOrderCreateScreenState
     _uploadOverlay = OverlayEntry(
       builder: (context) => Stack(
         children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                _uploadOverlay?.remove();
-                _uploadOverlay = null;
-                if (mounted) setState(() {});
-              },
-              behavior: HitTestBehavior.opaque,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
           CompositedTransformFollower(
             link: _uploadLink,
             showWhenUnlinked: false,
             targetAnchor: Alignment.topLeft,
             followerAnchor: Alignment.bottomLeft,
             offset: const Offset(0, -8),
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: 240,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 4),
-                    _buildUploadItem('Attach From Desktop', true),
-                    _buildUploadItem('Attach From Documents', false),
-                    const SizedBox(height: 8),
-                  ],
+            child: TapRegion(
+              onTapOutside: (_) {
+                _uploadOverlay?.remove();
+                _uploadOverlay = null;
+                if (mounted) setState(() {});
+              },
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: 240,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 4),
+                      _buildUploadItem('Attach From Desktop', true),
+                      _buildUploadItem('Attach From Documents', false),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -5324,9 +5365,9 @@ class _SalesOrderCreateScreenState
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
             decoration: BoxDecoration(
-              color: isSelected
+              color: isHovered
                   ? const Color(0xFF3B82F6)
-                  : (isHovered ? const Color(0xFFEFF6FF) : Colors.transparent),
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
@@ -5334,11 +5375,7 @@ class _SalesOrderCreateScreenState
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected
-                    ? Colors.white
-                    : (isHovered
-                          ? const Color(0xFF1D4ED8)
-                          : const Color(0xFF374151)),
+                color: isHovered ? Colors.white : const Color(0xFF374151),
               ),
             ),
           ),
@@ -5585,44 +5622,52 @@ class _SalesOrderCreateScreenState
     final calculatedAmount = _tdsTcsAmount;
     final displayAmount = calculatedAmount.toStringAsFixed(2);
 
-    return RadioGroup<String>(
-      groupValue: _tdsTcsType,
-      onChanged: (val) {
-        if (val != null) {
-          setState(() {
-            _tdsTcsType = val;
-            _selectedTdsTcsId = null;
-            _tdsTcsRate = 0.0;
-          });
-          _calculateTotals();
-        }
-      },
-      child: Row(
+    return Row(
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          InkWell(
+            onTap: () => _toggleTdsTcsType('tds'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(
-                width: 14,
-                height: 14,
-                child: Radio<String>(value: 'tds', activeColor: _kBlue),
+              IgnorePointer(
+                child: SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: Radio<String>(
+                    value: 'tds',
+                    groupValue: _tdsTcsType,
+                    activeColor: _kBlue,
+                    onChanged: (_) {},
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               const Text('TDS', style: TextStyle(fontSize: 13)),
             ],
           ),
+          ),
           const SizedBox(width: 16),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          InkWell(
+            onTap: () => _toggleTdsTcsType('tcs'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(
-                width: 14,
-                height: 14,
-                child: Radio<String>(value: 'tcs', activeColor: _kBlue),
+              IgnorePointer(
+                child: SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: Radio<String>(
+                    value: 'tcs',
+                    groupValue: _tdsTcsType,
+                    activeColor: _kBlue,
+                    onChanged: (_) {},
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               const Text('TCS', style: TextStyle(fontSize: 13)),
             ],
+          ),
           ),
           const Spacer(),
           if (_tdsTcsType != 'none') ...[
@@ -5640,7 +5685,7 @@ class _SalesOrderCreateScreenState
                         if (!context.mounted) return;
                         final renderBox = btnContext.findRenderObject() as RenderBox?;
                         final offset = renderBox?.localToGlobal(Offset.zero);
-                        _showTdsMenu(context, offset);
+                        _showTdsMenu(btnContext);
                       },
                       child: () {
                         bool isHovered = false;
@@ -5713,11 +5758,19 @@ class _SalesOrderCreateScreenState
             ),
           ],
         ],
-      ),
     );
   }
 
-  void _showTdsMenu(BuildContext ctx, Offset? offset) {
+  void _toggleTdsTcsType(String type) {
+    setState(() {
+      _tdsTcsType = _tdsTcsType == type ? 'none' : type;
+      _selectedTdsTcsId = null;
+      _tdsTcsRate = 0.0;
+    });
+    _calculateTotals();
+  }
+
+  void _showTdsMenu(BuildContext ctx) {
     if (_tdsOverlay != null) {
       _tdsOverlay!.remove();
       _tdsOverlay = null;
@@ -5920,50 +5973,27 @@ class _SalesOrderCreateScreenState
             child: Text(_isEditMode ? 'Update Draft' : 'Save as Draft'),
           ),
           const SizedBox(width: 12),
-          // Split Button: Save and Send
-          Container(
+          ZSplitActionMenuButton(
             height: 32,
-            decoration: BoxDecoration(
-              color: const Color(0xFF10B981), // Emerald-500
-              borderRadius: BorderRadius.circular(4),
+            menuWidth: 152,
+            triggerLabel: _isEditMode ? 'Update' : 'Save and Confirm',
+            primaryColor: AppTheme.accentGreen,
+            openUp: true,
+            onPrimaryPressed: () => _saveSalesOrder(
+              status: widget.initialOrder?.status ?? 'confirmed',
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                InkWell(
-                  onTap: () => _saveSalesOrder(
-                    status: widget.initialOrder?.status ?? 'confirmed',
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      _isEditMode ? 'Update' : 'Save and Confirm',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 1,
-                  height: 24,
-                  color: Colors.white.withValues(alpha: 0.3),
-                ),
-                InkWell(
-                  onTap: () {},
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(
-                      Icons.arrow_drop_down,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            menuItems: [
+              ZSplitActionMenuItem(
+                label: 'Save and Send',
+                icon: LucideIcons.mail,
+                onPressed: () => _saveSalesOrder(status: 'confirmed'),
+              ),
+              ZSplitActionMenuItem(
+                label: 'Save and Print',
+                icon: LucideIcons.printer,
+                onPressed: () => _saveSalesOrder(status: 'confirmed'),
+              ),
+            ],
           ),
           const SizedBox(width: 12),
           OutlinedButton(
@@ -7437,24 +7467,19 @@ class _SalesOrderCreateScreenState
     _gstTaxOverlay = OverlayEntry(
       builder: (context) => Stack(
         children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                _gstTaxOverlay?.remove();
-                _gstTaxOverlay = null;
-                setState(() {});
-              },
-              behavior: HitTestBehavior.opaque,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
           CompositedTransformFollower(
             link: _gstTaxLink,
             showWhenUnlinked: false,
             offset: const Offset(-333, 20),
-            child: Material(
-              color: Colors.transparent,
-              child: ConfigureTaxPreferencesDialog(
+            child: TapRegion(
+              onTapOutside: (_) {
+                _gstTaxOverlay?.remove();
+                _gstTaxOverlay = null;
+                setState(() {});
+              },
+              child: Material(
+                color: Colors.transparent,
+                child: ConfigureTaxPreferencesDialog(
                 initialGst: initialGst,
                 initialGstin: _selectedCustomer?.gstin ?? '',
                 onUpdate: (newGst, newGstin, isPermanent) async {
@@ -7498,9 +7523,10 @@ class _SalesOrderCreateScreenState
                   _gstTaxOverlay = null;
                   setState(() {});
                 },
+                ),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -7519,24 +7545,19 @@ class _SalesOrderCreateScreenState
     _gstinOverlay = OverlayEntry(
       builder: (context) => Stack(
         children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                _gstinOverlay?.remove();
-                _gstinOverlay = null;
-                setState(() {});
-              },
-              behavior: HitTestBehavior.opaque,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
           CompositedTransformFollower(
             link: _gstinLink,
             showWhenUnlinked: false,
             offset: const Offset(-277, 20),
-            child: Material(
-              color: Colors.transparent,
-              child: _GstinPopover(
+            child: TapRegion(
+              onTapOutside: (_) {
+                _gstinOverlay?.remove();
+                _gstinOverlay = null;
+                setState(() {});
+              },
+              child: Material(
+                color: Colors.transparent,
+                child: _GstinPopover(
                 gstin: currentGstin,
                 onUpdate: (newGstin) async {
                   setState(() {
@@ -7570,6 +7591,7 @@ class _SalesOrderCreateScreenState
                   _gstinOverlay = null;
                   setState(() {});
                 },
+                ),
               ),
             ),
           ),
@@ -7630,25 +7652,20 @@ class _SalesOrderCreateScreenState
     _discountOverlay = OverlayEntry(
       builder: (context) => Stack(
         children: [
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
+          CompositedTransformFollower(
+            link: row.discountLink,
+            showWhenUnlinked: false,
+            offset: const Offset(-8, 44),
+            child: TapRegion(
+              onTapOutside: (_) {
                 _discountOverlay?.remove();
                 _discountOverlay = null;
                 _activeDiscountRow = null;
                 setState(() {});
               },
-              behavior: HitTestBehavior.opaque,
-              child: Container(color: Colors.transparent),
-            ),
-          ),
-          CompositedTransformFollower(
-            link: row.discountLink,
-            showWhenUnlinked: false,
-            offset: const Offset(-8, 44),
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
                 width: 58,
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
@@ -7716,6 +7733,7 @@ class _SalesOrderCreateScreenState
                       },
                     );
                   }).toList(),
+                ),
                 ),
               ),
             ),
@@ -9154,14 +9172,27 @@ class _MathParser {
 
 class _TaxSelectionPopover extends ConsumerWidget {
   final String? selectedTaxId;
+  final bool showInterStateTaxesOnly;
   final ValueChanged<TaxRate> onTaxSelected;
 
-  const _TaxSelectionPopover({this.selectedTaxId, required this.onTaxSelected});
+  const _TaxSelectionPopover({
+    this.selectedTaxId,
+    this.showInterStateTaxesOnly = false,
+    required this.onTaxSelected,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final itemsState = ref.watch(itemsControllerProvider);
-    final taxes = itemsState.taxGroups;
+    final taxes = showInterStateTaxesOnly
+        ? itemsState.taxRates
+            .where(
+              (tax) =>
+                  tax.taxType?.toUpperCase() == 'IGST' ||
+                  tax.taxName.toUpperCase().startsWith('IGST'),
+            )
+            .toList()
+        : itemsState.taxGroups;
 
     // Create dummy objects for special options
     final nonTaxable = TaxRate(
@@ -9224,11 +9255,11 @@ class _TaxSelectionPopover extends ConsumerWidget {
                     isSelected: selectedTaxId == 'non_gst',
                     onTap: () => onTaxSelected(nonGst),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
-                      'Tax Group',
-                      style: TextStyle(
+                      showInterStateTaxesOnly ? 'IGST' : 'Tax Group',
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF6B7280),
@@ -9279,12 +9310,10 @@ class _SpecialPopoverListItemState extends State<_SpecialPopoverListItem> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isSelected || _hover
+    final bg = _hover
         ? const Color(0xFF3B82F6)
-        : Colors.transparent;
-    final text = widget.isSelected || _hover
-        ? Colors.white
-        : const Color(0xFF333333);
+        : (widget.isSelected ? const Color(0xFFF3F4F6) : Colors.transparent);
+    final text = _hover ? Colors.white : const Color(0xFF333333);
     final descColor = widget.isSelected || _hover
         ? Colors.white.withValues(alpha: 0.8)
         : const Color(0xFF666666);
@@ -9294,6 +9323,9 @@ class _SpecialPopoverListItemState extends State<_SpecialPopoverListItem> {
       onExit: (_) => setState(() => _hover = false),
       child: InkWell(
         onTap: widget.onTap,
+        hoverColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
         child: Container(
           width: double.infinity,
           margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -9510,18 +9542,19 @@ class _PopoverListItemState extends State<_PopoverListItem> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isSelected || _hover
+    final bg = _hover
         ? const Color(0xFF3B82F6)
-        : Colors.transparent;
-    final text = widget.isSelected || _hover
-        ? Colors.white
-        : const Color(0xFF333333);
+        : (widget.isSelected ? const Color(0xFFF3F4F6) : Colors.transparent);
+    final text = _hover ? Colors.white : const Color(0xFF333333);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: InkWell(
         onTap: widget.onTap,
+        hoverColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
         child: Container(
           width: double.infinity,
           margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -9586,6 +9619,22 @@ class _TdsSelectionPopoverState extends State<_TdsSelectionPopover> {
       final query = _searchQuery.toLowerCase();
       return name.contains(query) || code.contains(query);
     }).toList();
+    final groupedRateIds = widget.tdsSections
+        .expand((section) {
+          final sectionId = section['id']?.toString() ?? '';
+          return filteredRates
+              .where(
+                (rate) =>
+                    (widget.isTcs
+                                ? rate['tcs_nature_id']
+                                : rate['tds_section_id'])
+                            ?.toString() ==
+                        sectionId,
+              )
+              .map((rate) => rate['id']?.toString() ?? '');
+        })
+        .where((id) => id.isNotEmpty)
+        .toSet();
 
     return Container(
       width: 300,
@@ -9639,7 +9688,8 @@ class _TdsSelectionPopoverState extends State<_TdsSelectionPopover> {
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: widget.tdsSections.expand((section) {
+                children: [
+                  ...widget.tdsSections.expand((section) {
                   final sectionId = section['id']?.toString() ?? '';
                   final sectionCode = section['section_code'] ?? section['nature_name'] ?? '';
                   final sectionDesc = section['description'] ?? section['nature_desc'] ?? '';
@@ -9682,6 +9732,33 @@ class _TdsSelectionPopoverState extends State<_TdsSelectionPopover> {
                     }),
                   ];
                 }).toList(),
+                ...filteredRates
+                    .where(
+                      (rate) => !groupedRateIds.contains(
+                        rate['id']?.toString(),
+                      ),
+                    )
+                    .map((rate) {
+                      final isSelected =
+                          rate['id']?.toString() == widget.selectedTdsId;
+                      final taxName = rate['tax_name'] ?? '';
+                      final value = double.tryParse(
+                        (widget.isTcs ? rate['rate'] : rate['base_rate'])
+                                ?.toString() ??
+                            '0',
+                      );
+                      final label = value == null
+                          ? taxName
+                          : '$taxName (${value == value.toInt() ? value.toInt() : value}%)';
+
+                      return _TdsPopoverListItem(
+                        label: label,
+                        indent: 1,
+                        isSelected: isSelected,
+                        onTap: () => widget.onSelected(rate),
+                      );
+                    }),
+                ],
               ),
             ),
           ),

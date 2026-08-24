@@ -132,10 +132,7 @@ class _SalesChannelIntegrationsSyncSummaryPageState
     );
     _clearPendingAfterSuccessfulLoad(reportRowsAsync);
     final displayDate =
-        'From ' +
-        ReportFormatterCache.date('dd-MM-yyyy').format(_appliedStartDate) +
-        ' To ' +
-        ReportFormatterCache.date('dd-MM-yyyy').format(_appliedEndDate);
+        'From ${ReportFormatterCache.date('dd-MM-yyyy').format(_appliedStartDate)} To ${ReportFormatterCache.date('dd-MM-yyyy').format(_appliedEndDate)}';
 
     return ReportViewScaffold(
       categoryLabel: 'Sales',

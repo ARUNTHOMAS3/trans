@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { SupabaseService } from "../supabase/supabase.service";
-import { db, client } from "../../db/db";
+import { db } from "../../db/db";
 import { sql } from "drizzle-orm";
 import { TenantContext } from "../../common/middleware/tenant.middleware";
 
@@ -31,6 +31,7 @@ export class ReportsService {
       place: string;
     }>;
   }> {
+    const supabase = this.supabaseService.getClient();
     const currentEntityId = tenant.entityId?.toString().trim() || "";
 
     if (!currentEntityId) {
@@ -41,11 +42,11 @@ export class ReportsService {
       };
     }
 
-    const selectedEntities = await client.unsafe(
-      `SELECT id, type, ref_id, parent_id FROM organisation_branch_master WHERE id = $1 LIMIT 1`,
-      [currentEntityId],
-    );
-    const selectedEntity = selectedEntities[0];
+    const { data: selectedEntity } = await supabase
+      .from("organisation_branch_master")
+      .select("id, type, ref_id, parent_id")
+      .eq("id", currentEntityId)
+      .maybeSingle();
     const entityRows: Array<{
       id: string;
       type: "ORG" | "BRANCH";
@@ -66,23 +67,11 @@ export class ReportsService {
     const branchMap = new Map<string, { name: string; place: string }>();
 
     if (orgRefIds.length > 0) {
-      let orgs: any[] = [];
-      try {
-        orgs = await client.unsafe(
-          `SELECT id, name, place, city FROM organization WHERE id = ANY($1)`,
-          [orgRefIds],
-        );
-      } catch {
-        try {
-          orgs = await client.unsafe(
-            `SELECT id, name, NULL::text as place, NULL::text as city FROM organizations WHERE id = ANY($1)`,
-            [orgRefIds],
-          );
-        } catch {
-          orgs = [];
-        }
-      }
-      for (const row of orgs ?? []) {
+      const { data } = await supabase
+        .from("organization")
+        .select("id, name, place, city")
+        .in("id", orgRefIds);
+      for (const row of data ?? []) {
         orgMap.set(String((row as any).id), {
           name: String((row as any).name ?? "Organization"),
           place: String((row as any).place ?? (row as any).city ?? "").trim(),
@@ -91,11 +80,11 @@ export class ReportsService {
     }
 
     if (branchRefIds.length > 0) {
-      const branchesRes = await client.unsafe(
-        `SELECT id, name, place, city FROM branches WHERE id = ANY($1)`,
-        [branchRefIds],
-      );
-      for (const row of branchesRes ?? []) {
+      const { data } = await supabase
+        .from("branches")
+        .select("id, name, place, city")
+        .in("id", branchRefIds);
+      for (const row of data ?? []) {
         branchMap.set(String((row as any).id), {
           name: String((row as any).name ?? "Branch"),
           place: String((row as any).place ?? (row as any).city ?? "").trim(),
@@ -140,6 +129,7 @@ export class ReportsService {
   }
 
   async getCurrentBranchHeader(tenant: TenantContext) {
+    const supabase = this.supabaseService.getClient();
     const userId = tenant.userId?.toString().trim() || "";
     const orgId = tenant.orgId?.toString().trim() || "";
     const activeEntityId = tenant.entityId?.toString().trim() || "";
@@ -147,24 +137,25 @@ export class ReportsService {
     const accessRows: Array<Record<string, any>> = [];
 
     if (userId) {
-      const accessData = await client.unsafe(
-        `SELECT entity_id, is_default_branch FROM branch_user_access WHERE user_id = $1`,
-        [userId],
-      );
-      if (Array.isArray(accessData)) {
+      const { data } = await supabase
+        .from("branch_user_access")
+        .select("entity_id, is_default_branch")
+        .eq("user_id", userId);
+      if (Array.isArray(data)) {
         accessRows.push(
-          ...accessData.map((row) => ({ ...row, source: "branch_user_access" })),
+          ...data.map((row) => ({ ...row, source: "branch_user_access" })),
         );
       }
 
       if (accessRows.length === 0) {
-        let fallbackSql = `SELECT entity_id, is_default_business, is_default_warehouse FROM user_branch_access WHERE user_id = $1`;
-        const params: any[] = [userId];
+        let fallbackQuery = supabase
+          .from("user_branch_access")
+          .select("entity_id, is_default_business, is_default_warehouse")
+          .eq("user_id", userId);
         if (orgId) {
-          params.push(orgId);
-          fallbackSql += ` AND org_id = $2`;
+          fallbackQuery = fallbackQuery.eq("org_id", orgId);
         }
-        const fallbackData = await client.unsafe(fallbackSql, params);
+        const { data: fallbackData } = await fallbackQuery;
         if (Array.isArray(fallbackData)) {
           accessRows.push(
             ...fallbackData.map((row) => ({
@@ -199,21 +190,24 @@ export class ReportsService {
       };
     }
 
-    const entityRows = await client.unsafe(
-      `SELECT id, name, type, ref_id FROM organisation_branch_master WHERE id = $1 LIMIT 1`,
-      [entityId],
-    );
-    const entity = (entityRows[0] ?? {}) as Record<string, any>;
+    const { data: entityRow } = await supabase
+      .from("organisation_branch_master")
+      .select("id, name, type, ref_id")
+      .eq("id", entityId)
+      .maybeSingle();
+
+    const entity = (entityRow ?? {}) as Record<string, any>;
     const branchRefId =
       entity.ref_id?.toString().trim() || tenant.branchId || "";
     let branchName = "";
 
     if (entity.type === "BRANCH" && branchRefId) {
-      const branchRows = await client.unsafe(
-        `SELECT id, name FROM branches WHERE id = $1 LIMIT 1`,
-        [branchRefId],
-      );
-      branchName = String((branchRows[0] as any)?.name ?? "").trim();
+      const { data: branchRow } = await supabase
+        .from("branches")
+        .select("id, name")
+        .eq("id", branchRefId)
+        .maybeSingle();
+      branchName = String((branchRow as any)?.name ?? "").trim();
     }
 
     if (!branchName) {
@@ -335,7 +329,7 @@ export class ReportsService {
     try {
       txs = (await db.execute(sql`
         SELECT account_id, debit, credit
-        FROM ${this.accountTransactionsReportSourceSql()}
+        FROM ${this.accountTransactionsReportSourceSql(scope.entityIds)}
         WHERE entity_id IN (${entityScopeSql})
       `)) as any[];
     } catch (error) {
@@ -374,7 +368,7 @@ export class ReportsService {
     try {
       salesTrend = (await db.execute(sql`
         SELECT transaction_date, credit
-        FROM ${this.accountTransactionsReportSourceSql()}
+        FROM ${this.accountTransactionsReportSourceSql(scope.entityIds)}
         WHERE entity_id IN (${entityScopeSql})
           AND transaction_date >= ${thirtyDaysAgo.toISOString()}
           AND transaction_type IN ('invoice', 'sales_receipt')
@@ -402,7 +396,7 @@ export class ReportsService {
     try {
       topCustomersData = (await db.execute(sql`
         SELECT contact_id, contact_type, credit
-        FROM ${this.accountTransactionsReportSourceSql()}
+        FROM ${this.accountTransactionsReportSourceSql(scope.entityIds)}
         WHERE entity_id IN (${entityScopeSql})
           AND contact_type = 'customer'
           AND transaction_type IN ('invoice', 'sales_receipt')
@@ -634,6 +628,31 @@ export class ReportsService {
 
   // --- Reports Methods (Relocated from Accountant) ---
 
+  private profitAndLossJournalSourceSql() {
+    return sql`(
+      SELECT
+        jel.id AS id,
+        jel.account_id AS account_id,
+        jel.entity_id AS entity_id,
+        jel.transaction_date AS transaction_date,
+        je.journal_type AS transaction_type,
+        je.reference_number AS reference_number,
+        jel.description AS description,
+        jel.debit AS debit,
+        jel.credit AS credit,
+        je.id AS source_id,
+        'journal_entry' AS source_type,
+        jel.contact_id AS contact_id,
+        jel.contact_type AS contact_type,
+        jel.created_at AS created_at,
+        je.id AS journal_entry_id,
+        jel.line_number AS line_number
+      FROM journal_entry_lines jel
+      JOIN journal_entries je ON jel.journal_entry_id = je.id
+      WHERE je.status = 'POSTED'
+    )`;
+  }
+
   async getProfitAndLossReport(
     startDate: string,
     endDate: string,
@@ -641,7 +660,7 @@ export class ReportsService {
   ) {
     const conditions: any[] = [
       sql`t.transaction_date >= ${new Date(startDate).toISOString()}`,
-      sql`t.transaction_date <= ${new Date(endDate).toISOString()}`,
+      sql`t.transaction_date <= ${new Date(endDate.includes('T') ? new Date(endDate).setUTCHours(23, 59, 59, 999) : endDate + 'T23:59:59.999Z').toISOString()}`,
       sql`COALESCE(a.user_account_name, a.system_account_name) != 'Opening Balance Offset'`,
     ];
     conditions.push(sql`t.entity_id = ${tenant.entityId}`);
@@ -650,15 +669,16 @@ export class ReportsService {
 
     const query = sql`
       SELECT 
-        a.account_type as "accountType",
+        a.account_type::text as "accountType",
+        a.account_group::text as "accountGroup",
         COALESCE(a.user_account_name, a.system_account_name) as "accountName",
         a.id as "accountId",
         SUM(t.debit) as "totalDebit",
         SUM(t.credit) as "totalCredit"
-      FROM ${this.accountTransactionsReportSourceSql()} t
+      FROM ${this.profitAndLossJournalSourceSql()} t
       JOIN accounts a ON t.account_id = a.id
       WHERE ${whereClause}
-      GROUP BY a.account_type, COALESCE(a.user_account_name, a.system_account_name), a.id
+      GROUP BY a.account_type, a.account_group, COALESCE(a.user_account_name, a.system_account_name), a.id
     `;
 
     let rows: any[] = [];
@@ -673,19 +693,149 @@ export class ReportsService {
     }
 
     const report = {
-      operatingIncome: [],
-      costOfGoodsSold: [],
-      operatingExpenses: [],
+      operatingIncome: [] as any[],
+      costOfGoodsSold: [] as any[],
+      operatingExpenses: [] as any[],
+      nonOperatingIncome: [] as any[],
+      nonOperatingExpenses: [] as any[],
     };
-    let totalIncome = 0,
-      totalCogs = 0,
-      totalExpenses = 0;
+    let operatingIncomeTotal = 0,
+      cogsTotal = 0,
+      operatingExpensesTotal = 0,
+      nonOperatingIncomeTotal = 0,
+      nonOperatingExpensesTotal = 0;
+
+    for (const row of rows) {
+      const type = row.accountType || "";
+      const group = row.accountGroup || "";
+
+      const totalDebit = Number(row.totalDebit);
+      const totalCredit = Number(row.totalCredit);
+      
+      const isIncomeGroup = group === "Income";
+      const netAmount = isIncomeGroup
+        ? totalCredit - totalDebit
+        : totalDebit - totalCredit;
+
+      const item = {
+        accountId: row.accountId,
+        accountName: row.accountName,
+        accountType: row.accountType,
+        netAmount,
+      };
+
+      if (group === "Income" && type === "Income") {
+        report.operatingIncome.push(item);
+        operatingIncomeTotal += netAmount;
+      } else if (group === "Income" && type === "Other Income") {
+        report.nonOperatingIncome.push(item);
+        nonOperatingIncomeTotal += netAmount;
+      } else if (group === "Expenses" && type === "Cost Of Goods Sold") {
+        report.costOfGoodsSold.push(item);
+        cogsTotal += netAmount;
+      } else if (group === "Expenses" && type === "Expense") {
+        report.operatingExpenses.push(item);
+        operatingExpensesTotal += netAmount;
+      } else if (group === "Expenses" && type === "Other Expense") {
+        report.nonOperatingExpenses.push(item);
+        nonOperatingExpensesTotal += netAmount;
+      }
+    }
+
+    const grossProfit = operatingIncomeTotal - cogsTotal;
+    const operatingProfit = grossProfit - operatingExpensesTotal;
+    const netProfit = operatingProfit + nonOperatingIncomeTotal - nonOperatingExpensesTotal;
+
+    return {
+      period: { startDate, endDate },
+      report,
+      summary: {
+        operatingIncome: operatingIncomeTotal,
+        costOfGoodsSold: cogsTotal,
+        grossProfit,
+        operatingExpenses: operatingExpensesTotal,
+        operatingProfit,
+        nonOperatingIncome: nonOperatingIncomeTotal,
+        nonOperatingExpenses: nonOperatingExpensesTotal,
+        netProfit,
+      },
+    };
+  }
+
+  async getProfitAndLossScheduleIIIReport(
+    startDate: string,
+    endDate: string,
+    tenant: TenantContext,
+  ) {
+    const conditions: any[] = [
+      sql`t.transaction_date >= ${new Date(startDate).toISOString()}`,
+      sql`t.transaction_date <= ${new Date(endDate.includes('T') ? new Date(endDate).setUTCHours(23, 59, 59, 999) : endDate + 'T23:59:59.999Z').toISOString()}`,
+      sql`COALESCE(a.user_account_name, a.system_account_name) != 'Opening Balance Offset'`,
+    ];
+    conditions.push(sql`t.entity_id = ${tenant.entityId}`);
+
+    const whereClause = sql.join(conditions, sql` AND `);
+
+    const query = sql`
+      SELECT 
+        a.account_type::text as "accountType",
+        a.account_group::text as "accountGroup",
+        COALESCE(a.user_account_name, a.system_account_name) as "accountName",
+        a.id as "accountId",
+        SUM(t.debit) as "totalDebit",
+        SUM(t.credit) as "totalCredit"
+      FROM ${this.profitAndLossJournalSourceSql()} t
+      JOIN accounts a ON t.account_id = a.id
+      WHERE ${whereClause}
+      GROUP BY a.account_type, a.account_group, COALESCE(a.user_account_name, a.system_account_name), a.id
+    `;
+
+    let rows: any[] = [];
+    try {
+      const result = await db.execute(query);
+      rows = result as any[];
+    } catch (error) {
+      console.warn("Profit and loss Schedule III query failed:", error);
+      rows = [];
+    }
+
+    const report = {
+      revenueFromOperations: [],
+      otherIncome: [],
+      costOfMaterialsConsumed: [],
+      purchasesOfStockInTrade: [],
+      changesInInventories: [],
+      employeeBenefitsExpense: [],
+      financeCosts: [],
+      depreciationAndAmortizationExpense: [],
+      otherExpenses: [],
+      exceptionalItems: [],
+      extraordinaryItems: [],
+      currentTax: [],
+      deferredTax: [],
+    };
+    
+    let totalRevenueFromOperations = 0;
+    let totalOtherIncome = 0;
+    let totalCostOfMaterialsConsumed = 0;
+    let totalPurchasesOfStockInTrade = 0;
+    let totalChangesInInventories = 0;
+    let totalEmployeeBenefitsExpense = 0;
+    let totalFinanceCosts = 0;
+    let totalDepreciation = 0;
+    let totalOtherExpenses = 0;
+    let totalExceptionalItems = 0;
+    let totalExtraordinaryItems = 0;
+    let totalCurrentTax = 0;
+    let totalDeferredTax = 0;
 
     for (const row of rows) {
       const type = row.accountType?.toLowerCase() || "";
       const isIncome = type.includes("income") || type.includes("sales");
       const isCogs = type.includes("cogs") || type.includes("cost");
       const isExpense = type.includes("expense");
+      
+      const isOtherIncome = type.includes("other") && isIncome;
 
       const totalDebit = Number(row.totalDebit);
       const totalCredit = Number(row.totalCredit);
@@ -700,28 +850,173 @@ export class ReportsService {
         netAmount,
       };
 
-      if (isIncome) {
-        report.operatingIncome.push(item);
-        totalIncome += netAmount;
+      if (isIncome && !isOtherIncome) {
+        report.revenueFromOperations.push(item);
+        totalRevenueFromOperations += netAmount;
+      } else if (isOtherIncome) {
+        report.otherIncome.push(item);
+        totalOtherIncome += netAmount;
       } else if (isCogs) {
-        report.costOfGoodsSold.push(item);
-        totalCogs += netAmount;
+        report.purchasesOfStockInTrade.push(item);
+        totalPurchasesOfStockInTrade += netAmount;
       } else if (isExpense) {
-        report.operatingExpenses.push(item);
-        totalExpenses += netAmount;
+        report.otherExpenses.push(item);
+        totalOtherExpenses += netAmount;
       }
     }
+
+    const totalRevenue = totalRevenueFromOperations + totalOtherIncome;
+    const totalExpenses = 
+      totalCostOfMaterialsConsumed + 
+      totalPurchasesOfStockInTrade + 
+      totalChangesInInventories + 
+      totalEmployeeBenefitsExpense + 
+      totalFinanceCosts + 
+      totalDepreciation + 
+      totalOtherExpenses;
+    
+    const profitBeforeExceptionalItemsAndTax = totalRevenue - totalExpenses;
+    const profitBeforeExtraordinaryItemsAndTax = profitBeforeExceptionalItemsAndTax - totalExceptionalItems;
+    const profitBeforeTax = profitBeforeExtraordinaryItemsAndTax - totalExtraordinaryItems;
+    const totalTaxExpense = totalCurrentTax + totalDeferredTax;
+    const profitForThePeriod = profitBeforeTax - totalTaxExpense;
 
     return {
       period: { startDate, endDate },
       report,
       summary: {
-        totalIncome,
-        totalCogs,
-        grossProfit: totalIncome - totalCogs,
+        totalRevenueFromOperations,
+        totalOtherIncome,
+        totalRevenue,
+        totalCostOfMaterialsConsumed,
+        totalPurchasesOfStockInTrade,
+        totalChangesInInventories,
+        totalEmployeeBenefitsExpense,
+        totalFinanceCosts,
+        totalDepreciation,
+        totalOtherExpenses,
         totalExpenses,
-        netProfit: totalIncome - totalCogs - totalExpenses,
+        profitBeforeExceptionalItemsAndTax,
+        totalExceptionalItems,
+        profitBeforeExtraordinaryItemsAndTax,
+        totalExtraordinaryItems,
+        profitBeforeTax,
+        totalCurrentTax,
+        totalDeferredTax,
+        totalTaxExpense,
+        profitForThePeriod
       },
+    };
+  }
+
+  async getHorizontalProfitAndLossReport(
+    startDate: string,
+    endDate: string,
+    tenant: TenantContext,
+    basis?: "Accrual" | "Cash",
+  ) {
+    const start = new Date(startDate);
+    const endExclusive = new Date(endDate);
+    endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+
+    const existingSourceTables = await this.getExistingPublicReportTables([
+      "expenses",
+      "bills",
+      "purchase_orders",
+      "purchase_receives",
+      "invoices",
+      "vendor_credits",
+      "payments_received",
+      "recurring_invoices",
+      "journal_entries",
+      "manual_journals",
+      "inventory_adjustments",
+    ]);
+
+    const accountActiveCondition = sql`COALESCE(NULLIF(to_jsonb(a)->>'is_deleted', '')::boolean, false) = false`;
+    const sourceValidationCondition = this.buildAccountTransactionSourceValidationCondition(existingSourceTables);
+    const transactionJoinConditions = [
+      sql`t.account_id = a.id`,
+      sql`t.transaction_date >= ${start.toISOString()}`,
+      sql`t.transaction_date < ${endExclusive.toISOString()}`,
+      sql`t.entity_id = ${tenant.entityId}`,
+      sourceValidationCondition,
+    ];
+    
+    const accountConditions = [
+      accountActiveCondition,
+      sql`a.entity_id = ${tenant.entityId}`,
+      sql`a.account_type IN ('Income', 'Other Income', 'Expense', 'Other Expense', 'Cost Of Goods Sold')`
+    ];
+    const accountWhereClause = sql.join(accountConditions, sql` AND `);
+
+    const query = sql`
+      SELECT
+        a.id AS "accountId",
+        COALESCE(
+          NULLIF(a.user_account_name, ''),
+          NULLIF(a.system_account_name, ''),
+          NULLIF(a.account_code, ''),
+          a.id::text
+        ) AS "accountName",
+        COALESCE(NULLIF(a.account_group::text, ''), 'Uncategorized') AS "accountGroup",
+        COALESCE(NULLIF(a.account_type::text, ''), 'Uncategorized') AS "accountType",
+        SUM(COALESCE(t.debit, 0)) AS "totalDebit",
+        SUM(COALESCE(t.credit, 0)) AS "totalCredit"
+      FROM accounts a
+      LEFT JOIN ${this.accountTransactionsReportSourceSql()} t
+        ON ${sql.join(transactionJoinConditions, sql` AND `)}
+      WHERE ${accountWhereClause}
+      GROUP BY a.id, a.user_account_name, a.system_account_name, a.account_code, a.account_group, a.account_type
+      ORDER BY a.account_group ASC, "accountName" ASC
+    `;
+
+    const result = await db.execute(query);
+    const rows = this.rowsFromQueryResult(result);
+    
+    const expenseSide = [];
+    const incomeSide = [];
+    let totalExpense = 0;
+    let totalIncome = 0;
+
+    for (const row of rows) {
+      const type = String(row.accountType);
+      const debit = Number(row.totalDebit || 0);
+      const credit = Number(row.totalCredit || 0);
+      
+      if (['Expense', 'Other Expense', 'Cost Of Goods Sold'].includes(type)) {
+        const amount = debit - credit;
+        if (amount !== 0) {
+          expenseSide.push({
+            accountId: row.accountId,
+            accountName: row.accountName,
+            accountType: type,
+            amount: amount
+          });
+          totalExpense += amount;
+        }
+      } else if (['Income', 'Other Income'].includes(type)) {
+        const amount = credit - debit;
+        if (amount !== 0) {
+          incomeSide.push({
+            accountId: row.accountId,
+            accountName: row.accountName,
+            accountType: type,
+            amount: amount
+          });
+          totalIncome += amount;
+        }
+      }
+    }
+
+    return {
+      basis: basis || "Accrual",
+      period: { startDate, endDate },
+      expenseSide,
+      incomeSide,
+      totalExpense,
+      totalIncome,
+      netProfitLoss: totalIncome - totalExpense
     };
   }
 
@@ -1094,11 +1389,41 @@ export class ReportsService {
     return Array.isArray(rows) ? rows : [];
   }
 
-  private accountTransactionsReportSourceSql() {
+  private accountTransactionsReportSourceSql(entityIds?: string[]) {
+    const entityScope = entityIds && entityIds.length > 0
+      ? sql` AND jel.entity_id IN (${sql.join(entityIds.map(id => sql`${id}`), sql`, `)})`
+      : sql``;
+    const batchScope = entityIds && entityIds.length > 0
+      ? sql` WHERE bt.entity_id IN (${sql.join(entityIds.map(id => sql`${id}`), sql`, `)})`
+      : sql``;
+
     return sql`(
       SELECT
+        jel.id AS id,
+        jel.account_id AS account_id,
+        jel.entity_id AS entity_id,
+        je.posting_date AS transaction_date,
+        je.journal_type AS transaction_type,
+        je.reference_number AS reference_number,
+        jel.description AS description,
+        jel.debit AS debit,
+        jel.credit AS credit,
+        COALESCE(jel.source_id, je.source_document_id) AS source_id,
+        COALESCE(jel.source_type, je.source_document_type) AS source_type,
+        jel.contact_id AS contact_id,
+        jel.contact_type AS contact_type,
+        jel.created_at AS created_at,
+        jel.journal_entry_id AS journal_entry_id,
+        jel.line_number AS line_number
+      FROM journal_entry_lines jel
+      JOIN journal_entries je ON jel.journal_entry_id = je.id
+      WHERE je.status = 'POSTED' ${entityScope}
+      
+      UNION ALL
+      
+      SELECT
         bt.id AS id,
-        NULL::uuid AS account_id,
+        p.inventory_account_id AS account_id,
         bt.entity_id AS entity_id,
         bt.trans_date AS transaction_date,
         LOWER(REPLACE(COALESCE(bt.trans_type, ''), ' ', '_')) AS transaction_type,
@@ -1114,6 +1439,8 @@ export class ReportsService {
         NULL::uuid AS journal_entry_id,
         NULL::integer AS line_number
       FROM batch_transactions bt
+      JOIN products p ON bt.product_id = p.id
+      ${batchScope}
     )`;
   }
 
@@ -1614,6 +1941,24 @@ export class ReportsService {
 
     const whereClause = sql.join(conditions, sql` AND `);
 
+    const openingConditions: any[] = [];
+    if (accountId) openingConditions.push(sql`t.account_id = ${accountId}`);
+    const accountTypeCondition2 = this.buildAccountTypeFilterCondition(accountType);
+    if (accountTypeCondition2) openingConditions.push(accountTypeCondition2);
+    if (contactId) openingConditions.push(sql`t.contact_id = ${contactId}`);
+    if (contactType) openingConditions.push(sql`t.contact_type = ${contactType}`);
+    openingConditions.push(sql`t.entity_id = ${tenant.entityId}`);
+    openingConditions.push(sql`t.transaction_date < ${start.toISOString()}`);
+    
+    const openingWhereClause = sql.join(openingConditions, sql` AND `);
+    const openingResult = await db.execute(sql`
+      SELECT SUM(COALESCE(t.debit, 0) - COALESCE(t.credit, 0)) AS "openingBalance"
+      FROM ${this.accountTransactionsReportSourceSql()} t
+      LEFT JOIN accounts a ON t.account_id = a.id
+      WHERE ${openingWhereClause}
+    `);
+    const openingBalance = Number(this.rowsFromQueryResult(openingResult)[0]?.openingBalance || 0);
+
     const countResult = await db.execute(sql`
       SELECT COUNT(*)::int AS "total"
       FROM ${this.accountTransactionsReportSourceSql()} t
@@ -1654,7 +1999,35 @@ export class ReportsService {
     const result = await db.execute(query);
     const rows = this.rowsFromQueryResult(result);
 
-    let runningBalance = 0;
+    let runningBalanceForPage = openingBalance;
+    if (offset > 0) {
+      const offsetSumResult = await db.execute(sql`
+        SELECT SUM(COALESCE(sub.debit, 0) - COALESCE(sub.credit, 0)) AS "sum"
+        FROM (
+          SELECT t.debit, t.credit
+          FROM ${this.accountTransactionsReportSourceSql()} t
+          LEFT JOIN accounts a ON t.account_id = a.id
+          WHERE ${whereClause}
+          ORDER BY t.transaction_date ASC, t.created_at ASC, t.id ASC
+          LIMIT ${offset}
+        ) sub
+      `);
+      runningBalanceForPage += Number(this.rowsFromQueryResult(offsetSumResult)[0]?.sum || 0);
+    }
+
+    const periodTotalsResult = await db.execute(sql`
+      SELECT 
+        SUM(COALESCE(t.debit, 0)) AS "totalDebits",
+        SUM(COALESCE(t.credit, 0)) AS "totalCredits"
+      FROM ${this.accountTransactionsReportSourceSql()} t
+      LEFT JOIN accounts a ON t.account_id = a.id
+      WHERE ${whereClause}
+    `);
+    const periodDebits = Number(this.rowsFromQueryResult(periodTotalsResult)[0]?.totalDebits || 0);
+    const periodCredits = Number(this.rowsFromQueryResult(periodTotalsResult)[0]?.totalCredits || 0);
+    const closingBalance = openingBalance + periodDebits - periodCredits;
+
+    let runningBalance = runningBalanceForPage;
     const transactions = rows.map((r: any) => {
       const debit = Number(r.debit || 0);
       const credit = Number(r.credit || 0);
@@ -1667,6 +2040,10 @@ export class ReportsService {
       accountType: accountType || null,
       basis: basis || "Accrual",
       period: { startDate, endDate },
+      openingBalance,
+      periodDebits,
+      periodCredits,
+      closingBalance,
       transactions,
       total,
       page: currentPage,
@@ -3934,34 +4311,63 @@ export class ReportsService {
       a.id::text
     )`;
     const groupExpression = sql`COALESCE(NULLIF(a.account_group::text, ''), 'Uncategorized')`;
-    const accountWhereClause = sql`COALESCE(to_jsonb(a)->>'is_deleted', 'false')::boolean = false
-      AND (a.entity_id = ${tenant.entityId} OR a.entity_id IS NULL)`;
-    const transactionJoinClause = sql`t.account_id = a.id
-      AND t.transaction_date < ${endExclusive.toISOString()}
-      AND t.entity_id = ${tenant.entityId}
-      AND ${sourceValidationCondition}`;
+    const accountWhereClause = sql`(a.entity_id = ${tenant.entityId} OR a.entity_id IS NULL)`;
+    
     const balanceSelect = sql`
       a.id AS "accountId",
+      a.parent_id AS "parentId",
       ${accountNameExpression} AS "accountName",
       COALESCE(NULLIF(a.account_code, ''), '') AS "accountCode",
       ${groupExpression} AS "accountGroup",
-      SUM(CASE WHEN t.transaction_date < ${start.toISOString()} THEN COALESCE(t.debit, 0) ELSE 0 END) AS "openingDebitRaw",
-      SUM(CASE WHEN t.transaction_date < ${start.toISOString()} THEN COALESCE(t.credit, 0) ELSE 0 END) AS "openingCreditRaw",
-      SUM(CASE WHEN t.transaction_date >= ${start.toISOString()} THEN COALESCE(t.debit, 0) ELSE 0 END) AS "periodDebit",
-      SUM(CASE WHEN t.transaction_date >= ${start.toISOString()} THEN COALESCE(t.credit, 0) ELSE 0 END) AS "periodCredit",
+      SUM(CASE WHEN t.posting_date < ${start.toISOString()} THEN COALESCE(t.debit, 0) ELSE 0 END) AS "openingDebitRaw",
+      SUM(CASE WHEN t.posting_date < ${start.toISOString()} THEN COALESCE(t.credit, 0) ELSE 0 END) AS "openingCreditRaw",
+      SUM(CASE WHEN t.posting_date >= ${start.toISOString()} THEN COALESCE(t.debit, 0) ELSE 0 END) AS "periodDebit",
+      SUM(CASE WHEN t.posting_date >= ${start.toISOString()} THEN COALESCE(t.credit, 0) ELSE 0 END) AS "periodCredit",
       SUM(COALESCE(t.debit, 0)) AS "closingDebitRaw",
       SUM(COALESCE(t.credit, 0)) AS "closingCreditRaw"
     `;
     const groupedAccountQuery = sql`
-      SELECT ${balanceSelect}
-      FROM accounts a
-      LEFT JOIN ${this.accountTransactionsReportSourceSql()} t ON ${transactionJoinClause}
-      WHERE ${accountWhereClause}
-      GROUP BY a.id, ${accountNameExpression}, a.account_code, ${groupExpression}
-      HAVING
-        SUM(COALESCE(t.debit, 0)) <> 0
-        OR SUM(COALESCE(t.credit, 0)) <> 0
-    `;
+        WITH base_accounts AS (
+          SELECT ${balanceSelect}
+          FROM accounts a
+          LEFT JOIN (
+             SELECT jel.account_id, jel.debit, jel.credit, je.posting_date
+             FROM journal_entry_lines jel
+             JOIN journal_entries je ON je.id = jel.journal_entry_id
+             WHERE jel.entity_id = ${tenant.entityId}
+               AND je.status = 'POSTED'
+               AND je.posting_date < ${endExclusive.toISOString()}
+          ) t ON t.account_id = a.id
+          WHERE ${accountWhereClause}
+          GROUP BY a.id, a.parent_id, ${accountNameExpression}, a.account_code, ${groupExpression}
+          HAVING
+            SUM(COALESCE(t.debit, 0)) <> 0
+            OR SUM(COALESCE(t.credit, 0)) <> 0
+        ),
+        diffs AS (
+          SELECT 
+            SUM(GREATEST("closingDebitRaw" - "closingCreditRaw", 0)) - SUM(GREATEST("closingCreditRaw" - "closingDebitRaw", 0)) AS closing_diff,
+            SUM(GREATEST("openingDebitRaw" - "openingCreditRaw", 0)) - SUM(GREATEST("openingCreditRaw" - "openingDebitRaw", 0)) AS opening_diff,
+            SUM("periodDebit") - SUM("periodCredit") AS period_diff
+          FROM base_accounts
+        )
+        SELECT * FROM base_accounts
+        UNION ALL
+        SELECT 
+          '00000000-0000-0000-0000-000000000000'::uuid AS "accountId",
+          NULL::uuid AS "parentId",
+          'Historical Balancing' AS "accountName",
+          '999999' AS "accountCode",
+          'Equity' AS "accountGroup",
+          CASE WHEN opening_diff < 0 THEN ABS(opening_diff) ELSE 0 END AS "openingDebitRaw",
+          CASE WHEN opening_diff > 0 THEN opening_diff ELSE 0 END AS "openingCreditRaw",
+          CASE WHEN period_diff < 0 THEN ABS(period_diff) ELSE 0 END AS "periodDebit",
+          CASE WHEN period_diff > 0 THEN period_diff ELSE 0 END AS "periodCredit",
+          CASE WHEN closing_diff < 0 THEN ABS(closing_diff) ELSE 0 END AS "closingDebitRaw",
+          CASE WHEN closing_diff > 0 THEN closing_diff ELSE 0 END AS "closingCreditRaw"
+        FROM diffs
+        WHERE ABS(closing_diff) > 0.001 OR ABS(opening_diff) > 0.001 OR ABS(period_diff) > 0.001
+      `;
 
     const countResult = await db.execute(sql`
       SELECT COUNT(*)::int AS "total"
@@ -3997,8 +4403,6 @@ export class ReportsService {
           ELSE 6
         END,
         "accountName" ASC
-      LIMIT ${normalizedPageSize}
-      OFFSET ${offset}
     `);
 
     const sections = new Map<
@@ -4024,6 +4428,7 @@ export class ReportsService {
       const closingCreditRaw = Number(row.closingCreditRaw || 0);
       sections.get(accountGroup)!.rows.push({
         accountId: row.accountId,
+        parentId: row.parentId,
         accountName: row.accountName,
         accountCode: row.accountCode,
         openingDebit: Math.max(openingDebitRaw - openingCreditRaw, 0),
@@ -4060,6 +4465,187 @@ export class ReportsService {
       },
     };
   }
+  
+  async getHorizontalBalanceSheet(
+    asOfDate: string,
+    tenant: TenantContext,
+    basis?: string,
+  ) {
+    // A balance sheet calculates balances from the beginning of time until the asOfDate.
+    // For Income and Expense accounts, their net balance becomes "Net Profit" or "Retained Earnings" under Equity.
+    const endExclusive = asOfDate ? new Date(asOfDate) : new Date();
+    endExclusive.setDate(endExclusive.getDate() + 1);
+
+    const accountNameExpression = sql`COALESCE(
+      NULLIF(a.user_account_name, ''),
+      NULLIF(a.system_account_name, ''),
+      NULLIF(a.account_code, ''),
+      a.id::text
+    )`;
+    const groupExpression = sql`COALESCE(NULLIF(a.account_group::text, ''), 'Uncategorized')`;
+    const accountWhereClause = sql`(a.entity_id = ${tenant.entityId} OR a.entity_id IS NULL)`;
+    
+    // We only need the net closing balance from the beginning of time up to endExclusive
+    const balanceSelect = sql`
+      a.id AS "accountId",
+      a.parent_id AS "parentId",
+      ${accountNameExpression} AS "accountName",
+      COALESCE(NULLIF(a.account_code, ''), '') AS "accountCode",
+      ${groupExpression} AS "accountGroup",
+      a.account_type AS "accountType",
+      SUM(COALESCE(t.debit, 0)) AS "closingDebitRaw",
+      SUM(COALESCE(t.credit, 0)) AS "closingCreditRaw"
+    `;
+
+    const groupedAccountQuery = sql`
+        WITH base_accounts AS (
+          SELECT ${balanceSelect}
+          FROM accounts a
+          LEFT JOIN (
+             SELECT jel.account_id, jel.debit, jel.credit
+             FROM journal_entry_lines jel
+             JOIN journal_entries je ON je.id = jel.journal_entry_id
+             WHERE jel.entity_id = ${tenant.entityId}
+               AND je.status = 'POSTED'
+               AND je.posting_date < ${endExclusive.toISOString()}
+          ) t ON t.account_id = a.id
+          WHERE ${accountWhereClause}
+          GROUP BY a.id, a.parent_id, ${accountNameExpression}, a.account_code, ${groupExpression}, a.account_type
+          HAVING
+            SUM(COALESCE(t.debit, 0)) <> 0
+            OR SUM(COALESCE(t.credit, 0)) <> 0
+        )
+        SELECT * FROM base_accounts
+    `;
+
+    const rowsResult = await db.execute(sql`
+      SELECT *
+      FROM (${groupedAccountQuery}) bs_accounts
+    `);
+
+    let totalAssets = 0;
+    let totalLiabilities = 0;
+    let totalEquity = 0;
+    let netProfit = 0; // Income - Expense
+
+    const assetsRows: any[] = [];
+    const liabilitiesRows: any[] = [];
+    const equityRows: any[] = [];
+
+    // Grouping mapping from DB to UI sections
+    for (const row of this.rowsFromQueryResult(rowsResult)) {
+      const closingDebit = Number(row.closingDebitRaw || 0);
+      const closingCredit = Number(row.closingCreditRaw || 0);
+      const netDebit = Math.max(closingDebit - closingCredit, 0);
+      const netCredit = Math.max(closingCredit - closingDebit, 0);
+      const balance = closingDebit - closingCredit; // positive means debit balance, negative means credit balance
+
+      const accountGroup = String(row.accountGroup || '');
+      
+      if (accountGroup.toLowerCase() === 'assets') {
+        const amount = netDebit - netCredit; // Assets are normally debit balances
+        totalAssets += amount;
+        assetsRows.push({
+          ...row,
+          amount,
+        });
+      } else if (accountGroup.toLowerCase() === 'liabilities') {
+        const amount = netCredit - netDebit; // Liabilities are normally credit balances
+        totalLiabilities += amount;
+        liabilitiesRows.push({
+          ...row,
+          amount,
+        });
+      } else if (accountGroup.toLowerCase() === 'equity') {
+        const amount = netCredit - netDebit; // Equity is normally credit balances
+        totalEquity += amount;
+        equityRows.push({
+          ...row,
+          amount,
+        });
+      } else if (accountGroup.toLowerCase() === 'income') {
+        // Income increases Net Profit (Credit balance)
+        netProfit += (netCredit - netDebit);
+      } else if (accountGroup.toLowerCase() === 'expenses') {
+        // Expenses decrease Net Profit (Debit balance)
+        netProfit -= (netDebit - netCredit);
+      }
+    }
+
+    // Add Net Profit to Equity
+    if (netProfit !== 0) {
+      equityRows.push({
+        accountId: 'net-profit-calculated',
+        parentId: null,
+        accountName: 'Current Year Earnings',
+        accountCode: '',
+        accountGroup: 'Equity',
+        amount: netProfit,
+      });
+      totalEquity += netProfit;
+    }
+
+    // Add Historical Balancing if Assets != Liabilities + Equity
+    const diff = totalAssets - (totalLiabilities + totalEquity);
+    if (Math.abs(diff) > 0.001) {
+      equityRows.push({
+        accountId: 'historical-balancing-calculated',
+        parentId: null,
+        accountName: 'Historical Balancing',
+        accountCode: '',
+        accountGroup: 'Equity',
+        amount: diff,
+      });
+      totalEquity += diff;
+    }
+
+    const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
+
+    return {
+      basis: basis || "Accrual",
+      asOfDate,
+      assets: {
+        sections: this.buildBalanceSheetSections(assetsRows),
+        total: totalAssets,
+      },
+      liabilitiesAndEquity: {
+        sections: [
+          ...this.buildBalanceSheetSections(liabilitiesRows, 'Current Liabilities'), // Simplified grouping
+          ...this.buildBalanceSheetSections(equityRows, 'Equity'),
+        ],
+        total: totalLiabilitiesAndEquity,
+      }
+    };
+  }
+
+  private buildBalanceSheetSections(rows: any[], overrideSectionLabel?: string) {
+    // Groups by accountType
+    const sectionsMap = new Map<string, any[]>();
+    for (const row of rows) {
+      const sectionName = overrideSectionLabel || row.accountType || 'Other';
+      if (!sectionsMap.has(sectionName)) {
+        sectionsMap.set(sectionName, []);
+      }
+      sectionsMap.get(sectionName)!.push(row);
+    }
+
+    const sections: any[] = [];
+    for (const [sectionName, sectionRows] of sectionsMap.entries()) {
+      // Build a simple tree for sub-accounts if necessary, or just flat for now
+      // The UI takes `indentLevel` and `isSection`, we can just return flat and let frontend map it,
+      // or we can build the tree here. Let's return flat per section, frontend will render.
+      sections.push({
+        label: sectionName,
+        rows: sectionRows.map(r => ({
+          accountId: r.accountId,
+          label: r.accountName,
+          amount: r.amount
+        }))
+      });
+    }
+    return sections;
+  }
+
   async getSalesByCustomerReport(
     startDate: string,
     endDate: string,
@@ -4139,83 +4725,63 @@ export class ReportsService {
   }
 
   async getAuditLogs(tenant: TenantContext, params: AuditLogsParams) {
+    const supabase = this.supabaseService.getClient();
     const page = Math.max(1, params.page ?? 1);
     const pageSize = Math.min(100, Math.max(10, params.pageSize ?? 25));
-    const offset = (page - 1) * pageSize;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
-    let sqlQuery = `SELECT * FROM audit_logs_all WHERE org_id = $1`;
-    let countSql = `SELECT COUNT(*)::int as count FROM audit_logs_all WHERE org_id = $1`;
-    const sqlParams: any[] = [tenant.orgId];
+    let query = supabase
+      .from("audit_logs_all")
+      .select("*", { count: "exact" })
+      .eq("org_id", tenant.orgId)
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
-    if (params.requestId) {
-      sqlParams.push(params.requestId);
-      const idx = sqlParams.length;
-      sqlQuery += ` AND request_id = $${idx}`;
-      countSql += ` AND request_id = $${idx}`;
-    }
-    if (params.source) {
-      sqlParams.push(params.source);
-      const idx = sqlParams.length;
-      sqlQuery += ` AND source = $${idx}`;
-      countSql += ` AND source = $${idx}`;
-    }
-    if (params.tables?.length) {
-      sqlParams.push(params.tables);
-      const idx = sqlParams.length;
-      sqlQuery += ` AND table_name = ANY($${idx})`;
-      countSql += ` AND table_name = ANY($${idx})`;
-    }
-    if (params.actions?.length) {
-      sqlParams.push(params.actions);
-      const idx = sqlParams.length;
-      sqlQuery += ` AND action = ANY($${idx})`;
-      countSql += ` AND action = ANY($${idx})`;
-    }
+    if (params.requestId) query = query.eq("request_id", params.requestId);
+    if (params.source) query = query.eq("source", params.source);
+    if (params.tables?.length) query = query.in("table_name", params.tables);
+    if (params.actions?.length) query = query.in("action", params.actions);
     if (params.fromDate) {
       const fromDate = params.fromDate.includes("T")
         ? new Date(params.fromDate)
         : new Date(`${params.fromDate}T00:00:00.000Z`);
-      sqlParams.push(fromDate.toISOString());
-      const idx = sqlParams.length;
-      sqlQuery += ` AND created_at >= $${idx}`;
-      countSql += ` AND created_at >= $${idx}`;
+      query = query.gte("created_at", fromDate.toISOString());
     }
     if (params.toDate) {
       const toDate = params.toDate.includes("T")
         ? new Date(params.toDate)
         : new Date(`${params.toDate}T23:59:59.999Z`);
-      sqlParams.push(toDate.toISOString());
-      const idx = sqlParams.length;
-      sqlQuery += ` AND created_at <= $${idx}`;
-      countSql += ` AND created_at <= $${idx}`;
+      query = query.lte("created_at", toDate.toISOString());
     }
 
     if (params.scope == "archived") {
-      sqlQuery += ` AND archived_at IS NOT NULL`;
-      countSql += ` AND archived_at IS NOT NULL`;
+      query = query.not("archived_at", "is", null);
     } else if (params.scope == "recent") {
-      sqlQuery += ` AND archived_at IS NULL`;
-      countSql += ` AND archived_at IS NULL`;
+      query = query.is("archived_at", null);
     }
 
     if (params.search?.trim().length) {
       const term = params.search.trim().replaceAll(",", " ");
-      sqlParams.push(`%${term}%`);
-      const sIdx = sqlParams.length;
-      const searchCond = ` AND (table_name ILIKE $${sIdx} OR record_pk ILIKE $${sIdx} OR actor_name ILIKE $${sIdx} OR module_name ILIKE $${sIdx} OR request_id ILIKE $${sIdx} OR source ILIKE $${sIdx} OR action ILIKE $${sIdx})`;
-      sqlQuery += searchCond;
-      countSql += searchCond;
+      query = query.or(
+        [
+          `table_name.ilike.%${term}%`,
+          `record_pk.ilike.%${term}%`,
+          `actor_name.ilike.%${term}%`,
+          `module_name.ilike.%${term}%`,
+          `request_id.ilike.%${term}%`,
+          `source.ilike.%${term}%`,
+          `action.ilike.%${term}%`,
+        ].join(","),
+      );
     }
 
-    sqlQuery += ` ORDER BY created_at DESC LIMIT $${sqlParams.length + 1} OFFSET $${sqlParams.length + 2}`;
+    const { data, count, error } = await query;
+    if (error) throw error;
 
-    const [rows, countRes] = await Promise.all([
-      client.unsafe(sqlQuery, [...sqlParams, pageSize, offset]),
-      client.unsafe(countSql, sqlParams),
-    ]);
-
-    const totalCount = countRes[0]?.count ?? 0;
-    const logs = Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
+    const logs = Array.isArray(data)
+      ? (data as Array<Record<string, unknown>>)
+      : [];
     const visibleItems = logs.length;
     const summary = {
       insertCount: logs.filter((log) => log["action"] === "INSERT").length,
@@ -4228,10 +4794,266 @@ export class ReportsService {
 
     return {
       items: logs,
-      total: totalCount,
+      total: count ?? visibleItems,
       page,
       pageSize,
       summary,
     };
   }
+
+  async getBalanceSheetReport(startDate: string, endDate: string, tenant: TenantContext) {
+    const conditions: any[] = [
+      sql`t.transaction_date <= ${new Date(endDate.includes('T') ? new Date(endDate).setUTCHours(23, 59, 59, 999) : endDate + 'T23:59:59.999Z').toISOString()}`,
+      sql`COALESCE(a.user_account_name, a.system_account_name) != 'Opening Balance Offset'`,
+    ];
+    conditions.push(sql`t.entity_id = ${tenant.entityId}`);
+
+    const whereClause = sql.join(conditions, sql` AND `);
+
+    const query = sql`
+      SELECT 
+        COALESCE(a.account_type::text, 'Uncategorized') as "accountType",
+        COALESCE(a.account_group::text, 'Uncategorized') as "accountGroup",
+        COALESCE(a.user_account_name, a.system_account_name) as "accountName",
+        a.id as "accountId",
+        a.parent_id as "parentId",
+        SUM(COALESCE(t.debit, 0)) as "totalDebit",
+        SUM(COALESCE(t.credit, 0)) as "totalCredit"
+      FROM ${this.profitAndLossJournalSourceSql()} t
+      JOIN accounts a ON t.account_id = a.id
+      WHERE ${whereClause}
+      GROUP BY a.account_type, a.account_group, COALESCE(a.user_account_name, a.system_account_name), a.id, a.parent_id
+    `;
+
+    let rows: any[] = [];
+    try {
+      const result = await db.execute(query);
+      rows = result as any[];
+    } catch (error) {
+      console.warn("Balance sheet query failed:", error);
+      rows = [];
+    }
+
+    // Build the hierarchical structure matching standard Zoho grouping
+    const structuredData: any = {
+      assets: {
+        total: 0,
+        subCategories: {
+          'Current Assets': { total: 0, accountGroups: {} },
+          'Non Current Assets': { total: 0, accountGroups: {} },
+        }
+      },
+      liabilitiesAndEquities: {
+        total: 0,
+        subCategories: {
+          'Current Liabilities': { total: 0, accountGroups: {} },
+          'Non Current Liabilities': { total: 0, accountGroups: {} },
+          'Equities': { total: 0, accountGroups: {} },
+        }
+      }
+    };
+
+    const getGroupType = (type: string, group: string) => {
+      type = type.toLowerCase();
+      group = group.toLowerCase();
+      
+      // Map to Sub Category and Account Group
+      if (type.includes('cash') || type.includes('bank')) return ['assets', 'Current Assets', 'Cash and Cash Equivalents'];
+      if (type.includes('receivable')) return ['assets', 'Current Assets', 'Accounts Receivable'];
+      if (type.includes('inventory') || type.includes('current asset')) return ['assets', 'Current Assets', 'Other current assets'];
+      if (type.includes('asset')) return ['assets', 'Non Current Assets', 'Fixed Assets'];
+      
+      if (type.includes('payable')) return ['liabilitiesAndEquities', 'Current Liabilities', 'Accounts Payable'];
+      if (type.includes('liabilit') || type.includes('credit')) return ['liabilitiesAndEquities', 'Current Liabilities', 'Other Current Liabilities'];
+      
+      if (type.includes('equity') || type.includes('capital')) return ['liabilitiesAndEquities', 'Equities', 'Equities'];
+      
+      return ['assets', 'Current Assets', 'Other current assets']; // Default fallback
+    };
+
+    // Store accounts by ID for parent-child linking
+    const accountsMap = new Map();
+    const roots: any[] = [];
+
+    for (const row of rows) {
+      const type = String(row.accountType || "");
+      const group = String(row.accountGroup || "");
+      const debit = Number(row.totalDebit || 0);
+      const credit = Number(row.totalCredit || 0);
+
+      const [major, subCat, accGroup] = getGroupType(type, group);
+      const isAsset = major === 'assets';
+      const netAmount = isAsset ? debit - credit : credit - debit;
+
+      if (Math.abs(netAmount) < 0.01) continue;
+
+      const item = {
+        accountId: row.accountId,
+        parentId: row.parentId,
+        accountName: row.accountName,
+        accountType: row.accountType,
+        netAmount,
+        major,
+        subCat,
+        accGroup,
+        children: []
+      };
+      
+      accountsMap.set(row.accountId, item);
+    }
+
+    // Build parent-child hierarchy for accounts
+    for (const item of accountsMap.values()) {
+      if (item.parentId && accountsMap.has(item.parentId)) {
+        accountsMap.get(item.parentId).children.push(item);
+      } else {
+        roots.push(item);
+      }
+    }
+
+    // Assign to groups
+    for (const item of roots) {
+      const { major, subCat, accGroup, accountType, netAmount } = item;
+      
+      const subCatRef = structuredData[major].subCategories[subCat];
+      if (!subCatRef.accountGroups[accGroup]) {
+        subCatRef.accountGroups[accGroup] = { total: 0, accountTypes: {} };
+      }
+      
+      const accGroupRef = subCatRef.accountGroups[accGroup];
+      if (!accGroupRef.accountTypes[accountType]) {
+        accGroupRef.accountTypes[accountType] = { total: 0, accounts: [] };
+      }
+
+      // Add amount to all parents
+      const addAmount = (i: any) => {
+        let total = i.netAmount;
+        for (const c of i.children) {
+          total += addAmount(c);
+        }
+        i.totalAmount = total;
+        return total;
+      };
+      
+      const itemTotal = addAmount(item);
+      
+      accGroupRef.accountTypes[accountType].accounts.push(item);
+      accGroupRef.accountTypes[accountType].total += itemTotal;
+      accGroupRef.total += itemTotal;
+      subCatRef.total += itemTotal;
+      structuredData[major].total += itemTotal;
+    }
+
+    return structuredData;
+  }
+
+  async getBalanceSheetScheduleIIIReport(startDate: string, endDate: string, tenant: TenantContext) {
+    const conditions: any[] = [sql`t.transaction_date <= ${new Date(endDate.includes('T') ? new Date(endDate).setUTCHours(23, 59, 59, 999) : endDate + 'T23:59:59.999Z').toISOString()}`, sql`t.entity_id = ${tenant.entityId}`];
+    const whereClause = sql.join(conditions, sql` AND `);
+
+    const query = sql`
+      SELECT
+        a.account_type::text as "accountType",
+        a.account_group::text as "accountGroup",
+        COALESCE(a.user_account_name, a.system_account_name) as "accountName",
+        a.id as "accountId",
+        SUM(t.debit) as "totalDebit",
+        SUM(t.credit) as "totalCredit"
+      FROM ${this.profitAndLossJournalSourceSql()} t
+      JOIN accounts a ON t.account_id = a.id
+      WHERE ${whereClause}
+      GROUP BY a.account_type, a.account_group, COALESCE(a.user_account_name, a.system_account_name), a.id
+    `;
+
+    let rows: any[] = [];
+    try {
+      const result = await db.execute(query);
+      rows = result as any[];
+    } catch (error) {
+      console.warn("Balance Sheet Schedule III query failed:", error);
+      rows = [];
+    }
+
+    const report = {
+      equitiesAndLiabilities: [] as any[],
+      assets: [] as any[],
+      period: { startDate, endDate },
+    };
+
+    for (const row of rows) {
+      const debit = Number(row.totalDebit || 0);
+      const credit = Number(row.totalCredit || 0);
+      const type = row.accountType || "";
+      const group = row.accountGroup || "";
+
+      let balance = 0;
+      if (type.includes("Asset") || type === "Bank" || type === "Cash" || type === "Stock" || type === "Account Receivable") {
+        balance = debit - credit;
+        if (balance !== 0) {
+          report.assets.push({ accountName: row.accountName, balance, group });
+        }
+      } else {
+        balance = credit - debit;
+        if (balance !== 0) {
+          report.equitiesAndLiabilities.push({ accountName: row.accountName, balance, group });
+        }
+      }
+    }
+
+    return report;
+  }
+
+  async getCashFlowStatementReport(startDate: string, endDate: string, tenant: TenantContext) {
+    // Simplified Direct Method approximation using account_group for offsetting logic
+    const conditions: any[] = [
+      sql`t.transaction_date >= ${new Date(startDate).toISOString()}`,
+      sql`t.transaction_date <= ${new Date(endDate.includes('T') ? new Date(endDate).setUTCHours(23, 59, 59, 999) : endDate + 'T23:59:59.999Z').toISOString()}`,
+      sql`t.entity_id = ${tenant.entityId}`,
+      sql`a.account_type::text IN ('Bank', 'Cash')` // only lines hitting cash
+    ];
+    const whereClause = sql.join(conditions, sql` AND `);
+
+    const query = sql`
+      SELECT
+        COALESCE(a.user_account_name, a.system_account_name) as "accountName",
+        a.account_type::text as "accountType",
+        SUM(t.debit) as "totalDebit",
+        SUM(t.credit) as "totalCredit"
+      FROM ${this.profitAndLossJournalSourceSql()} t
+      JOIN accounts a ON t.account_id = a.id
+      WHERE ${whereClause}
+      GROUP BY COALESCE(a.user_account_name, a.system_account_name), a.account_type::text
+    `;
+
+    let rows: any[] = [];
+    try {
+      const result = await db.execute(query);
+      rows = result as any[];
+    } catch (error) {
+      console.warn("Cash flow query failed:", error);
+      rows = [];
+    }
+
+    const report = {
+      operatingActivities: [] as any[],
+      investingActivities: [] as any[],
+      financingActivities: [] as any[],
+      period: { startDate, endDate }
+    };
+
+    for (const row of rows) {
+      const debit = Number(row.totalDebit || 0);
+      const credit = Number(row.totalCredit || 0);
+      
+      if (debit - credit !== 0) {
+          report.operatingActivities.push({
+            accountName: row.accountName,
+            amount: debit - credit
+          });
+      }
+    }
+
+    return report;
+  }
+
 }
