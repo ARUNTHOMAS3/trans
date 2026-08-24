@@ -10104,3 +10104,29 @@ Updated the Purchase Return creation page to convert the Bill# dropdown from mul
   - **UI Label Preservation**: Maintained original label aesthetics without adding red asterisk * or red label text above the warehouse dropdown field.
 
 Timestamp of Log Update: August 8, 2026 - 08:48 AM (IST)
+
+## PostgreSQL Views Migration from Supabase to AWS RDS (August 21, 2026)
+
+### Summary
+Extracted and created all 7 core Zerpai ERP database views on the private AWS RDS PostgreSQL database (`zerpai`) via the secure SSM tunnel (`127.0.0.1:5433`). Verified that DBeaver and backend queries now see all 7 views in the `public` schema.
+
+### Detailed Engineering Changes
+
+#### Database / DevOps
+- **`scripts/aws/apply-views-rds.js`**: Created automation script using Node `pg` client with SSL enabled (`ssl: { rejectUnauthorized: false }`) and target password `zabnix2026`.
+- **Views Created & Verified on AWS RDS (`zerpai` DB, `public` schema)**:
+  1. `v_physical_stock`
+  2. `v_accounting_stock`
+  3. `v_batch_wise_stock`
+  4. `v_bin_wise_stock`
+  5. `v_physical_stock_ledger`
+  6. `v_product_stock_summary`
+  7. `v_stock_variance`
+
+### Verification Gate
+- Connected to AWS RDS PostgreSQL via `127.0.0.1:5433` with SSL.
+- Query `SELECT table_name FROM information_schema.views WHERE table_schema = 'public'` returned all 7 views.
+- Verified all views match `backend/drizzle/schema.ts` specifications.
+
+Timestamp of Log Update: August 21, 2026 - 05:20 PM (IST)
+

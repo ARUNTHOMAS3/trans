@@ -74,6 +74,7 @@ async function bootstrap() {
         /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
         /^https?:\/\/[^\/]+\.amazonaws\.com(:\d+)?$/.test(origin) ||
         /^https?:\/\/[^\/]+\.cloudfront\.net(:\d+)?$/.test(origin) ||
+        /^https?:\/\/[^\/]+\.zerpai\.com(:\d+)?$/.test(origin) ||
         // Allow common development platforms
         /^https:\/\/[^\/]+\.vercel\.app$/.test(origin);
 

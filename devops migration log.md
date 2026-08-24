@@ -192,6 +192,28 @@ This document tracks every phase, step, execution timestamp, build status, and v
     - `GET /api/v1/bills` → `200 OK` (10 bills)
 - **Result**: **DASHBOARD & ALL CORE MODULE DATA SUCCESSFULLY POPULATED ON PRODUCTION ✅**
 
+### Log 019 — Phase 4.4: Secure DBeaver AWS SSM Port-Forwarding Tunnel Setup
+- **Timestamp**: 2026-08-20
+- **Scope**: AWS Systems Manager (SSM), EC2 Bastion (`i-0e8150bdfa767cdb6` / `t3.micro`), IAM Role & Profile (`ZerpaiSSMRole` / `ZerpaiSSMProfile`), Security Groups (`zerpai-bastion-sg` / `sg-04c392ad81be0b682`), Windows DBeaver Client Tooling.
+- **Security Posture & Invariant Enforcement**:
+  1. **Private RDS Maintained**: `zerpai-db` remains `PubliclyAccessible: false`. No `0.0.0.0/0` CIDR added to port 5432.
+  2. **Zero Inbound Open Ports**: Bastion security group `zerpai-bastion-sg` has `0` inbound open rules (no SSH port 22).
+  3. **No Credential Leakage**: Database passwords are not saved in scripts, repositories, or emitted in stdout.
+  4. **SSM Port-Forwarding Tunnel**: Uses AWS managed document `AWS-StartPortForwardingSessionToRemoteHost` forwarding `localhost:5433` -> `zerpai-db.cziuqia28x6a.ap-south-2.rds.amazonaws.com:5432` through IAM-authenticated TLS WebSockets.
+- **Actions Taken**:
+  - Installed and verified `session-manager-plugin.exe` on local Windows machine.
+  - Created IAM Role `ZerpaiSSMRole` with `AmazonSSMManagedInstanceCore` and Instance Profile `ZerpaiSSMProfile`.
+  - Created Security Group `zerpai-bastion-sg` (0 inbound rules) and authorized `sg-04c392ad81be0b682` for TCP 5432 ingress on `zerpai-rds-sg` (`sg-02452bc7b0ea871b9`).
+  - Launched EC2 instance `i-0e8150bdfa767cdb6` (Amazon Linux 2023 `ami-040f52d90f7218c06`). Verified SSM Agent status `Online`.
+  - Generated one-click management scripts:
+    - [`start-db-tunnel.ps1`](file:///c:/Users/HP/Documents/zerpai/zerpai-new/start-db-tunnel.ps1): Starts EC2 if stopped, waits for SSM Online, and establishes tunnel on `localhost:5433`.
+    - [`stop-db-tunnel.ps1`](file:///c:/Users/HP/Documents/zerpai/zerpai-new/stop-db-tunnel.ps1): Stops EC2 instance after DBeaver session to maintain $0.00/hr compute charges.
+  - Verified live tunnel database queries:
+    - PostgreSQL version: `PostgreSQL 18.3`
+    - Public tables found via tunnel: `241`
+    - Verified query execution across `organization`, `products`, `customers`, `bills`, and `invoice_master`.
+- **Result**: **SECURE DBEAVER ACCESS FULLY OPERATIONAL OVER ENCRYPTED AWS SSM TUNNEL ✅**
+
 ---
 
-*Last Updated: 2026-08-20 16:05:00 IST*
+*Last Updated: 2026-08-20 17:15:00 IST*

@@ -152,21 +152,35 @@ export class AuthService {
 
   private async findOrganization(orgId: string) {
     try {
-      let rows: any[] = [];
-      try {
-        rows = await pgClient.unsafe<any[]>(
-          `SELECT id, name, NULL::text as system_id FROM organizations WHERE id = $1 LIMIT 1`,
-          [orgId],
-        );
-      } catch {
-        rows = await pgClient.unsafe<any[]>(
-          `SELECT id, name, NULL::text as system_id FROM organization WHERE id = $1 LIMIT 1`,
-          [orgId],
-        );
+      const client = this.supabaseService.getClient();
+      const { data, error } = await client
+        .from("organization")
+        .select("id, name, system_id")
+        .eq("id", orgId)
+        .maybeSingle();
+
+      if (!error && data && data.name) {
+        return data;
       }
-      return rows.length > 0 ? rows[0] : null;
+
+      const { data: obm } = await client
+        .from("organisation_branch_master")
+        .select("ref_id, name")
+        .eq("type", "ORG")
+        .eq("ref_id", orgId)
+        .maybeSingle();
+
+      if (obm && obm.name) {
+        return {
+          id: orgId,
+          name: obm.name,
+          system_id: data?.system_id ?? null,
+        };
+      }
+
+      return data ?? null;
     } catch (err: any) {
-      this.throwSupabaseReadError("organization", err);
+      this.logger.error(`Failed to fetch organization for ${orgId}: ${err.message}`);
       return null;
     }
   }

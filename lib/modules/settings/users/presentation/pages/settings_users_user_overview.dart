@@ -45,10 +45,12 @@ class _SettingsUsersUserOverviewState
     if (user == null) return false;
     final role = user.role.trim().toLowerCase();
     final activeTenantType = (user.activeTenantType ?? '').trim().toUpperCase();
+    if (role == 'admin' || role == 'ho_admin' || activeTenantType == 'ORG') {
+      return false;
+    }
     return role == 'branch_admin' ||
         role == 'data_entry' ||
-        activeTenantType == 'BRANCH' ||
-        user.accessibleBranchIds.isNotEmpty;
+        activeTenantType == 'BRANCH';
   }
 
   @override
@@ -63,6 +65,13 @@ class _SettingsUsersUserOverviewState
     if (widget.selectedUserId != oldWidget.selectedUserId) {
       _updateSelectedUser();
     }
+    _loadData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadData();
   }
 
   Future<void> _loadData() async {
@@ -230,19 +239,18 @@ class _SettingsUsersUserOverviewState
                 _buildViewToggle(),
               ],
               const Spacer(),
-              if (!_isBranchScopedUser)
-                ZButton.primary(
-                  label: 'Invite User',
-                  icon: LucideIcons.plus,
-                  onPressed: () => context.goNamed(
-                    AppRoutes.settingsUserInvite,
-                    pathParameters: {'orgSystemId': _orgSystemId},
-                  ),
-                ).withModulePermission(
-                  'settings.users.create',
-                  action: 'create',
-                  hideInsteadOfDisable: true,
+              ZButton.primary(
+                label: 'Invite User',
+                icon: LucideIcons.plus,
+                onPressed: () => context.goNamed(
+                  AppRoutes.settingsUserInvite,
+                  pathParameters: {'orgSystemId': _orgSystemId},
                 ),
+              ).withModulePermission(
+                'settings.users.create',
+                action: 'create',
+                hideInsteadOfDisable: true,
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -312,20 +320,18 @@ class _SettingsUsersUserOverviewState
             children: [
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: _isBranchScopedUser
-                    ? const SizedBox.shrink()
-                    : ZButton.primary(
-                        label: 'Invite User',
-                        icon: LucideIcons.plus,
-                        onPressed: () => context.goNamed(
-                          AppRoutes.settingsUserInvite,
-                          pathParameters: {'orgSystemId': _orgSystemId},
-                        ),
-                      ).withModulePermission(
-                        'settings.users.create',
-                        action: 'create',
-                        hideInsteadOfDisable: true,
-                      ),
+                child: ZButton.primary(
+                  label: 'Invite User',
+                  icon: LucideIcons.plus,
+                  onPressed: () => context.goNamed(
+                    AppRoutes.settingsUserInvite,
+                    pathParameters: {'orgSystemId': _orgSystemId},
+                  ),
+                ).withModulePermission(
+                  'settings.users.create',
+                  action: 'create',
+                  hideInsteadOfDisable: true,
+                ),
               ),
               Expanded(child: _buildDenseUserList()),
             ],
@@ -364,8 +370,17 @@ class _SettingsUsersUserOverviewState
               ),
             ],
           ),
-          for (int i = 0; i < _users.length; i++)
-            _buildTableRow(_users[i], isLast: i == _users.length - 1),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _users.length,
+              itemBuilder: (context, index) {
+                return _buildTableRow(
+                  _users[index],
+                  isLast: index == _users.length - 1,
+                );
+              },
+            ),
+          ),
         ],
       ),
     );

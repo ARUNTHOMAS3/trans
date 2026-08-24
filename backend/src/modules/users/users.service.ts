@@ -265,45 +265,99 @@ export class UsersService {
   }
 
   async findAll(tenantOrOrgId: TenantContext | string, status = "all") {
-    const { orgId } = this.resolveTenant(tenantOrOrgId);
+    const { orgId, entityId } = this.resolveTenant(tenantOrOrgId);
+    const clientSupabase = this.supabaseService.getClient();
 
     try {
-      let sqlQuery = `
-        SELECT u.id, u.email, u.full_name, u.role, u.entity_id, u.is_active, u.created_at, u.updated_at
-        FROM users u
-        WHERE u.org_id = $1
-      `;
-      const params: any[] = [orgId];
+      // 1. Resolve Org Entity ID from organisation_branch_master for ref_id = orgId (type = 'ORG')
+      const { data: orgObm } = await clientSupabase
+        .from("organisation_branch_master")
+        .select("id")
+        .eq("type", "ORG")
+        .eq("ref_id", orgId)
+        .maybeSingle();
 
-      if (status === "active") {
-        sqlQuery += ` AND u.is_active = true`;
-      } else if (status === "inactive") {
-        sqlQuery += ` AND u.is_active = false`;
+      const validEntityIds: string[] = [];
+      if (orgObm?.id) {
+        validEntityIds.push(orgObm.id);
+
+        // 2. Resolve all child Branch Entity IDs belonging to this parent Org Entity ID
+        const { data: branchObms } = await clientSupabase
+          .from("organisation_branch_master")
+          .select("id")
+          .eq("type", "BRANCH")
+          .eq("parent_id", orgObm.id);
+
+        if (branchObms && branchObms.length > 0) {
+          validEntityIds.push(...branchObms.map((b: any) => b.id));
+        }
       }
 
-      sqlQuery += ` ORDER BY u.created_at ASC`;
+      if (entityId && entityId !== "undefined") {
+        validEntityIds.push(entityId);
+      }
 
-      const data = await client.unsafe(sqlQuery, params);
-      return data ?? [];
+      const uniqueEntityIds = Array.from(new Set(validEntityIds.filter(Boolean)));
+
+      let query = clientSupabase.from("users").select("*");
+
+      if (uniqueEntityIds.length > 0) {
+        query = query.or(
+          `entity_id.in.(${uniqueEntityIds.join(",")}),org_id.eq.${orgId}`,
+        );
+      } else {
+        query = query.eq("org_id", orgId);
+      }
+
+      if (status === "active") query = query.eq("is_active", true);
+      if (status === "inactive") query = query.eq("is_active", false);
+
+      query = query.order("created_at", { ascending: false });
+
+      const { data, error } = await query;
+      if (error) {
+        console.error("[UsersService] findAll Supabase query error:", error);
+        return [];
+      }
+
+      return (data ?? []).map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        full_name: u.full_name,
+        role: u.role,
+        entity_id: u.entity_id,
+        is_active: u.is_active,
+        created_at: u.created_at,
+        updated_at: u.updated_at,
+      }));
     } catch (err) {
       console.error("[UsersService] findAll error:", err);
       return [];
     }
   }
 
-  async findOne(id: string, tenantOrOrgId: TenantContext | string) {
-    const { orgId } = this.resolveTenant(tenantOrOrgId);
+  async findOne(id: string, _tenantOrOrgId: TenantContext | string) {
+    const clientSupabase = this.supabaseService.getClient();
 
     try {
-      const rows = await client.unsafe(
-        `SELECT u.id, u.email, u.full_name, u.role, u.entity_id, u.is_active, u.created_at, u.updated_at
-         FROM users u
-         WHERE u.id = $1 AND u.org_id = $2
-         LIMIT 1`,
-        [id, orgId],
-      );
+      const { data, error } = await clientSupabase
+        .from("users")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
 
-      return rows[0] ?? null;
+      if (error || !data) return null;
+
+      return {
+        id: data.id,
+        email: data.email,
+        full_name: data.full_name,
+        role: data.role,
+        entity_id: data.entity_id,
+        is_active: data.is_active,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
     } catch {
       return null;
     }
@@ -313,13 +367,17 @@ export class UsersService {
     const orgId = tenant.orgId;
     const clientSupabase = this.supabaseService.getClient();
 
+    const fullName = (dto.full_name || dto.name || "").trim() || dto.email.split("@")[0] || "User";
+    const role = dto.role ?? "user";
+
     const authRes = await clientSupabase.auth.admin.createUser({
       email: dto.email,
       password: dto.password || "Zabnix@2025",
       email_confirm: true,
       user_metadata: {
-        full_name: dto.full_name,
-        role: dto.role ?? "user",
+        full_name: fullName,
+        name: fullName,
+        role: role,
         org_id: orgId,
       },
     });
@@ -337,16 +395,44 @@ export class UsersService {
         orgId,
         entityId: tenant.entityId,
         email: dto.email,
-        fullName: dto.full_name,
-        role: dto.role ?? "user",
+        fullName: fullName,
+        role: role,
         isActive: true,
       })
       .returning();
+
+    if (dto.location_access && Array.isArray(dto.location_access.branch_ids)) {
+      for (const branchId of dto.location_access.branch_ids) {
+        const { data: obmRow } = await clientSupabase
+          .from("organisation_branch_master")
+          .select("id")
+          .eq("type", "BRANCH")
+          .eq("ref_id", branchId)
+          .maybeSingle();
+
+        if (obmRow?.id) {
+          await clientSupabase
+            .from("user_branch_access")
+            .upsert(
+              {
+                user_id: userId,
+                entity_id: obmRow.id,
+                is_default_business:
+                  branchId === dto.location_access.default_business_branch_id,
+                is_default_warehouse:
+                  branchId === dto.location_access.default_warehouse_branch_id,
+              },
+              { onConflict: "user_id,entity_id" },
+            );
+        }
+      }
+    }
 
     return {
       id: inserted.id,
       email: inserted.email,
       full_name: inserted.fullName,
+      name: inserted.fullName,
       role: inserted.role,
       is_active: inserted.isActive,
     };
@@ -354,9 +440,10 @@ export class UsersService {
 
   async update(id: string, tenantOrOrgId: TenantContext | string, dto: any) {
     const { orgId } = this.resolveTenant(tenantOrOrgId);
+    const fullName = dto.full_name || dto.name;
 
     const updatePayload: Record<string, any> = { updatedAt: new Date() };
-    if (dto.full_name !== undefined) updatePayload.fullName = dto.full_name;
+    if (fullName !== undefined) updatePayload.fullName = fullName;
     if (dto.role !== undefined) updatePayload.role = dto.role;
     if (dto.is_active !== undefined) updatePayload.isActive = dto.is_active;
 
@@ -370,6 +457,7 @@ export class UsersService {
       id: updated.id,
       email: updated.email,
       full_name: updated.fullName,
+      name: updated.fullName,
       role: updated.role,
       is_active: updated.isActive,
     };
