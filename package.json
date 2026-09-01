@@ -23,7 +23,7 @@
     "@commitlint/cli": "^19.6.1",
     "@commitlint/config-conventional": "^19.6.0",
     "@playwright/test": "^1.42.1",
-    "@types/node": "^20.11.24",
+    "@types/node": "^26.4.0",
     "http-server": "^14.1.1",
     "husky": "^9.1.7",
     "wrangler": "^4.108.0"
